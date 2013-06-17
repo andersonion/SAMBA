@@ -1,0 +1,14 @@
+workstation_code project
+Code should contain all the code requied to do workstation duities. 
+all subdirs are their own project and are fetched via svn:externals properties. 
+the svn:externals are written into .svn.externals for each folder.
+recon - code dedicated to reconstruction
+   /mat_home - general matlab recon
+   /dce?     - 
+   /legacy   - radish legacy code structure or support
+tensor       - tensor calculation
+segmentation - segmenation pipeline
+shared       - shared libraries of things. 
+   /pipeline_utilities       
+   /civm_common_matlab_utils 
+   /civm_simple_utils        
