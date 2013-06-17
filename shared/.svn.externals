@@ -2,3 +2,4 @@ civm_matlab_common_utils svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/rep
 civmlibrary svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/civmlibrary/trunk
 mathworks svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/thirdparty-libs/matlab/mathworks
 pipeline_utilities svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/pipeline_utilities/trunk
+radish_puller  svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_puller/trunk
