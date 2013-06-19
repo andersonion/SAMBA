@@ -1,0 +1,12 @@
+pipeline_settings svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/pipeline_settings/trunk
+dir_pipeline svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_core/tags/v130115
+dir_puller svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_puller/tags/v130609
+tensor_pipe svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/tensor_pipe/tags/v2.9
+seg_pipe_mc svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/seg_pipe_mc/tags/v7.0	    
+create_gui_info_imagej svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/create_gui_info_imagej/tags/v1.09
+radish_group_recons svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_group_recons/tags/v130326
+radish_agilentextract svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_agilentextract/tags/v0.9
+radish_brukerextract svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_brukerextract/tags/v7.79
+validate_header_for_db svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/validate_headfile_for_db/tags/v0.99
+civmlibrary svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/civmlibrary/tags/v1.2.6
+pipeline_utilities svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/pipeline_utilities/tags/v3.02

@@ -4,14 +4,19 @@ all subdirs are their own project and are fetched via svn:externals properties.
 the svn:externals are written into .svn.externals for each folder.
 
 analysis     - analysis code for mass distribution
+   /mr_relaxation_calc - t1, t2 t2s calculator
+pipeline_settings - settings and folder locations
 recon        - reconstruction
    /mat_home - general matlab recon
-   /dce?     - 
+   /dce?     - bruker radial acq recon and dce calculation 
    /legacy   - radish legacy code structure or support
 segmentation - segmenation pipeline
+   /seg_pipe_mc - n channels segmentation pipeline
 shared       - shared libraries of things, and utility code
-   /pipeline_utilities       
-   /civm_common_matlab_utils 
-   /civm_simple_utils        
+   /pipeline_utilities - perl libraries      
+   /civm_common_matlab_utils - matlab libraries
+   /civm_simple_utils - small perl modules
+   /mathworks - matlab thirdparty-libs from mathworks
 tensor       - tensor calculation
+   /tensor_pipe - tensor calculation pipeline
 

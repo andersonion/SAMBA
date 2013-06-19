@@ -3,3 +3,4 @@ civmlibrary svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/civmlibrar
 mathworks svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/thirdparty-libs/matlab/mathworks
 pipeline_utilities svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/pipeline_utilities/trunk
 radish_puller  svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_puller/trunk
+validate_headfer_for_db svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/validate_header_for_db/trunk
