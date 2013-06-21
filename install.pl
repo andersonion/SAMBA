@@ -94,50 +94,71 @@ if ( -e $inpath ) {
 
 # check that our rad env is in the ${shell}rc
 open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
+my $src_line       ="source $HOME/.bash_workstation_settings";
+my $src_regex      ="$src_line";
 my $wrk_line       ="export WORKSTATION_HOME=$wks_home";
-my $wrk_src        ="source \$WORKSTATION_HOME/pipeline_settings/${shell}/pipeline_${shell}rc";
+my $wrk_src        ="source \$WORKSTATION_HOME/pipeline_settings/${shell}/${shell}rc_pipeline_setup";
 my $rad_line       ="export RADISH_RECON_DIR=$wks_home/recon/legacy";
-my $rad_src        ="source \$RADISH_RECON_DIR/pipeline_settings/${shell}/radish_${shell}rc";
-my $pipe_line      ="export PIPELINE_HOME=$wks_home/recon/legacy";
-my $pipe_src       ="source \$PIPELINE_HOME/pipeline_settings/${shell}/${shell}rc_pipeline_setup";
+my $rad_src        ="source \$WORKSTATION_HOME/pipeline_settings/${shell}/legacy_radish_${shell}rc";
+my $pipe_line      ="export PIPELINE_HOME=$wks_home/";
+#my $pipe_src       ="source \$PIPELINE_HOME/pipeline_settings/${shell}/${shell}rc_pipeline_setup";
 my @export_lines;
 my @src_lines;
 #push(@export_lines,$wrk_line,$rad_line,$pipe_line);
 #push(@src_lines,$wrk_src,$rad_src,$pipe_src);
 my @wrk_lines=($wrk_line,$wrk_src);
 my @rad_lines=($rad_line,$rad_src);
-my @pipe_lines=($pipe_line,$pipe_src);
+#my @pipe_lines=($pipe_line,$pipe_src);
 my $wrk_regex='('.join(')|(',@wrk_lines).')';
 my $rad_regex='('.join(')|(',@rad_lines).')';
-my $pipe_regex='('.join(')|(',@pipe_lines).')';
-my ($wrk_found,$rad_found,$pipe_found)=(0,0,0);
+#my $pipe_regex='('.join(')|(',@pipe_lines).')';
+my ($src_found,$wrk_found,$rad_found,$pipe_found)=(0,0,0,0);
 foreach my $line (  @user_shellrc) {
-    if ( $line =~ /$wrk_regex/) { 
-	print("found wrk lines\n");
-	$wrk_found=1;
-    } elsif ( $line =~ /$rad_regex/) { 
-	print("found rad lines\n");
-	$rad_found=1;
-    } elsif ( $line =~ /$pipe_regex/ ) { 
-	print("found pipe lines\n");
-	$pipe_found=1;
+    if ( $line =~ /$src_regex/){ 
+	$src_found=1;
+	print SESAME_OUT $src_line;
     } else { 
-
+	print SESAME_OUT $line;
     }
-    print SESAME_OUT $line;
+
+#     if ( $line =~ /$wrk_regex/) { 
+# 	print("found wrk lines\n");
+# 	$wrk_found=1;
+#     } elsif ( $line =~ /$rad_regex/) { 
+# 	print("found rad lines\n");
+# 	$rad_found=1;
+#     } elsif ( $line =~ /$pipe_regex/ ) { 
+# 	print("found pipe lines\n");
+# 	$pipe_found=1;
+#     } else { 
+
+#     }
+#     print SESAME_OUT $line;
 }
-if( $wrk_found==0 ){ 
-    print ("wrk_lines not found, inserting.\n");
-    print SESAME_OUT join("\n",@wrk_lines)."\n";
+if( $src_found==0){
+    print ("adding src line\n");
+    print SESAME_OUT "$src_line\n";
 }
-if( $rad_found==0 ){ 
-    print ("rad_lines not found, inserting.\n");
-    print SESAME_OUT join("\n",@rad_lines)."\n";
-}
-if( $pipe_found==0 ){ 
-    print ("pipe_lines not found, inserting.\n");
-    print SESAME_OUT join("\n",@pipe_lines)."\n";
-}
+# if( $wrk_found==0 ){ 
+#     print ("wrk_lines not found, inserting.\n");
+#     print SESAME_OUT join("\n",@wrk_lines)."\n";
+# }
+# if( $rad_found==0 ){ 
+#     print ("rad_lines not found, inserting.\n");
+#     print SESAME_OUT join("\n",@rad_lines)."\n";
+# }
+# if( $pipe_found==0 ){ 
+#     print ("pipe_lines not found, inserting.\n");
+#     print SESAME_OUT join("\n",@pipe_lines)."\n";
+# }
+close SESAME_OUT;
+open SESAME_OUT, ">${HOME}/.bash_workstation_settings" or die "Couldnt open settings file for writing!";
+print SESAME_OUT "".
+    "#!/bin/bash \n".
+    "# File automatically generated to contain paths by install.pl for worstation_home\n";
+print SESAME_OUT join("\n",@wrk_lines)."\n";
+print SESAME_OUT join("\n",@rad_lines)."\n";
+#print SESAME_OUT join("\n",@pipe_lines)."\n";
 close SESAME_OUT;
 
 # do an if mac check
