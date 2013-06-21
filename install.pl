@@ -154,7 +154,7 @@ if( $src_found==0){
 close SESAME_OUT;
 open SESAME_OUT, ">${HOME}/.bash_workstation_settings" or die "Couldnt open settings file for writing!";
 print SESAME_OUT "".
-    "#!/bin/bash \n".
+    "# \n".
     "# File automatically generated to contain paths by install.pl for worstation_home\n";
 print SESAME_OUT join("\n",@wrk_lines)."\n";
 print SESAME_OUT join("\n",@rad_lines)."\n";
