@@ -98,6 +98,7 @@ my $src_line       ="source $HOME/.bash_workstation_settings";
 my $src_regex      ="$src_line";
 my $wrk_line       ="export WORKSTATION_HOME=$wks_home";
 my $wrk_src        ="source \$WORKSTATION_HOME/pipeline_settings/${shell}/${shell}rc_pipeline_setup";
+my $rh_line       ="export RECON_HOSTNAME=$hostname";
 my $rad_line       ="export RADISH_RECON_DIR=$wks_home/recon/legacy";
 my $rad_src        ="source \$WORKSTATION_HOME/pipeline_settings/${shell}/legacy_radish_${shell}rc";
 my $pipe_line      ="export PIPELINE_HOME=$wks_home/";
@@ -107,7 +108,7 @@ my @src_lines;
 #push(@export_lines,$wrk_line,$rad_line,$pipe_line);
 #push(@src_lines,$wrk_src,$rad_src,$pipe_src);
 my @wrk_lines=($wrk_line,$wrk_src);
-my @rad_lines=($rad_line,$rad_src);
+my @rad_lines=($rh_line,$rad_line,$rad_src);
 #my @pipe_lines=($pipe_line,$pipe_src);
 my $wrk_regex='('.join(')|(',@wrk_lines).')';
 my $rad_regex='('.join(')|(',@rad_lines).')';
@@ -282,7 +283,7 @@ foreach my $line (@all_lines) {
 
 # engine_recongui_menu_path=/wks_home/pipe_settings/recon_menu.txt
     } elsif ($line =~ /^engine_recongui_menu_path=/x ) {
-	$string="engine_recongui_menu_path=$wks_home/pipe_settings/recon_menu.txt";
+	$string="engine_recongui_menu_path=$wks_home/pipeline_settings/recon_menu.txt";
 
 # engine_archive_tag_directory=/engine_work_directory/Archive_Tags
     } elsif ($line =~ /^engine_archive_tag_directory=/x ) {
@@ -309,10 +310,10 @@ foreach my $line (@all_lines) {
 # # program locations
 # engine_radish_bin_directory=/wks_home/recon/legacy/modules/bin_macINTEL
     } elsif ($line =~ /^engine_radish_bin_directory=/x ) {
-	$string="engine_radish_bin_directory=$wks_home/recon/legacy/modules/bin_macINTEL";
+	$string="engine_radish_bin_directory=$wks_home/recon/legacy/modules/bin_mac_i386";
 # engine_radish_contributed_bin_directory=/wks_home/recon/legacy/modules/contributed/bin_macINTEL 
     } elsif ($line =~ /^engine_radish_contributed_bin_directory=/x ) {
-	$string="engine_radish_contributed_bin_directory=$wks_home/recon/legacy/modules/contributed/bin_macINTEL ";
+	$string="engine_radish_contributed_bin_directory=$wks_home/recon/legacy/modules/contributed/bin_mac_i386";
 # engine_app_matlab=/usr/bin/matlab
 # engine_app_ants_dir=/Applications/SegmentationSoftware/ANTS/
 # engine_app_fsl_dir=/Applications/SegmentationSoftware/fsl/bin
@@ -346,6 +347,18 @@ print("moving $outpath to $inpath\n");
 #`mv  ${dep_file}.bak $dep_file`
 }
 
+#cd recon/legacy
+#for file in `ls ../../pipeline_settings/engine_deps/* ../../pipeline_settings/scanner_deps/*
+my @dependency_paths;
+push(@dependency_paths,glob("$wks_home/pipeline_settings/engine_deps/*${hostname}*"));
+push(@dependency_paths,glob("$wks_home/pipeline_settings/scanner_deps/*"));
+
+foreach ( @dependency_paths ) 
+{
+    my $bn = basename( $_ );
+    `ln -s $_ recon/legacy/$bn\n" `;
+
+}
 
 # engine                         =$hostname
 # engineworkdir                  = /Volumes/$hostnamespace|/$hostnamespace|/enginespace

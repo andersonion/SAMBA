@@ -1,8 +1,12 @@
 workstation_code project
 Code should contain all the code requied to do workstation duities. 
-all subdirs are their own project and are fetched via svn:externals properties. 
+subdirs contain projects for that purpose  and are fetched via svn:externals properties. 
 the svn:externals are written into .svn.externals for each folder.
+the externals are stored in .svn.externals to make maitenance easeier. 
+Use svn propset svn:externals -F .svn.externals FOLDERNAME  to udpate.
+Use "." for FOLDERNAME from inside a directory for easiest and most predeictable behavior.
 
+Main folders and the subversion projects we're using.
 analysis     - analysis code for mass distribution
    /mr_relaxation_calc - t1, t2 t2s calculator
 pipeline_settings - settings and folder locations
@@ -17,6 +21,6 @@ shared       - shared libraries of things, and utility code
    /civm_common_matlab_utils - matlab libraries
    /civm_simple_utils - small perl modules
    /mathworks - matlab thirdparty-libs from mathworks
-tensor       - tensor calculation
+diffusion       - diffusion pipelines, tensor calculator for now,
    /tensor_pipe - tensor calculation pipeline
 
