@@ -1,10 +1,20 @@
 #!/bin/bash
 
-for folder in `ls -d */` 
+
+
+# for folder in `ls -d */` 
+# do 
+#     cd $folder 
+#     svn propset svn:externals -F .svn.externals . 
+#     cd ..
+# done
+start=`pwd`
+for location in `find . -iname ".svn.externals"`
 do 
-    cd $folder 
+    dir=`dirname $location`
+    echo  -n "svn propset svn:externals -F .svn.externals $dir ... "
+    cd $dir
     svn propset svn:externals -F .svn.externals . 
-    cd ..
+    cd $start
 done
-svn propset svn:externals -F .svn.externals . 
 svn update

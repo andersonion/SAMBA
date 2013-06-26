@@ -1,10 +1,15 @@
 workstation_code project
 Code should contain all the code requied to do workstation duities. 
 subdirs contain projects for that purpose  and are fetched via svn:externals properties. 
+
+run install.pl to set up the environment for a new computer.
+run svn_extern_update.bash to update all the externals.
+
 the svn:externals are written into .svn.externals for each folder.
 the externals are stored in .svn.externals to make maitenance easeier. 
 Use svn propset svn:externals -F .svn.externals FOLDERNAME  to udpate.
 Use "." for FOLDERNAME from inside a directory for easiest and most predeictable behavior.
+
 
 Main folders and the subversion projects we're using.
 analysis     - analysis code for mass distribution

@@ -233,7 +233,7 @@ if( -e $dep_file && ! -e "${dep_file}.bak") {
     print(" DONT FORGET TO REMOVE IF THIS WORKED\n");
 } elsif ( -e "${dep_file}.bak") {  #-e $dep_file && 
     print( "old backup ${dep_file}.bak was not cleared\n");
-    return(0);
+#    return(0);
 } else { 
     print("Copying $default_file to $dep_file\n");
     `cp $default_file $dep_file`;
@@ -310,7 +310,7 @@ foreach my $line (@all_lines) {
 # # program locations
 # engine_radish_bin_directory=/wks_home/recon/legacy/modules/bin_macINTEL
     } elsif ($line =~ /^engine_radish_bin_directory=/x ) {
-	$string="engine_radish_bin_directory=$wks_home/recon/legacy/modules/bin_mac_i386";
+	$string="engine_radish_bin_directory=$wks_home/bin";#recon/legacy/modules/_mac_i386
 # engine_radish_contributed_bin_directory=/wks_home/recon/legacy/modules/contributed/bin_macINTEL 
     } elsif ($line =~ /^engine_radish_contributed_bin_directory=/x ) {
 	$string="engine_radish_contributed_bin_directory=$wks_home/recon/legacy/modules/contributed/bin_mac_i386";
@@ -347,7 +347,10 @@ print("moving $outpath to $inpath\n");
 #`mv  ${dep_file}.bak $dep_file`
 }
 
-#cd recon/legacy
+#### 
+# do some legacy setup!
+###
+
 #for file in `ls ../../pipeline_settings/engine_deps/* ../../pipeline_settings/scanner_deps/*
 my @dependency_paths;
 push(@dependency_paths,glob("$wks_home/pipeline_settings/engine_deps/*${hostname}*"));
@@ -355,10 +358,23 @@ push(@dependency_paths,glob("$wks_home/pipeline_settings/scanner_deps/*"));
 
 foreach ( @dependency_paths ) 
 {
-    my $bn = basename( $_ );
-    `ln -s $_ recon/legacy/$bn\n" `;
-
+    my $bn = basename($_);
+    my $cmd="ln -sf $_ recon/legacy/$bn";
+    print ("$cmd\n");
+    `$cmd`;
 }
+my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl);
+foreach ( @perl_execs ) 
+{
+    my $outname = basename($_,qw(.pl .perl));
+    
+    my $cmd="ln -sf $wks_home/shared/pipeline_utilities/$_ bin/$outname";
+    print ("$cmd\n");
+    `$cmd`;
+    `chmod a+x bin/$outname`;
+}
+`ln -sf $wks_home/shared/radish_puller recon/legacy/dir_puller`;
+`ln -sf $wks_home/shared/pipeline_utilities/startup.m $wks_home/recon/legacy/radish_core/startup.m`;
 
 # engine                         =$hostname
 # engineworkdir                  = /Volumes/$hostnamespace|/$hostnamespace|/enginespace
