@@ -1,0 +1,4 @@
+workstation_code/bin 
+any direcly callable scripts should be linked into this folder. 
+This folder will be added to the path so that these script/executables can be called directly from anywhere. 
+This is in contrast the the ugly alias tricks played in the past

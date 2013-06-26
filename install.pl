@@ -1,7 +1,11 @@
 #!/usr/bin/perl
-# simple installer to get bash shell settings right
-# copies and edits the environment.plist file to ~/.MacOSX/environment.plist
-# that plist calls on simple script to run profile, hopefully profile is set up correctly. 
+# simple installer to get shell settings right currently only works for bash shell.
+#
+# copies and edits the environment.plist from pipeline_settings/mac to ~/.MacOSX/environment.plist
+# that plist calls on .bash_env_to_mac_gui run .bash_profile,
+# it makes sure .bash_profile has at least one line, source .bashrc
+# adds a source .bash_workstation_settings file to user's .bashrc file
+# adds several symbolic links to support the legacy radish code
 
 use strict;
 use warnings;
@@ -350,31 +354,75 @@ print("moving $outpath to $inpath\n");
 #### 
 # do some legacy setup!
 ###
-
+# ln with absolute links for source (via wks_home) and relative links for dest
 #for file in `ls ../../pipeline_settings/engine_deps/* ../../pipeline_settings/scanner_deps/*
 my @dependency_paths;
+my $ln_cmd;
+my $ln_source;
+my $ln_dest;
+my $infile; 
+my $outname;
 push(@dependency_paths,glob("$wks_home/pipeline_settings/engine_deps/*${hostname}*"));
 push(@dependency_paths,glob("$wks_home/pipeline_settings/scanner_deps/*"));
-
-foreach ( @dependency_paths ) 
+# link dependency files to "recon_home" dir 
+for $infile ( @dependency_paths ) 
 {
-    my $bn = basename($_);
-    my $cmd="ln -sf $_ recon/legacy/$bn";
-    print ("$cmd\n");
-    `$cmd`;
+    $outname = basename($infile);
+    $ln_source=$infile;
+    $ln_dest="recon/legacy/$outname";
+    if ( -r $ln_dest ) { 
+	`unlink $ln_dest`;
+    }
+    $ln_cmd="ln -sf $ln_source $ln_dest";
+    print ("$ln_cmd\n");
+    `$ln_cmd`;
 }
+# link perlexecs from pipeline_utilities to bin
 my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl);
-foreach ( @perl_execs ) 
+for $infile ( @perl_execs ) 
 {
-    my $outname = basename($_,qw(.pl .perl));
-    
-    my $cmd="ln -sf $wks_home/shared/pipeline_utilities/$_ bin/$outname";
-    print ("$cmd\n");
-    `$cmd`;
+    $outname = basename($ln_source,qw(.pl .perl));
+    $ln_source="$wks_home/shared/pipeline_utilities/$infile";
+    $ln_dest="bin/$outname";
+    if ( -r $ln_dest ) { 
+	`unlink $ln_dest`;
+    }    
+    $ln_cmd="ln -sf $ln_source $ln_dest";
+    print ("$ln_cmd\n");
+    `$ln_cmd`;
     `chmod a+x bin/$outname`;
 }
-`ln -sf $wks_home/shared/radish_puller recon/legacy/dir_puller`;
-`ln -sf $wks_home/shared/pipeline_utilities/startup.m $wks_home/recon/legacy/radish_core/startup.m`;
+
+#$ln_cmd="ln -sf $wks_home/shared/radish_puller recon/legacy/dir_puller";
+$infile="$wks_home/shared/radish_puller";
+{
+    $ln_source="$wks_home/shared/pipeline_utilities/$infile";
+    $ln_dest="bin/$outname";
+    if ( -r $ln_dest ) { 
+	`unlink $ln_dest`;
+    }    
+    $ln_cmd="ln -sf $ln_source $ln_dest";
+    print ("$ln_cmd\n");
+    `$ln_cmd`;
+}
+
+#$ln_cmd="ln -sf $wks_home/shared/pipeline_utilities/startup.m $wks_home/recon/legacy/radish_core/startup.m";
+{
+    $ln_source="$wks_home/shared/pipeline_utilities/$infile";
+    $ln_dest="bin/$outname";
+    if ( -r $ln_dest ) { 
+	`unlink $ln_dest`;
+    }    
+    $ln_cmd="ln -sf $ln_source $ln_dest";
+    print ("$ln_cmd\n");
+    `$ln_cmd`;
+}
+
+print($ln_cmd."\n");
+`$ln_cmd`;
+
+print($ln_cmd."\n");
+`$ln_cmd`;
 
 # engine                         =$hostname
 # engineworkdir                  = /Volumes/$hostnamespace|/$hostnamespace|/enginespace
