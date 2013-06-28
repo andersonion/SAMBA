@@ -226,45 +226,50 @@ $hostname=$alist[0];
 ###
 # add fsl and ants
 ###
-    if ( $name !~ /omega/x) 
+    if ( $name !~ /omega/x ) 
     {
-    my $scp_cmd;
-    # find dmg on syros
-    my $ants_dmg=`ssh syros ls /Volumes/xsyros/Software/SegmentationSoftware/| grep ANT`;
-    chomp($ants_dmg);
-    #scp dmg
-    $scp_cmd="scp syros:/Volumes/xsyros/Software/SegmentationSoftware/$ants_dmg ../$ants_dmg";
-    if ( ! -f "../$ants_dmg" ) 
-    { 
-	print ("$scp_cmd\n");
-	`scp_cmd`;
-    }
-    #mount dmg
-    my $hdi_cmd="hdiutil attach ../$ants_dmg";
-    print("$hdi_cmd\n");
-    `$hdi_cmd`;
-    #find pkg in dmg volume
-    my $ants_pkg=`ls -d /Volumes/ANT*/*pkg`;
-    chomp($ants_pkg);
-    # install pkg
-    my $inst_cmd="sudo installer -pkg $ants_pkg -target /$wks_home/../";
-    print("$inst_cmd\n");
-    `$inst_cmd`;
-    #unmount dmg
-    $hdi_cmd="hdiutil detach $ants_pkg/../";
-    print("$hdi_cmd\n");
-    `$hdi_cmd`;
-    
+	if ( ! -e "../usr/bin/ANTS" ) 
+	{
+	    my $scp_cmd;
+	    # find dmg on syros
+	    my $ants_dmg=`ssh syros ls /Volumes/xsyros/Software/SegmentationSoftware/| grep ANT`;
+	    chomp($ants_dmg);
+	    #scp dmg
+	    $scp_cmd="scp syros:/Volumes/xsyros/Software/SegmentationSoftware/$ants_dmg ../$ants_dmg";
+	    if ( ! -f "../$ants_dmg" ) 
+	    { 
+		print ("$scp_cmd\n");
+		`scp_cmd`;
+	    }
+	    #mount dmg
+	    my $hdi_cmd="hdiutil attach ../$ants_dmg";
+	    print("$hdi_cmd\n");
+	    `$hdi_cmd`;
+	    #find pkg in dmg volume
+	    my $ants_pkg=`ls -d /Volumes/ANT*/*pkg`;
+	    chomp($ants_pkg);
+	    # install pkg
+	    my $inst_cmd="sudo installer -pkg $ants_pkg -target /$wks_home/../";
+	    print("$inst_cmd\n");
+	    `$inst_cmd`;
+	    #unmount dmg
+	    $hdi_cmd="hdiutil detach $ants_pkg/../";
+	    print("$hdi_cmd\n");
+	    `$hdi_cmd`;
+	}
+	if ( ! -d "../fsl" ) 
+{
     #get fsl script?
-    my $fsl_inst_cmd="./fslinstaller.py -d ../";
+    my $fsl_inst_cmd="./fslinstaller.py -d $wks_home/../";
     open my $cmd_fh, "$fsl_inst_cmd |";   # <---  | at end means to make command 
-                                 #         output available to the handle
+    #         output available to the handle
     while (<$cmd_fh>) {
 	print "A line of output from the command is: $_";
     }
     close $cmd_fh;
 #    `$fsl_inst_cmd`;
     
+}
 }    
 ###
 # update engine_something_pipeline_dependencis.
@@ -346,10 +351,10 @@ $hostname=$alist[0];
 		$string="engine_archive_tag_directory=/Volumes/${hostname}space/Archive_Tags";
 # engine_waxholm_canonical_images_dir=/wks_home/whs_references/whs_canonical_images/alx_can_101103
 	    } elsif ($line =~ /^engine_waxholm_canonical_images_dir=/x ) {
-		$string="engine_waxholm_canonical_images_dir=$data_home/whs_references/whs_canonical_images/alx_can_101103";
+		$string="engine_waxholm_canonical_images_dir=$data_home/atlas/whs/whs_canonical_images/alx_can_101103";
 # engine_waxholm_labels_dir=/wks_home/whs_references/whs_labels/canon_labels_101103
-	    } elsif ($line =~ /^engine_waxholm_labels_dir/x ) {
-		$string="engine_waxholm_labels_dir=$data_home/whs_references/whs_labels/cannon_labels_101103";
+	    } elsif ($line =~ /^engine_waxholm_labels_dir=/x ) {
+		$string="engine_waxholm_labels_dir=$data_home/atlas/whs/whs_labels/cannon_labels_101103";
 # engine_app_dti_recon_param_dir=/wks_home/dti_references
 	    } elsif ($line =~ /^engine_app_dti_recon_param_dir=/x ) {
 		$string="engine_app_dti_recon_param_dir=$wks_home/pipeline_settings/tensor";
@@ -371,12 +376,17 @@ $hostname=$alist[0];
 	    } elsif ($line =~ /^engine_radish_contributed_bin_directory=/x ) {
 		$string="engine_radish_contributed_bin_directory=$wks_home/recon/legacy/modules/contributed/bin_mac_$arch";
 # engine_app_matlab=/usr/bin/matlab
+ 	    } elsif ($line =~ /^engine_app_matlab=/x ) { 
+ 		$string="engine_app_matlab=/usr/bin/matlab";# -nosplash -nodisplay -nodesktop ";
+# engine_app_matlab_opts=-nosplash -nodisplay -nodesktop
+ 	    } elsif ($line =~ /^engine_app_matlab_opts=/x ) { 
+ 		$string="engine_app_matlab_opts=-nosplash -nodisplay -nodesktop";
 # engine_app_ants_dir=/Applications/SegmentationSoftware/ANTS/
 	    } elsif ($line =~ /^engine_app_ants_dir=/x ) { 
 		$string="engine_app_ants_dir=/$wks_home/../usr/bin/";
 # engine_app_fsl_dir=/Applications/SegmentationSoftware/fsl/bin
 	    } elsif ($line =~ /^engine_app_fsl_dir=/x ) {
-		$string="engine_app_fsl_dir=$wks_home/fsl/bin";
+		$string="engine_app_fsl_dir=$wks_home/../fsl/bin";
 # engine_app_dti_recon=/Applications/Diffusion\ Toolkit.app/Contents/MacOS/dti_recon
 # engine_app_dti_tracker=/Applications/Diffusion\ Toolkit.app/Contents/MacOS/dti_tracker
 # engine_app_dti_spline_filter=/Applications/Diffusion\ Toolkit.app/Contents/MacOS/spline_filter
@@ -458,7 +468,7 @@ for $infile ( @dependency_paths )
 	`unlink $ln_dest`;
     }
     $ln_cmd="ln -sf $ln_source $ln_dest";
-    print ("$ln_cmd\n");
+    #print ("$ln_cmd\n");
     `$ln_cmd`;
 }
 # link perlexecs from pipeline_utilities to bin
@@ -472,7 +482,7 @@ for $infile ( @perl_execs )
 	`unlink $ln_dest`;
     }    
     $ln_cmd="ln -sf $ln_source $ln_dest";
-    print ("$ln_cmd\n");
+    #print ("$ln_cmd\n");
     `$ln_cmd`;
     `chmod a+x bin/$outname`;
 }
@@ -480,25 +490,25 @@ for $infile ( @perl_execs )
 #$ln_cmd="ln -sf $wks_home/shared/radish_puller recon/legacy/dir_puller";
 $infile="$wks_home/shared/radish_puller";
 {
-    $ln_source="$wks_home/shared/pipeline_utilities/$infile";
-    $ln_dest="bin/$outname";
+    $ln_source="$infile";
+    $ln_dest="$wks_home/recon/legacy/dir_puller";
     if ( -r $ln_dest ) { 
 	`unlink $ln_dest`;
     }    
     $ln_cmd="ln -sf $ln_source $ln_dest";
-    print ("$ln_cmd\n");
+    #print ("$ln_cmd\n");
     `$ln_cmd`;
 }
 
 #$ln_cmd="ln -sf $wks_home/shared/pipeline_utilities/startup.m $wks_home/recon/legacy/radish_core/startup.m";
 {
-    $ln_source="$wks_home/shared/pipeline_utilities/$infile";
+    $ln_source="$wks_home/shared/pipeline_utilities/startup.m";
     $ln_dest="bin/$outname";
     if ( -r $ln_dest ) { 
 	`unlink $ln_dest`;
     }    
     $ln_cmd="ln -sf $ln_source $ln_dest";
-    print ("$ln_cmd\n");
+    #print ("$ln_cmd\n");
     `$ln_cmd`;
 }
 print("use source ~/.bashrc to enabe settings now, otherwise quit terminal or restart computer\n");

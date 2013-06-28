@@ -12,20 +12,24 @@ Use "." for FOLDERNAME from inside a directory for easiest and most predeictable
 
 
 Main folders and the subversion projects we're using.
-analysis     - analysis code for mass distribution
+analysis      - analysis code, takes an input image or images and 
+                runs it through some code and produces 
+	        a map image or statistics or both
    /mr_relaxation_calc - t1, t2 t2s calculator
 pipeline_settings - settings and folder locations
-recon        - reconstruction
+recon        - reconstruction code folder
    /mat_home - general matlab recon
    /dce?     - bruker radial acq recon and dce calculation 
    /legacy   - radish legacy code structure or support
-segmentation - segmenation pipeline
+segmentation - segmenation pipeline code
    /seg_pipe_mc - n channels segmentation pipeline
 shared       - shared libraries of things, and utility code
-   /pipeline_utilities - perl libraries      
-   /civm_common_matlab_utils - matlab libraries
-   /civm_simple_utils - small perl modules
-   /mathworks - matlab thirdparty-libs from mathworks
+   /pipeline_utilities       - perl libraries 
+   /civm_common_matlab_utils - matlab libraries, simple image utils for civm stuff 
+                               especially read/write civm format files
+   /civm_simple_utils        - small perl modules
+   /mathworks                - matlab thirdparty-libs from mathworks
+   /matlab_img_processing    - matlab tools for image data, some are in standalone format some are not
 diffusion       - diffusion pipelines, tensor calculator for now,
    /tensor_pipe - tensor calculation pipeline
 
