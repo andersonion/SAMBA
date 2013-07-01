@@ -427,7 +427,7 @@ if ( ! -f $tarfile)
 { 
     my $scp_cmd="scp syors:$tarfile $tarfile";
     print("did not find tgz $tarname, attempting retrieval with $scp_cmd\n");
-    `scp_cmd`;
+    `$scp_cmd`;
 }
 
 if ( -f "$tarfile" ) 
