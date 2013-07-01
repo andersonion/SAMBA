@@ -422,11 +422,16 @@ $hostname=$alist[0];
 #scp binaries to ../tar/
 my $os="$^O";
 my $tarname="radish_${os}_$arch.tgz";
-my $tarfile="$wks_home/../tar/modules/$tarname";
+my $tardir="$wks_home/../tar/modules/";
+my $tarfile="$tardir/$tarname";
 if ( ! -f $tarfile) 
 { 
     my $scp_cmd="scp delos:$tarfile $tarfile";
     print("did not find tgz $tarname, attempting retrieval with $scp_cmd\n");
+    if ( ! -d $tardir )
+    {
+	my $mkdir_cmd="mkdir -p $tardir";
+	`$mkdir_cmd`;
     `$scp_cmd`;
 }
 
