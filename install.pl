@@ -432,6 +432,7 @@ if ( ! -f $tarfile)
     {
 	my $mkdir_cmd="mkdir -p $tardir";
 	`$mkdir_cmd`;
+    }
     `$scp_cmd`;
 }
 
