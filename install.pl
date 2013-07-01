@@ -296,18 +296,18 @@ $hostname=$alist[0];
 	my $outpath="${HOME}/.${shell}_profile";
 	my $fsl_dir="FSLDIR=$wks_home/../fsl";
 	open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
-    foreach my $line (@all_lines) {
-	if ($line =~ /FSLDIR=.*/) { # matches source<anthing>.${shell}rc<anything> could be to broad a match
-	    $line_found=1;
-	    $line="$fsl_dir\n";
+	foreach my $line (@all_lines) {
+	    if ($line =~ /FSLDIR=.*/) { # matches source<anthing>.${shell}rc<anything> could be to broad a match
+		$line_found=1;
+		$line="$fsl_dir\n";
+	    }
+	    print  SESAME_OUT $line;  # write out every line modified or not
 	}
-	print  SESAME_OUT $line;  # write out every line modified or not
+	if( $line_found==0){ 
+	    print ("FSLDIR setting not found, fsl did not install correctly, try running this again. If that fails try running the fsl installer separetly. \n");
+	}
+	close SESAME_OUT;
     }
-    if( $line_found==0){ 
-	print ("FSLDIR setting not found, fsl did not install correctly, try running this again. If that fails try running the fsl installer separetly. \n");
-    }
-    close SESAME_OUT;
-
 
 ###
 # update engine_something_pipeline_dependencis.
