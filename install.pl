@@ -44,7 +44,6 @@ $hostname=$alist[0];
 ###
 # put source ${HOME}/.${shell}rc in .${shell}_profile
 ### 
-
 {
     my $HOME=$ENV{HOME};
     my @all_lines;
@@ -258,19 +257,58 @@ $hostname=$alist[0];
 	    `$hdi_cmd`;
 	}
 	if ( ! -d "../fsl" ) 
-{
-    #get fsl script?
-    my $fsl_inst_cmd="./fslinstaller.py -d $wks_home/../";
-    open my $cmd_fh, "$fsl_inst_cmd |";   # <---  | at end means to make command 
-    #         output available to the handle
-    while (<$cmd_fh>) {
-	print "A line of output from the command is: $_";
-    }
-    close $cmd_fh;
+	{
+	    #get fsl script?
+	    my $fsl_inst_cmd="./fslinstaller.py -d $wks_home/../";
+	    open my $cmd_fh, "$fsl_inst_cmd |";   # <---  | at end means to make command 
+	    #         output available to the handle
+	    while (<$cmd_fh>) 
+	    {
+		print "A line of output from the command is: $_";
+	    }
+	    close $cmd_fh;
 #    `$fsl_inst_cmd`;
-    
-}
-}    
+	    
+	}
+    }    
+
+    {
+	my $HOME=$ENV{HOME};
+	my @all_lines;
+	print("Must run this as user to install to!\n". 
+	      "By default that is omega\n".
+	      "This only sets up the ${shell} environment!\n");
+	
+### open ${shell}_profile to check for source ${shell}rc line. 
+	my  $inpath="${HOME}/.${shell}_profile";
+	if ( -e $inpath ) { 
+	    if (open SESAME, $inpath) {
+		@all_lines = <SESAME>;
+		close SESAME;
+		print(" Opened ${shell}_profile\n");
+	    } else {
+		print STDERR "Unable to open file <$inpath> to read\n";
+		return (0);
+	    } 
+	}
+	
+	my $line_found=0;
+	my $outpath="${HOME}/.${shell}_profile";
+	my $fsl_dir="FSLDIR=$wks_home/../fsl";
+	open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
+    foreach my $line (@all_lines) {
+	if ($line =~ /FSLDIR=.*/) { # matches source<anthing>.${shell}rc<anything> could be to broad a match
+	    $line_found=1;
+	    $line="$fsl_dir\n";
+	}
+	print  SESAME_OUT $line;  # write out every line modified or not
+    }
+    if( $line_found==0){ 
+	print ("FSLDIR setting not found, fsl did not install correctly, try running this again. If that fails try running the fsl installer separetly. \n");
+    }
+    close SESAME_OUT;
+
+
 ###
 # update engine_something_pipeline_dependencis.
 ###
