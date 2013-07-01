@@ -421,7 +421,15 @@ $hostname=$alist[0];
 # should store tars of binaries and "frozen" code someplace and dump it to the recon engine when we copy this.
 #scp binaries to ../tar/
 my $os="$^O";
-my $tarfile="$wks_home/../tar/modules/radish_${os}_$arch.tgz";
+my $tarname="radish_${os}_$arch.tgz";
+my $tarfile="$wks_home/../tar/modules/$tarname";
+if ( ! -f $tarfile) 
+{ 
+    my $scp_cmd="scp syors:$tarfile $tarfile";
+    print("did not find tgz $tarname, attempting retrieval with $scp_cmd\n");
+    `scp_cmd`;
+}
+
 if ( -f "$tarfile" ) 
 { 
     chdir "$wks_home/bin";
@@ -442,7 +450,7 @@ if ( -f "$tarfile" )
     close SESAME_OUT;
     chdir $wks_home;
 } else { 
-    print("Could not find the expectd tar file for this os/arch:$tarfile\n");
+    print("Could not find the expected tar file for this os/arch:$tarfile\n");
     sleep(4);
 }
 #### 
@@ -503,7 +511,7 @@ $infile="$wks_home/shared/radish_puller";
 #$ln_cmd="ln -sf $wks_home/shared/pipeline_utilities/startup.m $wks_home/recon/legacy/radish_core/startup.m";
 {
     $ln_source="$wks_home/shared/pipeline_utilities/startup.m";
-    $ln_dest="bin/$outname";
+    $ln_dest="$wks_home/recon/legacy/radish_core/startup.m";
     if ( -r $ln_dest ) { 
 	`unlink $ln_dest`;
     }    
