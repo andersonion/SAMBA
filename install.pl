@@ -425,7 +425,7 @@ my $tarname="radish_${os}_$arch.tgz";
 my $tarfile="$wks_home/../tar/modules/$tarname";
 if ( ! -f $tarfile) 
 { 
-    my $scp_cmd="scp syors:$tarfile $tarfile";
+    my $scp_cmd="scp syros:$tarfile $tarfile";
     print("did not find tgz $tarname, attempting retrieval with $scp_cmd\n");
     `$scp_cmd`;
 }
