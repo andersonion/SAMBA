@@ -527,14 +527,14 @@ for $infile ( @dependency_paths )
 my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl);
 for $infile ( @perl_execs ) 
 {
-    $outname = basename($ln_source,qw(.pl .perl));
+    $outname = basename($infile,qw(.pl .perl));
     $ln_source="$wks_home/shared/pipeline_utilities/$infile";
     $ln_dest="bin/$outname";
     if ( -r $ln_dest ) { 
 	`unlink $ln_dest`;
     }    
     $ln_cmd="ln -sf $ln_source $ln_dest";
-    #print ("$ln_cmd\n");
+    print ("$ln_cmd\n");
     `$ln_cmd`;
     `chmod a+x bin/$outname`;
 }
