@@ -13,6 +13,7 @@ use ENV;
 use File::Basename;
 use Cwd 'abs_path';
 use Sys::Hostname;
+use File::Find;
 #print basename($ENV{SHELL})."\n";
 
 my $shell =  basename($ENV{SHELL});
@@ -76,7 +77,7 @@ $hostname=$alist[0];
     }
     if( $line_found==0){ 
 	print ("source ${shell}rc wasnt found inserting.\n");
-	print SESAME_OUT $src_rc;
+	print SESAME_OUT $src_rc."\n";
     } else { 
 	print("found source $src_rc\n");
     }
@@ -127,7 +128,7 @@ $hostname=$alist[0];
     foreach my $line (  @user_shellrc) {
 	if ( $line =~ /$src_regex/){ 
 	    $src_found=1;
-	    print SESAME_OUT $src_line;
+	    print SESAME_OUT $src_line."\n";
 	} else { 
 	    print SESAME_OUT $line;
 	}
@@ -304,7 +305,14 @@ $hostname=$alist[0];
 	    print  SESAME_OUT $line;  # write out every line modified or not
 	}
 	if( $line_found==0){ 
-	    print ("FSLDIR setting not found, fsl did not install correctly, try running this again. If that fails try running the fsl installer separetly. \n");
+	    print ("FSLDIR setting not found, fsl did not install correctly, Trying to dump fsl setup into bash_profile\n"); 
+# try running this again. If that fails try running the fsl installer separetly. \n");
+	    my $line='# FSL Setup'."\n".
+		"FSLDIR=$wks_home/../fsl"."\n".
+		'PATH=${FSLDIR}/bin:${PATH}'."\n".
+		'export FSLDIR PATH'."\n".
+		'. ${FSLDIR}/etc/fslconf/fsl.sh'."\n";
+	    print SESAME_OUT $line;
 	}
 	close SESAME_OUT;
     }
@@ -453,49 +461,74 @@ $hostname=$alist[0];
 #`mv  ${dep_file}.bak $dep_file`
     }
 }
+
+###
+# get legacy tar files
+###
+my $os="$^O";
+
+my @legacy_tars;
+my @output_dirs;
+push(@legacy_tars, "radish_${os}_$arch.tgz");
+push(@output_dirs, "$wks_home/bin");
+push(@legacy_tars, "t2w_slg_dir.tgz");
+push(@output_dirs, "$wks_home/recon/legacy/");
+
+my $tardir="$wks_home/../tar/"; # modules/
+for( my $idx=0;$idx<=$#legacy_tars;$idx++) 
+{
+    my $tarname=$legacy_tars[$idx];
+    print("finding tar:$tarname\n");
 ###
 # fetch legacy binaries!
 ###
 # should store tars of binaries and "frozen" code someplace and dump it to the recon engine when we copy this.
 #scp binaries to ../tar/
-my $os="$^O";
-my $tarname="radish_${os}_$arch.tgz";
-my $tardir="$wks_home/../tar/modules/";
-my $tarfile="$tardir/$tarname";
-if ( ! -f $tarfile) 
-{ 
-    my $scp_cmd="scp delos:$tarfile $tarfile";
-    print("did not find tgz $tarname, attempting retrieval with $scp_cmd\n");
-    if ( ! -d $tardir )
-    {
-	my $mkdir_cmd="mkdir -p $tardir";
-	`$mkdir_cmd`;
+    my %files;
+    find( sub { ${files{$File::Find::name}} = 1 if ($_ =~  m/^$tarname$/x ) ; },$tardir);
+    my @fnames=sort(keys(%files));    
+    
+    my $tarfile;
+    if ( defined( $fnames[0]) ) { 
+	$tarfile="$fnames[0]";
+    } else {
+	print("tar $tarname not found in $tardir\n");
     }
-    `$scp_cmd`;
-}
-
-if ( -f "$tarfile" ) 
-{ 
-    chdir "$wks_home/bin";
-    my $tar_cmd="tar -xvf $tarfile 2>&1";# | cut -d " " -f3-";
-    my $output=qx($tar_cmd);
-    #my ;
-    open SESAME_OUT, '>', "bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:$!\n";
-    print(SESAME_OUT "#bin uninstall generated from installer.\n");
-    print("dumping output of tar\n");
-    foreach my $line (split /[\r\n]+/, $output) {
-	## Regular expression magic to grab what you want
-	$line =~ /x(.*)/x;
-	my $out_line="$1";
-	print(SESAME_OUT "rm -i $out_line\n");
-	#print SESAME_OUT $output;
+    if ( ! -f $tarfile) 
+    { 
+	my $scp_cmd="scp delos:$tarfile $tarfile";
+	print("did not find tgz $tarname, attempting retrieval with $scp_cmd\n");
+	if ( ! -d $tardir )
+	{
+	    my $mkdir_cmd="mkdir -p $tardir";
+	    `$mkdir_cmd`;
+	}
+	# `$scp_cmd`;
     }
-
-    close SESAME_OUT;
-    chdir $wks_home;
-} else { 
-    print("Could not find the expected tar file for this os/arch:$tarfile\n");
-    sleep(4);
+    
+    if ( -f "$tarfile" ) 
+    { 
+	chdir "$output_dirs[$idx]";
+	my $tar_cmd="tar -xvf $tarfile 2>&1";# | cut -d " " -f3-";
+	print("Attempting tar cmd $tar_cmd\n");
+	my $output=qx($tar_cmd);
+	open SESAME_OUT, '>', "bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:$!\n";
+	print(SESAME_OUT "#bin uninstall generated from installer.\n");
+	print("dumping output of tar$tarfile to $output_dirs[$idx]\n");
+	foreach my $line (split /[\r\n]+/, $output) {
+	    ## Regular expression magic to grab what you want
+	    $line =~ /x(.*)/x;
+	    my $out_line="$1";
+	    print(SESAME_OUT "rm -i $out_line\n");
+	    #print SESAME_OUT $output;
+	}
+	
+	close SESAME_OUT;
+	chdir $wks_home;
+    } else { 
+	print("Could not find the expected tar file for this os/arch:$tarfile\n");
+	sleep(4);
+    }
 }
 #### 
 # make legacy links!
