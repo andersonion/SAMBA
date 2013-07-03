@@ -541,6 +541,7 @@ my $ln_source;
 my $ln_dest;
 my $infile; 
 my $outname;
+my $in_dir="$wks_home/";
 push(@dependency_paths,glob("$wks_home/pipeline_settings/engine_deps/*${hostname}*"));
 push(@dependency_paths,glob("$wks_home/pipeline_settings/scanner_deps/*"));
 # link dependency files to "recon_home" dir 
@@ -556,23 +557,72 @@ for $infile ( @dependency_paths )
     #print ("$ln_cmd\n");
     `$ln_cmd`;
 }
-# link perlexecs from pipeline_utilities to bin
-my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl);
+
+
+open SESAME_OUT, '>>', "bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:$!\n";
+# 	print(SESAME_OUT "#bin uninstall generated from installer.\n");
+# 	print("dumping output of tar$tarfile to $output_dirs[$idx]\n");
+# 	foreach my $line (split /[\r\n]+/, $output) {
+# 	    ## Regular expression magic to grab what you want
+# 	    $line =~ /x(.*)/x;
+# 	    my $out_line="$1";
+# 	    print(SESAME_OUT "rm -i $out_line\n");
+# 	    #print SESAME_OUT $output;
+# 	}
+	
+# 	close SESAME_OUT;
+ 
+# # link perlexecs from pipeline_utilities to bin
+my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl puller.pl puller_simple.pl );
 for $infile ( @perl_execs ) 
 {
-    $outname = basename($infile,qw(.pl .perl));
-    $ln_source="$wks_home/shared/pipeline_utilities/$infile";
-    $ln_dest="bin/$outname";
-    if ( -r $ln_dest ) { 
-	`unlink $ln_dest`;
-    }    
-    $ln_cmd="ln -sf $ln_source $ln_dest";
-    print ("$ln_cmd\n");
-    `$ln_cmd`;
-    `chmod a+x bin/$outname`;
+    if ($infile =~ /:/x ) 
+    {
+	my @temp=split(':',$infile);
+	$infile=$temp[0];
+	$outname=$temp[1];
+    } else { 
+       $outname = basename($infile,qw(.pl .perl));
+    }
+    my %files;
+    print("Finding $infile in $in_dir ...\n");
+    find( sub { ${files{$File::Find::name}} = 1 if ($_ =~  m/^$infile$/x ) ; },"$in_dir");
+    my @temp=sort(keys(%files));
+    my @fnames;
+    # clean out anything with junk in path
+    #$wks_home/shared/
+    if(defined ( $#temp ) ) { 
+	#print ( "ERROR: find function found too many files (@fnames) \n");
+        foreach (@temp)
+	{
+	    if ( $_ !~ /.*(:?_junk|bin).*/x ) 
+	    {
+		print("Added $_ to fnames\n");
+		push( @fnames,$_);
+	    } else { 
+		print("$_ has _junk or bin\n");
+	    }
+	}
+    }
+    if ( defined ( $fnames[0]) && $#fnames<1) 
+    { 
+	$ln_source="$fnames[0]";#$in_dir/$infile";
+	$ln_dest="bin/$outname";
+	if ( -r $ln_dest ) { 
+	    `unlink $ln_dest`;
+	}
+	$ln_cmd="ln -sf $ln_source $ln_dest";
+	print ("$ln_cmd\n");
+	`$ln_cmd`;
+	print(SESAME_OUT "unlink $ln_dest\n");	
+	`chmod a+x bin/$outname`;
+    } else {
+	print ("$infile was not found in $in_dir\n");
+    }
 }
+close SESAME_OUT;
 
-#$ln_cmd="ln -sf $wks_home/shared/radish_puller recon/legacy/dir_puller";
+###$ln_cmd="ln -sf $wks_home/shared/radish_puller recon/legacy/dir_puller";
 $infile="$wks_home/shared/radish_puller";
 {
     $ln_source="$infile";
@@ -585,7 +635,7 @@ $infile="$wks_home/shared/radish_puller";
     `$ln_cmd`;
 }
 
-#$ln_cmd="ln -sf $wks_home/shared/pipeline_utilities/startup.m $wks_home/recon/legacy/radish_core/startup.m";
+###$ln_cmd="ln -sf $wks_home/shared/pipeline_utilities/startup.m $wks_home/recon/legacy/radish_core/startup.m";
 {
     $ln_source="$wks_home/shared/pipeline_utilities/startup.m";
     $ln_dest="$wks_home/recon/legacy/radish_core/startup.m";
@@ -596,6 +646,7 @@ $infile="$wks_home/shared/radish_puller";
     #print ("$ln_cmd\n");
     `$ln_cmd`;
 }
+
 print("use source ~/.bashrc to enabe settings now, otherwise quit terminal or restart computer\n");
 # engine                         =$hostname
 # engineworkdir                  = /Volumes/$hostnamespace|/$hostnamespace|/enginespace
