@@ -1,6 +1,4 @@
 radish_core svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_core/trunk
 radish_group_recons svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_group_recons/tags/v130326
-radish_agilentextract svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_agilentextract/tags/v0.9
-radish_brukerextract svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_brukerextract/tags/v7.79
 radish_protocols_imaging  svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_protocols_imaging/tags/v1
 radish_combine_pinwheel svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_combine_pinwheel/tags/v20100702

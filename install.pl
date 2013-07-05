@@ -232,7 +232,7 @@ $hostname=$alist[0];
 	{
 	    my $scp_cmd;
 	    # find dmg on syros
-	    my $ants_dmg=`ssh syros ls /Volumes/xsyros/Software/SegmentationSoftware/| grep ANT`;
+	    my $ants_dmg=`ssh syros ls /Volumes/xsyros/Software/SegmentationSoftware/*ANTS*dmg| grep ANT`;
 	    chomp($ants_dmg);
 	    #scp dmg
 	    $scp_cmd="scp syros:/Volumes/xsyros/Software/SegmentationSoftware/$ants_dmg ../$ants_dmg";
@@ -240,6 +240,8 @@ $hostname=$alist[0];
 	    { 
 		print ("$scp_cmd\n");
 		`scp_cmd`;
+	    } else { 
+		print("found dmg: $ants_dmg found\n");
 	    }
 	    #mount dmg
 	    my $hdi_cmd="hdiutil attach ../$ants_dmg";
@@ -573,7 +575,8 @@ open SESAME_OUT, '>>', "bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:
 # 	close SESAME_OUT;
  
 # # link perlexecs from pipeline_utilities to bin
-my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl puller.pl puller_simple.pl );
+my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilent_extract display_agilent_header.pl sigextract_series_to_images.pl k_from_rp.perl:kimages dumpEXGE12xheader:header retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replace:keyreplacer re-rp.pl main_tensor.pl:tensor_create group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract);
+
 for $infile ( @perl_execs ) 
 {
     if ($infile =~ /:/x ) 

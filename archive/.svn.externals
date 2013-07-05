@@ -1,3 +1,6 @@
-uspect_archive svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/uspect_archive/trunk
 archiveme_robot svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/archiveme_robot/trunk
 db_curl_checks svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/db_curl_checks/trunk
+radish_agilentextract svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_agilentextract/trunk
+radish_brukerextract svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_brukerextract/trunk
+radish_geextract svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/radish_geextract/trunk
+uspect_archive svn+ssh://civmxsrv2.duhs.duke.edu/Users/civmsvn/svn/repos/uspect_archive/trunk
