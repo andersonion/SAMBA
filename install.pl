@@ -658,7 +658,7 @@ for $infile ( @perl_execs )
 	{
 	    print("  found! ...");
 	} else {
-	    print("  NOT_FOUND.\n");
+	    print("  NOT_FOUND.");
 	}
     }
     if ( defined ( $fnames[0]) && $#fnames<1) 
