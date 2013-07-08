@@ -506,6 +506,7 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	if ( ! -d $tardir )
 	{
 	    my $mkdir_cmd="mkdir -p $tardir";
+	    print("$mkdir_cmd\n");
 	    `$mkdir_cmd`;
 	}
 	my $ssh_find="ssh delos find $tardir -iname \"*.tgz\" | grep $tarname";
@@ -637,6 +638,7 @@ for $infile ( @perl_execs )
 	    print( " linked.\n");
 	}
     } else {
+	print (" NOT_LINKED!\n");
 #	print ("$infile  in $in_dir\n");
     }
 }
