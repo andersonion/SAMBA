@@ -507,8 +507,9 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	my $tarfile=`$ssh_find`; 
 	if ( $tarfile =~ /.*$tarname.*/x) 
 	{
-	    print("tgz $tarname, attempting retrieval via scp");# $scp_cmd\n");
 	    my $scp_cmd="scp delos:$tarfile $tarfile";
+	    print("tgz $tarname, attempting retrieval via $scp_cmd");# $scp_cmd\n");
+
 	    `$scp_cmd`;
 	}
 
