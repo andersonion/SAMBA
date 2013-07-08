@@ -349,15 +349,15 @@ $hostname=$alist[0];
 	my( $rdep, $pdep);
 	($rdep = $dep_file ) =~ s/$hostname/${hostname}_radish/gx;
 	($pdep = $dep_file )=~ s/$hostname/${hostname}_pipeline/gx;
-	
-	if( ! -e  $rdep && ! -e $pdep) {
-	    `ln -s $dep_file $rdep`;
-	    `ln -s $dep_file $pdep`;
-	    print ("made pipeline and engine links for legacy code\n\t$rdep\n\t$pdep\n");
-	} else { 
-	    print("  *dependency links exist!\n");
+	foreach my $file ($rdep, $pdep) {
+#	    if( ! -e  $file) {
+		`ln -fs $dep_file $file`;
+		#`ln -s $dep_file $pdep`;
+		print ("made link for legacy code\n\t$file");
+#	    } else { 
+#		print("  *dependency links exist!\n");
+#	    }
 	}
-	
 ###
 # fix setting 
 	$inpath="$dep_file";
@@ -475,6 +475,10 @@ push(@legacy_tars, "radish_${os}_$arch.tgz");
 push(@output_dirs, "$wks_home/bin");
 push(@legacy_tars, "t2w_slg_dir.tgz");
 push(@output_dirs, "$wks_home/recon/legacy/");
+push(@legacy_tars, "contrib_active.tgz");
+push(@output_dirs, "$wks_home/recon/legacy/");
+push(@legacy_tars, "contributed.tgz");
+push(@output_dirs, "$wks_home/recon/legacy/");
 
 my $tardir="$wks_home/../tar/"; # modules/
 for( my $idx=0;$idx<=$#legacy_tars;$idx++) 
@@ -487,36 +491,42 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 # should store tars of binaries and "frozen" code someplace and dump it to the recon engine when we copy this.
 #scp binaries to ../tar/
     my %files;
-    find( sub { ${files{$File::Find::name}} = 1 if ($_ =~  m/^$tarname$/x ) ; },$tardir);
+    find( sub { ${files{$File::Find::name}} = 1 if ($_ =~  m/^$tarname$/x ); },$tardir);
     my @fnames=sort(keys(%files));    
     
     my $tarfile;
     if ( defined( $fnames[0]) ) { 
 	$tarfile="$fnames[0]";
-    } else {
-	print("tar $tarname not found in $tardir\n");
+    } else { 
+	print("tar $tarname not found locally\n");# $tardir\n");
+	$tarfile="$tardir/$tarname";
     }
-    if ( ! -f $tarfile) 
-    { 
-	my $scp_cmd="scp delos:$tarfile $tarfile";
-	print("did not find tgz $tarname, attempting retrieval with $scp_cmd\n");
+    if ( ! -f "$tarfile")
+    {
+	my $ssh_find="ssh delos find $tardir -iname \"*.tgz\" | grep $tarname";
+	my $tarfile=`$ssh_find`; 
+	if ( $tarfile =~ /.*$tarname.*/x) 
+	{
+	    print("tgz $tarname, attempting retrieval via scp");# $scp_cmd\n");
+	    my $scp_cmd="scp delos:$tarfile $tarfile";
+	    `$scp_cmd`;
+	}
+
 	if ( ! -d $tardir )
 	{
 	    my $mkdir_cmd="mkdir -p $tardir";
 	    `$mkdir_cmd`;
 	}
-	# `$scp_cmd`;
     }
-    
     if ( -f "$tarfile" ) 
     { 
 	chdir "$output_dirs[$idx]";
 	my $tar_cmd="tar -xvf $tarfile 2>&1";# | cut -d " " -f3-";
-	print("Attempting tar cmd $tar_cmd\n");
+	#print("Attempting tar cmd $tar_cmd\n");
 	my $output=qx($tar_cmd);
 	open SESAME_OUT, '>', "bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:$!\n";
 	print(SESAME_OUT "#bin uninstall generated from installer.\n");
-	print("dumping output of tar$tarfile to $output_dirs[$idx]\n");
+	print("dumping tar: $tarfile\n");
 	foreach my $line (split /[\r\n]+/, $output) {
 	    ## Regular expression magic to grab what you want
 	    $line =~ /x(.*)/x;
@@ -528,7 +538,7 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	close SESAME_OUT;
 	chdir $wks_home;
     } else { 
-	print("Could not find the expected tar file for this os/arch:$tarfile\n");
+	print("tar os/arch:$tarfile\n");
 	sleep(4);
     }
 }
@@ -561,7 +571,7 @@ for $infile ( @dependency_paths )
 }
 
 
-open SESAME_OUT, '>>', "bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:$!\n";
+open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:$!\n";
 # 	print(SESAME_OUT "#bin uninstall generated from installer.\n");
 # 	print("dumping output of tar$tarfile to $output_dirs[$idx]\n");
 # 	foreach my $line (split /[\r\n]+/, $output) {
@@ -575,9 +585,9 @@ open SESAME_OUT, '>>', "bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:
 # 	close SESAME_OUT;
  
 # # link perlexecs from pipeline_utilities to bin
-my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilent_extract display_agilent_header.pl sigextract_series_to_images.pl k_from_rp.perl:kimages dumpEXGE12xheader:header retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replace:keyreplacer re-rp.pl main_tensor.pl:tensor_create group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract main_seg_pipe_mc.pl:seg_pipe_mc);
-
-for $infile ( @perl_execs ) 
+my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilentextract.pl display_agilent_header.perl sigextract_series_to_images.pl k_from_rp.perl:kimages retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replace:keyreplacer re-rp.pl main_tensor.pl:tensor_create group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract main_seg_pipe_mc.pl:seg_pipe_mc);
+#dumpEXGE12xheader:header
+for $infile ( @perl_execs )
 {
     if ($infile =~ /:/x ) 
     {
@@ -588,7 +598,7 @@ for $infile ( @perl_execs )
        $outname = basename($infile,qw(.pl .perl));
     }
     my %files;
-    print("Finding $infile in $in_dir ...\n");
+    print("Finding $infile in $in_dir ...");
     find( sub { ${files{$File::Find::name}} = 1 if ($_ =~  m/^$infile$/x ) ; },"$in_dir");
     my @temp=sort(keys(%files));
     my @fnames;
@@ -596,15 +606,20 @@ for $infile ( @perl_execs )
     #$wks_home/shared/
     if(defined ( $#temp ) ) { 
 	#print ( "ERROR: find function found too many files (@fnames) \n");
+	my $found = 0;
         foreach (@temp)
 	{
-	    if ( $_ !~ /.*(:?_junk|bin).*/x ) 
+	    if ( $_ !~ /.*(:?\/_junk|\/bin).*/x ) 
 	    {
-		print("Added $_ to fnames\n");
+		$found=$found+1;
 		push( @fnames,$_);
-	    } else { 
-		print("$_ has _junk or bin\n");
 	    }
+	}
+	if ( $found)
+	{
+	    print("  found! ...");
+	} else {
+	    print("  NOT_FOUND.\n");
 	}
     }
     if ( defined ( $fnames[0]) && $#fnames<1) 
@@ -613,14 +628,15 @@ for $infile ( @perl_execs )
 	$ln_dest="bin/$outname";
 	if ( -r $ln_dest ) { 
 	    `unlink $ln_dest`;
+	    $ln_cmd="ln -sf $ln_source $ln_dest";
+	    #print ("$ln_cmd\n");
+	    `$ln_cmd`;
+	    print(SESAME_OUT "unlink $ln_dest\n");	
+	    `chmod a+x bin/$outname`;
+	    print( " linked.\n");
 	}
-	$ln_cmd="ln -sf $ln_source $ln_dest";
-	print ("$ln_cmd\n");
-	`$ln_cmd`;
-	print(SESAME_OUT "unlink $ln_dest\n");	
-	`chmod a+x bin/$outname`;
     } else {
-	print ("$infile was not found in $in_dir\n");
+#	print ("$infile  in $in_dir\n");
     }
 }
 close SESAME_OUT;
