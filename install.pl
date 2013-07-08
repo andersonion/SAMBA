@@ -506,6 +506,7 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	my $ssh_find="ssh delos find $tardir -iname \"*.tgz\" | grep $tarname";
 	print("finding tgz path with $ssh_find\n");
 	my $tarfile=`$ssh_find`;
+	chomp($tarfile);
 	if ( $tarfile =~ /.*$tarname.*/x) 
 	{
 	    my $scp_cmd="scp delos:$tarfile $tarfile";
