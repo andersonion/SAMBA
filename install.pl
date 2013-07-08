@@ -46,6 +46,9 @@ $hostname=$alist[0];
 # put source ${HOME}/.${shell}rc in .${shell}_profile
 ### 
 {
+    print("---\n");
+    print("Setting source in ${shell}_profile in ${shell}rc...... \n");
+    print("---\n");
     my $HOME=$ENV{HOME};
     my @all_lines;
     print("Must run this as user to install to!\n". 
@@ -86,6 +89,9 @@ $hostname=$alist[0];
 ###
 # check that user ${shell}rc is in place
 ###
+    print("---\n");
+    print("Adding lines to ${shell}rc ...... \n");
+    print("---\n");
     my @user_shellrc=();
     $inpath="${HOME}/.${shell}rc";
     $outpath=$inpath;
@@ -198,6 +204,9 @@ $hostname=$alist[0];
 ###
 # insert home dir into environment.plist
 ###
+    print("---\n");
+    print("Inserting home dir in to ~/.MacOSX/environment.plist ...... \n");
+    print("---\n");
     $inpath="${HOME}/.MacOSX/environment.plist";
     $outpath=$inpath."out";
     if (open SESAME, $inpath) {
@@ -230,6 +239,9 @@ $hostname=$alist[0];
     {
 	if ( ! -e "../usr/bin/ANTS" ) 
 	{
+	    print("---\n");
+	    print("Extracting ANTs ...... \n");
+	    print("---\n");
 	    my $scp_cmd;
 	    # find dmg on syros
 	    my $ants_dmg=`ssh syros ls /Volumes/xsyros/Software/SegmentationSoftware/*ANTS*dmg| grep ANT`;
@@ -261,6 +273,9 @@ $hostname=$alist[0];
 	}
 	if ( ! -d "../fsl" ) 
 	{
+	    print("---\n");
+	    print("Running FSL installer ...... \n");
+	    print("---\n");
 	    #get fsl script?
 	    my $fsl_inst_cmd="./fslinstaller.py -d $wks_home/../";
 	    open my $cmd_fh, "$fsl_inst_cmd |";   # <---  | at end means to make command 
@@ -276,6 +291,9 @@ $hostname=$alist[0];
     }    
 
     {
+	print("---\n");
+	print("Inserting FSL config to ${shell}_profile ...... \n");
+	print("---\n");
 	my $HOME=$ENV{HOME};
 	my @all_lines;
 	print("Must run this as user to install to!\n". 
@@ -330,6 +348,9 @@ $hostname=$alist[0];
 
     if ( $name !~ /omega/x )
     {
+	print("---\n");
+	print("Setting engine dependencies ...... \n");
+	print("---\n");
 	print("setting engine dependencies\n");
 	my $dep_file="${wks_home}/pipeline_settings/engine_deps/engine_${hostname}_dependencies";
 	my $default_file="${wks_home}/pipeline_settings/engine_deps/engine_generic_dependencies";
@@ -467,8 +488,10 @@ $hostname=$alist[0];
 ###
 # get legacy tar files
 ###
+print("---\n");
+print("Extracting Tar's ...... \n");
+print("---\n");
 my $os="$^O";
-
 my @legacy_tars;
 my @output_dirs;
 push(@legacy_tars, "radish_${os}_$arch.tgz");
@@ -479,7 +502,6 @@ push(@legacy_tars, "contrib_active.tgz");
 push(@output_dirs, "$wks_home/recon/legacy/");
 push(@legacy_tars, "contributed.tgz");
 push(@output_dirs, "$wks_home/recon/legacy/");
-
 my $tardir="$wks_home/../tar/"; # modules/
 for( my $idx=0;$idx<=$#legacy_tars;$idx++) 
 {
@@ -513,13 +535,24 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	    my $mkdir_cmd="mkdir -p $tar_loc";
 	    print("$mkdir_cmd\n");
 	    `$mkdir_cmd`;
+	} else { 
+#	    print("found $tar_loc for scp, ");
 	}
+#	exit();
 	if ( $tarfile =~ /.*$tarname.*/x) 
 	{
 	    my $scp_cmd="scp delos:$tarfile $tarfile";
 	    print("\ttgz $tarname, attempting retrieval via $scp_cmd\n");# $scp_cmd\n");
 	    `$scp_cmd`;
 	}
+    }
+    find( sub { ${files{$File::Find::name}} = 1 if ($_ =~  m/^$tarname$/x ); },$tardir);
+    @fnames=sort(keys(%files));    
+    if ( defined( $fnames[0]) ) { 
+	$tarfile="$fnames[0]";
+    } else { 
+	print("tar $tarname not found locally\n");# $tardir\n");
+	$tarfile="$tardir/$tarname";
     }
     if ( -f "$tarfile" ) 
     { 
@@ -550,6 +583,9 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 ###
 # ln with absolute links for source (via wks_home) and relative links for dest
 #for file in `ls ../../pipeline_settings/engine_deps/* ../../pipeline_settings/scanner_deps/*
+print("---\n");
+print("Making legacy links ...... \n");
+print("---\n");
 my @dependency_paths;
 my $ln_cmd;
 my $ln_source;
@@ -629,14 +665,19 @@ for $infile ( @perl_execs )
     { 
 	$ln_source="$fnames[0]";#$in_dir/$infile";
 	$ln_dest="bin/$outname";
-	if ( -r $ln_dest ) { 
+	if ( -l $ln_dest ) { 
 	    `unlink $ln_dest`;
+	}
+	if ( ! -e $ln_dest )
+	{
 	    $ln_cmd="ln -sf $ln_source $ln_dest";
 	    #print ("$ln_cmd\n");
 	    `$ln_cmd`;
-	    print(SESAME_OUT "unlink $ln_dest\n");	
+	    print(SESAME_OUT "unlink $../ln_dest\n");	
 	    `chmod a+x bin/$outname`;
 	    print( " linked.\n");
+	} else { 
+	    print (" NOT A LINK, NOT OVERWRITING!\n");
 	}
     } else {
 	print (" NOT_LINKED!\n");
