@@ -18,12 +18,14 @@ use File::Find;
 
 my $shell =  basename($ENV{SHELL});
 my $wks_home=dirname(abs_path($0));
+my $oracle_inst="$wks_home/../oracle"; #_dirs/u01/app/oracle";
+my $oracle_version="11.2";
 my $data_home="/Volumes/workstation_data/data";
 my $hostname=hostname;
 # if allowed to check.
 my $name=getpwuid( $< ) ;
 my @alist = split(/\./, $hostname) ;
-my $arch=`uname -p`;
+my $arch=`uname -m`;
 chomp($arch);
 $hostname=$alist[0];
 
@@ -67,7 +69,6 @@ $hostname=$alist[0];
 	    return (0);
 	} 
     }
-
     my $line_found=0;
     my $outpath="${HOME}/.${shell}_profile";
     my $src_rc="source ${HOME}/.${shell}rc";
@@ -106,7 +107,7 @@ $hostname=$alist[0];
 	    return (0);
 	} 
     }
-
+#
 # check that our rad env is in the ${shell}rc
     open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
     my $src_line       ="source $HOME/.bash_workstation_settings";
@@ -120,6 +121,8 @@ $hostname=$alist[0];
 #my $pipe_host        ="export PIPELINE_HOSTNAME=$hostname";
     my $pipe_home      ="export PIPELINE_HOME=$wks_home/";
 #my $pipe_src       ="source \$PIPELINE_HOME/pipeline_settings/${shell}/${shell}rc_pipeline_setup";
+    my $oracle_lib    ="export DYLD_LIBRARY_PATH=\$DYLD_LIBRARY_PATH:$oracle_inst";
+    my $oracle_home   ="export ORACLE_HOME=$oracle_inst";
 #my @export_lines;
     my @src_lines;
 #push(@export_lines,$wrk_line,$rad_line,$pipe_line);
@@ -127,6 +130,7 @@ $hostname=$alist[0];
     my @wrk_lines=($wrk_home,$wrk_src);
     my @rad_lines=($rad_home,$rad_src);
     my @pipe_lines=($pipe_home);#,$pipe_line,$pipe_src);
+    my @oracle_lines=($oracle_lib,$oracle_home);
 #my $wrk_regex='('.join(')|(',@wrk_lines).')';
 #my $rad_regex='('.join(')|(',@rad_lines).')';
 #my $pipe_regex='('.join(')|(',@pipe_lines).')';
@@ -177,6 +181,8 @@ $hostname=$alist[0];
     print SESAME_OUT join("\n",@wrk_lines)."\n";
     print SESAME_OUT join("\n",@rad_lines)."\n";
     print SESAME_OUT join("\n",@pipe_lines)."\n";
+#    print SESAME_OUT "$oracle_lib\n";
+    print SESAME_OUT join("\n",@oracle_lines)."\n";
     close SESAME_OUT;
 
 # do an if mac check
@@ -251,7 +257,7 @@ $hostname=$alist[0];
 	    if ( ! -f "../$ants_dmg" ) 
 	    { 
 		print ("$scp_cmd\n");
-		`scp_cmd`;
+		`$scp_cmd`;
 	    } else { 
 		print("found dmg: $ants_dmg found\n");
 	    }
@@ -288,8 +294,81 @@ $hostname=$alist[0];
 #    `$fsl_inst_cmd`;
 	    
 	}
-    }    
+	my $OS='mac';
+	my $base_path="/Volumes/xsyros/software/oracle/";
+	if ( ! -d "$oracle_inst" ) 
+	{
+	    print("---\n");
+	    print("Extracting Oracle ...... \n");
+	    print("---\n");
+	    my @oracle_parts=qw(basic sqlplus sdk);
+	    my $scp_cmd;
+	    # find dmg on syros
+	    if ( ! -d "../zip" ) 
+	    {
+		`mkdir ../zip`;
+	    }
+	    foreach my $part (@oracle_parts)  { 
+		my $ls_cmd="ssh syros ls ${base_path}/*${OS}*${arch}/*client*$part*${oracle_version}*${OS}*$arch*.zip";
+		my $oracle_zip=`$ls_cmd` or print("cmd_fail $ls_cmd\n");
+		chomp($oracle_zip);
+		#scp dmg
+		$scp_cmd="scp syros:$oracle_zip ../zip/".basename($oracle_zip);
+		if ( ! -f "../zip".basename($oracle_zip) ) 
+		{ 
+		    print ("$scp_cmd\n");
+		    `$scp_cmd`;
+		} else { 
+		    print("found zip: ".basename($oracle_zip)." found\n");
+		}
+		# 
+		chdir "../zip/";
+		my $cmd="unzip ".basename($oracle_zip)." -d $oracle_inst";
+		open my $cmd_fh, "$cmd |";   # <---  | at end means to make command 
+		#         output available to the handle
+		while (<$cmd_fh>) 
+		{
+		    print "A line of output from the command is: $_";
+		}
+		chdir $wks_home;
+	    }
+	    `mv $oracle_inst/*/* $oracle_inst`;
+	}
 
+	if ( 1 ) { 
+	    my $outpath="$wks_home/oracle_cpaninst.bash";
+	    open SESAME_OUT, ">$outpath"; 
+	    print SESAME_OUT "#!/bin/bash\n".
+		"declare -x ORACLE_HOME=$oracle_inst\n".
+		"declare -x DYLD_LIBRARY_PATH=$oracle_inst\n".
+		"cpan -f DBI\n".
+		"cpan -f DBD::Oracle 11.2\n";
+	    close SESAME_OUT;
+
+	    my $cmd="sudo bash $outpath && unlink $outpath";
+	    open my $cmd_fh, "$cmd |";   # <---  | at end means to make command 
+	    #         output available to the handle
+	    while (<$cmd_fh>) 
+	    {
+		print "$_";
+	    }
+
+
+	    ``;
+	}
+	#--with-oracle-lib-path
+	chdir $wks_home;
+# % whence perl  # or whatever command returns the version of perl first in your path.   
+#                 # Verify this is the version you intent to install DBD::Oracle to  
+#  % gzip -dc DBD-Oracle-1.40.tar.gz | tar xf - 
+#  % cd DBD-Oracle-1.17 
+#  % perl Makefile.PL -V 10.2 
+#  % make 
+#  % make install 
+
+
+    }
+    exit();
     {
 	print("---\n");
 	print("Inserting FSL config to ${shell}_profile ...... \n");
@@ -502,6 +581,13 @@ push(@legacy_tars, "contrib_active.tgz");
 push(@output_dirs, "$wks_home/recon/legacy/");
 push(@legacy_tars, "contributed.tgz");
 push(@output_dirs, "$wks_home/recon/legacy/");
+push(@legacy_tars, "DCE.tgz");
+push(@output_dirs, "$wks_home/recon/");
+push(@legacy_tars, "DCE_test_data.tgz");
+push(@output_dirs, "$wks_home/recon/");
+#push(@legacy_tars, "DCE_examples.tgz");
+#push(@output_dirs, "$wks_home/recon/DCE");
+
 my $tardir="$wks_home/../tar/"; # modules/
 for( my $idx=0;$idx<=$#legacy_tars;$idx++) 
 {
@@ -523,9 +609,12 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	print("tar $tarname not found locally\n");# $tardir\n");
 	$tarfile="$tardir/$tarname";
     }
+    ### check for functional host here, if not function try again. 
+    my $hostname="delos";
+    
     if ( ! -f "$tarfile")
     {
-	my $ssh_find="ssh delos find $tardir -iname \"*.tgz\" | grep $tarname";
+	my $ssh_find="ssh $hostname find $tardir -iname \"*.tgz\" | grep $tarname";
 	print("finding tgz path with $ssh_find\n");
 	$tarfile=`$ssh_find`;
 	chomp($tarfile);
@@ -560,6 +649,7 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	my $tar_cmd="tar -xvf $tarfile 2>&1";# | cut -d " " -f3-";
 	#print("Attempting tar cmd $tar_cmd\n");
 	my $output=qx($tar_cmd);
+#	`chmod a-w 
 	open SESAME_OUT, '>', "bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:$!\n";
 	print(SESAME_OUT "#bin uninstall generated from installer.\n");
 	print("dumping tar: $tarfile\n");
@@ -624,7 +714,7 @@ open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or die "couldnt open bin_uninstall
 # 	close SESAME_OUT;
  
 # # link perlexecs from pipeline_utilities to bin
-my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilentextract.pl display_agilent_header.perl sigextract_series_to_images.pl k_from_rp.perl:kimages retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replace:keyreplacer re-rp.pl main_tensor.pl:tensor_create group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract main_seg_pipe_mc.pl:seg_pipe_mc);
+my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl:validate_header puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilentextract.pl display_agilent_header.perl sigextract_series_to_images.pl k_from_rp.perl:kimages retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replacer:keyreplacer re-rp.pl main_tensor.pl:tensor_create group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract main_seg_pipe_mc.pl:seg_pipe_mc archiveme_now.perl:archiveme t2w_pipe_slg.perl:fic mri_calc reform_group);
 #dumpEXGE12xheader:header
 for $infile ( @perl_execs )
 {
@@ -650,9 +740,13 @@ for $infile ( @perl_execs )
 	{
 	    if ( $_ !~ /.*(:?\/_junk|\/bin).*/x ) 
 	    {
-		$found=$found+1;
-		push( @fnames,$_);
+		if ( ! -d $_ ) 
+		{
+		    $found=$found+1;
+		    push( @fnames,$_);
+		}
 	    }
+	    
 	}
 	if ( $found)
 	{
@@ -673,7 +767,7 @@ for $infile ( @perl_execs )
 	    $ln_cmd="ln -sf $ln_source $ln_dest";
 	    #print ("$ln_cmd\n");
 	    `$ln_cmd`;
-	    print(SESAME_OUT "unlink $../ln_dest\n");	
+	    print(SESAME_OUT "unlink ../$ln_dest\n");	
 	    `chmod a+x bin/$outname`;
 	    print( " linked.\n");
 	} else { 
