@@ -349,8 +349,8 @@ $hostname=$alist[0];
 	    print SESAME_OUT "#!/bin/bash\n".
 		"declare -x ORACLE_HOME=$oracle_inst\n".
 		"declare -x DYLD_LIBRARY_PATH=$oracle_inst\n".
-		"cpan -f DBI\n".
-		"cpan -f DBD::Oracle 11.2\n";
+		"cpan DBI\n".
+		"cpan DBD::Oracle\n";
 	    close SESAME_OUT;
 
 	    my $cmd="sudo bash $outpath && unlink $outpath";
@@ -793,6 +793,7 @@ for $infile ( @perl_execs )
 close SESAME_OUT;
 ### some legacy linking
 # Legacy Link puller
+$infile="$wks_home/shared/radish_puller";
 {
     $ln_source="$infile";
     $ln_dest="$wks_home/recon/legacy/dir_puller";
