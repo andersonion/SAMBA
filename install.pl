@@ -250,8 +250,9 @@ $hostname=$alist[0];
 	    print("---\n");
 	    my $scp_cmd;
 	    # find dmg on syros
-	    my $ants_dmg=`ssh syros ls /Volumes/xsyros/Software/SegmentationSoftware/*ANTS*dmg| grep ANT`;
+	    my $ants_dmg=`ssh syros ls /Volumes/xsyros/Software/SegmentationSoftware/*dmg| grep ANT`;
 	    chomp($ants_dmg);
+	    $ants_dmg=basename($ants_dmg);
 	    #scp dmg
 	    $scp_cmd="scp syros:/Volumes/xsyros/Software/SegmentationSoftware/$ants_dmg ../$ants_dmg";
 	    if ( ! -f "../$ants_dmg" ) 
@@ -589,6 +590,9 @@ push(@legacy_tars, "DCE_examples.tgz");
 push(@output_dirs, "$wks_home/recon/DCE");
 
 my $tardir="$wks_home/../tar/"; # modules/
+if ( ! -d $tardir ) { 
+    `mkdir -p $tardir`;
+}
 for( my $idx=0;$idx<=$#legacy_tars;$idx++) 
 {
     my $tarname=$legacy_tars[$idx];
@@ -714,7 +718,7 @@ open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or die "couldnt open bin_uninstall
 # 	close SESAME_OUT;
  
 # # link perlexecs from pipeline_utilities to bin
-my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl:validate_header puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilentextract.pl display_agilent_header.perl sigextract_series_to_images.pl k_from_rp.perl:kimages retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replacer:keyreplacer re-rp.pl main_tensor.pl:tensor_create group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract main_seg_pipe_mc.pl:seg_pipe_mc archiveme_now.perl:archiveme t2w_pipe_slg.perl:fic mri_calc reform_group getbruker.bash);
+my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl:validate_header puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilentextract.pl display_agilent_header.perl sigextract_series_to_images.pl k_from_rp.perl:kimages retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replacer:keyreplacer re-rp.pl main_tensor.pl:tensor_create group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract main_seg_pipe_mc.pl:seg_pipe_mc archiveme_now.perl:archiveme t2w_pipe_slg.perl:fic mri_calc reform_group.perl getbruker.bash);
 #dumpEXGE12xheader:header
 for $infile ( @perl_execs )
 {
