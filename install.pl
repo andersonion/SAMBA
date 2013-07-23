@@ -1,12 +1,19 @@
 #!/usr/bin/perl
-# simple installer to get shell settings right currently only works for bash shell.
+# unfortunately involved installer to get shell settings right currently only works for bash shell.
 #
 # copies and edits the environment.plist from pipeline_settings/mac to ~/.MacOSX/environment.plist
 # that plist calls on .bash_env_to_mac_gui run .bash_profile,
 # it makes sure .bash_profile has at least one line, source .bashrc
 # adds a source .bash_workstation_settings file to user's .bashrc file
 # adds several symbolic links to support the legacy radish code
-
+# extracts tar files for oracle and legacy radish code to reasonable places
+# 
+# requirements! and assumptions!
+#    a working directory, it assumes the current directory is where you started from and 
+# that you've run the svn co svn+ssh://pathtorepository/workstation_code/trunk software
+# HAS NOT BEEN TESTED IN LOCATIONS OTHER THAN /Volumes/workstation_home/software. That could use work!.
+# the user running the script has administrative access, IF NOT, will still update shell settings.
+# 
 use strict;
 use warnings;
 use ENV;
@@ -72,7 +79,7 @@ $hostname=$alist[0];
     my $line_found=0;
     my $outpath="${HOME}/.${shell}_profile";
     my $src_rc="source ${HOME}/.${shell}rc";
-    open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
+    open SESAME_OUT, ">$outpath" or warn "could not open $outpath for writing\n";
     for my $line (@all_lines) {
 	if ($line =~ /source.*\.${shell}rc.*/) { # matches source<anthing>.${shell}rc<anything> could be to broad a match
 	    $line_found=1;
@@ -109,7 +116,7 @@ $hostname=$alist[0];
     }
 #
 # check that our rad env is in the ${shell}rc
-    open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
+    open SESAME_OUT, ">$outpath" or warn "could not open $outpath for writing\n";
     my $src_line       ="source $HOME/.bash_workstation_settings";
     my $src_regex      ="$src_line";
 #my $wrk_host        ="export WORKSTATION_HOSTNAME=$hostname";
@@ -174,7 +181,7 @@ $hostname=$alist[0];
 #     print SESAME_OUT join("\n",@pipe_lines)."\n";
 # }
     close SESAME_OUT;
-    open SESAME_OUT, ">${HOME}/.bash_workstation_settings" or die "Couldnt open settings file for writing!";
+    open SESAME_OUT, ">${HOME}/.bash_workstation_settings" or warn "Couldnt open settings file for writing!";
     print SESAME_OUT "".
 	"# \n".
 	"# File automatically generated to contain paths by install.pl for worstation_home\n";
@@ -224,7 +231,7 @@ $hostname=$alist[0];
 	return (0);
     } 
 
-    open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
+    open SESAME_OUT, ">$outpath" or warn "could not open $outpath for writing\n";
     for my $line (@all_lines) {
 	if ( $line =~ /<string>.*(.${shell}_env_to_mac_gui)<\/string>/x ) { 
 	    my $envstring="  <string>${HOME}/.${shell}_env_to_mac_gui<\/string>\n";
@@ -393,7 +400,7 @@ $hostname=$alist[0];
 	my $line_found=0;
 	my $outpath="${HOME}/.${shell}_profile";
 	my $fsl_dir="FSLDIR=$wks_home/../fsl";
-	open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
+	open SESAME_OUT, ">$outpath" or warn "could not open $outpath for writing\n";
 	for my $line (@all_lines) {
 	    if ($line =~ /FSLDIR=.*/) { # matches source<anthing>.${shell}rc<anything> could be to broad a match
 		$line_found=1;
@@ -451,7 +458,8 @@ $hostname=$alist[0];
 #	    if( ! -e  $file) {
 	    
 	    chdir dirname($dep_file);
-	    `ln -fs basename($dep_file) basename($file)`;
+	    my $ln_cmd="ln -fs ".basename($dep_file)." ".basename($file);
+	    `$ln_cmd`;
 	    chdir $wks_home;
 		#`ln -s $dep_file $pdep`;
 		print ("made link for legacy code\n\t$file");
@@ -474,7 +482,7 @@ $hostname=$alist[0];
 
 	my @outcommentary=();
 	my $string;
-	open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
+	open SESAME_OUT, ">$outpath" or warn "could not open $outpath for writing\n";
 	for my $line (@all_lines) {
 # # warkstation workflow settings file
 # # format like headfile
@@ -654,7 +662,7 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	#print("Attempting tar cmd $tar_cmd\n");
 	my $output=qx($tar_cmd);
 #	`chmod a-w 
-	open SESAME_OUT, '>', "bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:$!\n";
+	open SESAME_OUT, '>', "bin_uninstall.sh" or warn "couldnt open bin_uninstall.sh:$!\n";
 	print(SESAME_OUT "#bin uninstall generated from installer.\n");
 	print("dumping tar: $tarfile\n");
 	for my $line (split /[\r\n]+/, $output) {
@@ -704,7 +712,7 @@ for $infile ( @dependency_paths )
 }
 
 
-open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:$!\n";
+open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or warn "couldnt open bin_uninstall.sh:$!\n";
 # 	print(SESAME_OUT "#bin uninstall generated from installer.\n");
 # 	print("dumping output of tar$tarfile to $output_dirs[$idx]\n");
 # 	for my $line (split /[\r\n]+/, $output) {
@@ -783,9 +791,8 @@ for $infile ( @perl_execs )
     }
 }
 close SESAME_OUT;
-
-###$ln_cmd="ln -sf $wks_home/shared/radish_puller recon/legacy/dir_puller";
-$infile="$wks_home/shared/radish_puller";
+### some legacy linking
+# Legacy Link puller
 {
     $ln_source="$infile";
     $ln_dest="$wks_home/recon/legacy/dir_puller";
@@ -796,8 +803,7 @@ $infile="$wks_home/shared/radish_puller";
     #print ("$ln_cmd\n");
     `$ln_cmd`;
 }
-
-###$ln_cmd="ln -sf $wks_home/shared/pipeline_utilities/startup.m $wks_home/recon/legacy/radish_core/startup.m";
+# legacy link startup
 {
     $ln_source="$wks_home/shared/pipeline_utilities/startup.m";
     $ln_dest="$wks_home/recon/legacy/radish_core/startup.m";
@@ -809,13 +815,6 @@ $infile="$wks_home/shared/radish_puller";
     `$ln_cmd`;
 }
 
-print("use source ~/.bashrc to enabe settings now, otherwise quit terminal or restart computer\n");
-# engine                         =$hostname
-# engineworkdir                  = /Volumes/$hostnamespace|/$hostnamespace|/enginespace
-# engine_archive_tag_directory   = /Volumes/$hostnamespace/Archive_Tags|/$hostnamespace/Archive_tags|/enginespace/Archive_Tags
-# engine_app_dti_recon_param_dir = "wks_home/pipeline_settings/tensor"
-# engine_recongui_menu_path      = "wks_homepipeline_settings/recon_menu.txt"
-# engine_radish_bin_directory    = "wks_home/legacy/${arch}bin
-# engine_radish_contributed_bin_directory = "wks_home/legacy/contrib_$(arch)/bin
+print("use source ~/.bashrc to enable settings now, otherwise quit terminal or restart computer\n");
 
 
