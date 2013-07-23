@@ -368,7 +368,7 @@ $hostname=$alist[0];
 
 
     }
-    exit();
+#    exit();
     {
 	print("---\n");
 	print("Inserting FSL config to ${shell}_profile ...... \n");
