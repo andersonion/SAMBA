@@ -18,7 +18,7 @@ use File::Find;
 
 my $shell =  basename($ENV{SHELL});
 my $wks_home=dirname(abs_path($0));
-my $oracle_inst="$wks_home/../oracle"; #_dirs/u01/app/oracle";
+my $oracle_inst="$wks_home/../oracle"; 
 my $oracle_version="11.2";
 my $data_home="/Volumes/workstation_data/data";
 my $hostname=hostname;
@@ -73,7 +73,7 @@ $hostname=$alist[0];
     my $outpath="${HOME}/.${shell}_profile";
     my $src_rc="source ${HOME}/.${shell}rc";
     open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
-    foreach my $line (@all_lines) {
+    for my $line (@all_lines) {
 	if ($line =~ /source.*\.${shell}rc.*/) { # matches source<anthing>.${shell}rc<anything> could be to broad a match
 	    $line_found=1;
 	}
@@ -135,7 +135,7 @@ $hostname=$alist[0];
 #my $rad_regex='('.join(')|(',@rad_lines).')';
 #my $pipe_regex='('.join(')|(',@pipe_lines).')';
     my ($src_found,$wrk_found,$rad_found,$pipe_found)=(0,0,0,0);
-    foreach my $line (  @user_shellrc) {
+    for my $line (  @user_shellrc) {
 	if ( $line =~ /$src_regex/){ 
 	    $src_found=1;
 	    print SESAME_OUT $src_line."\n";
@@ -225,7 +225,7 @@ $hostname=$alist[0];
     } 
 
     open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
-    foreach my $line (@all_lines) {
+    for my $line (@all_lines) {
 	if ( $line =~ /<string>.*(.${shell}_env_to_mac_gui)<\/string>/x ) { 
 	    my $envstring="  <string>${HOME}/.${shell}_env_to_mac_gui<\/string>\n";
 	    #  <string>code_location/bash_env_to_mac_gui</string>
@@ -308,8 +308,8 @@ $hostname=$alist[0];
 	    {
 		`mkdir ../zip`;
 	    }
-	    foreach my $part (@oracle_parts)  { 
-		my $ls_cmd="ssh syros ls ${base_path}/*${OS}*${arch}/*client*$part*${oracle_version}*${OS}*$arch*.zip";
+	    for my $part (@oracle_parts)  { 
+		my $ls_cmd="ssh syros ls ${base_path}/*${OS}*${arch}/*client*$part*${oracle_version}*${OS}*${arch}*.zip";
 		my $oracle_zip=`$ls_cmd` or print("cmd_fail $ls_cmd\n");
 		chomp($oracle_zip);
 		#scp dmg
@@ -352,9 +352,6 @@ $hostname=$alist[0];
 	    {
 		print "$_";
 	    }
-
-
-	    ``;
 	}
 	#--with-oracle-lib-path
 	chdir $wks_home;
@@ -396,7 +393,7 @@ $hostname=$alist[0];
 	my $outpath="${HOME}/.${shell}_profile";
 	my $fsl_dir="FSLDIR=$wks_home/../fsl";
 	open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
-	foreach my $line (@all_lines) {
+	for my $line (@all_lines) {
 	    if ($line =~ /FSLDIR=.*/) { # matches source<anthing>.${shell}rc<anything> could be to broad a match
 		$line_found=1;
 		$line="$fsl_dir\n";
@@ -449,9 +446,12 @@ $hostname=$alist[0];
 	my( $rdep, $pdep);
 	($rdep = $dep_file ) =~ s/$hostname/${hostname}_radish/gx;
 	($pdep = $dep_file )=~ s/$hostname/${hostname}_pipeline/gx;
-	foreach my $file ($rdep, $pdep) {
+	for my $file ($rdep, $pdep) {
 #	    if( ! -e  $file) {
-		`ln -fs $dep_file $file`;
+	    
+	    chdir dirname($dep_file);
+	    `ln -fs basename($dep_file) basename($file)`;
+	    chdir $wks_home;
 		#`ln -s $dep_file $pdep`;
 		print ("made link for legacy code\n\t$file");
 #	    } else { 
@@ -474,7 +474,7 @@ $hostname=$alist[0];
 	my @outcommentary=();
 	my $string;
 	open SESAME_OUT, ">$outpath" or die "could not open $outpath for writing\n";
-	foreach my $line (@all_lines) {
+	for my $line (@all_lines) {
 # # warkstation workflow settings file
 # # format like headfile
 	    if ( $line =~ /^engine=hostname/x ) { 
@@ -519,10 +519,10 @@ $hostname=$alist[0];
 # # program locations
 # engine_radish_bin_directory=/wks_home/recon/legacy/modules/bin_macINTEL
 	    } elsif ($line =~ /^engine_radish_bin_directory=/x ) {
-		$string="engine_radish_bin_directory=$wks_home/bin";#recon/legacy/modules/_mac_$arch
+		$string="engine_radish_bin_directory=$wks_home/bin";#recon/legacy/modules/_mac_${arch}
 # engine_radish_contributed_bin_directory=/wks_home/recon/legacy/modules/contributed/bin_macINTEL 
 	    } elsif ($line =~ /^engine_radish_contributed_bin_directory=/x ) {
-		$string="engine_radish_contributed_bin_directory=$wks_home/recon/legacy/modules/contributed/bin_mac_$arch";
+		$string="engine_radish_contributed_bin_directory=$wks_home/recon/legacy/modules/contributed/bin_mac_${arch}";
 # engine_app_matlab=/usr/bin/matlab
  	    } elsif ($line =~ /^engine_app_matlab=/x ) { 
  		$string="engine_app_matlab=/usr/bin/matlab";# -nosplash -nodisplay -nodesktop ";
@@ -573,7 +573,7 @@ print("---\n");
 my $os="$^O";
 my @legacy_tars;
 my @output_dirs;
-push(@legacy_tars, "radish_${os}_$arch.tgz");
+push(@legacy_tars, "radish_${os}_${arch}.tgz");
 push(@output_dirs, "$wks_home/bin");
 push(@legacy_tars, "t2w_slg_dir.tgz");
 push(@output_dirs, "$wks_home/recon/legacy/");
@@ -581,12 +581,12 @@ push(@legacy_tars, "contrib_active.tgz");
 push(@output_dirs, "$wks_home/recon/legacy/");
 push(@legacy_tars, "contributed.tgz");
 push(@output_dirs, "$wks_home/recon/legacy/");
-push(@legacy_tars, "DCE.tgz");
-push(@output_dirs, "$wks_home/recon/");
+#push(@legacy_tars, "DCE.tgz");
+#push(@output_dirs, "$wks_home/recon/");
 push(@legacy_tars, "DCE_test_data.tgz");
 push(@output_dirs, "$wks_home/recon/");
-#push(@legacy_tars, "DCE_examples.tgz");
-#push(@output_dirs, "$wks_home/recon/DCE");
+push(@legacy_tars, "DCE_examples.tgz");
+push(@output_dirs, "$wks_home/recon/DCE");
 
 my $tardir="$wks_home/../tar/"; # modules/
 for( my $idx=0;$idx<=$#legacy_tars;$idx++) 
@@ -653,7 +653,7 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	open SESAME_OUT, '>', "bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:$!\n";
 	print(SESAME_OUT "#bin uninstall generated from installer.\n");
 	print("dumping tar: $tarfile\n");
-	foreach my $line (split /[\r\n]+/, $output) {
+	for my $line (split /[\r\n]+/, $output) {
 	    ## Regular expression magic to grab what you want
 	    $line =~ /x(.*)/x;
 	    my $out_line="$1";
@@ -703,7 +703,7 @@ for $infile ( @dependency_paths )
 open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or die "couldnt open bin_uninstall.sh:$!\n";
 # 	print(SESAME_OUT "#bin uninstall generated from installer.\n");
 # 	print("dumping output of tar$tarfile to $output_dirs[$idx]\n");
-# 	foreach my $line (split /[\r\n]+/, $output) {
+# 	for my $line (split /[\r\n]+/, $output) {
 # 	    ## Regular expression magic to grab what you want
 # 	    $line =~ /x(.*)/x;
 # 	    my $out_line="$1";
@@ -714,7 +714,7 @@ open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or die "couldnt open bin_uninstall
 # 	close SESAME_OUT;
  
 # # link perlexecs from pipeline_utilities to bin
-my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl:validate_header puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilentextract.pl display_agilent_header.perl sigextract_series_to_images.pl k_from_rp.perl:kimages retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replacer:keyreplacer re-rp.pl main_tensor.pl:tensor_create group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract main_seg_pipe_mc.pl:seg_pipe_mc archiveme_now.perl:archiveme t2w_pipe_slg.perl:fic mri_calc reform_group);
+my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl:validate_header puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilentextract.pl display_agilent_header.perl sigextract_series_to_images.pl k_from_rp.perl:kimages retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replacer:keyreplacer re-rp.pl main_tensor.pl:tensor_create group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract main_seg_pipe_mc.pl:seg_pipe_mc archiveme_now.perl:archiveme t2w_pipe_slg.perl:fic mri_calc reform_group getbruker.bash);
 #dumpEXGE12xheader:header
 for $infile ( @perl_execs )
 {
