@@ -819,7 +819,7 @@ $infile="$wks_home/shared/radish_puller";
 ### 
 # some more linking
 ###
-$infile="$wks_home/archive/james_imagejmacros";
+$infile="$wks_home/analysis/james_imagejmacros";
 {
     $ln_source="$infile";
     $ln_dest="/Applications/ImageJ/plugins/000_james_imagejmacros";
