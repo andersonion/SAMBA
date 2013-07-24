@@ -630,7 +630,7 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	print("finding tgz path with $ssh_find\n");
 	$tarfile=`$ssh_find`;
 	chomp($tarfile);
-	my $tar_loc=$tardir=dirname($tarfile);
+	my $tar_loc=dirname($tarfile); #$tardir=
 	if ( ! -d $tar_loc )
 	{
 	    my $mkdir_cmd="mkdir -p $tar_loc";
