@@ -494,7 +494,7 @@ $hostname=$alist[0];
 # # data_locations
 # engine_work_directory=/Volumes/enginespace
 	    } elsif ($line =~ /^engine_work_directory=/x ) {
-		$string="engine_work_directory=/Volumes/${hostname}space";
+		$string="engine_work_directory=/${hostname}space";
 # engine_recongui_paramfile_directory=/wks_home/dir_param_files
 	    } elsif ($line =~ /^engine_recongui_paramfile_directory=/x ) {
 		$string="engine_recongui_paramfile_directory=$wks_home/dir_param_files";
