@@ -815,7 +815,17 @@ $infile="$wks_home/shared/radish_puller";
     #print ("$ln_cmd\n");
     `$ln_cmd`;
 }
-
+$infile="$wks_home/archive/james_imagejmacros";
+{
+    $ln_source="$infile";
+    $ln_dest="/Applications/ImageJ/plugins/000_james_imagejmacros";
+    if ( -r $ln_dest ) { 
+	`unlink $ln_dest`;
+    }    
+    $ln_cmd="ln -sf $ln_source $ln_dest";
+    #print ("$ln_cmd\n");
+    `$ln_cmd`;
+}
 print("use source ~/.bashrc to enable settings now, otherwise quit terminal or restart computer\n");
 
 
