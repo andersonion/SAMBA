@@ -257,7 +257,7 @@ $hostname=$alist[0];
 	    print("---\n");
 	    my $scp_cmd;
 	    # find dmg on syros
-	    my $ants_dmg=`ssh syros ls /Volumes/xsyros/Software/SegmentationSoftware/*dmg| grep ANT`;
+	    my $ants_dmg=`ssh syros ls -tr /Volumes/xsyros/Software/SegmentationSoftware/*dmg| grep ANT |tail -n 1`;
 	    chomp($ants_dmg);
 	    $ants_dmg=basename($ants_dmg);
 	    #scp dmg
