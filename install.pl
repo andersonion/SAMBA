@@ -782,6 +782,7 @@ for $infile ( @perl_execs )
 	    `$ln_cmd`;
 	    print(SESAME_OUT "unlink ".basename($ln_dest)."\n");	
 	    `chmod a+x bin/$outname`;
+	    `chmod a+x bin/$ln_source`;
 	    print( " linked.\n");
 	} else { 
 	    print (" NOT A LINK, NOT OVERWRITING!\n");
@@ -835,7 +836,10 @@ $infile="$wks_home/analysis/james_imagejmacros";
 ###
 `chmod 777 dir_param_files`;
 `chmod -R ug+s $wks_home`;
-#`chgrp -R ipl $wks_home`; # there doesnt have to be an ipl group
+`chgrp -R recon $wks_home`; # there doesnt have to be an ipl group
+`chgrp ipl $wks_home/pipeline_settings/recon_menu.txt`
+#`chgrp $wks_home/pipeline_settings/recon_menu.txt`
+#`find . -iname "*.pl" -exec chmod a+x {} \;` # hopefully this is unnecessar and is handled by the perlexecs linking to bin section above. 
 
 print("use source ~/.bashrc to enable settings now, otherwise quit terminal or restart computer\n");
 
