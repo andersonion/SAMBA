@@ -907,7 +907,7 @@ $infile="$wks_home/analysis/james_imagejmacros";
 ###
 if ( $isadmin && defined $opts{p}) { 
     `sudo chown -R omega:ipl /Volumes/${hostname}space/`;
-`sudo find /Volumes/${hostname}space/ -x -not -type d -print -exec chmod a-x {} \\; `;
+`sudo find /Volumes/${hostname}space/ -not -type d -print -exec chmod a-x {} \\; `;
 `sudo chmod -R gu+rws /Volumes/${hostname}space/`;
 } else {
     print("# Space drive permission commands not run because you are not an admin.\n");
