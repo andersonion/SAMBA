@@ -341,24 +341,25 @@ $hostname=$alist[0];
 		chdir $wks_home;
 	    }
 	    `mv $oracle_inst/*/* $oracle_inst`;
-	}
-
-	if ( 1 ) { 
-	    my $outpath="$wks_home/oracle_cpaninst.bash";
-	    open SESAME_OUT, ">$outpath"; 
-	    print SESAME_OUT "#!/bin/bash\n".
-		"declare -x ORACLE_HOME=$oracle_inst\n".
-		"declare -x DYLD_LIBRARY_PATH=$oracle_inst\n".
-		"cpan DBI\n".
-		"cpan DBD::Oracle\n";
-	    close SESAME_OUT;
-
-	    my $cmd="sudo bash $outpath && unlink $outpath";
-	    open my $cmd_fh, "$cmd |";   # <---  | at end means to make command 
-	    #         output available to the handle
-	    while (<$cmd_fh>) 
-	    {
-		print "$_";
+	    
+	    if ( 1 ) { 
+		print("creating oracle_cpaninst.bash for root to run\n");
+		my $outpath="$wks_home/oracle_cpaninst.bash";
+		open SESAME_OUT, ">$outpath"; 
+		print SESAME_OUT "#!/bin/bash\n".
+		    "declare -x ORACLE_HOME=$oracle_inst\n".
+		    "declare -x DYLD_LIBRARY_PATH=$oracle_inst\n".
+		    "cpan DBI\n".
+		    "cpan DBD::Oracle\n";
+		close SESAME_OUT;
+		
+		my $cmd="sudo bash $outpath && unlink $outpath";
+		open my $cmd_fh, "$cmd |";   # <---  | at end means to make command 
+		#         output available to the handle
+		while (<$cmd_fh>) 
+		{
+		    print "$_";
+		}
 	    }
 	}
 	#--with-oracle-lib-path
@@ -370,8 +371,8 @@ $hostname=$alist[0];
 #  % perl Makefile.PL -V 10.2 
 #  % make 
 #  % make install 
-
-
+	
+	
     }
 #    exit();
     {
@@ -782,7 +783,7 @@ for $infile ( @perl_execs )
 	    `$ln_cmd`;
 	    print(SESAME_OUT "unlink ".basename($ln_dest)."\n");	
 	    `chmod a+x bin/$outname`;
-	    `chmod a+x bin/$ln_source`;
+	    `chmod a+x $ln_source`;
 	    print( " linked.\n");
 	} else { 
 	    print (" NOT A LINK, NOT OVERWRITING!\n");
@@ -817,6 +818,13 @@ $infile="$wks_home/shared/radish_puller";
     #print ("$ln_cmd\n");
     `$ln_cmd`;
 }
+# legacy link perl
+{
+    if ( ! -e "/usr/local/pipeline-link/perl" )
+    {
+	`sudo ln -s /usr/bin/perl /usr/local/pipeline-link/perl`;
+    }
+}
 ### 
 # some more linking
 ###
@@ -834,11 +842,13 @@ $infile="$wks_home/analysis/james_imagejmacros";
 ###
 # permisison cleanup
 ###
-`chmod 777 dir_param_files`;
-`chmod -R ug+s $wks_home`;
 `chgrp -R recon $wks_home`; # there doesnt have to be an ipl group
-`chgrp ipl $wks_home/pipeline_settings/recon_menu.txt`
-#`chgrp $wks_home/pipeline_settings/recon_menu.txt`
+`chmod -R ug+s $wks_home`;
+`chmod a+rwx $wks_home/dir_param_files`;
+#`chmod ug+s $wks_home/dir_param_files`;
+`chgrp ipl $wks_home/pipeline_settings/recon_menu.txt`;
+`chgrp -R ipl $wks_home/dir_param_files`;
+#`chgrp $wks_home/pipeline_settings/recon_menu.txt`;
 #`find . -iname "*.pl" -exec chmod a+x {} \;` # hopefully this is unnecessar and is handled by the perlexecs linking to bin section above. 
 
 print("use source ~/.bashrc to enable settings now, otherwise quit terminal or restart computer\n");
