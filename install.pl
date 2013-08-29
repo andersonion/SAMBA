@@ -21,7 +21,13 @@ use File::Basename;
 use Cwd 'abs_path';
 use Sys::Hostname;
 use File::Find;
+use Getopt::Std;
 #print basename($ENV{SHELL})."\n";
+my %opts;
+if ( ! getopts('p',\%opts) ) { 
+    print("Option error\n");
+    exit;
+}
 
 my $shell =  basename($ENV{SHELL});
 my $wks_home=dirname(abs_path($0));
@@ -31,6 +37,10 @@ my $data_home="/Volumes/workstation_data/data";
 my $hostname=hostname;
 # if allowed to check.
 my $name=getpwuid( $< ) ;
+my $isadmin=`id | grep -c admin`;chomp($isadmin);
+my $isrecon=`id | grep -c recon`;chomp($isrecon);
+my $isipl=`id | grep -c admin`;chomp($isipl);
+
 my @alist = split(/\./, $hostname) ;
 my $arch=`uname -m`;
 chomp($arch);
@@ -41,15 +51,62 @@ $hostname=$alist[0];
 { 
     if ( $shell !~ m/bash/x ) {
 	print ("ERROR: shell is not bash, other shells un tested.");
-	return(1);
+	exit(1);
     } elsif(  $shell =~ m/bash/x) {
-	print ("bash match\n");
+	print ("Shell check match=bash\n");
 	$shell = "bash";
     } elsif ( $shell =~ m/[t]?csh/x) {
-	print ("Csh match\n");
+	print ("Shell check match=Csh\n");
 	$shell = "csh";
     }
 
+}
+
+###
+# check for groups
+### 
+#if ( $name !~ /omega/x ) 
+my @groups=qw/ipl/;
+if ( $name =~ /pipeliner/x || $isadmin ) {
+    push(@groups,'recon');
+}
+my @g_errors;
+for my $group (@groups) {
+#	`which dscl `;
+    my $group_status=`dscl localhost list ./Local/Default/Groups | grep -c $group`;
+    #grep -c $group
+#	print("gs=$group_status\n");
+    if ( $group_status  =~ m/0/x) { 
+	push(@g_errors,"ERROR: need to create the $group group\n");
+    } elsif( $group_status =~ m/1/x )  { 
+	print("Found required group:$group\t");
+    } elsif ( $? == -1 ) {
+	push(@g_errors,"ERROR: dscl check failed on group $group.\n");
+    }
+    $group_status=`id | grep -c $group`; #an is member check.
+    if ( $group_status  =~ m/0/x) { 
+	push(@g_errors,"ERROR: current user must be part of $group group\n");
+	print("... member check FAIL!\n");
+    } elsif( $group_status =~ m/1/x )  { 
+	print("... member check success!\n");
+    } elsif ( $? == -1 ) {
+	push(@g_errors,"ERROR: id check failed on group $group.\n");
+	print("... member check FAIL!\n");
+    }   
+}
+
+
+if ( $#g_errors>=0) { 
+    #print(join("\n",@g_errors)."\n");
+    print("admin check returned $isadmin\n");
+    if ( ! $isadmin) 
+    {
+	print("Current user must be an admin and part of ipl and recon group.\nOmega should ONLY be part of ipl group.\nPipeliner should be part of ipl and recon group.\n @g_errors");
+	exit 1;
+    } else { 
+	print("Current user must be an admin and part of ipl and recon group.\nOmega should ONLY be part of ipl group.\nPipeliner should be part of ipl and recon group.\n @g_errors");
+	print("TODO createm missing groups, add basic memberships\n");
+    }
 }
 ###
 # put source ${HOME}/.${shell}rc in .${shell}_profile
@@ -73,7 +130,7 @@ $hostname=$alist[0];
 	    print(" Opened ${shell}_profile\n");
 	} else {
 	    print STDERR "Unable to open file <$inpath> to read\n";
-	    return (0);
+	    exit (0);
 	} 
     }
     my $line_found=0;
@@ -111,7 +168,7 @@ $hostname=$alist[0];
 	    print(" opened user ${shell}rc\n");
 	} else {
 	    print STDERR "Unable to open file <$inpath> to read\n";
-	    return (0);
+	    exit(0);
 	} 
     }
 #
@@ -228,7 +285,7 @@ $hostname=$alist[0];
 	print(" opened env_plist \n");
     } else {
 	print STDERR "Unable to open file <$inpath> to read\n";
-	return (0);
+	exit (0);
     } 
 
     open SESAME_OUT, ">$outpath" or warn "could not open $outpath for writing\n";
@@ -248,7 +305,7 @@ $hostname=$alist[0];
 ###
 # add fsl and ants
 ###
-    if ( $name !~ /omega/x ) 
+    if ( $isrecon )# $name !~ /omega/x
     {
 	if ( ! -e "../usr/bin/ANTS" ) 
 	{
@@ -394,7 +451,7 @@ $hostname=$alist[0];
 		print(" Opened ${shell}_profile\n");
 	    } else {
 		print STDERR "Unable to open file <$inpath> to read\n";
-		return (0);
+		exit(0);
 	    } 
 	}
 	
@@ -431,7 +488,7 @@ $hostname=$alist[0];
 # link it to pipeline_dependencies and recon_dependencies.
 ###
 
-    if ( $name !~ /omega/x )
+    if ( $isrecon ) #$name !~ /omega/x
     {
 	print("---\n");
 	print("Setting engine dependencies ...... \n");
@@ -446,7 +503,7 @@ $hostname=$alist[0];
 	    print(" DONT FORGET TO REMOVE IF THIS WORKED\n");
 	} elsif ( -e "${dep_file}.bak") {  #-e $dep_file && 
 	    print( "old backup ${dep_file}.bak was not cleared\n");
-#    return(0);
+#    exit(0);
 	} else { 
 	    print("Copying $default_file to $dep_file\n");
 	    `cp $default_file $dep_file`;
@@ -478,7 +535,7 @@ $hostname=$alist[0];
 	    print(" opened dependency \n");
 	} else {
 	    print STDERR "Unable to open file <$inpath> to read\n";
-	    return (0);
+	    exit(0);
 	} 
 
 	my @outcommentary=();
@@ -583,6 +640,7 @@ print("---\n");
 my $os="$^O";
 my @legacy_tars;
 my @output_dirs;
+if ( $isrecon ) {
 push(@legacy_tars, "radish_${os}_${arch}.tgz");
 push(@output_dirs, "$wks_home/bin");
 push(@legacy_tars, "t2w_slg_dir.tgz");
@@ -597,7 +655,7 @@ push(@legacy_tars, "DCE_test_data.tgz");
 push(@output_dirs, "$wks_home/recon/");
 push(@legacy_tars, "DCE_examples.tgz");
 push(@output_dirs, "$wks_home/recon/DCE");
-
+}
 my $tardir="$wks_home/../tar/"; # modules/
 if ( ! -d $tardir ) { 
     `mkdir -p $tardir`;
@@ -662,7 +720,6 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	my $tar_cmd="tar -xvf $tarfile 2>&1";# | cut -d " " -f3-";
 	#print("Attempting tar cmd $tar_cmd\n");
 	my $output=qx($tar_cmd);
-#	`chmod a-w 
 	open SESAME_OUT, '>', "bin_uninstall.sh" or warn "couldnt open bin_uninstall.sh:$!\n";
 	print(SESAME_OUT "#bin uninstall generated from installer.\n");
 	print("dumping tar: $tarfile\n");
@@ -699,6 +756,7 @@ my $in_dir="$wks_home/";
 push(@dependency_paths,glob("$wks_home/pipeline_settings/engine_deps/*${hostname}*"));
 push(@dependency_paths,glob("$wks_home/pipeline_settings/scanner_deps/*"));
 # link dependency files to "recon_home" dir 
+if ( $isrecon) { 
 for $infile ( @dependency_paths ) 
 {
     $outname = basename($infile);
@@ -711,8 +769,7 @@ for $infile ( @dependency_paths )
     #print ("$ln_cmd\n");
     `$ln_cmd`;
 }
-
-
+}
 open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or warn "couldnt open bin_uninstall.sh:$!\n";
 # 	print(SESAME_OUT "#bin uninstall generated from installer.\n");
 # 	print("dumping output of tar$tarfile to $output_dirs[$idx]\n");
@@ -728,7 +785,10 @@ open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or warn "couldnt open bin_uninstal
 ### 
 # link perlexecs from pipeline_utilities and other  to bin
 ###
-my @perl_execs=qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl:validate_header puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilentextract.pl display_agilent_header.perl sigextract_series_to_images.pl k_from_rp.perl:kimages retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replacer:keyreplacer re-rp.pl main_tensor.pl:tensor_create recon_group.perl group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract main_seg_pipe_mc.pl:seg_pipe_mc archiveme_now.perl:archiveme t2w_pipe_slg.perl:fic mri_calc reform_group.perl reformer_radish.perl getbruker.bash);
+my @perl_execs=();
+if ( $isrecon ) { 
+    push(@perl_execs,qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl:validate_header puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilentextract.pl display_agilent_header.perl sigextract_series_to_images.pl k_from_rp.perl:kimages retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replacer:keyreplacer re-rp.pl main_tensor.pl:tensor_create recon_group.perl group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract main_seg_pipe_mc.pl:seg_pipe_mc archiveme_now.perl:archiveme t2w_pipe_slg.perl:fic mri_calc reform_group.perl reformer_radish.perl getbruker.bash));
+}
 #dumpEXGE12xheader:header
 for $infile ( @perl_execs )
 {
@@ -796,6 +856,7 @@ for $infile ( @perl_execs )
 close SESAME_OUT;
 ### some legacy linking
 # Legacy Link puller
+if ( $isrecon ) { 
 $infile="$wks_home/shared/radish_puller";
 {
     $ln_source="$infile";
@@ -825,6 +886,7 @@ $infile="$wks_home/shared/radish_puller";
 	`sudo ln -s /usr/bin/perl /usr/local/pipeline-link/perl`;
     }
 }
+
 ### 
 # some more linking
 ###
@@ -839,18 +901,36 @@ $infile="$wks_home/analysis/james_imagejmacros";
     #print ("$ln_cmd\n");
     `$ln_cmd`;
 }
+}
 ###
 # permisison cleanup
 ###
-`chgrp -R recon $wks_home`; # there doesnt have to be an ipl group
-`chmod -R ug+s $wks_home`;
-`chmod a+rwx $wks_home/dir_param_files`;
+if ( $isadmin && defined $opts{p}) { 
+    `sudo chown -R omega:ipl /Volumes/${hostname}space/`;
+`sudo find /Volumes/${hostname}space/ -x -not -type d -print -exec chmod a-x {} \\; `;
+`sudo chmod -R gu+rws /Volumes/${hostname}space/`;
+} else {
+    print("# Space drive permission commands not run because you are not an admin.\n");
+print("# Thsese should be run at once to make sure archives do not generate permission errors\n");
+print("sudo chown -R omega:ipl /Volumes/${hostname}space/\n");
+print("sudo find /Volumes/${hostname}space/ -x -not -type d -print -exec chmod a-x {} \\; \n");
+print("sudo chmod -R gu+rws /Volumes/${hostname}space/\n");
+
+
+}
+if (  $isrecon )
+{ #$name !~ /omega/x 
+    `chgrp -R recon $wks_home`; # there doesnt have to be an ipl group
+    `chmod -R ug+s $wks_home`;
+    `chmod a+rwx $wks_home/dir_param_files`;
 #`chmod ug+s $wks_home/dir_param_files`;
-`chgrp ipl $wks_home/pipeline_settings/recon_menu.txt`;
-`chgrp -R ipl $wks_home/dir_param_files`;
+    `chgrp ipl $wks_home/pipeline_settings/recon_menu.txt`;
+    `chgrp -R ipl $wks_home/dir_param_files`;
 #`chgrp $wks_home/pipeline_settings/recon_menu.txt`;
 #`find . -iname "*.pl" -exec chmod a+x {} \;` # hopefully this is unnecessar and is handled by the perlexecs linking to bin section above. 
-
+} else {
+    print("permissions not altered!\n only recon users can alter permissions. If install has already been run by an admin this is not an issue!\n");
+}
 print("use source ~/.bashrc to enable settings now, otherwise quit terminal or restart computer\n");
 
 
