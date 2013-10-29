@@ -908,20 +908,23 @@ $infile="$wks_home/analysis/james_imagejmacros";
 if ( $isadmin && defined $opts{p}) { 
     `sudo chown -R omega:ipl /Volumes/${hostname}space/`;
 `sudo find /Volumes/${hostname}space/ -not -type d -print -exec chmod a-x {} \\; `;
-`sudo chmod -R gu+rws /Volumes/${hostname}space/`;
+`sudo find /Volumes/${hostname}space/ -type d -exec chmod gu+s {} \;`;
+`sudo find /Volumes/${hostname}space/ -type f -exec chmod gu+rw {} \;`;
 } else {
     print("# Space drive permission commands not run because you are not an admin.\n");
 print("# Thsese should be run at once to make sure archives do not generate permission errors\n");
 print("sudo chown -R omega:ipl /Volumes/${hostname}space/\n");
 print("sudo find /Volumes/${hostname}space/ -x -not -type d -print -exec chmod a-x {} \\; \n");
-print("sudo chmod -R gu+rws /Volumes/${hostname}space/\n");
+print("sudo find /Volumes/${hostname}space/ -type d -exec chmod gu+s {} \;\n");
+print("sudo find /Volumes/${hostname}space/ -type f -exec chmod gu+rw {} \;\n");
+
 
 
 }
 if (  $isrecon )
 { #$name !~ /omega/x 
     `chgrp -R recon $wks_home`; # there doesnt have to be an ipl group
-    `chmod -R ug+s $wks_home`;
+    `find $wks_home -type d -exec chmod ug+s {} \;`;
     `chmod a+rwx $wks_home/dir_param_files`;
 #`chmod ug+s $wks_home/dir_param_files`;
     `chgrp ipl $wks_home/pipeline_settings/recon_menu.txt`;
