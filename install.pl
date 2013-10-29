@@ -908,7 +908,7 @@ $infile="$wks_home/analysis/james_imagejmacros";
 if ( $isadmin && defined $opts{p}) { 
     print("sudo chown -R omega:ipl /Volumes/${hostname}space/ ...\n");
     `sudo chown -R omega:ipl /Volumes/${hostname}space/`;
-    print("sudo find /Volumes/${hostname}space/ -not -type d -print -exec chmod a-x {} \\; \n"...);
+    print("sudo find /Volumes/${hostname}space/ -not -type d -print -exec chmod a-x {} \\;  ... \n");
     `sudo find /Volumes/${hostname}space/ -not -type d -print -exec chmod a-x {} \\; `;
     print("sudo find /Volumes/${hostname}space/ -type d -exec chmod gu+s {} \; ... \n");
     `sudo find /Volumes/${hostname}space/ -type d -exec chmod gu+s {} \;`;
