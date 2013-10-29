@@ -906,20 +906,25 @@ $infile="$wks_home/analysis/james_imagejmacros";
 # permisison cleanup
 ###
 if ( $isadmin && defined $opts{p}) { 
+    print("sudo chown -R omega:ipl /Volumes/${hostname}space/ ...\n");
     `sudo chown -R omega:ipl /Volumes/${hostname}space/`;
-`sudo find /Volumes/${hostname}space/ -not -type d -print -exec chmod a-x {} \\; `;
-`sudo find /Volumes/${hostname}space/ -type d -exec chmod gu+s {} \;`;
-`sudo find /Volumes/${hostname}space/ -type f -exec chmod gu+rw {} \;`;
+    print("sudo find /Volumes/${hostname}space/ -not -type d -print -exec chmod a-x {} \\; \n"...);
+    `sudo find /Volumes/${hostname}space/ -not -type d -print -exec chmod a-x {} \\; `;
+    print("sudo find /Volumes/${hostname}space/ -type d -exec chmod gu+s {} \; ... \n");
+    `sudo find /Volumes/${hostname}space/ -type d -exec chmod gu+s {} \;`;
+    print("sudo find /Volumes/${hostname}space/ -type f -exec chmod gu+rw {} \; ... \n");
+   `sudo find /Volumes/${hostname}space/ -type f -exec chmod gu+rw {} \;`;
 } else {
-    print("# Space drive permission commands not run because you are not an admin.\n");
-print("# Thsese should be run at once to make sure archives do not generate permission errors\n");
-print("sudo chown -R omega:ipl /Volumes/${hostname}space/\n");
-print("sudo find /Volumes/${hostname}space/ -x -not -type d -print -exec chmod a-x {} \\; \n");
-print("sudo find /Volumes/${hostname}space/ -type d -exec chmod gu+s {} \;\n");
-print("sudo find /Volumes/${hostname}space/ -type f -exec chmod gu+rw {} \;\n");
-
-
-
+    if ( ! $isadmin ) {
+	print("# Space drive permission commands not run because you are not an admin.\n");
+    } elsif ( defined $opts{p}) {
+	print("# Space drive permission commands not run because -p option not used.\n");
+    }
+    print("# Thsese should be run at once to make sure archives do not generate permission errors\n");
+    print("sudo chown -R omega:ipl /Volumes/${hostname}space/\n");
+    print("sudo find /Volumes/${hostname}space/ -x -not -type d -print -exec chmod a-x {} \\; \n");
+    print("sudo find /Volumes/${hostname}space/ -type d -exec chmod gu+s {} \;\n");
+    print("sudo find /Volumes/${hostname}space/ -type f -exec chmod gu+rw {} \;\n");
 }
 if (  $isrecon )
 { #$name !~ /omega/x 
