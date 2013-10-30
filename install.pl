@@ -907,13 +907,13 @@ $infile="$wks_home/analysis/james_imagejmacros";
 ###
 if ( $isadmin && defined $opts{p}) { 
     print("sudo chown -R omega:ipl /Volumes/${hostname}space/ ...\n");
-    `sudo chown -R omega:ipl /Volumes/${hostname}space/`;
+#    `sudo chown -R omega:ipl /Volumes/${hostname}space/`;
     print("sudo find /Volumes/${hostname}space/ -not -type d -print -exec chmod a-x {} \\;  ... \n");
-    `sudo find /Volumes/${hostname}space/ -not -type d -print -exec chmod a-x {} \\; `;
+#    `sudo find /Volumes/${hostname}space/ -not -type d -print -exec chmod a-x {} \\; `;
     print("sudo find /Volumes/${hostname}space/ -type d -exec chmod gu+s {} \\; ... \n");
     `sudo find /Volumes/${hostname}space/ -type d -exec chmod gu+s {} \\;`;
     print("sudo find /Volumes/${hostname}space/ -type f -exec chmod gu+rw {} \\; ... \n");
-   `sudo find /Volumes/${hostname}space/ -type f -exec chmod gu+rw {} \\;`;
+#   `sudo find /Volumes/${hostname}space/ -type f -exec chmod gu+rw {} \\;`;
 } else {
     if ( ! $isadmin ) {
 	print("# Space drive permission commands not run because you are not an admin.\n");
@@ -928,11 +928,16 @@ if ( $isadmin && defined $opts{p}) {
 }
 if (  $isrecon )
 { #$name !~ /omega/x 
+    print("chgrp -R recon $wks_home ... \n"); # there doesnt have to be an ipl group
     `chgrp -R recon $wks_home`; # there doesnt have to be an ipl group
-    `find $wks_home -type d -exec chmod ug+s {} \;`;
+    print("find $wks_home -type d -exec chmod ug+s {} \\; ... \n");
+    `find $wks_home -type d -exec chmod ug+s {} \\;`;
+    print("chmod a+rwx $wks_home/dir_param_files ... \n");
     `chmod a+rwx $wks_home/dir_param_files`;
 #`chmod ug+s $wks_home/dir_param_files`;
+    print("chgrp ipl $wks_home/pipeline_settings/recon_menu.txt ... \n");
     `chgrp ipl $wks_home/pipeline_settings/recon_menu.txt`;
+    print("chgrp -R ipl $wks_home/dir_param_files ... \n");
     `chgrp -R ipl $wks_home/dir_param_files`;
 #`chgrp $wks_home/pipeline_settings/recon_menu.txt`;
 #`find . -iname "*.pl" -exec chmod a+x {} \;` # hopefully this is unnecessar and is handled by the perlexecs linking to bin section above. 
