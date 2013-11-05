@@ -932,15 +932,20 @@ if (  $isrecon )
 { #$name !~ /omega/x 
     print("chgrp -R recon $wks_home ... \n"); # there doesnt have to be an ipl group
     `chgrp -R recon $wks_home`; # there doesnt have to be an ipl group
-    print("find $wks_home -type d -exec chmod ug+s {} \\; ... \n");
-    `find $wks_home -type d -exec chmod ug+s {} \\;`;
-    print("find $wks_home -type f -exec chmod ug+rw {} \\; ... \n");
-    `find $wks_home -type f -exec chmod ug+rw {} \\;`;
-    print("chmod 775 $wks_home/dir_param_files ... \n");
-    `chmod 775 $wks_home/dir_param_files`;
-    print("chgrp -R ipl $wks_home/dir_param_files ... \n");
+}
+
+print("find $wks_home -type d -exec chmod ug+s {} \\; ... \n");
+`find $wks_home -type d -exec chmod ug+s {} \\;`;
+print("find $wks_home -type f -exec chmod ug+rw {} \\; ... \n");
+`find $wks_home -type f -exec chmod ug+rw {} \\;`;
+print("chmod 775 $wks_home/dir_param_files ... \n");
+`chmod 775 $wks_home/dir_param_files`;
+`chmod ug+s $wks_home/dir_param_files`;
+print("chgrp -R ipl $wks_home/dir_param_files ... \n");
+
+if ( $isipl ) 
+{
     `chgrp -R ipl $wks_home/dir_param_files`;
-#`chmod ug+s $wks_home/dir_param_files`;
     print("chgrp ipl $wks_home/pipeline_settings/recon_menu.txt ... \n");
     `chgrp ipl $wks_home/pipeline_settings/recon_menu.txt`;
 
