@@ -936,8 +936,8 @@ if (  $isrecon )
     `find $wks_home -type d -exec chmod ug+s {} \\;`;
     print("find $wks_home -type f -exec chmod ug+rw {} \\; ... \n");
     `find $wks_home -type f -exec chmod ug+rw {} \\;`;
-    print("chmod 666 $wks_home/dir_param_files ... \n");
-    `chmod 666 $wks_home/dir_param_files`;
+    print("chmod 775 $wks_home/dir_param_files ... \n");
+    `chmod 775 $wks_home/dir_param_files`;
     print("chgrp -R ipl $wks_home/dir_param_files ... \n");
     `chgrp -R ipl $wks_home/dir_param_files`;
 #`chmod ug+s $wks_home/dir_param_files`;
