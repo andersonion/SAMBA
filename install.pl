@@ -262,13 +262,15 @@ if ( $#g_errors>=0) {
 	`cp pipeline_settings/mac/environment.plist ${HOME}/.MacOSX/.`; 
 	print(" Copied environment plist\n");
     } else { 
-	print ("environment.plist already in place\n");
+	print ("environment.plist already in place\n\tHoping it is correct.");
     }
 
-    if( ! -e "${HOME}/.${shell}_env_to_mac_gui" ) {
-	`cp pipeline_settings/${shell}/${shell}_env_to_mac_gui ${HOME}/.${shell}_env_to_mac_gui`;
-	print (" Copied ${shell} to gui stub\n");
+    if(  -e "${HOME}/.${shell}_env_to_mac_gui" ) {
+	rm ${HOME}/.${shell}_env_to_mac_gui;
     }
+    `cp pipeline_settings/${shell}/${shell}_env_to_mac_gui ${HOME}/.${shell}_env_to_mac_gui`;
+    print (" Copied ${shell} to gui stub\n");
+    
 
 
 ###
@@ -480,7 +482,7 @@ if ( $#g_errors>=0) {
     }
 
 ###
-# update engine_something_pipeline_dependencis.
+# update engine_something_dependencies.
 ###
 ###
 # copy engine_hostname_dependencis to backup and 
@@ -542,7 +544,7 @@ if ( $#g_errors>=0) {
 	my $string;
 	open SESAME_OUT, ">$outpath" or warn "could not open $outpath for writing\n";
 	for my $line (@all_lines) {
-# # warkstation workflow settings file
+# # wrkstation workflow settings file
 # # format like headfile
 	    if ( $line =~ /^engine=hostname/x ) { 
 		$string="engine=$hostname";
@@ -564,6 +566,9 @@ if ( $#g_errors>=0) {
 # engine_archive_tag_directory=/engine_work_directory/Archive_Tags
 	    } elsif ($line =~ /^engine_archive_tag_directory=/x ) {
 		$string="engine_archive_tag_directory=/Volumes/${hostname}space/Archive_Tags";
+		if ( ! -d "/Volumes/${hostname}space/Archive_Tags") {
+		    `mkdir "/Volumes/${hostname}space/Archive_Tags"`;
+		    }
 # engine_waxholm_canonical_images_dir=/wks_home/whs_references/whs_canonical_images/alx_can_101103
 	    } elsif ($line =~ /^engine_waxholm_canonical_images_dir=/x ) {
 		$string="engine_waxholm_canonical_images_dir=$data_home/atlas/whs/whs_canonical_images/alx_can_101103";
@@ -790,6 +795,7 @@ if ( $isrecon ) {
     push(@perl_execs,qw(agi_recon agi_reform agi_scale_histo dumpAgilentHeader1 dumpHeader.pl rollerRAW:roller_radish lxrestack:restack_radish validate_headfile_for_db.pl:validate_header puller.pl puller_simple.pl radish.pl display_bruker_header.perl radish_agilentextract.pl display_agilent_header.perl sigextract_series_to_images.pl k_from_rp.perl:kimages retrieve_archive_dir.perl:imgs_from_archive pinwheel_combine.pl:pinwheel keyhole_3drad_KH20_replacer:keyreplacer re-rp.pl main_tensor.pl:tensor_create recon_group.perl group_recon_scale_gui.perl:radish_scale_bunch radish_brukerextract/main.perl:brukerextract main_seg_pipe_mc.pl:seg_pipe_mc archiveme_now.perl:archiveme t2w_pipe_slg.perl:fic mri_calc reform_group.perl reformer_radish.perl getbruker.bash));
 }
 #dumpEXGE12xheader:header
+my @link_summary=();
 for $infile ( @perl_execs )
 {
     if ($infile =~ /:/x ) 
@@ -801,12 +807,15 @@ for $infile ( @perl_execs )
        $outname = basename($infile,qw(.pl .perl));
     }
     my %files;
-    print("Finding $infile in $in_dir ...");
+    my $link_text="";
+    $link_text="Finding $infile in $in_dir ...";
+    #print("Finding $infile in $in_dir ...");
     find( sub { ${files{$File::Find::name}} = 1 if ($_ =~  m/^$infile$/x ) ; },"$in_dir");
     my @temp=sort(keys(%files));
     my @fnames;
     # clean out anything with junk in path
     #$wks_home/shared/
+
     if(defined ( $#temp ) ) { 
 	#print ( "ERROR: find function found too many files (@fnames) \n");
 	my $found = 0;
@@ -824,9 +833,11 @@ for $infile ( @perl_execs )
 	}
 	if ( $found)
 	{
-	    print("  found! ...");
+	    $link_text="  found! ...";
+	    #print("  found! ...");
 	} else {
-	    print("  NOT_FOUND.");
+	    $link_text="$link_text  NOT_FOUND.";
+	    #print("  NOT_FOUND.");
 	}
     }
     if ( defined ( $fnames[0]) && $#fnames<1) 
@@ -844,16 +855,25 @@ for $infile ( @perl_execs )
 	    print(SESAME_OUT "unlink ".basename($ln_dest)."\n");	
 	    `chmod 775 bin/$outname`;
 	    `chmod 775 $ln_source`;
-	    print( " linked.\n");
+	    $link_text="$link_text linked.\n";
+	    #print( " linked.\n");
 	} else { 
 	    print (" NOT A LINK, NOT OVERWRITING!\n");
 	}
     } else {
-	print (" NOT_LINKED!\n");
+	$link_text="$link_text NOT_LINKED!\n";
+        #print (" NOT_LINKED!\n");
 #	print ("$infile  in $in_dir\n");
     }
+    if ( $link_text =~ m/.*NOT.*/x ) {
+	push(@link_summary,"$link_text");
+    } else {
+	print(".");
+    }
 }
+print("\n");
 close SESAME_OUT;
+print(@link_summary);
 ### some legacy linking
 # Legacy Link puller
 if ( $isrecon ) { 
