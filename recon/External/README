@@ -1,0 +1,3 @@
+Location to dump/link copy external libraries to. 
+separated by function sorta.
+mri_unbound code is placed here from the zips folder by the install script

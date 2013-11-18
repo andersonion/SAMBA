@@ -31,9 +31,9 @@ if ( ! getopts('p',\%opts) ) {
 
 my $shell =  basename($ENV{SHELL});
 my $wks_home=dirname(abs_path($0));
+my $data_home="/Volumes/workstation_data/data";
 my $oracle_inst="$wks_home/../oracle"; 
 my $oracle_version="11.2";
-my $data_home="/Volumes/workstation_data/data";
 my $hostname=hostname;
 # if allowed to check.
 my $name=getpwuid( $< ) ;
@@ -179,6 +179,7 @@ if ( $#g_errors>=0) {
 #my $wrk_host        ="export WORKSTATION_HOSTNAME=$hostname";
     my $wrk_home       ="export WORKSTATION_HOME=$wks_home";
     my $wrk_src        ="source \$WORKSTATION_HOME/pipeline_settings/${shell}/${shell}rc_pipeline_setup";
+    my $wrk_data     ="export WORKSTATION_DATA=$data_home";
 #my $rad_host        ="export RECON_HOSTNAME=$hostname";
     my $rad_home       ="export RADISH_RECON_DIR=$wks_home/recon/legacy";
     my $rad_src        ="source \$WORKSTATION_HOME/pipeline_settings/${shell}/legacy_radish_${shell}rc";
@@ -555,6 +556,9 @@ if ( $#g_errors>=0) {
 # engine_work_directory=/Volumes/enginespace
 	    } elsif ($line =~ /^engine_work_directory=/x ) {
 		$string="engine_work_directory=/${hostname}space";
+# engine_data_directory=/Volumes/worktation_data/data
+	    } elsif ($line =~ /^engine_data_directory=/x ) {
+		$string="engine_data_directory=$data_home";
 # engine_recongui_paramfile_directory=/wks_home/dir_param_files
 	    } elsif ($line =~ /^engine_recongui_paramfile_directory=/x ) {
 		$string="engine_recongui_paramfile_directory=$wks_home/dir_param_files";
