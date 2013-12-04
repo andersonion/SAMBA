@@ -108,6 +108,17 @@ if ( $#g_errors>=0) {
 	print("TODO createm missing groups, add basic memberships\n");
     }
 }
+### 
+# check for required programs
+###
+# sohuld fail loudly if not found? or do as much as possible first?
+# 
+# need xcode 
+#   need command line tools, checkable using the make command.
+# need matlab2013b or newer
+# need image j
+# 
+
 ###
 # put source ${HOME}/.${shell}rc in .${shell}_profile
 ### 
@@ -401,27 +412,28 @@ if ( $#g_errors>=0) {
 		chdir $wks_home;
 	    }
 	    `mv $oracle_inst/*/* $oracle_inst`;
+	}
+	if ( 1 ) { 
+	    print("creating oracle_cpaninst.bash for root to run\n");
+	    my $outpath="$wks_home/oracle_cpaninst.bash";
+	    open SESAME_OUT, ">$outpath"; 
+	    print SESAME_OUT "#!/bin/bash\n".
+		"declare -x ORACLE_HOME=$oracle_inst\n".
+		"declare -x DYLD_LIBRARY_PATH=$oracle_inst\n".
+		"cpan YAML\n".
+		"cpan DBI\n".
+		"cpan DBD::Oracle\n";
+	    close SESAME_OUT;
 	    
-	    if ( 1 ) { 
-		print("creating oracle_cpaninst.bash for root to run\n");
-		my $outpath="$wks_home/oracle_cpaninst.bash";
-		open SESAME_OUT, ">$outpath"; 
-		print SESAME_OUT "#!/bin/bash\n".
-		    "declare -x ORACLE_HOME=$oracle_inst\n".
-		    "declare -x DYLD_LIBRARY_PATH=$oracle_inst\n".
-		    "cpan DBI\n".
-		    "cpan DBD::Oracle\n";
-		close SESAME_OUT;
-		
-		my $cmd="sudo bash $outpath && unlink $outpath";
-		open my $cmd_fh, "$cmd |";   # <---  | at end means to make command 
-		#         output available to the handle
-		while (<$cmd_fh>) 
-		{
-		    print "$_";
-		}
+	    my $cmd="sudo bash $outpath && unlink $outpath";
+	    open my $cmd_fh, "$cmd |";   # <---  | at end means to make command 
+	    #         output available to the handle
+	    while (<$cmd_fh>) 
+	    {
+		print "$_";
 	    }
 	}
+	
 	#--with-oracle-lib-path
 	chdir $wks_home;
 # % whence perl  # or whatever command returns the version of perl first in your path.   
