@@ -267,7 +267,7 @@ if ( $#g_errors>=0) {
     }
 
     if(  -e "${HOME}/.${shell}_env_to_mac_gui" ) {
-	rm ${HOME}/.${shell}_env_to_mac_gui;
+	`rm ${HOME}/.${shell}_env_to_mac_gui`;
     }
     `cp pipeline_settings/${shell}/${shell}_env_to_mac_gui ${HOME}/.${shell}_env_to_mac_gui`;
     print (" Copied ${shell} to gui stub\n");
