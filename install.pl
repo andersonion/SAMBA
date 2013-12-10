@@ -443,7 +443,16 @@ if ( $#g_errors>=0) {
 #  % perl Makefile.PL -V 10.2 
 #  % make 
 #  % make install 
-	
+###
+# add student matlab
+###	
+	if ( ! -e "../student_matlab/evan" ) {
+	    print("Studnet matlab not found, Required for some DCE code.");
+	    `mkdir -p "../student_matlab"`;
+	    my $scp_cmd="scp -r panorama:/Volumes/workstation_home/student_matlab/evan/evan_matlab ../student_matlab/evan";
+	    print ("$scp_cmd\n");
+	    `$scp_cmd`;
+	}
 	
     }
 #    exit();
