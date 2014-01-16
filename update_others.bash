@@ -16,6 +16,7 @@ for host in `cat temphost.list | sort -u`
 do
     dir=`pwd`
     echo " --- updating host $host : $dir ---"
-    ssh -o ConnectTimeout=1 $host /opt/subversion/bin/svn update $dir 2>&1 > $WORKSTATION_HOME/logs/svn_update_${host}.log &
+    ssh -o ConnectTimeout=1 $host /opt/subversion/bin/svn cleanup $dir 2>&1 > $WORKSTATION_HOME/logs/svn_update_${host}.log 
+    ssh -o ConnectTimeout=1 $host /opt/subversion/bin/svn update $dir 2>&1 >> $WORKSTATION_HOME/logs/svn_update_${host}.log &
 done
 rm temphost.list
