@@ -1,13 +1,18 @@
 #!/bin/bash
 # simple script to run and svn update directories on each host
 
-hostlist=""
+
+
+hostlist="$@"
+if [ -z "$hostlist" ] 
+then
 # get just names from the files
-for file in `ls $WORKSTATION_HOME/pipeline_settings/engine_deps/engine_*_dependencies`
-do 
-    filename=`basename $file`
-    hostlist="$hostlist `echo $filename | cut -d '_' -f2`"
-done
+    for file in `ls $WORKSTATION_HOME/pipeline_settings/engine_deps/engine_*_dependencies`
+    do 
+	filename=`basename $file`
+	hostlist="$hostlist `echo $filename | cut -d '_' -f2`"
+    done
+fi
 # put names in a file one line at a time
 for host in $hostlist ; do echo $host >>temphost.list; done 
 
