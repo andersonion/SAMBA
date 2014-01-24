@@ -449,7 +449,7 @@ if ( $#g_errors>=0) {
 	if ( ! -e "../student_matlab/evan" ) {
 	    print("Studnet matlab not found, Required for some DCE code.");
 	    `mkdir -p "../student_matlab"`;
-	    my $scp_cmd="scp -r panorama:/Volumes/workstation_home/student_matlab/evan/evan_matlab ../student_matlab/evan";
+	    my $scp_cmd="scp -r panorama:$wks_home/student_matlab/evan/evan_matlab ../student_matlab/evan";
 	    print ("$scp_cmd\n");
 	    `$scp_cmd`;
 	}
@@ -947,6 +947,21 @@ $infile="$wks_home/analysis/james_imagejmacros";
     `$ln_cmd`;
 }
 }
+
+if ( ! -d $wks_home/matlab_fifos ) 
+{
+    my $fifo_dir="$wks_home/../matlab_fifos";
+    my $mkdir_cmd = "mkdir -p $fifo_dir" ;
+    print("$mkdir_cmd\n");
+    `$mkdir_cmd` or warn "could not make the fifo dir $fifo_dir";
+    
+    print("chmod 775 $fifo_dir\n");
+    `chmod 775 $fifo_dir`;
+    `chmod ug+s $fifo_dir`;
+    print("chgrp -R ipl $fifo_dir\n");
+    `chgrp -R ipl $fifo_dir`;
+}
+
 ###
 # permisison cleanup
 ###
