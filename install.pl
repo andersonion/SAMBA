@@ -948,7 +948,7 @@ $infile="$wks_home/analysis/james_imagejmacros";
 }
 }
 
-if ( ! -d $wks_home/matlab_fifos ) 
+if ( ! -d $wks_home."/matlab_fifos" ) 
 {
     my $fifo_dir="$wks_home/../matlab_fifos";
     my $mkdir_cmd = "mkdir -p $fifo_dir" ;
