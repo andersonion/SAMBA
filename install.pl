@@ -596,10 +596,10 @@ if ( $#g_errors>=0) {
 		    }
 # engine_waxholm_canonical_images_dir=/wks_home/whs_references/whs_canonical_images/alx_can_101103
 	    } elsif ($line =~ /^engine_waxholm_canonical_images_dir=/x ) {
-		$string="engine_waxholm_canonical_images_dir=$data_home/atlas/whs/whs_canonical_images/alx_can_101103";
+		$string="engine_waxholm_canonical_images_dir=$data_home/atlas/whs2";
 # engine_waxholm_labels_dir=/wks_home/whs_references/whs_labels/canon_labels_101103
 	    } elsif ($line =~ /^engine_waxholm_labels_dir=/x ) {
-		$string="engine_waxholm_labels_dir=$data_home/atlas/whs/whs_labels/cannon_labels_101103";
+		$string="engine_waxholm_labels_dir=$data_home/atlas/whs2";
 # engine_app_dti_recon_param_dir=/wks_home/dti_references
 	    } elsif ($line =~ /^engine_app_dti_recon_param_dir=/x ) {
 		$string="engine_app_dti_recon_param_dir=$wks_home/pipeline_settings/tensor";
@@ -785,7 +785,7 @@ my $outname;
 my $in_dir="$wks_home/";
 push(@dependency_paths,glob("$wks_home/pipeline_settings/engine_deps/*${hostname}*"));
 push(@dependency_paths,glob("$wks_home/pipeline_settings/scanner_deps/*"));
-# link dependency files to "recon_home" dir 
+# link dependency files to "recon_home" dir for legacy processes
 if ( $isrecon) { 
 for $infile ( @dependency_paths ) 
 {
@@ -992,6 +992,12 @@ if (  $isrecon )
 { #$name !~ /omega/x 
     print("chgrp -R recon $wks_home ... \n"); # there doesnt have to be an ipl group
     `chgrp -R recon $wks_home`; # there doesnt have to be an ipl group
+    if ( ! -d "$data_home/atlas/whs2" ) {
+	`mkdir -p "$data_home/atlas/whs2"`;
+	`chmod 775 "$data_home/atlas/whs2"`;
+	`chgrp -R recon "$data_home/atlas/whs2"`;
+    }
+    
 }
 
 print("find $wks_home -type d -exec chmod ug+s {} \\; ... \n");
