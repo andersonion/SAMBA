@@ -1,5 +1,5 @@
 #!/bin/bash
-# simple script to run and svn update directories on each host
+# simple script to run and push a file from the current directoy on each host
 
 if [ $# -lt 0 ] 
 then
