@@ -747,7 +747,7 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
     if ( -f "$tarfile" ) 
     { 
 	chdir "$output_dirs[$idx]";
-	my $tar_cmd="tar -xvf $tarfile 2>&1";# | cut -d " " -f3-";
+	my $tar_cmd="tar --keep-newer-files -xvf $tarfile 2>&1";# | cut -d " " -f3-";
 	#print("Attempting tar cmd $tar_cmd\n");
 	my $output=qx($tar_cmd);
 	open SESAME_OUT, '>', "bin_uninstall.sh" or warn "couldnt open bin_uninstall.sh:$!\n";
