@@ -373,6 +373,10 @@ if ( $#g_errors>=0) {
 #    `$fsl_inst_cmd`;
 	    
 	}
+	### get fsl patches. we're up to two now. 
+	my $fslupdate=`civm_fslupdate.pl`;
+	#tar -zxvf ~/Downloads/fsl-macosx-patch-5.0.2_from_5.0.1.tar.gz
+	
 	my $OS='mac';
 	my $base_path="/Volumes/xsyros/software/oracle/";
 	if ( ! -d "$oracle_inst" ) 
