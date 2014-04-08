@@ -1004,8 +1004,8 @@ if (  $isrecon )
     
 }
 
-print("find $wks_home -type d -exec chmod ug+s {} \\; ... \n");
-`find $wks_home -type d -exec chmod ug+s {} \\;`;
+print("find $wks_home -type d -exec chmod ug+ws {} \\; ... \n");
+`find $wks_home -type d -exec chmod ug+ws {} \\;`;
 print("find $wks_home -type f -exec chmod ug+rw {} \\; ... \n");
 `find $wks_home -type f -exec chmod ug+rw {} \\;`;
 print("chmod 775 $wks_home/dir_param_files ... \n");
