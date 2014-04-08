@@ -21,7 +21,14 @@ for host in `cat temphost.list | sort -u`
 do
     dir=`pwd`
     echo " --- updating host $host : $dir ---"
-    ssh -o ConnectTimeout=1 $host /opt/subversion/bin/svn cleanup $dir 2>&1 > $WORKSTATION_HOME/logs/svn_update_${host}.log 
-    ssh -o ConnectTimeout=1 $host /opt/subversion/bin/svn update $dir 2>&1 >> $WORKSTATION_HOME/logs/svn_update_${host}.log &
+    out=`ssh -o ConnectTimeout=1 $host /opt/subversion/bin/svn --version |head -n 1 | cut -d ',' -f1 |grep -c svn`
+    if [ $out -eq 1 ]
+    then
+	svn="/opt/subversion/bin/svn"
+    else
+	svn="svn"
+    fi
+    ssh -o ConnectTimeout=1 $host $svn cleanup $dir 2>&1 > $WORKSTATION_HOME/logs/svn_update_${host}.log 
+    ssh -o ConnectTimeout=1 $host $svn update $dir 2>&1 >> $WORKSTATION_HOME/logs/svn_update_${host}.log &
 done
 rm temphost.list
