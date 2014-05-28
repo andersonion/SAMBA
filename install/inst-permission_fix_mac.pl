@@ -1,3 +1,6 @@
+sub permission_fix_mac () {
+    print("permission_fix_mac\n");
+    return 1;
 ###
 # permisison cleanup
 ###
@@ -56,3 +59,6 @@ if ( $isipl )
 } else {
     print("permissions not altered!\n only recon users can alter permissions. If install has already been run by an admin this is not an issue!\n");
 }
+return;
+}
+1;

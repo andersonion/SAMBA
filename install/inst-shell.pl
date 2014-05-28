@@ -1,3 +1,6 @@
+sub shell () {
+    print("shell\n");
+    return 1;
 ###
 # check shell supported.
 ###
@@ -156,3 +159,6 @@
     print SESAME_OUT join("\n",@oracle_lines)."\n";
     close SESAME_OUT;
 }
+return;
+}
+1;

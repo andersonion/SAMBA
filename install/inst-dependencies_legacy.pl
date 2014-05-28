@@ -1,5 +1,6 @@
-
-
+sub dependencies_legacy () {
+    print("dependencies_legacy\n");
+    return 1;
 #### 
 # make legacy links!
 ###
@@ -33,3 +34,6 @@ if ( $isrecon) {
     }
 }
 
+return;
+}
+1;

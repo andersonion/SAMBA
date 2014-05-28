@@ -1,4 +1,6 @@
-{
+sub macenv{
+    print("macenv\n");
+    return 1;
 # do an if mac check
 # later...
 ###
@@ -54,4 +56,6 @@
     }
     print("moving $outpath to $inpath\n");
     `mv $outpath $inpath`;
+return;
 }
+1;

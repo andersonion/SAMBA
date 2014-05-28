@@ -22,48 +22,159 @@ use Cwd 'abs_path';
 use Sys::Hostname;
 use File::Find;
 use Getopt::Std;
-#print basename($ENV{SHELL})."\n";
-my %opts;
-if ( ! getopts('p',\%opts) ) { 
+use Getopt::Long;
+use lib $ENV{PWD}.'/install';
+#use lib split(':',$RADISH_PERL_LIB);
+require install::subroutines;
+require install::order;
+
+
+
+Getopt::Long::Configure ("bundling", "ignorecase_always");
+
+
+my %dispatch_table=(); # look up of option function names to function refer3ences
+my %dispatch_status=();# look up to hold if we've run a function or not.
+my %option_list=();    # list of options recognized, built from the dispatch table.
+my %options=();        # the options specified on the command line.
+CraftOptionDispatchTable(\%dispatch_table,$ENV{PWD}.'/install');
+my @order = OptionOrder();
+my $opt_eval_string=CraftOptionList( \%dispatch_table, \%option_list);
+
+
+### debug check to seee we got functions for each option
+# print ("Option_list is:\n");
+# foreach ( keys %option_list ) {
+#     #print "option:".$_."-> ".$option_list{$_}."\n";
+#     print "option:".$_."\t\n";
+# }
+
+##################
+## work directly on the dispatch table, but this doesnt suit our use case
+## we want a default of do all options
+## this is equiavalent to  GetOptions ('opt=i' => \&handler);
+# if ( !GetOptions(%dispatch_table ) ) { 
+#     print("Option error\n");
+#     exit;
+# }
+##################
+
+
+###
+# get system information.
+###
+our $HOSTNAME=hostname;
+our $ARCH=`uname -m`; chomp($ARCH);
+my @alist = split(/\./, $HOSTNAME) ;
+$HOSTNAME=$alist[0];
+our $IS_MAC=0;#true always for now, should fix this to find linux
+our $OS="$^O\n";
+if ( $OS =~ /^darwin$/x ) {
+    $IS_MAC=1;
+} else { 
+    
+}
+###
+# get user information
+###
+our$DATA_HOME;
+our $SHELL    = basename($ENV{SHELL});
+our $WKS_HOME = dirname(abs_path($0));
+#wks_home= /volumes/workstation_home/software
+#if hostname is cluster
+if ( !$IS_MAC ) {
+   $DATA_HOME="$WKS_HOME/../data"
+} else {
+    print("Mac system, perhaps the old install.mac.pl would be more appropriate\n");
+   $DATA_HOME="/Volumes/workstation_data/data";
+}
+# admin_group is allowed to modifiy any files and permissions, 
+# edit_group is allowed to edit code and run recon/workstation code.
+# user_group is allowed to run recon/workstation code. 
+our $ADMIN_GROUP="admin";
+our $EDIT_GROUP;
+our $USER_GROUP="ipl";
+if ( $IS_MAC ) {
+    $EDIT_GROUP="recon" 
+}else {
+    $EDIT_GROUP="coders" 
+}
+our $IS_ADMIN=0;
+our $IS_CODER=0;
+our $IS_USER=0;
+###
+# process options
+###
+#print ("option specs are $opt_eval_string\n");
+#if ( !GetOptions(\%option_list ) ) { 
+#if ( !GetOptionsFromArray(\@ARGV,\%option_list ) ) { 
+if ( !GetOptions( eval $opt_eval_string,"admin_group=s" => \$ADMIN_GROUP ) ) { 
     print("Option error\n");
     exit;
 }
 
-my $shell =  basename($ENV{SHELL});
-my $wks_home=dirname(abs_path($0));
-my $data_home="/Volumes/workstation_data/data";
-#wks_home= /volumes/workstation_home/software
-#if hostname is cluster
-if ( 0 ) 
-{
-
-$data_home="$wks_home/../data"
+###
+# get the options to be forced on or off.
+###
+my @force_on=();  # list of options which are forced on
+my @force_off=(); # list of options which are forced off. forced off over rides forced on.
+for my $opt ( keys %options)  {
+    if( ($options{$opt} ) && ($opt =~ m/^skip_(.*)$/x ) ){
+	push @force_off,$1;
+    }elsif( ($options{$opt} ) ){
+	push @force_on,$opt;
+	
+    }
 }
-my $oracle_inst="$wks_home/../oracle"; 
-my $oracle_version="11.2";
-my $hostname=hostname;
+for my $opt(@force_on) { $options{$opt}=1; }
+for my $opt(@force_off){ $options{$opt}=0; print("skip $opt\n"); }
+for my $opt ( keys %options)  {
+    if ($opt =~ m/^skip_(.*)$/x ) {}
+    elsif($options{$opt}) {
+	print ("$opt on!\n");
+	if ( defined $dispatch_table{$opt} ) {
+	    print("\tFUNCT_CALL:$dispatch_table{$opt}\n");
+	}
+    }
+}
+
+
+###
+# group checks...
+###
 # if allowed to check.
 my $name=getpwuid( $< ) ;
-my $isadmin=`id | grep -c admin`;chomp($isadmin);
-my $isrecon=`id | grep -c recon`;chomp($isrecon);
-my $isipl=`id | grep -c ipl`;chomp($isipl);
+# using the id field, check for groups, $ADMIN_GROUP, $EDIT_GROUP, and $USER_GROUP.
 
-my @alist = split(/\./, $hostname) ;
-my $arch=`uname -m`;
-chomp($arch);
-$hostname=$alist[0];
+
 
 #check for install.pl in wks_home to make sure we're running in right dir.
 # ... later
 # svn info to check installpl location.
 
+### run all.
+#for my $opt ( keys %dispatch_table)  {
+### run in order
+for my $opt ( @order ) {
+#    print ("Run $opt\n");
+    if ( ! $options{'skip_'.$opt} ) {
+	# for default behavior optinos{opt} is undefined, for force on it is is 1, for force off it is 0.
+	my $status=$dispatch_table{$opt}->($options{$opt} #put params in here.
+	    );
+	$dispatch_status{$opt}=$status;
+	if ( !$status ){
+	    print ("ERROR: $opt failed!\n");
+	} 
+    }
+}
+
+
 exit;
-quit;
+#quit;
 stop();
 error();
 
 
 
 print("use source ~/.bashrc to enable settings now, otherwise quit terminal or restart computer\n");
-
 

@@ -1,4 +1,6 @@
-
+sub matlab_fifo () {
+    print("matlab_fifo\n");
+    return 1;
 if ( ! -d $wks_home."/matlab_fifos" ) 
 {
     my $fifo_dir="$wks_home/../matlab_fifos";
@@ -12,3 +14,6 @@ if ( ! -d $wks_home."/matlab_fifos" )
     print("chgrp -R ipl $fifo_dir\n");
     `chgrp -R ipl $fifo_dir`;
 }
+return;
+}
+1;

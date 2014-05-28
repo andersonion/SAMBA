@@ -1,3 +1,6 @@
+sub legacy_tars () {
+    print("legacy_tars\n");
+    return 1;
 ###
 # get legacy tar files
 ###
@@ -105,3 +108,6 @@ for( my $idx=0;$idx<=$#legacy_tars;$idx++)
 	sleep(4);
     }
 }
+return; 
+}
+1;

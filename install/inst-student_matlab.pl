@@ -1,3 +1,6 @@
+sub student_matlab () {
+    print("student_matlab\n");
+    return 1;
 ###
 # add student matlab
 ###	
@@ -8,3 +11,6 @@
 	    print ("$scp_cmd\n");
 	    `$scp_cmd`;
 	}
+	return ; 
+}
+1;

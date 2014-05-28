@@ -1,3 +1,8 @@
+sub bin_link ()
+{
+    print("bin_links\n");
+    return 1;
+
 open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or warn "couldnt open bin_uninstall.sh:$!\n";
 # 	print(SESAME_OUT "#bin uninstall generated from installer.\n");
 # 	print("dumping output of tar$tarfile to $output_dirs[$idx]\n");
@@ -97,3 +102,6 @@ for $infile ( @perl_execs )
 print("\n");
 close SESAME_OUT;
 print(@link_summary);
+return;
+}
+1;

@@ -1,3 +1,6 @@
+sub fsl() {
+    print("fsl\n");
+    return 1;
 	if ( ! -d "../fsl" ) 
 	{
 	    print("---\n");
@@ -66,3 +69,6 @@
 	close SESAME_OUT;
     }
 
+	return;
+}
+1;

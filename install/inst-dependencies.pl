@@ -1,3 +1,6 @@
+sub dependencies (){
+    print("dependencies\n");
+    return 1;
 ###
 # update engine_something_dependencies.
 ###
@@ -149,3 +152,6 @@
 	print("moving $outpath to $inpath\n");
 	`mv $outpath $inpath`;
 #`mv  ${dep_file}.bak $dep_file`
+	return;
+}
+1;
