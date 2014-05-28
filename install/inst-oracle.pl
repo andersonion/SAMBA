@@ -6,17 +6,19 @@ sub oracle () {
     #$ENV{PWD}
     use ENV qw(DYLD_LIBRARY_PATH );
 #
-    if ( -d "$oracle_inst_dir" && $ENV{DYLD_LIBRARY_PATH} =~ m/$oracle_inst_path/x && $ENV{ORACLE_HOME} =~ m/$oracle_inst_path/x ) {
+    if ( -d "$oracle_inst_dir" && $ENV{DYLD_LIBRARY_PATH} =~ m/$oracle_inst_dir/x && $ENV{ORACLE_HOME} =~ m/$oracle_inst_dir/x ) {
 	$work_done=1; 
     } else {
 	if ( ! -d "$oracle_inst_dir" ){
 	    print("oracle_inst_dir $oracle_inst_dir not found\n");
 	}
-	if ( $ENV{DYLD_LIBRARY_PATH} !~ m/$oracle_inst_path/x ) {
-	    print("oracle_inst_path not in DYLD_LIBRARY_PATH.\n");
-	}
-	if ( $ENV{ORACLE_HOME} !~ m/$oracle_inst_path/x ) {
-	    print("oracle_inst_path not in ORACLE_HOME\n");
+	if ( $ENV{DYLD_LIBRARY_PATH} !~ m/$oracle_inst_dir/x ) {
+	    print("oracle_inst_dir not in DYLD_LIBRARY_PATH.\n".
+		  "$ENV{DYLD_LIBRARY_PATH} !~ m/$oracle_inst_dir/x");
+		}
+	if ( $ENV{ORACLE_HOME} !~ m/$oracle_inst_dir/x ) {
+	    print("oracle_inst_dir not in ORACLE_HOME\n ".
+		  "$ENV{ORACLE_HOME} !~ m/$oracle_inst_dir/x ");
 	}
     }
     if( $mode ){
