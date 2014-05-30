@@ -28,11 +28,8 @@ sub svn_externals () {
 ###
 # if we're a git project find all .svn.externals 
 ###
-<<<<<<< HEAD
     my @svn_externals=`find . -name ".svn.externals"`; # -maxdepth 2`; while testing this was used.
-=======
-    my @svn_externals=`find . -name ".svn.externals" -maxdepth 1`;
->>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
+    
     chomp @svn_externals;
 ###
 # for each .svn.externals go to that folder and try to find project on jamesjcook github.
@@ -63,11 +60,7 @@ sub process_external_file() {
 	open($INPUT, $infile) || warn "Error opening $infile : $!\n";
 	#print("looking up pattern $pattern in file $infile\n");
 	chdir $checkout_dir;
-<<<<<<< HEAD
 	print("\tworking on externals in $checkout_dir\n");
-=======
-	print("working on externals in $checkout_dir\n");
->>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
 	while(<$INPUT>) {
 	    #if ( $_ ~ m/[\w]+[\s]+(?:svn(?:+ssh)?)|http|file:\/\//x) {
 	    chomp;
@@ -76,24 +69,14 @@ sub process_external_file() {
 		$found += 1;
 		# exit; # put the exit here, if only the first match is required
 	    } else {
-<<<<<<< HEAD
 		print "  nomatch ".$_;
-=======
-		print "nomatch ".$_;
->>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
 	    }
 	}
 	close($INPUT);
 	chdir $c_dir;
-<<<<<<< HEAD
 	print ("\tprocessed $found externals in $infile. Going back to $c_dir.\n");
     } else {
 	print("  Bogus input file $infile.\n");
-=======
-	print ("processed $found externals in $infile. Going back to $c_dir.\n");
-    } else {
-	print("Bogus input file $infile.\n");
->>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
     }
     return;
 	
@@ -106,7 +89,6 @@ sub process_external_deff(){
     my( $local_name,$url_type,$svnpath_string)= $ext_def =~ /^([\w]+)[\s]+
     ((?:svn(?:\+ssh)?)|http|file):\/\/
     ((?:[\w.-]+[\/\\]?)+)/gx;
-<<<<<<< HEAD
     #print("\t\tname:$local_name type:$url_type repo_path:$svnpath_string\n");
     my @svnpath=split ('/',$svnpath_string);
     my $git_project='UNKNOWN';
@@ -203,22 +185,6 @@ sub process_external_deff(){
     } else {
 	push (@errors, "error with git_name, local_name or branch.git_name=$git_project, Localname=$local_name, branch=$branch\n");
     }
-=======
-    print("name:$local_name type:$url_type repo_path:$svnpath_string\n");
-    my @svnpath=split ('/',$svnpath_string);
-    my $git_project='UNKNOWN';
-    my $git_url='UNKNOWN';
-    if ( $svnpath[$#svnpath] =~ m/trunk/x ) {
-	$git_project=$svnpath[$#svnpath-1];
-    }
-    $git_url=$GITHUB_BASE.$git_project.$GITHUB_SUFFIX;
-    if ( ! -d $local_name ){
-	print ( "git fetch $git_url $local_name\n");
-    } else {
-	print ("update from git\n");
-    }
-   
->>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
 #     $ext_def =~ /^([\w]+)[\s]+
 #     ((?:svn(?:\+ssh)?)|http|file):\/\/
 #     ([\w.-]+[\/\\]?)+$/x;
@@ -228,7 +194,6 @@ sub process_external_deff(){
 
 
 #    print("name:$local_name2 type:$url_type2 repo_path:".join("::",@svnpath)."\n");    
-<<<<<<< HEAD
     if ( $#errors>=0) {
 	print @errors;
     }
@@ -265,12 +230,6 @@ sub check_add_gitignore () {
 	print $FILE $gitigline."$pattern\n";
 	close $FILE;
     }
-
-}
-=======
-    
     return;
 }
-
->>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
 1;
