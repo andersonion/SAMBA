@@ -10,6 +10,7 @@
 # CraftOptionList
 # );
 # }
+use warnings;
 
 sub CraftOptionDispatchTable ()
 {
@@ -76,7 +77,7 @@ sub CraftOptionList() {
 	#$o_ref->{$key}='\\\$options{$key}';
 	#$o_ref->{$key}='\$key';
 	my $type='';
-	if ( $type == '' ) {
+	if ( $type eq '' ) {
 	    $type='!';
 	}
 	$o_string="'$key$type' => ".$o_ref->{$key}.",".$o_string;
@@ -85,6 +86,33 @@ sub CraftOptionList() {
     }
     
     return $o_string;
+}
+
+sub CheckFileForPattern {
+    my $infile  = shift @_;
+    my $pattern = shift @_; 
+    my $INPUT;
+    my $found=0;
+    $infile =~ s/~/${HOME}/gx;
+    if (-f $infile ){
+    open($INPUT, $infile) || warn "Error opening $infile : $!\n";
+    #print("looking up pattern $pattern in file $infile\n");
+    while(<$INPUT>) {
+	if (m/$pattern/x) {
+#	if ( $_=~/$pattern/) {
+	    #print;
+	    $found += 1;
+	    # exit; # put the exit here, if only the first match is required
+	} else {
+	    #print "nomatch ".$_;
+	}
+    }
+    close($INPUT);
+    #print ("CheckFile out $found\n");
+    } else {
+	$found=-1;
+    }
+    return $found;
 }
 
 1;

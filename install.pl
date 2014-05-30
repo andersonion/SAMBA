@@ -80,6 +80,7 @@ if ( $OS =~ /^darwin$/x ) {
 our$DATA_HOME;
 our $SHELL    = basename($ENV{SHELL});
 our $WKS_HOME = dirname(abs_path($0));
+our $HOME=$ENV{HOME};
 #wks_home= /volumes/workstation_home/software
 #if hostname is cluster
 if ( !$IS_MAC ) {
@@ -108,7 +109,7 @@ our $IS_USER=0;
 #print ("option specs are $opt_eval_string\n");
 #if ( !GetOptions(\%option_list ) ) { 
 #if ( !GetOptionsFromArray(\@ARGV,\%option_list ) ) { 
-if ( !GetOptions( eval $opt_eval_string,"admin_group=s" => \$ADMIN_GROUP ) ) { 
+if ( !GetOptions( eval $opt_eval_string,"admin_group=s" => \$ADMIN_GROUP, "WKS_HOME=s" => \$WKS_HOME) ) { 
     print("Option error\n");
     exit;
 }

@@ -1,8 +1,9 @@
 check_prereqs
 group
-oracle
+svn_externals
 shell
 macenv
+oracle
 fsl
 ants
 dependencies
