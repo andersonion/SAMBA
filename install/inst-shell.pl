@@ -1,164 +1,125 @@
+use warnings;
 sub shell () {
-    print("shell\n");
-    return 1;
+    my $mode = shift;
 ###
 # check shell supported.
 ###
-{ 
-    if ( $shell !~ m/bash/x ) {
-	print ("ERROR: shell is not bash, other shells un tested.");
-	exit(1);
-    } elsif(  $shell =~ m/bash/x) {
-	print ("Shell check match=bash\n");
-	$shell = "bash";
-    } elsif ( $shell =~ m/[t]?csh/x) {
-	print ("Shell check match=Csh\n");
-	$shell = "csh";
+    my $rc_file;
+    my $profile;
+    { 
+	if ( $SHELL !~ m/bash/x ) {
+	    print ("ERROR: shell is not bash, other shells un tested and unsupported.");
+	    return 0;
+	} elsif(  $SHELL =~ m/bash/x) {
+	    print ("Shell check match=bash\n");
+	    $rc_file=${SHELL}.'rc';
+	    $profile=${SHELL}.'_profile';
+	    #$SHELL = "bash";
+	} elsif ( $SHELL =~ m/[t]?csh/x) {
+	    print ("Shell check match=Csh\n");
+	    #$SHELL = "csh";
+	}
+	
     }
 
-}
 ###
-# put source ${HOME}/.${shell}rc in .${shell}_profile
+# check if we need to do work.
+###
+
+    my $do_work=0;
+    my $work_done=0;
+    
+    my $src_rc="source ~/.${SHELL}rc";
+    $bashrc_src_reg='^[\s]*'. # any ammount of whitespace, including none.
+	'(?:source|[.])'. # source lines can start with a . or the word source
+	'[\s]+'. #then followed by any ammount of whitespace
+	"(?:\${HOME}|\$HOME|$HOME|[~])". # then followed by any combination of ${HOME
+	"/[.]$rc_file".
+	'[\s]*(?:[#].*)?$'; # any ammont of whitespace followed by end of line	
+    my $profile_check=CheckFileForPattern("~/.".$profile,$bashrc_src_reg) ;
+
+    my $src_wks_settings = 'source ~/.bash_workstation_settings';
+    my $wks_settings_reg = '^[\s]*'.
+	'source'.
+	'[\s]+'.
+	'[~]/[.]bash_workstation_settings'.
+	'[\s]*(?:[#].*)?$';
+    my $wks_settings_check    = CheckFileForPattern("~/.".$rc_file,$wks_settings_reg) ;
+
+    #my $profile_check=CheckFileForPattern("~/".$profile,"[\w]?(?:source|.)[ ]+(?:${HOME}|~)$profile") ;
+    if ( $wks_settings_check>=1 && $profile_check>=1 && -f "$HOME/.$profile" && -f "$HOME/.$rc_file" && -f ".${SHELL}_workstation_settings") {
+	print("work done\n");
+	$work_done=1;
+    }
+    if( $mode ){
+	print ("force\t");
+	$do_work=$mode;
+    } elsif(!$work_done ) {
+	$do_work=1;
+    }
+    print("shell\n");
+
+###
+# put source ${HOME}/.${SHELL}rc in .${SHELL}_profile
 ### 
-{
-    print("---\n");
-    print("Setting source in ${shell}_profile in ${shell}rc...... \n");
-    print("---\n");
-    my $HOME=$ENV{HOME};
-    my @all_lines;
-    print("Must run this as user to install to!\n". 
-	  "By default that is omega\n".
-	  "This only sets up the ${shell} environment!\n");
-
-### open ${shell}_profile to check for source ${shell}rc line. 
-    my  $inpath="${HOME}/.${shell}_profile";
-    if ( -e $inpath ) { 
-	if (open SESAME, $inpath) {
-	    @all_lines = <SESAME>;
-	    close SESAME;
-	    print(" Opened ${shell}_profile\n");
-	} else {
-	    print STDERR "Unable to open file <$inpath> to read\n";
-	    exit (0);
-	} 
-    }
-    my $line_found=0;
-    my $outpath="${HOME}/.${shell}_profile";
-    my $src_rc="source ${HOME}/.${shell}rc";
-    open SESAME_OUT, ">$outpath" or warn "could not open $outpath for writing\n";
-    for my $line (@all_lines) {
-	if ($line =~ /source.*\.${shell}rc.*/) { # matches source<anthing>.${shell}rc<anything> could be to broad a match
-	    $line_found=1;
+    if ( $do_work > 0 ){
+	if ( $profile_check<=0 ) {
+	    print("---\n");
+	    print("Setting source .${SHELL}rc in ${SHELL}_profile ...... \n");
+	    print("---\n");
+# 	    print("Must run this as user to install to!\n". 
+# 		  "By default that is omega\n".
+# 		  "This only sets up the ${SHELL} environment!\n");
+	    print("adding $src_rc to ~/.$profile\n");
+	    open ($FILE, ">>","${HOME}/.$profile") || die "Could not open file: $!\n";
+	    print $FILE "$src_rc\n";
+	    close $FILE;
 	}
-	print  SESAME_OUT $line;  # write out every line modified or not
-    }
-    if( $line_found==0){ 
-	print ("source ${shell}rc wasnt found inserting.\n");
-	print SESAME_OUT $src_rc."\n";
-    } else { 
-	print("found source $src_rc\n");
-    }
-    close SESAME_OUT;
-
 ###
-# check that user ${shell}rc is in place
+# check that user ${SHELL}rc is in place
 ###
-    print("---\n");
-    print("Adding lines to ${shell}rc ...... \n");
-    print("---\n");
-    my @user_shellrc=();
-    $inpath="${HOME}/.${shell}rc";
-    $outpath=$inpath;
 
-    if ( -e $inpath ) { 
-	if (open SESAME, $inpath) {
-	    @user_shellrc = <SESAME>;
-	    close SESAME;
-	    print(" opened user ${shell}rc\n");
-	} else {
-	    print STDERR "Unable to open file <$inpath> to read\n";
-	    exit(0);
-	} 
-    }
 #
-# check that our rad env is in the ${shell}rc
-    open SESAME_OUT, ">$outpath" or warn "could not open $outpath for writing\n";
-    my $src_line       ="source $HOME/.bash_workstation_settings";
-    my $src_regex      ="$src_line";
-#my $wrk_host        ="export WORKSTATION_HOSTNAME=$hostname";
-    my $wrk_home       ="export WORKSTATION_HOME=$wks_home";
-    my $wrk_src        ="source \$WORKSTATION_HOME/pipeline_settings/${shell}/${shell}rc_pipeline_setup";
-    my $wrk_data     ="export WORKSTATION_DATA=$data_home";
-#my $rad_host        ="export RECON_HOSTNAME=$hostname";
-    my $rad_home       ="export RADISH_RECON_DIR=$wks_home/recon/legacy";
-    my $rad_src        ="source \$WORKSTATION_HOME/pipeline_settings/${shell}/legacy_radish_${shell}rc";
-#my $pipe_host        ="export PIPELINE_HOSTNAME=$hostname";
-    my $pipe_home      ="export PIPELINE_HOME=$wks_home/";
-#my $pipe_src       ="source \$PIPELINE_HOME/pipeline_settings/${shell}/${shell}rc_pipeline_setup";
-    my $oracle_lib    ="export DYLD_LIBRARY_PATH=\$DYLD_LIBRARY_PATH:$oracle_inst";
-    my $oracle_home   ="export ORACLE_HOME=$oracle_inst";
-#my @export_lines;
-    my @src_lines;
-#push(@export_lines,$wrk_line,$rad_line,$pipe_line);
-#push(@src_lines,$wrk_src,$rad_src,$pipe_src);
-    my @wrk_lines=($wrk_home,$wrk_src);
-    my @rad_lines=($rad_home,$rad_src);
-    my @pipe_lines=($pipe_home);#,$pipe_line,$pipe_src);
-    my @oracle_lines=($oracle_lib,$oracle_home);
-#my $wrk_regex='('.join(')|(',@wrk_lines).')';
-#my $rad_regex='('.join(')|(',@rad_lines).')';
-#my $pipe_regex='('.join(')|(',@pipe_lines).')';
-    my ($src_found,$wrk_found,$rad_found,$pipe_found)=(0,0,0,0);
-    for my $line (  @user_shellrc) {
-	if ( $line =~ /$src_regex/){ 
-	    $src_found=1;
-	    print SESAME_OUT $src_line."\n";
-	} else { 
-	    print SESAME_OUT $line;
+# check that our rad env is in the bash_workstation_settings
+	if ( $wks_settings_check <=0 ){
+	    print("---\n");
+	    print("Adding lines to ${SHELL}rc ...... \n");
+	    print("---\n");
+	    #$src_rc='. ~/.'."${SHELL}".'rc';
+	    print("adding $src_wks_settings to ~/.$rc_file\n");
+	    open ($FILE, ">>","${HOME}/.$rc_file") || die "Could not open file: $!\n";
+	    print $FILE "$src_wks_settings\n";
+	    close $FILE;
 	}
 
-#     if ( $line =~ /$wrk_regex/) { 
-# 	print("found wrk lines\n");
-# 	$wrk_found=1;
-#     } elsif ( $line =~ /$rad_regex/) { 
-# 	print("found rad lines\n");
-# 	$rad_found=1;
-#     } elsif ( $line =~ /$pipe_regex/ ) { 
-# 	print("found pipe lines\n");
-# 	$pipe_found=1;
-#     } else { 
+	if ( ! -f ".${SHELL}_workstation_settings" ) {
 
-#     }
-#     print SESAME_OUT $line;
+	my $wrk_home       ="export WORKSTATION_HOME=$WKS_HOME";
+	my $wrk_src        ="source \$WORKSTATION_HOME/pipeline_settings/${SHELL}/${SHELL}rc_pipeline_setup";
+	my $wrk_data     ="export WORKSTATION_DATA=$DATA_HOME";
+	my $rad_home       ="export RADISH_RECON_DIR=$WKS_HOME/recon/legacy";
+	my $rad_src        ="source \$WORKSTATION_HOME/pipeline_settings/${SHELL}/legacy_radish_${SHELL}rc";
+	my $pipe_home      ="export PIPELINE_HOME=$WKS_HOME/";
+
+
+
+	my @wrk_lines=($wrk_home,$wrk_src);
+	my @rad_lines=($rad_home,$rad_src);
+	my @pipe_lines=($pipe_home);#,$pipe_line,$pipe_src);
+
+
+	my ($src_found,$wrk_found,$rad_found,$pipe_found)=(0,0,0,0);
+
+	open SESAME_OUT, ">${HOME}/.bash_workstation_settings" or warn "Couldnt open settings file for writing!";
+	print SESAME_OUT "".
+	    "# \n".
+	    "# File automatically generated to contain paths by install.pl for worstation_home\n";
+	print SESAME_OUT join("\n",@wrk_lines)."\n";
+	print SESAME_OUT join("\n",@rad_lines)."\n";
+	print SESAME_OUT join("\n",@pipe_lines)."\n";
+	close SESAME_OUT;
+	}
     }
-    if( $src_found==0){
-	print ("adding src line\n");
-	print SESAME_OUT "$src_line\n";
-    }
-# if( $wrk_found==0 ){ 
-#     print ("wrk_lines not found, inserting.\n");
-#     print SESAME_OUT join("\n",@wrk_lines)."\n";
-# }
-# if( $rad_found==0 ){ 
-#     print ("rad_lines not found, inserting.\n");
-#     print SESAME_OUT join("\n",@rad_lines)."\n";
-# }
-# if( $pipe_found==0 ){ 
-#     print ("pipe_lines not found, inserting.\n");
-#     print SESAME_OUT join("\n",@pipe_lines)."\n";
-# }
-    close SESAME_OUT;
-    open SESAME_OUT, ">${HOME}/.bash_workstation_settings" or warn "Couldnt open settings file for writing!";
-    print SESAME_OUT "".
-	"# \n".
-	"# File automatically generated to contain paths by install.pl for worstation_home\n";
-    print SESAME_OUT join("\n",@wrk_lines)."\n";
-    print SESAME_OUT join("\n",@rad_lines)."\n";
-    print SESAME_OUT join("\n",@pipe_lines)."\n";
-#    print SESAME_OUT "$oracle_lib\n";
-    print SESAME_OUT join("\n",@oracle_lines)."\n";
-    close SESAME_OUT;
-}
-return;
+    return 0;
 }
 1;

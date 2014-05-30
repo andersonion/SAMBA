@@ -1,11 +1,23 @@
 sub oracle () {
     my $mode = shift;
     my $do_work=0;
+    my $base_path="/Volumes/xsyros/software/oracle/";
     my $oracle_inst_dir="$WKS_HOME/../oracle"; 
+    my $oracle_version="11.2";
+    $oracle_inst_dir =~ s|//|/|gx;
+    # $OS is package var, $os is local var
+    my $os='UNKNOWN';
+    if ( $OS =~ /^darwin$/ )
+    {
+	$os='mac';
+    } else {
+	$os=$OS;
+	print ("oracle install not supported on non-mac systems yet. os is $OS\n");
+	return 0;
+    }
+    
+
     my $work_done=0;
-    #$ENV{PWD}
-    use ENV qw(DYLD_LIBRARY_PATH );
-#
     if ( -d "$oracle_inst_dir" && $ENV{DYLD_LIBRARY_PATH} =~ m/$oracle_inst_dir/x && $ENV{ORACLE_HOME} =~ m/$oracle_inst_dir/x ) {
 	$work_done=1; 
     } else {
@@ -14,13 +26,17 @@ sub oracle () {
 	}
 	if ( $ENV{DYLD_LIBRARY_PATH} !~ m/$oracle_inst_dir/x ) {
 	    print("oracle_inst_dir not in DYLD_LIBRARY_PATH.\n".
-		  "$ENV{DYLD_LIBRARY_PATH} !~ m/$oracle_inst_dir/x");
-		}
+		  "$ENV{DYLD_LIBRARY_PATH} !~ $oracle_inst_dir\n");
+	    $do_work=1;
+	}
 	if ( $ENV{ORACLE_HOME} !~ m/$oracle_inst_dir/x ) {
 	    print("oracle_inst_dir not in ORACLE_HOME\n ".
-		  "$ENV{ORACLE_HOME} !~ m/$oracle_inst_dir/x ");
+		  "$ENV{ORACLE_HOME} !~ $oracle_inst_dir\n");
+	    $do_work=1;
 	}
     }
+
+
     if( $mode ){
 	print ("force\t");
 	$do_work=$mode;
@@ -41,20 +57,9 @@ sub oracle () {
 #  % perl Makefile.PL -V 10.2 
 #  % make 
 #  % make install 
-    my $oracle_inst_dir="$WKS_HOME/../oracle"; 
-    my $oracle_version="11.2";
-    # $OS is package var, $os is local var
-    my $os='UNKNOWN';
-    if ( $OS =~ /^darwin$/ )
-    {
-	$os='mac';
-    } else {
-	$os=$OS;
-    }
-	 
-    my $base_path="/Volumes/xsyros/software/oracle/";
+
     #if ( ! -d "$oracle_inst_dir" ) 
-    if ( $do_work )  {
+    if ( $do_work && ! -d "$oracle_inst_dir")  {
 	chdir $WKS_HOME;
 	print("---\n");
 	print("Extracting Oracle ...... \n");
@@ -90,10 +95,10 @@ sub oracle () {
 	    chdir $WKS_HOME;
 	}
 	`mv $oracle_inst_dir/*/* $oracle_inst_dir`;
-    }
+
 
     my $outpath="$WKS_HOME/oracle_cpaninst.bash";
-    if ( $do_work ) { 
+
 	print("creating oracle_cpaninst.bash for root to run\n");
 	open SESAME_OUT, ">$outpath"; 
 	print SESAME_OUT "#!/bin/bash\n".
@@ -119,6 +124,28 @@ sub oracle () {
 	`cmd`;
     }
     
+    if ( $do_work ) {
+	print("setting oracle env in ${HOME}/.${SHELL}_workstation_settings\n");
+	
+	open ($FILE, ">>","${HOME}/.${SHELL}_workstation_settings") || die "Could not open file: $!\n";
+	my $oracle_lib    ="export DYLD_LIBRARY_PATH=\$DYLD_LIBRARY_PATH:$oracle_inst_dir";
+	my $oracle_home   ="export ORACLE_HOME=$oracle_inst_dir";
+	my @oracle_lines=();#$oracle_lib,$oracle_home);
+	
+	if (CheckFileForPattern("${HOME}/.${SHELL}_workstation_settings",$oracle_lib) <=0 ){
+	    push( @oracle_lines,$oracle_lib);
+	}
+	if (CheckFileForPattern("${HOME}/.${SHELL}_workstation_settings",$oracle_home) <=0 ){
+	    push( @oracle_lines,$oracle_home);
+	}
+	if ($#oracle_lines>=1) {
+	    print $FILE join("\n",@oracle_lines)."\n";
+	}
+	close $FILE;
+    }
+    if ( ! $do_work ) {
+	print ("... done!\n");
+    }
     return 1;
     
 }
