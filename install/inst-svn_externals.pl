@@ -32,7 +32,11 @@ sub svn_externals () {
     my @svn_externals=`find . -name ".svn.externals"`; # -maxdepth 2`; while testing this was used.
 =======
     my @svn_externals=`find . -name ".svn.externals" -maxdepth 1`;
+<<<<<<< HEAD
 >>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
+=======
+>>>>>>> ceadb182e556d34419286dfd953fac0ba7278b55
+>>>>>>> 85c3f853e1cc442faa58a28e4d09effa486bfcd3
     chomp @svn_externals;
 ###
 # for each .svn.externals go to that folder and try to find project on jamesjcook github.
@@ -67,7 +71,11 @@ sub process_external_file() {
 	print("\tworking on externals in $checkout_dir\n");
 =======
 	print("working on externals in $checkout_dir\n");
+<<<<<<< HEAD
 >>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
+=======
+>>>>>>> ceadb182e556d34419286dfd953fac0ba7278b55
+>>>>>>> 85c3f853e1cc442faa58a28e4d09effa486bfcd3
 	while(<$INPUT>) {
 	    #if ( $_ ~ m/[\w]+[\s]+(?:svn(?:+ssh)?)|http|file:\/\//x) {
 	    chomp;
@@ -80,7 +88,11 @@ sub process_external_file() {
 		print "  nomatch ".$_;
 =======
 		print "nomatch ".$_;
+<<<<<<< HEAD
 >>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
+=======
+>>>>>>> ceadb182e556d34419286dfd953fac0ba7278b55
+>>>>>>> 85c3f853e1cc442faa58a28e4d09effa486bfcd3
 	    }
 	}
 	close($INPUT);
@@ -93,7 +105,11 @@ sub process_external_file() {
 	print ("processed $found externals in $infile. Going back to $c_dir.\n");
     } else {
 	print("Bogus input file $infile.\n");
+<<<<<<< HEAD
 >>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
+=======
+>>>>>>> ceadb182e556d34419286dfd953fac0ba7278b55
+>>>>>>> 85c3f853e1cc442faa58a28e4d09effa486bfcd3
     }
     return;
 	
@@ -218,7 +234,11 @@ sub process_external_deff(){
 	print ("update from git\n");
     }
    
+<<<<<<< HEAD
 >>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
+=======
+>>>>>>> ceadb182e556d34419286dfd953fac0ba7278b55
+>>>>>>> 85c3f853e1cc442faa58a28e4d09effa486bfcd3
 #     $ext_def =~ /^([\w]+)[\s]+
 #     ((?:svn(?:\+ssh)?)|http|file):\/\/
 #     ([\w.-]+[\/\\]?)+$/x;
@@ -272,5 +292,9 @@ sub check_add_gitignore () {
     return;
 }
 
+<<<<<<< HEAD
 >>>>>>> updated installer. svn-externals processing begin, seems to be finding externals and calculating urls on git hub correctly for any trunk project. Others are unknown.
+=======
+>>>>>>> ceadb182e556d34419286dfd953fac0ba7278b55
+>>>>>>> 85c3f853e1cc442faa58a28e4d09effa486bfcd3
 1;
