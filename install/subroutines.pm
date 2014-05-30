@@ -78,7 +78,7 @@ sub CraftOptionList() {
 	#$o_ref->{$key}='\$key';
 	my $type='';
 	if ( $type eq '' ) {
-	    $type='!';
+	    $type='=s';
 	}
 	$o_string="'$key$type' => ".$o_ref->{$key}.",".$o_string;
 	$o_string="'skip_$key$type' => ".'\$options{skip_'.$key.'}'.",".$o_string;

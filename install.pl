@@ -23,6 +23,8 @@ use Sys::Hostname;
 use File::Find;
 use Getopt::Std;
 use Getopt::Long;
+use Scalar::Util qw(looks_like_number);
+
 use lib $ENV{PWD}.'/install';
 #use lib split(':',$RADISH_PERL_LIB);
 require install::subroutines;
@@ -127,7 +129,7 @@ for my $opt ( keys %options)  {
 	
     }
 }
-for my $opt(@force_on) { $options{$opt}=1; }
+#for my $opt(@force_on) { $options{$opt}=$opt; }
 for my $opt(@force_off){ $options{$opt}=0; print("skip $opt\n"); }
 for my $opt ( keys %options)  {
     if ($opt =~ m/^skip_(.*)$/x ) {}

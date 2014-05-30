@@ -1,5 +1,7 @@
 use warnings;
 use strict;
+use Scalar::Util qw(looks_like_number);
+
 our $GITHUB_BASE='git@github.com:jamesjcook/'; 
 our $GITHUB_SUFFIX='.git';
 sub svn_externals () {
@@ -18,11 +20,30 @@ sub svn_externals () {
 
     my $do_work=0;
     my $work_done=0;
-    if( $mode ){
-	print ("force\t");
-	$do_work=$mode;
-    } elsif(!$work_done ) {
-	$do_work=1;
+
+    if (! defined $mode ) {$mode=0;}
+    if ( ! looks_like_number($mode) ) {
+
+	if ($mode =~ /quiet/x ){
+	print ("$mode\t");
+	    $mode=-1;
+	} elsif ($mode =~ /silent/x ){
+	print ("$mode\t");
+	    $mode=-2;
+	}
+    }
+    if( looks_like_number($mode) ){
+	if ($mode>0 ) {
+	    print ("force\t");
+	    $do_work=$mode;
+	} elsif(!$work_done ) {
+	    $do_work=1;
+	}
+    } else {
+	if(!$work_done ) {
+	    $do_work=1;
+	}
+
     }
 
 ###
@@ -38,17 +59,18 @@ sub svn_externals () {
     print("svn_externals\n");
     #if ( $OS =~ /^darwin$/ ){
     for my $ext (@svn_externals) {
-	process_external_file($ext);
+	process_external_file($ext,$mode);
     }
 
-
-    die "End of svn_externals hard stop";
+#    die "End of svn_externals hard stop";
     
     return 1;
 }
 sub process_external_file() {
     my $infile =shift;
-    print("\tfile $infile\n");
+    my $mode=shift;
+
+    print("\tfile $infile\n")unless $mode <= -1;
     my $INPUT;
     my $found=0;
     my $pattern='[\w]+[\s]+'.
@@ -60,30 +82,30 @@ sub process_external_file() {
 	open($INPUT, $infile) || warn "Error opening $infile : $!\n";
 	#print("looking up pattern $pattern in file $infile\n");
 	chdir $checkout_dir;
-	print("\tworking on externals in $checkout_dir\n");
+	print("\tworking on externals in $checkout_dir\n") unless $mode <= -1;
 	while(<$INPUT>) {
 	    #if ( $_ ~ m/[\w]+[\s]+(?:svn(?:+ssh)?)|http|file:\/\//x) {
 	    chomp;
 	    if ( $_ =~m/$pattern/x) {
-		process_external_deff($_);
+		process_external_deff($_,$mode);
 		$found += 1;
 		# exit; # put the exit here, if only the first match is required
 	    } else {
-		print "  nomatch ".$_;
+		print "  nomatch ".$_  unless $mode <= 0;
 	    }
 	}
 	close($INPUT);
 	chdir $c_dir;
-	print ("\tprocessed $found externals in $infile. Going back to $c_dir.\n");
+	print ("\tprocessed $found externals in $infile. Going back to $c_dir.\n") unless $mode <= -1;
     } else {
-	print("  Bogus input file $infile.\n");
+	print("  Bogus input file $infile.\n")unless $mode <= -1;
     }
     return;
 	
 }
 sub process_external_deff(){
     my $ext_def=shift;
-    
+    my $mode=shift;
   
     #svn_external_regex
     my( $local_name,$url_type,$svnpath_string)= $ext_def =~ /^([\w]+)[\s]+
@@ -96,7 +118,6 @@ sub process_external_deff(){
     my $branch='UNKNOWN';
     my $c_dir=`pwd`;chomp $c_dir;
     my @errors=();
-
 
     ### get standard parts of repository name.
     if( 0 ) {
@@ -124,11 +145,11 @@ sub process_external_deff(){
 		$branch='master';	    
 	    }elsif ($d_name =~ m/tags/x ) {
 		$p_idx=$sp_idx-1;
-		push(@errors,"Error in svn.externals processing. Branches not supported from svn.externals\n \t$svnpath_string\n");
-		$branch=$svnpath[$p_idx+1] unless $p_idx+1>$#svnpath;
+		$branch=$svnpath[$sp_idx+1] unless $p_idx+1>$#svnpath;
+		push(@errors,"Error in svn.externals processing. Branches not supported from svn.externals\n \t$svnpath_string branch:$branch\n");
 	    }elsif ($d_name =~ m/branches/x ) {
 		$p_idx=$sp_idx-1;
-		$branch=$svnpath[$p_idx+1] unless $p_idx+1>$#svnpath;
+		$branch=$svnpath[$sp_idx+1] unless $p_idx+1>$#svnpath;
 	    } else { 
 #		print("\tnomatch $d_name\n");
 	    }
@@ -142,22 +163,21 @@ sub process_external_deff(){
 	}
     }
 
-
     $git_url=$GITHUB_BASE.$git_project.$GITHUB_SUFFIX;
     my @cmd_list;
     if ( $git_project !~ /UNKNOWN/x && $local_name !~ /UNKNOWN/x && $branch !~ /UNKNOWN/x ) {
 	if ( ! -d $local_name ){
 	    my $clone_cmd="git clone $git_url $local_name";
-	    print ("  \t$clone_cmd\n");
+	    print ("  \t$clone_cmd\n")unless $mode <= 0;
 	    my @output=`$clone_cmd 2>&1`;
 	    if ( ! -d $local_name && $branch !~ /master/x ){	    
 		chdir $local_name;
 		my $checkout_cmd="git checkout $branch";
 		`$checkout_cmd`;
-		print ("  \t$checkout_cmd\n");
+		print ("  \t$checkout_cmd\n")unless $mode <= 0;
 		chdir $c_dir;
 	    } else {
-		push (@errors, "Error cloning $git_url to $local_name\n".join("\t\t",@output));
+		push (@errors, "Error cloning $git_url to $local_name\n".join("\t\t",@output)) unless $mode <= -1;
 	    }
 	} else {
 	    chdir $local_name;
@@ -172,7 +192,7 @@ sub process_external_deff(){
 		push(@cmd_list,"git pull");
 		push(@cmd_list,"git stash pop");
 
-		print ("\t\tupdate from git\n");	    
+		print ("\t\tupdate from git\n")unless $mode <= 0;
 		for my $cmd (@cmd_list ) {
 		    `$cmd`;
 		}
@@ -195,7 +215,7 @@ sub process_external_deff(){
 
 #    print("name:$local_name2 type:$url_type2 repo_path:".join("::",@svnpath)."\n");    
     if ( $#errors>=0) {
-	print @errors;
+	print @errors unless $mode <= -2;
     }
     return;
 }
