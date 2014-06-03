@@ -12,6 +12,33 @@
 # }
 use warnings;
 
+sub CheckFileForPattern {
+    my $infile  = shift @_;
+    my $pattern = shift @_; 
+    my $INPUT;
+    my $found=0;
+    $infile =~ s/~/${HOME}/gx;
+    if (-f $infile ){
+    open($INPUT, $infile) || warn "Error opening $infile : $!\n";
+    #print("looking up pattern $pattern in file $infile\n");
+    while(<$INPUT>) {
+	if (m/$pattern/x) {
+#	if ( $_=~/$pattern/) {
+	    #print;
+	    $found += 1;
+	    # exit; # put the exit here, if only the first match is required
+	} else {
+	    #print "nomatch ".$_;
+	}
+    }
+    close($INPUT);
+    #print ("CheckFile out $found\n");
+    } else {
+	$found=-1;
+    }
+    return $found;
+}
+
 sub CraftOptionDispatchTable  {
     my $t_ref = shift @_;
     #my %table = %{$t_ref};
@@ -29,7 +56,9 @@ sub CraftOptionDispatchTable  {
     closedir(D);
     for my $file (@list) {
 	if ( $file =~ m/^$prefix-(.*)[.]pl$/x){
+#	if ( $file =~ m/^$prefix-(.*)(?:-(.*))?[.]pl$/x){
 	    my $name=$1;
+#	    my $type=$2;
 	    my $first_letter=substr($name,0,1);
 	    #print("inserting funct reference for $name\n");	    
 	    require $file;
@@ -61,6 +90,7 @@ sub CraftOptionDispatchTable  {
 }
 
 sub CraftOptionList {
+# o_ref isnt really used for this, this should be updated to make it optional
     #my %table = %{shift @_};
     #my %opt_list = %{shift @_};
     my $t_ref = shift @_;
@@ -74,15 +104,16 @@ sub CraftOptionList {
 	
 	$o_ref->{$key}='\$options{'.$key.'}';
 	#$o_ref->{$key}="$key";
-
+	
 	#$o_ref->{$key}='\$options{$key}';
 	#$o_ref->{$key}='\\$options{$key}';
 	#$o_ref->{$key}='\\\$options{$key}';
 	#$o_ref->{$key}='\$key';
 	my $type='';
 	if ( $type eq '' ) {
-	    $type='=s';
+	    $type=':s';
 	} 
+	#$o_string="'$key' => ".$o_ref->{$key}.",".$o_string;
 	$o_string="'$key$type' => ".$o_ref->{$key}.",".$o_string;
 	$o_string="'skip_$key' => ".'\$options{skip_'.$key.'}'.",".$o_string;
 	#print("col::Adding to understood opts, $key <- ".$o_ref->{$key}." \n");
@@ -91,35 +122,17 @@ sub CraftOptionList {
     return $o_string;
 }
 
-sub CheckFileForPattern {
-    my $infile  = shift @_;
-    my $pattern = shift @_; 
-    my $INPUT;
-    my $found=0;
-    $infile =~ s/~/${HOME}/gx;
-    if (-f $infile ){
-    open($INPUT, $infile) || warn "Error opening $infile : $!\n";
-    #print("looking up pattern $pattern in file $infile\n");
-    while(<$INPUT>) {
-	if (m/$pattern/x) {
-#	if ( $_=~/$pattern/) {
-	    #print;
-	    $found += 1;
-	    # exit; # put the exit here, if only the first match is required
-	} else {
-	    #print "nomatch ".$_;
-	}
-    }
-    close($INPUT);
-    #print ("CheckFile out $found\n");
-    } else {
-	$found=-1;
-    }
-    return $found;
-}
 sub ProcessStages {
-#table, status, order
-
+    # dispatch_ref,output_status_ref, Stage_flags,stage_order
+    my( $d_ref,$s_ref,$s_flags,$o_ref)= @_;
+    die print("No dispatch found, cannot continue\n") unless( defined $d_ref ); 
+    
+    my @order=();
+    if ( defined $o_ref ) {
+	@order=@{$o_ref};
+    } else {
+	@order=keys %{$t_ref};
+    }
     my $first_stage=shift @_;
     my $prefix = shift @_;
     if ( ! defined $prefix ) {
@@ -128,25 +141,11 @@ sub ProcessStages {
     
     my $found_first=0;
     for my $opt ( @order ) {
-#    print ("Run $opt\n");
-	if ( ! $options{'skip_'.$opt} ) {
-	    if ( $opt =~ /$first_stage/ ) {
-		print ("Found Starting point\n");
-		$found_first=1;
-	    } else {
-		#found is not it.... 
-	    }
-	    if ( $found_first || ! length $first_stage) { 
-		# for default behavior optinos{opt} is undefined, for force on it is is 1, for force off it is 0.
-		my $status=$dispatch_table{$opt}->($options{$opt} #put params in here.
-		    );
-		$dispatch_status{$opt}=$status;
-		if ( !$status ){
-		    print ("ERROR: $opt failed!\n");
-		} 
-	    } else {
-		print ("$opt not desired first file<$first_stage>\n");
-	    }
+	if ( ! $s_flags->{'skip_'.$opt} ) {
+	    # for default behavior optinos{opt} is undefined, for force on it is is 1, for force off it is 0.
+	    my $status=$d_ref->{$opt}->($s_flags->{$opt} #put params in here.
+		);
+	    $s_ref->{$opt}=$status;
 	}
     }
     

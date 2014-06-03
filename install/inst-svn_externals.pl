@@ -2,8 +2,15 @@ use warnings;
 use strict;
 use Scalar::Util qw(looks_like_number);
 
-our $GITHUB_BASE='git@github.com:jamesjcook/'; 
+
+our $GITHUB_BASE='https://github.com/jamesjcook/'; 
+
+if (getpwuid( $< ) eq "james" ){
+    $GITHUB_BASE='git@github.com:jamesjcook/'; 
+}
+
 our $GITHUB_SUFFIX='.git';
+#https://github.com/jamesjcook/workstation_code.git
 sub svn_externals () {
     my $mode = shift;
 ###

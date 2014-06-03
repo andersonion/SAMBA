@@ -18,20 +18,20 @@ sub OptionOrder {
     if ( ! -f $file ) {
 	print("ERROR getting an install order for therjigger <$fileorprefix>\n");
     }
-	
+    
     my $FH;
     my $openfail=0;
     open ($FH, "< $file") or ( warn "Can't open $file for read: $!" and $openfail=1 );
     my @lines;
     if (! $openfail) 
     {
-    while (<$FH>) {
-	push (@lines, $_);
-    }
-    close $FH or die "Cannot close $file: $!";
+	while (<$FH>) {
+	    push (@lines, $_);
+	}
+	close $FH or die "Cannot close $file: $!";
     }
     chomp @lines;
-
+    
     return @lines;
 }
 1;

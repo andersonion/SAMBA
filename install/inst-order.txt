@@ -1,4 +1,4 @@
-check_prereqs
+handle_prereqs
 group
 svn_externals
 shell

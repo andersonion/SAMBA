@@ -29,7 +29,7 @@ use lib $ENV{PWD}.'/install';
 #use lib split(':',$RADISH_PERL_LIB);
 require install::subroutines;
 require install::order;
-
+our $DEBUG=30;
 
 
 Getopt::Long::Configure ("bundling", "ignorecase_always");
@@ -39,11 +39,13 @@ my %dispatch_table=(); # look up of option function names to function refer3ence
 my %dispatch_status=();# look up to hold if we've run a function or not.
 my %option_list=();    # list of options recognized, built from the dispatch table.
 my %options=();        # the options specified on the command line.
-#CraftOptionDispatchTable(\%dispatch_table,$ENV{PWD}.'/install');
+
 CraftOptionDispatchTable(\%dispatch_table,$ENV{PWD}."/install","inst");
+#CraftOptionDispatchTable($hash_ref,dir_to_examine,file_prefix_to_use);
+#CraftOptionDispatchTable(\%dispatch_table,$ENV{PWD}.'/install'); 
 
 my $opt_eval_string=CraftOptionList( \%dispatch_table, \%option_list);
-
+# option_list isnt really used for this, this should be updated to make it optional
 
 ### debug check to seee we got functions for each option
 # print ("Option_list is:\n");
@@ -93,8 +95,8 @@ if ( !$IS_MAC ) {
    $DATA_HOME="/Volumes/workstation_data/data";
 }
 # admin_group is allowed to modifiy any files and permissions, 
-# edit_group is allowed to edit code and run recon/workstation code.
-# user_group is allowed to run recon/workstation code. 
+# edit_group  is allowed to edit code and run recon/workstation code.
+# user_group  is allowed to run recon/workstation code. 
 our $ADMIN_GROUP="admin";
 our $EDIT_GROUP;
 our $USER_GROUP="ipl";
@@ -107,117 +109,121 @@ our $IS_ADMIN=0;
 our $IS_CODER=0;
 our $IS_USER=0;
 ###
-# process options
+# gather options
 ###
-#print ("option specs are $opt_eval_string\n");
-#if ( !GetOptions(\%option_list ) ) { 
-#if ( !GetOptionsFromArray(\@ARGV,\%option_list ) ) { 
 my $first_stage='';
-if ( !GetOptions( eval $opt_eval_string,"admin_group=s" => \$ADMIN_GROUP, "WKS_HOME=s" => \$WKS_HOME,  "start_at=s" => \$first_stage) ) { 
+my $last_stage='';
+# opt_eval_string is gatherd from CraftOptionList function, 
+if ( !GetOptions( eval $opt_eval_string,
+		  "admin_group=s" => \$ADMIN_GROUP,
+		  "WKS_HOME=s" => \$WKS_HOME,
+		  "start_at=s" => \$first_stage,
+		  "stop_at=s" => \$last_stage) ) { 
     print("Option error\n");
     exit;
 }
 
 ###
-# get the options to be forced on or off.
+# get the options from the user
 ###
-my @force_on=();  # list of options which are forced on
-my @force_off=(); # list of options which are forced off. forced off over rides forced on.
-for my $opt ( keys %options)  {
-    print ("force_processing for $opt") unless ($opt =~ m/^skip_(.*)$/x ) ;
-    if( ($options{$opt} ) && ($opt =~ m/^skip_(.*)$/x ) ){
-	push @force_off,$1;
-	print (" off: $1\n");
-    }elsif( ($options{$opt} ) ){
-	push @force_on,$opt;
-	print (" on: $1\n");
-    } else {
-	print("\n") unless ($opt =~ m/^skip_(.*)$/x ) ;
-    }
-}
-#for my $opt(@force_on) { $options{$opt}=$opt; }
-for my $opt(@force_off){ $options{$opt}=0; print("skip $opt\n"); }
-for my $opt ( keys %options)  {
-    if ($opt =~ m/^skip_(.*)$/x ) {}
-    elsif($options{$opt}) {
-	print ("$opt on!\n");
-	if ( defined $dispatch_table{$opt} ) {
-	    print("\tFUNCT_CALL:$dispatch_table{$opt}\n");
+# wholly unnecessary due to useing the order array
+#my @force_on=();  # force on is a reprocess option, implying to reprocess that seciton. This is actually handled by the given section where skip just doesnt run a section.
+if ( 0 ) {
+    for my $opt ( keys %options)  {
+	print ("force_processing for $opt") unless ( ( $DEBUG<25 ) && ( $opt !~ m/^skip_(.*)$/x ) );
+	if ( ( $options{$opt} ) && ( $opt =~ m/^skip_(.*)$/x ) ){
+	}elsif( ($options{$opt} ) ){
+#	push @force_on,$opt;
+	    print (" on: $1\n")unless ( $DEBUG<25 );;
+	} else {
+	    print("\n") unless (  $DEBUG<25 ) ;
+	}
+	
+	
+	for my $opt ( keys %options)  {
+	    if ($opt =~ m/^skip_(.*)$/x ) {}
+	    elsif($options{$opt}) {
+		print ("$opt force!\n");
+		if ( defined $dispatch_table{$opt} ) {
+		    print("\tFUNCT_CALL:$dispatch_table{$opt}\n");
+		} 
+	    }
 	}
     }
 }
-
-###
-# run the installer stages
-###
 # if allowed to check.
-my $name=getpwuid( $< ) ;
+#my $name=getpwuid( $< ) ;
+#print ("My name is $name\n");
 # using the id field, check for groups, $ADMIN_GROUP, $EDIT_GROUP, and $USER_GROUP.
 
-
-
-#check for install.pl in wks_home to make sure we're running in right dir.
+#check install.pl is in wks_home to make sure we're running in right dir.
 # ... later
 # svn info to check installpl location.
 
-# run all.
-#for my $opt ( keys %dispatch_table)  {
-### run in order
-# could add a start from option as wel, with something like until we are the starting option remove options
-my $found_first=0;
-
-my @order_new = OptionOrder("inst");
-my @order = OptionOrder("install/inst-order.txt");# could make this an option later....
-if ($#order_new != $#order ) {
-    print("error with optionorder function, it doesnt produce expected results when called with both possiblilites\n");
-}
-for ( my $i=0;$i<=$#order;$i++){
-    my $opt=$order[$i];
-    my $opt_n=$order_new[$i];
-    if ( $opt ne $opt_n) {
-	print("$opt!=$opt_n\n");
+###
+# get run order
+###
+#my @order_new = OptionOrder("inst");# alternateive way to get order
+my @order = OptionOrder("install/inst-order.txt");# could make this text file an option later....
+# set all known elements of order to 1 in dispatch_status for found.
+my @o_temp=();
+for my $opt ( @order) {
+    if ( defined(  $dispatch_table{$opt} &&! $options{"skip_".$opt} ) ) {
+        $dispatch_status{$opt}=1;#serving as an is found count.
+	push (@o_temp,$opt);
+    } elsif ( $options{"skip_".$opt} ){
+	print("force off $opt\n");
+    } else {
+	print("stage $opt not available, perhaps old entries still in inst-order.txt\n");
     }
-# my $opt ( @order ) {
-    
-    $dispatch_status{$opt}=1;
 }
-for my $key (keys %dispatch_table ) {
+# check that all keys of dispatch_table have an entry in dispatch_status, add any that do not to the order array and set 0 status for all.
+@order=@o_temp;
+for my $key ( sort( keys( %dispatch_table ) ) ) {
     print ("finding $key in order\n");
-    if ( ! defined $dispatch_status{$key} ){
+    if ( ! defined $dispatch_status{$key} &&! $options{"skip_".$key} ){
 	push @order, $key;
 	print("\t missing, now added.\n");
     }
     $dispatch_status{$key}=0;
 }
-if ( 0 ) {
-for my $opt ( @order ) {
-#    print ("Run $opt\n");
-    if ( ! $options{'skip_'.$opt} ) {
-	if ( $opt =~ /$first_stage/ ) {
-	    print ("Found Starting point\n");
-	    $found_first=1;
-	} else {
-	    #found is not it.... 
-	}
-	if ( ( defined $dispatch_table{$opt})&& ( $found_first || ! length $first_stage ) ) { 
-	    # for default behavior optinos{opt} is undefined, for force on it is is 1, for force off it is 0.
-	    my $status=$dispatch_table{$opt}->($options{$opt} #put params in here.
-		);
-	    $dispatch_status{$opt}=$status;
-	    if ( !$status ){
-		print ("ERROR: $opt failed!\n");
-	    } 
-	} elsif ( ! defined $dispatch_table{$opt} ) { 
-	    print ("$opt specified in order but no function found for it\n");
-	} else {
-	    print ("$opt not desired first file<$first_stage>\n");
-	}
+
+
+@o_temp=();
+for my $opt ( @order) {
+    if ( ( $opt ne $last_stage ) || ( $#o_temp>0 ) ) {
+	push(@o_temp,$opt) ;
+    } elsif ( $opt eq $first_stage ) {
+	push(@o_temp,$opt);
+    } elsif ($opt eq $last_stage) {
+	push(@o_temp,$opt);
+	#last;
+    } else {
+	print ( "skip $opt\n");
     }
 }
-} else {
 
-    ProcessStages(\%dispatch_table,\%dispatch_status,\@order);
+# remove any entries in order array before the first stage.
+while($order[0] ne $first_stage && length( $first_stage) && $#order>=0 ) {
+    my $opt=shift @order;
+    print("removeing $opt becauase: not after requested first $first_stage.\n");
 }
+# remove any entries in order array after the last stage
+while($order[$#order] ne $last_stage && length ($last_stage) && $#order>=0 ) {
+    my $opt=pop @order;
+    print("removeing $opt becauase: after requested last $last_stage.\n");
+}
+###
+# run the installer stages
+###
+# using the @order variable, 
+# run each function of dispatch table, pass each function the value of $option{funct_name}
+# storting the output status to dispatch_status
+# 
+ProcessStages(\%dispatch_table,\%dispatch_status,\%options,\@order);
+
+
+print ("$0 Completed.\n");
 exit;
 #quit;
 stop();
