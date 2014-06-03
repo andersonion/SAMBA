@@ -110,6 +110,7 @@ sub process_external_file() {
     return;
 	
 }
+
 sub process_external_deff(){
     my $ext_def=shift;
     my $mode=shift;
@@ -171,6 +172,9 @@ sub process_external_deff(){
     }
 
     $git_url=$GITHUB_BASE.$git_project.$GITHUB_SUFFIX;
+    #    my( $local_name,$url_type,$svnpath_string)
+    my $svn_url=$url_type.'://'.$svnpath_string; #$git_project.$GITHUB_SUFFIX;
+    # could insert svn user here 
     my @cmd_list;
     if ( $git_project !~ /UNKNOWN/x && $local_name !~ /UNKNOWN/x && $branch !~ /UNKNOWN/x ) {
 	if ( ! -d $local_name ){
@@ -185,9 +189,26 @@ sub process_external_deff(){
 		chdir $c_dir;
 	    } else {
 		push (@errors, "Error cloning $git_url to $local_name\n".join("\t\t",@output)) unless $mode <= -1;
+		push (@errors, "\t ATTEMPTING Subversion! for $local_name from $svn_url\n");
+		my $svn_checkout_cmd="svn checkout ".$svn_url." ".$local_name;
+		print ("  \t$svn_checkout_cmd\n")unless $mode <= 0;
+		my @output = `$svn_checkout_cmd 2>&1`;
+		if ( ! -d $local_name ) {
+		    push(@errors ,"\tsubversion FAIL!.".join("\t\t".@output)."\n");
+		}
 	    }
 	} else {
+
 	    chdir $local_name;
+	    my $svnout=`svn info `;
+	    if ( ! $? ) {
+		#return 1;
+		print ("svn update\n");
+		`svn update`;
+	    } else {
+		print("svn false, assuming git. \n");
+	    }
+	    
 	    @cmd_list=();
 	    my $c_branch=`git symbolic-ref --short HEAD`;
 	    if ( $c_branch !~  /master/x) {

@@ -33,3 +33,9 @@ shared       - shared libraries of things, and utility code
 diffusion       - diffusion pipelines, tensor calculator for now,
    /tensor_pipe - tensor calculation pipeline
 
+
+
+Install errors remaining.
+matlab binary linking.
+  selective binary links to /bin
+mathworks third-party libraries.
