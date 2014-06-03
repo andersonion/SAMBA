@@ -30,6 +30,7 @@ sub ants(){
 	    $do_work=1;
 	}
     }
+    
     if ( $IS_MAC ) {
 	if ( ! -e "$WKS_HOME/../usr/bin/ANTS" ) 
 	{

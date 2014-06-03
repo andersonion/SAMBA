@@ -18,13 +18,14 @@ sub handle_prereqs () {
 	$work_done=1;
     }
 
-my %dispatch_table=(); # look up of option function names to function refer3ences
-my %dispatch_status=();# look up to hold if we've run a function or not.
-my %option_list=();    # list of options recognized, built from the dispatch table.
-my %options=();        # the options specified on the command line.
-
-CraftOptionDispatchTable(\%dispatch_table,$ENV{PWD}.'/install','prog');
-my @order = OptionOrder("prog");
+    my %dispatch_table=(); # look up of option function names to function refer3ences
+    my %dispatch_status=();# look up to hold if we've run a function or not.
+    my %option_list=();    # list of options recognized, built from the dispatch table.
+    my %options=();        # the options specified on the command line.
+    
+    CraftOptionDispatchTable(\%dispatch_table,$ENV{PWD}.'/install','prog');
+    #my @order = OptionOrder("prog");
+    my @order=keys( %dispatch_table);
 #my $opt_eval_string=CraftOptionList( \%dispatch_table, \%option_list);
 
 
