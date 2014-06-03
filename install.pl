@@ -39,8 +39,9 @@ my %dispatch_table=(); # look up of option function names to function refer3ence
 my %dispatch_status=();# look up to hold if we've run a function or not.
 my %option_list=();    # list of options recognized, built from the dispatch table.
 my %options=();        # the options specified on the command line.
-CraftOptionDispatchTable(\%dispatch_table,$ENV{PWD}.'/install');
-my @order = OptionOrder();
+#CraftOptionDispatchTable(\%dispatch_table,$ENV{PWD}.'/install');
+CraftOptionDispatchTable(\%dispatch_table,$ENV{PWD}."/install","inst");
+
 my $opt_eval_string=CraftOptionList( \%dispatch_table, \%option_list);
 
 
@@ -123,7 +124,7 @@ if ( !GetOptions( eval $opt_eval_string,"admin_group=s" => \$ADMIN_GROUP, "WKS_H
 my @force_on=();  # list of options which are forced on
 my @force_off=(); # list of options which are forced off. forced off over rides forced on.
 for my $opt ( keys %options)  {
-    print ("force_processing for $opt");
+    print ("force_processing for $opt") unless ($opt =~ m/^skip_(.*)$/x ) ;
     if( ($options{$opt} ) && ($opt =~ m/^skip_(.*)$/x ) ){
 	push @force_off,$1;
 	print (" off: $1\n");
@@ -131,7 +132,7 @@ for my $opt ( keys %options)  {
 	push @force_on,$opt;
 	print (" on: $1\n");
     } else {
-	print("\n");
+	print("\n") unless ($opt =~ m/^skip_(.*)$/x ) ;
     }
 }
 #for my $opt(@force_on) { $options{$opt}=$opt; }
@@ -145,7 +146,6 @@ for my $opt ( keys %options)  {
 	}
     }
 }
-
 
 ###
 # run the installer stages
@@ -165,6 +165,31 @@ my $name=getpwuid( $< ) ;
 ### run in order
 # could add a start from option as wel, with something like until we are the starting option remove options
 my $found_first=0;
+
+my @order_new = OptionOrder("inst");
+my @order = OptionOrder("install/inst-order.txt");# could make this an option later....
+if ($#order_new != $#order ) {
+    print("error with optionorder function, it doesnt produce expected results when called with both possiblilites\n");
+}
+for ( my $i=0;$i<=$#order;$i++){
+    my $opt=$order[$i];
+    my $opt_n=$order_new[$i];
+    if ( $opt ne $opt_n) {
+	print("$opt!=$opt_n\n");
+    }
+# my $opt ( @order ) {
+    
+    $dispatch_status{$opt}=1;
+}
+for my $key (keys %dispatch_table ) {
+    print ("finding $key in order\n");
+    if ( ! defined $dispatch_status{$key} ){
+	push @order, $key;
+	print("\t missing, now added.\n");
+    }
+    $dispatch_status{$key}=0;
+}
+if ( 0 ) {
 for my $opt ( @order ) {
 #    print ("Run $opt\n");
     if ( ! $options{'skip_'.$opt} ) {
@@ -174,8 +199,7 @@ for my $opt ( @order ) {
 	} else {
 	    #found is not it.... 
 	}
-
-	if ( $found_first && ! -z $first_stage) { 
+	if ( ( defined $dispatch_table{$opt})&& ( $found_first || ! length $first_stage ) ) { 
 	    # for default behavior optinos{opt} is undefined, for force on it is is 1, for force off it is 0.
 	    my $status=$dispatch_table{$opt}->($options{$opt} #put params in here.
 		);
@@ -183,12 +207,17 @@ for my $opt ( @order ) {
 	    if ( !$status ){
 		print ("ERROR: $opt failed!\n");
 	    } 
-	} 
-	
+	} elsif ( ! defined $dispatch_table{$opt} ) { 
+	    print ("$opt specified in order but no function found for it\n");
+	} else {
+	    print ("$opt not desired first file<$first_stage>\n");
+	}
     }
-
 }
+} else {
 
+    ProcessStages(\%dispatch_table,\%dispatch_status,\@order);
+}
 exit;
 #quit;
 stop();

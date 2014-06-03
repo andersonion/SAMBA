@@ -12,12 +12,15 @@
 # }
 use warnings;
 
-sub CraftOptionDispatchTable ()
-{
+sub CraftOptionDispatchTable  {
     my $t_ref = shift @_;
     #my %table = %{$t_ref};
     #my $table = shift @_;
     my $dir= shift @_;
+    my $prefix = shift @_;
+    if ( ! defined $prefix ) {
+	$prefix="inst";
+    }
     #my $table = $_[0];
     #my $dir = $_[1];
     #Installer must be called while in the software dirctory.\n 
@@ -25,7 +28,7 @@ sub CraftOptionDispatchTable ()
     my @list = readdir(D);
     closedir(D);
     for my $file (@list) {
-	if ( $file =~ m/^inst-(.*)[.]pl$/x){
+	if ( $file =~ m/^$prefix-(.*)[.]pl$/x){
 	    my $name=$1;
 	    my $first_letter=substr($name,0,1);
 	    #print("inserting funct reference for $name\n");	    
@@ -57,7 +60,7 @@ sub CraftOptionDispatchTable ()
     return;
 }
 
-sub CraftOptionList() {
+sub CraftOptionList {
     #my %table = %{shift @_};
     #my %opt_list = %{shift @_};
     my $t_ref = shift @_;
@@ -114,5 +117,41 @@ sub CheckFileForPattern {
     }
     return $found;
 }
+sub ProcessStages {
+#table, status, order
+
+    my $first_stage=shift @_;
+    my $prefix = shift @_;
+    if ( ! defined $prefix ) {
+	$prefix="inst";
+    }
+    
+    my $found_first=0;
+    for my $opt ( @order ) {
+#    print ("Run $opt\n");
+	if ( ! $options{'skip_'.$opt} ) {
+	    if ( $opt =~ /$first_stage/ ) {
+		print ("Found Starting point\n");
+		$found_first=1;
+	    } else {
+		#found is not it.... 
+	    }
+	    if ( $found_first || ! length $first_stage) { 
+		# for default behavior optinos{opt} is undefined, for force on it is is 1, for force off it is 0.
+		my $status=$dispatch_table{$opt}->($options{$opt} #put params in here.
+		    );
+		$dispatch_status{$opt}=$status;
+		if ( !$status ){
+		    print ("ERROR: $opt failed!\n");
+		} 
+	    } else {
+		print ("$opt not desired first file<$first_stage>\n");
+	    }
+	}
+    }
+    
+    return;   
+}
+
 
 1;

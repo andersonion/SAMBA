@@ -1,3 +1,6 @@
+#use lib split(':',$RADISH_PERL_LIB);
+#require subroutines;
+#require order;
 sub check_prereqs () {
     my $mode = shift;
     my $do_work=0;
@@ -19,6 +22,15 @@ sub check_prereqs () {
     } else{
 	return 0 ;
     }
+my %dispatch_table=(); # look up of option function names to function refer3ences
+my %dispatch_status=();# look up to hold if we've run a function or not.
+my %option_list=();    # list of options recognized, built from the dispatch table.
+my %options=();        # the options specified on the command line.
+
+CraftOptionDispatchTable(\%dispatch_table,$ENV{PWD}.'.','prog');
+my @order = OptionOrder("prog");
+my $opt_eval_string=CraftOptionList( \%dispatch_table, \%option_list);
+
 ### 
 # check for required programs
 ###
