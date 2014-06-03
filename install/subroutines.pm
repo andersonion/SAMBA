@@ -79,9 +79,9 @@ sub CraftOptionList() {
 	my $type='';
 	if ( $type eq '' ) {
 	    $type='=s';
-	}
+	} 
 	$o_string="'$key$type' => ".$o_ref->{$key}.",".$o_string;
-	$o_string="'skip_$key$type' => ".'\$options{skip_'.$key.'}'.",".$o_string;
+	$o_string="'skip_$key' => ".'\$options{skip_'.$key.'}'.",".$o_string;
 	#print("col::Adding to understood opts, $key <- ".$o_ref->{$key}." \n");
     }
     

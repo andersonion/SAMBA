@@ -79,7 +79,7 @@ if ( $OS =~ /^darwin$/x ) {
 ###
 # get user information
 ###
-our$DATA_HOME;
+our $DATA_HOME;
 our $SHELL    = basename($ENV{SHELL});
 our $WKS_HOME = dirname(abs_path($0));
 our $HOME=$ENV{HOME};
@@ -111,7 +111,8 @@ our $IS_USER=0;
 #print ("option specs are $opt_eval_string\n");
 #if ( !GetOptions(\%option_list ) ) { 
 #if ( !GetOptionsFromArray(\@ARGV,\%option_list ) ) { 
-if ( !GetOptions( eval $opt_eval_string,"admin_group=s" => \$ADMIN_GROUP, "WKS_HOME=s" => \$WKS_HOME) ) { 
+my $first_stage='';
+if ( !GetOptions( eval $opt_eval_string,"admin_group=s" => \$ADMIN_GROUP, "WKS_HOME=s" => \$WKS_HOME,  "start_at=s" => \$first_stage) ) { 
     print("Option error\n");
     exit;
 }
@@ -122,11 +123,15 @@ if ( !GetOptions( eval $opt_eval_string,"admin_group=s" => \$ADMIN_GROUP, "WKS_H
 my @force_on=();  # list of options which are forced on
 my @force_off=(); # list of options which are forced off. forced off over rides forced on.
 for my $opt ( keys %options)  {
+    print ("force_processing for $opt");
     if( ($options{$opt} ) && ($opt =~ m/^skip_(.*)$/x ) ){
 	push @force_off,$1;
+	print (" off: $1\n");
     }elsif( ($options{$opt} ) ){
 	push @force_on,$opt;
-	
+	print (" on: $1\n");
+    } else {
+	print("\n");
     }
 }
 #for my $opt(@force_on) { $options{$opt}=$opt; }
@@ -143,7 +148,7 @@ for my $opt ( keys %options)  {
 
 
 ###
-# group checks...
+# run the installer stages
 ###
 # if allowed to check.
 my $name=getpwuid( $< ) ;
@@ -155,22 +160,34 @@ my $name=getpwuid( $< ) ;
 # ... later
 # svn info to check installpl location.
 
-### run all.
+# run all.
 #for my $opt ( keys %dispatch_table)  {
 ### run in order
+# could add a start from option as wel, with something like until we are the starting option remove options
+my $found_first=0;
 for my $opt ( @order ) {
 #    print ("Run $opt\n");
     if ( ! $options{'skip_'.$opt} ) {
-	# for default behavior optinos{opt} is undefined, for force on it is is 1, for force off it is 0.
-	my $status=$dispatch_table{$opt}->($options{$opt} #put params in here.
-	    );
-	$dispatch_status{$opt}=$status;
-	if ( !$status ){
-	    print ("ERROR: $opt failed!\n");
-	} 
-    }
-}
+	if ( $opt =~ /$first_stage/ ) {
+	    print ("Found Starting point\n");
+	    $found_first=1;
+	} else {
+	    #found is not it.... 
+	}
 
+	if ( $found_first && ! -z $first_stage) { 
+	    # for default behavior optinos{opt} is undefined, for force on it is is 1, for force off it is 0.
+	    my $status=$dispatch_table{$opt}->($options{$opt} #put params in here.
+		);
+	    $dispatch_status{$opt}=$status;
+	    if ( !$status ){
+		print ("ERROR: $opt failed!\n");
+	    } 
+	} 
+	
+    }
+
+}
 
 exit;
 #quit;
