@@ -37,6 +37,9 @@ sub svn_externals () {
 	} elsif ($mode =~ /silent/x ){
 	print ("$mode\t");
 	    $mode=-2;
+	} elsif ($mode =~ /nosvn/x ){
+	print ("$mode\t");
+	    $mode=2;
 	}
     }
     if( looks_like_number($mode) ){
@@ -190,7 +193,7 @@ sub process_external_deff(){
 	    } else {
 		push (@errors, "Error cloning $git_url to $local_name\n".join("\t\t",@output)) unless $mode <= -1;
 		push (@errors, "\t ATTEMPTING Subversion! for $local_name from $svn_url\n");
-		my $svn_checkout_cmd="svn checkout ".$svn_url." ".$local_name;
+		my $svn_checkout_cmd="svn checkout ".$svn_url." ".$local_name unless $mode >=2;
 		print ("  \t$svn_checkout_cmd\n")unless $mode <= 0;
 		my @output = `$svn_checkout_cmd 2>&1`;
 		if ( ! -d $local_name ) {
@@ -204,7 +207,7 @@ sub process_external_deff(){
 	    if ( ! $? ) {
 		#return 1;
 		print ("svn update\n");
-		`svn update`;
+		`svn update` unless $mode >=2;
 	    } else {
 		print("svn false, assuming git. \n");
 	    }

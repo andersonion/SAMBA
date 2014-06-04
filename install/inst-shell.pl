@@ -28,7 +28,7 @@ sub shell () {
 
     my $do_work=0;
     my $work_done=0;
-    
+     
     my $src_rc="source ~/.${SHELL}rc";
     $bashrc_src_reg='^[\s]*'. # any ammount of whitespace, including none.
 	'(?:source|[.])'. # source lines can start with a . or the word source
@@ -113,7 +113,7 @@ sub shell () {
 	open SESAME_OUT, ">${HOME}/.bash_workstation_settings" or warn "Couldnt open settings file for writing!";
 	print SESAME_OUT "".
 	    "# \n".
-	    "# File automatically generated to contain paths by install.pl for worstation_home\n";
+	    "# File automatically generated to contain paths by install.pl for worstation_code\n";
 	print SESAME_OUT join("\n",@wrk_lines)."\n";
 	print SESAME_OUT join("\n",@rad_lines)."\n";
 	print SESAME_OUT join("\n",@pipe_lines)."\n";
