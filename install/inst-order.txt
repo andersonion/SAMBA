@@ -1,5 +1,5 @@
 group
-handle_prereqs
+handle_required_progs
 svn_externals
 shell
 macenv

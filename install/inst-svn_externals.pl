@@ -2,6 +2,7 @@ use warnings;
 use strict;
 use Scalar::Util qw(looks_like_number);
 our %ML=(
+    'rmsvn'    =>  3,
     'nosvn'    =>  2,
     'force_on' =>  1,
     'normal',  =>  0,
@@ -48,6 +49,9 @@ sub svn_externals () {
 	} elsif ($mode =~ /^no[-]?svn$/ix ){
 	print ("$mode\t");
 	    $mode=$ML{nosvn};
+	} elsif ($mode =~ /^rm[-]?svn$/ix ){
+	print ("$mode\t");
+	    $mode=$ML{rmsvn};
 	}
     }
     if( looks_like_number($mode) ){
@@ -219,32 +223,45 @@ sub process_external_deff(){
 		}
 	    }
 	} else {
-
+	    # dir exists, we've gotten it at least once.
+	    
 	    chdir $local_name;
 	    my $svnout=`svn info `;
 	    if ( ! $? && $mode != $ML{nosvn} ){
 		#return 1;
-		print ("svn update\n");
-		#`svn update` unless $mode ==$ML{nosvn};
-	    } else {
-		print("svn false, assuming git. \n");
-	    }
-	    
-	    @cmd_list=();
-	    my $c_branch=`git symbolic-ref --short HEAD`;
-	    if ( $c_branch !~  /master/x) {
-		push(@errors,"ERROR: current project $git_project NOT on master !, You must be on master to update! Currently on $c_branch instead.\n");
-	    } else {
-		#git symbolic-ref --short HEAD
-		#git rev-parse --abbrev-ref HEAD
-		push(@cmd_list,"git stash");
-		push(@cmd_list,"git pull");
-		push(@cmd_list,"git stash pop");
-
-		print ("\t\tupdate from git\n")unless $mode <= 0;
-		for my $cmd (@cmd_list ) {
-		    `$cmd`;
+		print("---WARNING---\n");
+		print("- SVN PROJECT -\n");
+		if ( $mode == $ML{rmsvn} ){
+		    print("!!!RMSVN MODE!!!\n");
+		    
+		    print ("cd $c_dir\;  rm $local_name\n");
+		} else {
+		    print ("svn update\n");
+		    #`svn update` unless $mode ==$ML{nosvn};
 		}
+	    } elsif ( $mode !=  $ML{'nosvn'} ) {
+		print("    svn false, assuming git. \n");
+	    
+	    
+		@cmd_list=();
+		my $c_branch=`git symbolic-ref --short HEAD`;
+		if ( $c_branch !~  /master/x) {
+		    push(@errors,"ERROR: current project $git_project NOT on master !, You must be on master to update! Currently on $c_branch instead.\n");
+		} elsif($?) {
+		    #git symbolic-ref --short HEAD
+		    #git rev-parse --abbrev-ref HEAD
+		    push(@cmd_list,"git stash");
+		    push(@cmd_list,"git pull");
+		    push(@cmd_list,"git stash pop");
+		    
+		    print ("\t\tupdate from git\n")unless $mode <= 0;
+		    for my $cmd (@cmd_list ) {
+			`$cmd`;
+		    }
+		} else {
+		    print("\tWarning! not git\n");
+		}
+		print ("\tUpdate done<$local_name >\n");
 	    }
 	    chdir $c_dir;
 	}
