@@ -1,7 +1,7 @@
 #use lib split(':',$RADISH_PERL_LIB);
 #require subroutines;
 #require order;
-sub handle_prereqs () {
+sub handle_required_progs  {
     my $mode = shift;
     my $do_work=0;
     my $work_done=0;
@@ -12,7 +12,7 @@ sub handle_prereqs () {
 	$do_work=1;
     }
     if ( $do_work > 0) {
-	print("handle_prereqs\n");
+	print("handle_required_progs\n");
 	my @programs=qw(ImageJ MATLAB xcode(gcc) SeverAdmin ANTS FSL);
 	print("Mac checks\n\t".join("\n\t",@programs)."\n");
 	$work_done=1;

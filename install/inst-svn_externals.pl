@@ -1,7 +1,13 @@
 use warnings;
 use strict;
 use Scalar::Util qw(looks_like_number);
-
+our %ML={
+    'nosvn'    =>  2,
+    'force_on' =>  1,
+    'normal',  =>  0,
+    'quiet'    => -1,
+    'silent'   => -2,
+};
 
 our $GITHUB_BASE='https://github.com/jamesjcook/'; 
 
@@ -30,6 +36,7 @@ sub svn_externals () {
 
     if (! defined $mode ) {$mode=0;}
     if ( ! looks_like_number($mode) ) {
+<<<<<<< Updated upstream
 
 	if ($mode =~ /^quiet$/x ){
 	print ("$mode\t");
@@ -40,6 +47,20 @@ sub svn_externals () {
 	} elsif ($mode =~ /^no[-]?svn$/x ){
 	print ("$mode\t");
 	    $mode=2;
+=======
+	if ( $mode =~ /:/x ){
+	    print ("\tERROR: tried to have multiple values for mode in svn_externals processing\n");
+	}
+	if ($mode =~ /^quiet$/ix ){
+	print ("$mode\t");
+	    $mode=-1;
+	} elsif ($mode =~ /^silent$/ix ){
+	print ("$mode\t");
+	    $mode=-2;
+	} elsif ($mode =~ /^no[-]?svn$/ix ){
+	print ("$mode\t");
+	    $mode=$ML{nosvn};
+>>>>>>> Stashed changes
 	}
     }
     if( looks_like_number($mode) ){
@@ -55,6 +76,13 @@ sub svn_externals () {
 	}
 
     }
+    # mode gets collapsed into an integer value, related to the verbosity of this script.
+    # mode 2, git only!, do not attempt to get projects through subversion.
+    # mode 1, force all parts on
+    # mode 0, normal, skip finishd portions.
+    # mode -1, "quit" mode, be less chatty.
+    # mode -2  "silent" mode, be even less chatty.
+    
 
 ###
 # if we're a git project find all .svn.externals 
@@ -177,6 +205,9 @@ sub process_external_deff(){
     $git_url=$GITHUB_BASE.$git_project.$GITHUB_SUFFIX;
     #    my( $local_name,$url_type,$svnpath_string)
     my $svn_url=$url_type.'://'.$svnpath_string; #$git_project.$GITHUB_SUFFIX;
+    if ( $mode == $ML{nosvn} ) {
+	$svn_url="SVNDISABLED";
+    }
     # could insert svn user here 
     my @cmd_list;
     if ( $git_project !~ /UNKNOWN/x && $local_name !~ /UNKNOWN/x && $branch !~ /UNKNOWN/x ) {
@@ -204,7 +235,7 @@ sub process_external_deff(){
 
 	    chdir $local_name;
 	    my $svnout=`svn info `;
-	    if ( ! $? ) {
+	    if ( ! $? && $mode != $ML{nosvn} ){
 		#return 1;
 		print ("svn update\n");
 		`svn update` unless $mode >=2;
