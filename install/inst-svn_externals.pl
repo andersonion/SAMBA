@@ -31,13 +31,13 @@ sub svn_externals () {
     if (! defined $mode ) {$mode=0;}
     if ( ! looks_like_number($mode) ) {
 
-	if ($mode =~ /quiet/x ){
+	if ($mode =~ /^quiet$/x ){
 	print ("$mode\t");
 	    $mode=-1;
-	} elsif ($mode =~ /silent/x ){
+	} elsif ($mode =~ /^silent$/x ){
 	print ("$mode\t");
 	    $mode=-2;
-	} elsif ($mode =~ /nosvn/x ){
+	} elsif ($mode =~ /^no[-]?svn$/x ){
 	print ("$mode\t");
 	    $mode=2;
 	}
