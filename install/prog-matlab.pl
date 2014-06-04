@@ -17,8 +17,8 @@ sub matlab (){
 	    return $?;
 	} else {
 	    print("tell your administator you cant access matlab on the command line, and they should run the following command. \n\t$sudo_ln\n");
+	    return 1;
 	}
-	
     } else {
 	# didtn find matlab, but not mac
 	print("Didnt find required software, matlab\n");
