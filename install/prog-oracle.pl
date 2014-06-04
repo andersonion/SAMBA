@@ -1,6 +1,6 @@
 sub oracle () {
     my $mode = shift;
-    my $do_work=0;
+    my $do_work=0; 
     my $base_path="/Volumes/xsyros/software/oracle/";
     my $oracle_inst_dir="$WKS_HOME/../oracle"; 
     my $oracle_version="11.2";
@@ -95,10 +95,12 @@ sub oracle () {
 	    chdir $WKS_HOME;
 	}
 	`mv $oracle_inst_dir/*/* $oracle_inst_dir`;
-
-
-    my $outpath="$WKS_HOME/oracle_cpaninst.bash";
-
+	
+	###
+	# Cpan requirements for oracle
+	###
+	my $outpath="$WKS_HOME/oracle_cpaninst.bash";
+	
 	print("creating oracle_cpaninst.bash for root to run\n");
 	open SESAME_OUT, ">$outpath"; 
 	print SESAME_OUT "#!/bin/bash\n".
@@ -124,6 +126,16 @@ sub oracle () {
 	`cmd`;
     }
     
+#     my $src_wks_settings = 'source ~/.bash_workstation_settings';
+#     my $wks_settings_reg = '^[\s]*'.
+# 	'source'.
+# 	'[\s]+'.
+# 	'[~]/[.]bash_workstation_settings'.
+# 	'[\s]*(?:[#].*)?$';
+#     my $wks_settings_check    = CheckFileForPattern("~/.".$rc_file,$wks_settings_reg) ;
+
+
+
     if ( $do_work ) {
 	print("setting oracle env in ${HOME}/.${SHELL}_workstation_settings\n");
 	

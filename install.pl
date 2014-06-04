@@ -199,7 +199,7 @@ for my $opt ( @order) {
 	push(@o_temp,$opt);
 	#last;
     } else {
-	print ( "skip $opt\n");
+	print ( "skip $opt\n"); 
     }
 }
 
