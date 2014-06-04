@@ -1,13 +1,13 @@
 use warnings;
 use strict;
 use Scalar::Util qw(looks_like_number);
-our %ML={
+our %ML=(
     'nosvn'    =>  2,
     'force_on' =>  1,
     'normal',  =>  0,
     'quiet'    => -1,
     'silent'   => -2,
-};
+);
 
 our $GITHUB_BASE='https://github.com/jamesjcook/'; 
 
@@ -36,18 +36,6 @@ sub svn_externals () {
 
     if (! defined $mode ) {$mode=0;}
     if ( ! looks_like_number($mode) ) {
-<<<<<<< Updated upstream
-
-	if ($mode =~ /^quiet$/x ){
-	print ("$mode\t");
-	    $mode=-1;
-	} elsif ($mode =~ /^silent$/x ){
-	print ("$mode\t");
-	    $mode=-2;
-	} elsif ($mode =~ /^no[-]?svn$/x ){
-	print ("$mode\t");
-	    $mode=2;
-=======
 	if ( $mode =~ /:/x ){
 	    print ("\tERROR: tried to have multiple values for mode in svn_externals processing\n");
 	}
@@ -60,7 +48,6 @@ sub svn_externals () {
 	} elsif ($mode =~ /^no[-]?svn$/ix ){
 	print ("$mode\t");
 	    $mode=$ML{nosvn};
->>>>>>> Stashed changes
 	}
     }
     if( looks_like_number($mode) ){
@@ -224,9 +211,9 @@ sub process_external_deff(){
 	    } else {
 		push (@errors, "Error cloning $git_url to $local_name\n".join("\t\t",@output)) unless $mode <= -1;
 		push (@errors, "\t ATTEMPTING Subversion! for $local_name from $svn_url\n");
-		my $svn_checkout_cmd="svn checkout ".$svn_url." ".$local_name unless $mode >=2;
-		print ("  \t$svn_checkout_cmd\n")unless $mode <= 0;
-		my @output = `$svn_checkout_cmd 2>&1`;
+		my $svn_checkout_cmd="svn checkout ".$svn_url." ".$local_name ;
+		print ("  \t$svn_checkout_cmd\n") unless $mode <= 0 ;
+		my @output = `$svn_checkout_cmd 2>&1` unless $mode ==$ML{nosvn};
 		if ( ! -d $local_name ) {
 		    push(@errors ,"\tsubversion FAIL!.".join("\t\t".@output)."\n");
 		}
@@ -238,7 +225,7 @@ sub process_external_deff(){
 	    if ( ! $? && $mode != $ML{nosvn} ){
 		#return 1;
 		print ("svn update\n");
-		`svn update` unless $mode >=2;
+		#`svn update` unless $mode ==$ML{nosvn};
 	    } else {
 		print("svn false, assuming git. \n");
 	    }
