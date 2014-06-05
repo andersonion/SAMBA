@@ -257,16 +257,18 @@ sub process_external_deff(){
 	    if ( $is_svn ){ #double negative aweful condition 
 		print("---WARNING---\n");
 		print("- SVN PROJECT -\n");
-		if ( ! CheckFileForPattern($svn_uninstfile,"$project_rm") ) {
-		    print ("adding rm instructions to $svn_uninstfile\n");
-		    FileAddText($svn_uninstfile,"$project_rm\n");
-		}
 		if ( $mode == $ML{rmsvn} ){
 		    print("!!!RMSVN MODE!!!\n");
+		    
 		    `$project_rm`;
 		} else {
+		    if ( ! CheckFileForPattern($svn_uninstfile,"$project_rm") ) {
+			print ("adding rm instructions to $svn_uninstfile\n");
+			FileAddText($svn_uninstfile,"$project_rm\n");
+		    }
 		    $update_line="cd $c_dir/$local_name;"."svn update;";
-		    $status_line="cd $c_dir/$local_name;"."svn status;";
+		    $status_line="cd $c_dir/$local_name; echo --check $local_name -- ; svn status;";
+		    print("updating svn project:$local_name\n");
 		    `$update_line` unless $mode ==$ML{nosvn};
 		}
 	    } elsif ( ! $is_svn ){
@@ -287,11 +289,15 @@ sub process_external_deff(){
 		    push(@cmd_list,"git stash pop");
 		    #print ("\t\tupdate from git\n")unless $mode <= 0;
 		    $update_line=join(';',@cmd_list);#."\n";
-		    $status_line="cd $c_dir/$local_name; git status";
+		    $status_line="cd $c_dir/$local_name; echo --check $local_name -- ; git status";
 		    check_add_gitignore($local_name);
 		    if ( ! CheckFileForPattern($git_uninstfile,"$project_rm") ) {
 			print ("adding rm instructions to $git_uninstfile\n");
 			FileAddText($git_uninstfile,"$project_rm\n");
+		    }
+		    if ( $mode>=0){
+			print ("running update $update_line\n") unless $mode <=0; # >> $svn_uninstfile
+			`$update_line` ;
 		    }
 		} else {
 		    print("\tWarning! Also not git\n");
@@ -299,11 +305,7 @@ sub process_external_deff(){
 		print ("\tUpdate done<$local_name >\n");
 	    }
 	    if ( ! CheckFileForPattern($code_updatefile,"$update_line") && length($update_line) ) {
-		print ("running update $update_line\n") unless $mode <=0; # >> $svn_uninstfile
 		FileAddText($code_updatefile,"$update_line\n");
-		if ( $mode>=0){
-		    `$update_line`;
-		}
 	    }
 	    if ( ! CheckFileForPattern($code_statusfile,"$status_line") && length($status_line) ) {
 		print ("\tadding status check line $status_line\n") unless $mode <=0; # >> $svn_uninstfile
