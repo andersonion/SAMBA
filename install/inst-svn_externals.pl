@@ -212,7 +212,9 @@ sub process_external_deff(){
     my $git_uninstfile=$MAIN_DIR."/uninstall_git_projects.sh";
     my $project_rm="rm -fr $c_dir/$local_name";
     my $update_line="";
+    my $status_line="";
     my $code_updatefile=$MAIN_DIR."/update_code.sh";;
+    my $code_statusfile=$MAIN_DIR."/find_modified_code.sh";;
     if ( $git_project !~ /UNKNOWN/x && $local_name !~ /UNKNOWN/x && $branch !~ /UNKNOWN/x ) {
 	### 
 	# download code from git or svn
@@ -264,6 +266,7 @@ sub process_external_deff(){
 		    `$project_rm`;
 		} else {
 		    $update_line="cd $c_dir/$local_name;"."svn update;";
+		    $status_line="cd $c_dir/$local_name;"."svn status;";
 		    `$update_line` unless $mode ==$ML{nosvn};
 		}
 	    } elsif ( ! $is_svn ){
@@ -284,6 +287,7 @@ sub process_external_deff(){
 		    push(@cmd_list,"git stash pop");
 		    #print ("\t\tupdate from git\n")unless $mode <= 0;
 		    $update_line=join(';',@cmd_list);#."\n";
+		    $status_line="cd $c_dir/$local_name; git status";
 		    check_add_gitignore($local_name);
 		    if ( ! CheckFileForPattern($git_uninstfile,"$project_rm") ) {
 			print ("adding rm instructions to $git_uninstfile\n");
@@ -300,6 +304,10 @@ sub process_external_deff(){
 		if ( $mode>=0){
 		    `$update_line`;
 		}
+	    }
+	    if ( ! CheckFileForPattern($code_statusfile,"$status_line") && length($status_line) ) {
+		print ("\tadding status check line $status_line\n") unless $mode <=0; # >> $svn_uninstfile
+		FileAddText($code_statusfile,"$status_line\n");
 	    }
 	    chdir $c_dir;
 	}
