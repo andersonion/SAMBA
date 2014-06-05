@@ -207,9 +207,16 @@ sub process_external_deff(){
 #     print (" setting svn uninst starting with ".abs_path($0)."\n");
     use File::Basename;
     my $dirname = dirname(__FILE__);
-    my $svn_uninstfile=dirname(__FILE__)."/git_to_svn_externals_uninstall.sh";
+    #my $svn_uninstfile=dirname(__FILE__)."/uninstall_svn_externals.sh";
+    my $svn_uninstfile=$MAIN_DIR."/uninstall_svn_externals.sh";
+    my $git_uninstfile=$MAIN_DIR."/uninstall_git_projects.sh";
     my $project_rm="rm -fr $c_dir/$local_name";
+    my $update_line="";
+    my $code_updatefile=$MAIN_DIR."/update_code.sh";;
     if ( $git_project !~ /UNKNOWN/x && $local_name !~ /UNKNOWN/x && $branch !~ /UNKNOWN/x ) {
+	### 
+	# download code from git or svn
+	###
 	if ( ! -d $local_name ){
 	    my $clone_cmd="git clone $git_url $local_name";
 	    print ("  \t$clone_cmd\n")unless $mode <= 0;
@@ -217,8 +224,11 @@ sub process_external_deff(){
 	    if ( ! -d $local_name && $branch !~ /master/x ){	    
 		chdir $local_name;
 		my $checkout_cmd="git checkout $branch";
-		`$checkout_cmd`;
+		my @output=`$checkout_cmd`;
 		print ("  \t$checkout_cmd\n")unless $mode <= 0;
+		if ( ! -d $local_name ) {
+		    push(@errors ,"\tgit FAIL!.".join("\t\t".@output)."\n");
+		}
 		chdir $c_dir;
 	    } else {
 		push (@errors, "Error cloning $git_url to $local_name\n".join("\t\t",@output)) unless $mode <= -1;
@@ -226,65 +236,72 @@ sub process_external_deff(){
 		my $svn_checkout_cmd="svn checkout ".$svn_url." ".$local_name ;
 		print ("  \t$svn_checkout_cmd\n") unless $mode <= 0 ;
 		my @output = `$svn_checkout_cmd 2>&1` unless $mode ==$ML{nosvn};
-		if (  -d $local_name ) {
-		    print ("adding rm instructions to $svn_uninstfile\n");
-		    if ( ! CheckFileForPattern($svn_uninstfile,"$project_rm\n") ) {
-			FileAddText($svn_uninstfile,"$project_rm\n");
-		    }
-		    #open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or warn "couldnt open bin_uninstall.sh:$!\n";		    
-		} else {
+		if ( ! -d $local_name ) {
 		    push(@errors ,"\tsubversion FAIL!.".join("\t\t".@output)."\n");
 		}
 	    }
-	} else {
+	} 
+	
+	###
+	# add an update line to a code udpater
+	###
+	# if code has been downloaded sucessfully
+
+	if (  -d $local_name ) {
 	    # dir exists, we've gotten it at least once.
-	    
 	    chdir $local_name;
 	    my $svnout=`svn info `;#return code is 1 for error from program output, eg, not svn. 
 	    my $is_svn=! $?;
-	    if ( $is_svn && $mode != $ML{nosvn} ){ #double negative aweful condition 
-		#return 1;
+	    if ( $is_svn ){ #double negative aweful condition 
 		print("---WARNING---\n");
 		print("- SVN PROJECT -\n");
+		if ( ! CheckFileForPattern($svn_uninstfile,"$project_rm\n") ) {
+		    print ("adding rm instructions to $svn_uninstfile\n");
+		    FileAddText($svn_uninstfile,"$project_rm\n");
+		}
 		if ( $mode == $ML{rmsvn} ){
 		    print("!!!RMSVN MODE!!!\n");
-		    if ( ! CheckFileForPattern($svn_uninstfile,"$project_rm\n") ) {
-			print ("$project_rm\n");# >> $svn_uninstfile
-			FileAddText($svn_uninstfile,"$project_rm\n");
-		    } else {
-			print("run svn removal script to remove all svnfiles $svn_uninstfile\n");
-		    }
+		    `$project_rm`;
 		} else {
-		    print ("svn update\n");
-		    `svn update` unless $mode ==$ML{nosvn};
+		    $update_line="svn udpate";
+		    `$update_line` unless $mode ==$ML{nosvn};
 		}
-	    } elsif ( $? && $mode !=  $ML{'nosvn'} ) {
+	    } elsif ( ! $is_svn ){
 		print("    svn false, assuming git. \n");
 		@cmd_list=();
 		my $c_branch=`git symbolic-ref --short HEAD`;
+		my $is_git= ! $?;
 		if ( $c_branch !~  /master/x) {
 		    push(@errors,"ERROR: current project $git_project NOT on master !, You must be on master to update! Currently on $c_branch instead.\n");
-		} elsif($?) {
+		} elsif($is_git) {
 		    #git symbolic-ref --short HEAD
 		    #git rev-parse --abbrev-ref HEAD
+		    push(@cmd_list,"cd ".chomp(`pwd`));
 		    push(@cmd_list,"git stash");
 		    push(@cmd_list,"git pull");
 		    push(@cmd_list,"git stash pop");
-		    
-		    print ("\t\tupdate from git\n")unless $mode <= 0;
-		    for my $cmd (@cmd_list ) {
-			`$cmd`;
+		    #print ("\t\tupdate from git\n")unless $mode <= 0;
+		    $update_line=join(';',@cmd_list)."\n";
+		    check_add_gitignore($local_name);
+		    if ( ! CheckFileForPattern($git_uninstfile,"$project_rm\n") ) {
+			print ("adding rm instructions to $git_uninstfile\n");
+			FileAddText($git_uninstfile,"$project_rm\n");
 		    }
 		} else {
-		    print("\tWarning! not git\n");
+		    print("\tWarning! Also not git\n");
 		}
 		print ("\tUpdate done<$local_name >\n");
-	    }
+	    } 
 	    chdir $c_dir;
+	    if ( ! CheckFileForPattern($code_updatefile,"$update_line\n") ) {
+		print ("$update_line\n") unless $mode <=0; # >> $svn_uninstfile
+		FileAddText($code_updatefile,"$update_line\n");
+		if ( $mode>0){
+		    `$update_line`;
+		}
+	    }
 	}
-	if (-d $local_name ) {
-	    check_add_gitignore($local_name);
-	}
+	
     } else {
 	push (@errors, "error with git_name, local_name or branch.git_name=$git_project, Localname=$local_name, branch=$branch\n");
     }
