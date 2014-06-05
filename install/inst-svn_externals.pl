@@ -1,5 +1,5 @@
 use warnings;
-use strict;
+#use strict;
 use Scalar::Util qw(looks_like_number);
 our %ML=(
     'rmsvn'    =>  3,
@@ -42,20 +42,20 @@ sub svn_externals () {
 	}
 	if ($mode =~ /^quiet$/ix ){
 	print ("$mode\t");
-	    $mode=-1;
+	    $mode=$ML{'quiet'};
 	} elsif ($mode =~ /^silent$/ix ){
 	print ("$mode\t");
-	    $mode=-2;
+	    $mode=$ML{'silent'};
 	} elsif ($mode =~ /^no[-]?svn$/ix ){
 	print ("$mode\t");
-	    $mode=$ML{nosvn};
+	    $mode=$ML{'nosvn'};
 	} elsif ($mode =~ /^rm[-]?svn$/ix ){
 	print ("$mode\t");
-	    $mode=$ML{rmsvn};
+	    $mode=$ML{'rmsvn'};
 	}
     }
     if( looks_like_number($mode) ){
-	if ($mode>0 ) {
+	if ($mode== $ML{'force'} ) {
 	    print ("force\t");
 	    $do_work=$mode;
 	} elsif(!$work_done ) {
@@ -218,7 +218,10 @@ sub process_external_deff(){
 		my $svn_checkout_cmd="svn checkout ".$svn_url." ".$local_name ;
 		print ("  \t$svn_checkout_cmd\n") unless $mode <= 0 ;
 		my @output = `$svn_checkout_cmd 2>&1` unless $mode ==$ML{nosvn};
-		if ( ! -d $local_name ) {
+		if (  -d $local_name ) {
+		    print ("adding rm instructions to $WKS_HOME/git_to_svn_externals_uninstall.sh\n");
+		    #open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or warn "couldnt open bin_uninstall.sh:$!\n";		    
+		} else {
 		    push(@errors ,"\tsubversion FAIL!.".join("\t\t".@output)."\n");
 		}
 	    }
@@ -226,23 +229,23 @@ sub process_external_deff(){
 	    # dir exists, we've gotten it at least once.
 	    
 	    chdir $local_name;
-	    my $svnout=`svn info `;
-	    if ( ! $? && $mode != $ML{nosvn} ){
+	    my $svnout=`svn info `;#return code is 1 for error from program output, eg, not svn. 
+	    my $is_svn=! $?;
+	    if ( $is_svn && $mode != $ML{nosvn} ){ #double negative aweful condition 
 		#return 1;
 		print("---WARNING---\n");
 		print("- SVN PROJECT -\n");
 		if ( $mode == $ML{rmsvn} ){
 		    print("!!!RMSVN MODE!!!\n");
-		    
 		    print ("cd $c_dir\;  rm $local_name\n");
+
+		    
 		} else {
 		    print ("svn update\n");
 		    #`svn update` unless $mode ==$ML{nosvn};
 		}
-	    } elsif ( $mode !=  $ML{'nosvn'} ) {
+	    } elsif ( $? && $mode !=  $ML{'nosvn'} ) {
 		print("    svn false, assuming git. \n");
-	    
-	    
 		@cmd_list=();
 		my $c_branch=`git symbolic-ref --short HEAD`;
 		if ( $c_branch !~  /master/x) {

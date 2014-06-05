@@ -12,11 +12,10 @@ sub OptionOrder {
     push(@f_try,"$fileorprefix.txt");
     push(@f_try,"install/$fileorprefix.txt");
 
-    while (! -f $file && $#f_try>0)  {
-	print("no file : $file\n");
+    do {
 	$file = shift @f_try;
-
-    }
+    } while (! -f $file && $#f_try>0) ;
+    print("using order : $file\n");
     if ( ! -f $file ) {
 	print("ERROR getting an install order for therjigger <$fileorprefix>\n");
     }

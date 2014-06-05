@@ -87,37 +87,46 @@ sub shell () {
 	    print("---\n");
 	    #$src_rc='. ~/.'."${SHELL}".'rc';
 	    print("adding $src_wks_settings to ~/.$rc_file\n");
-	    open ($FILE, ">>","${HOME}/.$rc_file") || die "Could not open file: $!\n";
-	    print $FILE "$src_wks_settings\n";
-	    close $FILE;
+	    
+	    FileAddText("${HOME}/.$rc_file","$src_wks_settings\n");
+# 	    open ($FILE, ">>","${HOME}/.$rc_file") || die "Could not open file: $!\n";
+# 	    print $FILE "$src_wks_settings\n";
+# 	    close $FILE;
 	}
 
 	if ( ! -f ".${SHELL}_workstation_settings" ) {
+	    my $wrk_home       ="export WORKSTATION_HOME=$WKS_HOME";
+	    my $wrk_src        ="source \$WORKSTATION_HOME/pipeline_settings/${SHELL}/${SHELL}rc_pipeline_setup";
+	    my $wrk_data     ="export WORKSTATION_DATA=$DATA_HOME";
+	    my $rad_home       ="export RADISH_RECON_DIR=$WKS_HOME/recon/legacy";
+	    my $rad_src        ="source \$WORKSTATION_HOME/pipeline_settings/${SHELL}/legacy_radish_${SHELL}rc";
+	    my $pipe_home      ="export PIPELINE_HOME=$WKS_HOME/";
+	    
+#	    my @wrk_lines=($wrk_home,$wrk_src);
+#	    my @rad_lines=($rad_home,$rad_src);
+#	    my @pipe_lines=($pipe_home);#,$pipe_line,$pipe_src);
+	    
+	    
+# 	    my ($src_found,$wrk_found,$rad_found,$pipe_found)=(0,0,0,0);
+# 	    open SESAME_OUT, ">${HOME}/.bash_workstation_settings" or warn "Couldnt open settings file for writing!";
+# 	    print SESAME_OUT join("\n",@wrk_lines)."\n";
+# 	    print SESAME_OUT join("\n",@rad_lines)."\n";
+# 	    print SESAME_OUT join("\n",@pipe_lines)."\n";
+# 	    close SESAME_OUT;
+	    FileClear("${HOME}/.bash_workstation_settings");
+	    FileAddText("${HOME}/.bash_workstation_settings",
+			"# \n".
+			"# File automatically generated to contain paths by install.pl for worstation_code\n".
+			$wrk_home."\n".
+			$wrk_src."\n".
+			$wrk_data."\n".
+			$wrk_home."\n".
+			$rad_home."\n".
+			$rad_src."\n".
+			$pipe_home."\n"
+		);
 
-	my $wrk_home       ="export WORKSTATION_HOME=$WKS_HOME";
-	my $wrk_src        ="source \$WORKSTATION_HOME/pipeline_settings/${SHELL}/${SHELL}rc_pipeline_setup";
-	my $wrk_data     ="export WORKSTATION_DATA=$DATA_HOME";
-	my $rad_home       ="export RADISH_RECON_DIR=$WKS_HOME/recon/legacy";
-	my $rad_src        ="source \$WORKSTATION_HOME/pipeline_settings/${SHELL}/legacy_radish_${SHELL}rc";
-	my $pipe_home      ="export PIPELINE_HOME=$WKS_HOME/";
 
-
-
-	my @wrk_lines=($wrk_home,$wrk_src);
-	my @rad_lines=($rad_home,$rad_src);
-	my @pipe_lines=($pipe_home);#,$pipe_line,$pipe_src);
-
-
-	my ($src_found,$wrk_found,$rad_found,$pipe_found)=(0,0,0,0);
-
-	open SESAME_OUT, ">${HOME}/.bash_workstation_settings" or warn "Couldnt open settings file for writing!";
-	print SESAME_OUT "".
-	    "# \n".
-	    "# File automatically generated to contain paths by install.pl for worstation_code\n";
-	print SESAME_OUT join("\n",@wrk_lines)."\n";
-	print SESAME_OUT join("\n",@rad_lines)."\n";
-	print SESAME_OUT join("\n",@pipe_lines)."\n";
-	close SESAME_OUT;
 	}
     }
     return 0;

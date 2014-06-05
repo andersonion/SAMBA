@@ -3,9 +3,6 @@ handle_required_progs
 svn_externals
 shell
 macenv
-oracle
-fsl
-ants
 dependencies
 ij_macros
 legacy_system

@@ -1,7 +1,7 @@
 sub fsl() {
 
     my $mode = shift;
-    print("fsl\n");
+    print("\tfsl\n");
     
     #look for $FSLDIR
     my $do_work=0;
@@ -18,11 +18,20 @@ sub fsl() {
 	    $mode=-2;
 	}
     }
-    use ENV;
-    if (! -z $ENV{"FSL_DIR"} ) { 
-	$work_done=1; 
+#    use ENV;
+    if ( -d "$WKS_HOME/../fsl"){
+	if (! length( $ENV{"FSLDIR"} ) ){
+	    print("setting fsldir env\n");
+	    $ENV{'FSLDIR'}="$WKS_HOME/../fsl";
+	}
+    }
+    
+    if ( ! length( $ENV{"FSLDIR"} ) ) { 
+	$work_done=0; 
+	print("\tfsl Not found. tried \n");
     } else {
-	print ("\tFSL Found in ".$ENV{"FSL_DIR"}."\n");
+
+	print ("\tFSL Found in ".$ENV{"FSLDIR"}."\n");
     }
     if( looks_like_number($mode) ){
 	if ($mode>0 ) {
@@ -38,7 +47,7 @@ sub fsl() {
     }
     
     
-    if ( ! -d "$WKS_HOME/../fsl" && -z $ENV{"FSL_DIR"}) 
+    if ( ! -d "$WKS_HOME/../fsl" && ! length ( $ENV{"FSLDIR"} ) ) 
     {
 	print("---\n");
 	print("Running FSL installer ...... \n");
@@ -86,7 +95,10 @@ sub fsl() {
 	my $line_found=0;
 	my $outpath="${HOME}/.${SHELL}_profile";
 	my $fsl_dir="FSLDIR=$wks_home/../fsl";
-	open SESAME_OUT, ">$outpath" or warn "could not open $outpath for writing\n";
+	#my $found_pat=CheckFileForPattern($file,$pattern);
+	#FileAddText($file,$text);
+
+#	open SESAME_OUT, ">$outpath" or warn "could not open $outpath for writing\n";
 	for my $line (@all_lines) {
 	    if ($line =~ /FSLDIR=.*/) { # matches source<anthing>.${SHELL}rc<anything> could be to broad a match
 		$line_found=1;
@@ -94,7 +106,8 @@ sub fsl() {
 	    }
 	    print  SESAME_OUT $line;  # write out every line modified or not
 	}
-	if( $line_found==0){ 
+	#if( $line_found==0){ 
+	if ( ! CheckFileForPattern($outpath,"FSLDIR=.*") ) {
 	    print ("FSLDIR setting not found, fsl did not install correctly, Trying to dump fsl setup into bash_profile\n"); 
 # try running this again. If that fails try running the fsl installer separetly. \n");
 	    my $line='# FSL Setup'."\n".
@@ -102,11 +115,12 @@ sub fsl() {
 		'PATH=${FSLDIR}/bin:${PATH}'."\n".
 		'export FSLDIR PATH'."\n".
 		'. ${FSLDIR}/etc/fslconf/fsl.sh'."\n";
-	    print SESAME_OUT $line;
+	    #print SESAME_OUT $line;
+	    FileAddText($outpath,$line);
 	} else {
 	    print ("\tFound fsl in $SHELL"."_profile\n");
 	}
-	close SESAME_OUT;
+#	close SESAME_OUT;
     }
     
     return;

@@ -152,5 +152,24 @@ sub ProcessStages {
     return;   
 }
 
+sub FileAddText { 
+    my $file=shift @_;
+    my $text=shift @_;
+    my $FB;
+    # could add optional $before_pattern $after_pattern to insert before or after some pattern found
+    open($FB, '>>', $file) || die "Error opening $file : $!\n";
+    print $FB ($text);
+    close $FB;
+    return;
+}
 
+sub FileClear {
+    my $file=shift @_;
+    my $FB;
+    # could add optional $before_pattern $after_pattern to insert before or after some pattern found
+    open($FB, '>', $file) || die "Error opening $file : $!\n";
+    print $FB ('');
+    close $FB;
+    return;
+}
 1;

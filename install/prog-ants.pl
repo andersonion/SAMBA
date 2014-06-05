@@ -1,7 +1,7 @@
 sub ants(){
     my $mode = shift;
     
-    print("ants_inst\n");
+    print("\tants_inst\n");
     
     #look for $ANTS_PATH
     my $do_work=0;

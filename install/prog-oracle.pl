@@ -138,27 +138,33 @@ sub oracle () {
 
     if ( $do_work ) {
 	print("setting oracle env in ${HOME}/.${SHELL}_workstation_settings\n");
-	
-	open ($FILE, ">>","${HOME}/.${SHELL}_workstation_settings") || die "Could not open file: $!\n";
-	my $oracle_lib    ="export DYLD_LIBRARY_PATH=\$DYLD_LIBRARY_PATH:$oracle_inst_dir";
-	my $oracle_home   ="export ORACLE_HOME=$oracle_inst_dir";
-	my @oracle_lines=();#$oracle_lib,$oracle_home);
-	
-	if (CheckFileForPattern("${HOME}/.${SHELL}_workstation_settings",$oracle_lib) <=0 ){
-	    push( @oracle_lines,$oracle_lib);
-	}
-	if (CheckFileForPattern("${HOME}/.${SHELL}_workstation_settings",$oracle_home) <=0 ){
-	    push( @oracle_lines,$oracle_home);
-	}
-	if ($#oracle_lines>=1) {
-	    print $FILE join("\n",@oracle_lines)."\n";
-	}
-	close $FILE;
+	my $outfile="${HOME}/.${SHELL}_workstation_settings";
+#	if ( ! CheckFileForPattern($outfile,"ORACLE_HOME=.*") ) {
+	    #open ($FILE, ">>","${HOME}/.${SHELL}_workstation_settings") || die "Could not open file: $!\n";
+	    my $oracle_lib    ="export DYLD_LIBRARY_PATH=\$DYLD_LIBRARY_PATH:$oracle_inst_dir";
+	    my $oracle_home   ="export ORACLE_HOME=$oracle_inst_dir";
+	    my @oracle_lines=();#$oracle_lib,$oracle_home);
+	    
+	    if (CheckFileForPattern("${HOME}/.${SHELL}_workstation_settings",$oracle_lib) <=0 ){
+		push( @oracle_lines,$oracle_lib);
+	    } else {
+		print("Found oracle_lib_path line\n");
+	    }
+	    if (CheckFileForPattern("${HOME}/.${SHELL}_workstation_settings",$oracle_home) <=0 ){
+		push( @oracle_lines,$oracle_home);
+		print("Found oracle_home_path line\n");
+	    }
+	    if ($#oracle_lines>=1) {
+		FileAddText($outfile,join("\n",@oracle_lines)."\n");
+		#print $FILE join("\n",@oracle_lines)."\n";
+	    }
+#	}
+	#close $FILE;
     }
     if ( ! $do_work ) {
 	print ("... done!\n");
     }
     return 1;
-    
+
 }
 1;
