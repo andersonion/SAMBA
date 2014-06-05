@@ -201,6 +201,14 @@ sub process_external_deff(){
     }
     # could insert svn user here 
     my @cmd_list;
+#     use Cwd 'abs_path';
+#     use File::Basename;
+#     use Cwd 'abs_path';
+#     print (" setting svn uninst starting with ".abs_path($0)."\n");
+    use File::Basename;
+    my $dirname = dirname(__FILE__);
+    my $svn_uninstfile=dirname(__FILE__)."/git_to_svn_externals_uninstall.sh";
+    my $project_rm="rm -fr $c_dir/$local_name";
     if ( $git_project !~ /UNKNOWN/x && $local_name !~ /UNKNOWN/x && $branch !~ /UNKNOWN/x ) {
 	if ( ! -d $local_name ){
 	    my $clone_cmd="git clone $git_url $local_name";
@@ -219,7 +227,10 @@ sub process_external_deff(){
 		print ("  \t$svn_checkout_cmd\n") unless $mode <= 0 ;
 		my @output = `$svn_checkout_cmd 2>&1` unless $mode ==$ML{nosvn};
 		if (  -d $local_name ) {
-		    print ("adding rm instructions to $WKS_HOME/git_to_svn_externals_uninstall.sh\n");
+		    print ("adding rm instructions to $svn_uninstfile\n");
+		    if ( ! CheckFileForPattern($svn_uninstfile,"$project_rm\n") ) {
+			FileAddText($svn_uninstfile,"$project_rm\n");
+		    }
 		    #open SESAME_OUT, '>>', "bin/bin_uninstall.sh" or warn "couldnt open bin_uninstall.sh:$!\n";		    
 		} else {
 		    push(@errors ,"\tsubversion FAIL!.".join("\t\t".@output)."\n");
@@ -237,12 +248,15 @@ sub process_external_deff(){
 		print("- SVN PROJECT -\n");
 		if ( $mode == $ML{rmsvn} ){
 		    print("!!!RMSVN MODE!!!\n");
-		    print ("cd $c_dir\;  rm $local_name\n");
-
-		    
+		    if ( ! CheckFileForPattern($svn_uninstfile,"$project_rm\n") ) {
+			print ("$project_rm\n");# >> $svn_uninstfile
+			FileAddText($svn_uninstfile,"$project_rm\n");
+		    } else {
+			print("run svn removal script to remove all svnfiles $svn_uninstfile\n");
+		    }
 		} else {
 		    print ("svn update\n");
-		    #`svn update` unless $mode ==$ML{nosvn};
+		    `svn update` unless $mode ==$ML{nosvn};
 		}
 	    } elsif ( $? && $mode !=  $ML{'nosvn'} ) {
 		print("    svn false, assuming git. \n");
@@ -297,6 +311,13 @@ sub check_add_gitignore () {
     
     my $infile='.gitignore';
     my $gitigline='';
+
+    if ( ! CheckFileForPattern($infile,$pattern) ) {
+	FileAddText($infile,".gitignore\n".$pattern."\n");
+    }
+    return;
+    
+
     open($INPUT, $infile) || (warn "Error opening $infile : $!\n" and $gitigline=".gitignore\n");
     #print("looking up pattern $pattern in file $infile\n");
     #if(tell(FH) != -1)

@@ -11,30 +11,33 @@
 # );
 # }
 use warnings;
-
+#use strict;
 sub CheckFileForPattern {
     my $infile  = shift @_;
     my $pattern = shift @_; 
     my $INPUT;
     my $found=0;
     $infile =~ s/~/${HOME}/gx;
-    if (-f $infile ){
-    open($INPUT, $infile) || warn "Error opening $infile : $!\n";
-    #print("looking up pattern $pattern in file $infile\n");
-    while(<$INPUT>) {
-	if (m/$pattern/x) {
+    if (-f $infile && open($INPUT, $infile) ){
+	#print("looking up pattern $pattern in file $infile\n");
+	while(<$INPUT>) {
+	    if (m/$pattern/x) {
 #	if ( $_=~/$pattern/) {
-	    #print;
-	    $found += 1;
-	    # exit; # put the exit here, if only the first match is required
-	} else {
-	    #print "nomatch ".$_;
-	}
-    }
-    close($INPUT);
-    #print ("CheckFile out $found\n");
+		#print;
+		$found += 1;
+		# exit; # put the exit here, if only the first match is required
+	    } else {
+		#print "nomatch ".$_;
+	    }
+	} 
+# 	else {
+# 	    warn "Error opening $infile : $!\n" ;
+# 	    $found =0;
+# 	}
+	close($INPUT);
+	#print ("CheckFile out $found\n");
     } else {
-	$found=-1;
+	#$found=-1;
     }
     return $found;
 }
@@ -172,6 +175,7 @@ sub FileAddText {
     my $file=shift @_;
     my $text=shift @_;
     my $FB;
+#    print("Writing to $file\n");
     # could add optional $before_pattern $after_pattern to insert before or after some pattern found
     open($FB, '>>', $file) || die "Error opening $file : $!\n";
     print $FB ($text);
