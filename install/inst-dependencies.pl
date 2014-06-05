@@ -1,6 +1,14 @@
+use warnings;
+#use strict;
 sub dependencies (){
     print("dependencies\n");
-
+    my $os='UNKNOWN';
+    if ( $OS =~ /^darwin$/ )
+    {
+	$os='mac';
+    } else {
+	$os=$OS;
+    }
 ###
 # update engine_something_dependencies.
 ###
@@ -74,7 +82,7 @@ sub dependencies (){
 		$string="engine_work_directory=/${HOSTNAME}space";
 # engine_data_directory=/Volumes/worktation_data/data
 	    } elsif ($line =~ /^engine_data_directory=/x ) {
-		$string="engine_data_directory=$data_home";
+		$string="engine_data_directory=$DATA_HOME";
 # engine_recongui_paramfile_directory=/wks_home/dir_param_files
 	    } elsif ($line =~ /^engine_recongui_paramfile_directory=/x ) {
 		$string="engine_recongui_paramfile_directory=$WKS_HOME/dir_param_files";
@@ -91,10 +99,10 @@ sub dependencies (){
 		    }
 # engine_waxholm_canonical_images_dir=/wks_home/whs_references/whs_canonical_images/alx_can_101103
 	    } elsif ($line =~ /^engine_waxholm_canonical_images_dir=/x ) {
-		$string="engine_waxholm_canonical_images_dir=$data_home/atlas/whs2";
+		$string="engine_waxholm_canonical_images_dir=$DATA_HOME/atlas/whs2";
 # engine_waxholm_labels_dir=/wks_home/whs_references/whs_labels/canon_labels_101103
 	    } elsif ($line =~ /^engine_waxholm_labels_dir=/x ) {
-		$string="engine_waxholm_labels_dir=$data_home/atlas/whs2";
+		$string="engine_waxholm_labels_dir=$DATA_HOME/atlas/whs2";
 # engine_app_dti_recon_param_dir=/wks_home/dti_references
 	    } elsif ($line =~ /^engine_app_dti_recon_param_dir=/x ) {
 		$string="engine_app_dti_recon_param_dir=$WKS_HOME/pipeline_settings/tensor";
@@ -111,10 +119,10 @@ sub dependencies (){
 # # program locations
 # engine_radish_bin_directory=/wks_home/recon/legacy/modules/bin_macINTEL
 	    } elsif ($line =~ /^engine_radish_bin_directory=/x ) {
-		$string="engine_radish_bin_directory=$WKS_HOME/bin";#recon/legacy/modules/_mac_${arch}
+		$string="engine_radish_bin_directory=$WKS_HOME/bin";#recon/legacy/modules/_mac_${ARCH}
 # engine_radish_contributed_bin_directory=/wks_home/recon/legacy/modules/contributed/bin_macINTEL 
 	    } elsif ($line =~ /^engine_radish_contributed_bin_directory=/x ) {
-		$string="engine_radish_contributed_bin_directory=$WKS_HOME/recon/legacy/modules/contributed/bin_mac_${arch}";
+		$string="engine_radish_contributed_bin_directory=$WKS_HOME/recon/legacy/modules/contributed/bin_${os}_${ARCH}";
 # engine_app_matlab=/usr/bin/matlab
  	    } elsif ($line =~ /^engine_app_matlab=/x ) { 
  		$string="engine_app_matlab=/usr/bin/matlab";# -nosplash -nodisplay -nodesktop ";
