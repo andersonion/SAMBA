@@ -18,7 +18,7 @@ sub CheckFileForPattern {
     my $INPUT;
     my $found=0;
     $infile =~ s/~/${HOME}/gx;
-    $pattern =~ s|(/\|[ ])|\\\1|gx;
+    $pattern =~ s|(/\|[ ])|\\$1|gx;
     if (-f $infile && open($INPUT, $infile) ){
 	#print("looking up pattern $pattern in file $infile\n");
 	while(<$INPUT>) {
@@ -166,6 +166,9 @@ sub ProcessStages {
 	    my $status=$d_ref->{$opt}->($s_flags->{$opt} #put params in here.
 		);
 	    $s_ref->{$opt}=$status;
+	    if ( ! $status ){
+		print("Stage error\n");
+	    }
 	}
     }
     
