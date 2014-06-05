@@ -113,14 +113,24 @@ our $IS_USER=0;
 ###
 my $first_stage='';
 my $last_stage='';
+my $only_stage='';
 # opt_eval_string is gatherd from CraftOptionList function, 
 if ( !GetOptions( eval $opt_eval_string,
 		  "admin_group=s" => \$ADMIN_GROUP,
 		  "WKS_HOME=s" => \$WKS_HOME,
 		  "start_at=s" => \$first_stage,
-		  "stop_at=s" => \$last_stage) ) { 
+		  "stop_at=s" => \$last_stage,
+		  "only=s" => \$only_stage,
+		  "only_stage=s" => \$only_stage,
+		  "only_step=s" => \$only_stage,
+     )
+    ) { 
     print("Option error\n");
     exit;
+}
+if ( length($only_stage)>0) { 
+    $last_stage=$only_stage;
+    $first_stage=$only_stage;
 }
 
 ###
