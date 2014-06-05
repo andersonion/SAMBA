@@ -125,7 +125,7 @@ if ( !GetOptions( eval $opt_eval_string,
 		  "only_step=s" => \$only_stage,
      )
     ) { 
-    print("Option error\n");
+    print("Option error:\n$!");
     exit;
 }
 if ( length($only_stage)>0) { 
