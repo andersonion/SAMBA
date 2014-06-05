@@ -30,7 +30,7 @@ use lib $ENV{PWD}.'/install';
 require install::subroutines;
 require install::order;
 our $DEBUG=30;
-
+our $MAIN_DIR=$ENV{PWD};
 
 Getopt::Long::Configure ("bundling", "ignorecase_always");
 
