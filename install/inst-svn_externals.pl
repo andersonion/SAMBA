@@ -4,7 +4,7 @@ use Scalar::Util qw(looks_like_number);
 our %ML=(
     'rmsvn'    =>  3,
     'nosvn'    =>  2,
-    'force_on' =>  1,
+    'force' =>  1,
     'normal',  =>  0,
     'quiet'    => -1,
     'silent'   => -2,
@@ -55,7 +55,7 @@ sub svn_externals () {
 	}
     }
     if( looks_like_number($mode) ){
-	if ($mode== $ML{'force'} ) {
+	if ($mode == $ML{'force'} ) {
 	    print ("force\t");
 	    $do_work=$mode;
 	} elsif(!$work_done ) {
@@ -255,7 +255,7 @@ sub process_external_deff(){
 	    if ( $is_svn ){ #double negative aweful condition 
 		print("---WARNING---\n");
 		print("- SVN PROJECT -\n");
-		if ( ! CheckFileForPattern($svn_uninstfile,"$project_rm\n") ) {
+		if ( ! CheckFileForPattern($svn_uninstfile,"$project_rm") ) {
 		    print ("adding rm instructions to $svn_uninstfile\n");
 		    FileAddText($svn_uninstfile,"$project_rm\n");
 		}
@@ -263,7 +263,7 @@ sub process_external_deff(){
 		    print("!!!RMSVN MODE!!!\n");
 		    `$project_rm`;
 		} else {
-		    $update_line="svn udpate";
+		    $update_line="cd $c_dir/$local_name;"."svn update;";
 		    `$update_line` unless $mode ==$ML{nosvn};
 		}
 	    } elsif ( ! $is_svn ){
@@ -276,14 +276,16 @@ sub process_external_deff(){
 		} elsif($is_git) {
 		    #git symbolic-ref --short HEAD
 		    #git rev-parse --abbrev-ref HEAD
-		    push(@cmd_list,"cd ".chomp(`pwd`));
+		    my $g_abspath=`pwd`;
+		    chomp($g_abspath);
+		    push(@cmd_list,"cd $c_dir/$local_name");
 		    push(@cmd_list,"git stash");
 		    push(@cmd_list,"git pull");
 		    push(@cmd_list,"git stash pop");
 		    #print ("\t\tupdate from git\n")unless $mode <= 0;
-		    $update_line=join(';',@cmd_list)."\n";
+		    $update_line=join(';',@cmd_list);#."\n";
 		    check_add_gitignore($local_name);
-		    if ( ! CheckFileForPattern($git_uninstfile,"$project_rm\n") ) {
+		    if ( ! CheckFileForPattern($git_uninstfile,"$project_rm") ) {
 			print ("adding rm instructions to $git_uninstfile\n");
 			FileAddText($git_uninstfile,"$project_rm\n");
 		    }
@@ -292,14 +294,14 @@ sub process_external_deff(){
 		}
 		print ("\tUpdate done<$local_name >\n");
 	    } 
-	    chdir $c_dir;
-	    if ( ! CheckFileForPattern($code_updatefile,"$update_line\n") ) {
+	    if ( ! CheckFileForPattern($code_updatefile,"$update_line") ) {
 		print ("$update_line\n") unless $mode <=0; # >> $svn_uninstfile
 		FileAddText($code_updatefile,"$update_line\n");
 		if ( $mode>0){
 		    `$update_line`;
 		}
 	    }
+	    chdir $c_dir;
 	}
 	
     } else {
