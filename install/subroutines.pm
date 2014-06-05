@@ -20,7 +20,7 @@ sub CheckFileForPattern {
     $infile =~ s/~/${HOME}/gx;
     $pattern =~ s|(/\|[ ])|\\\1|gx;
     if (-f $infile && open($INPUT, $infile) ){
-	print("looking up pattern $pattern in file $infile\n");
+	#print("looking up pattern $pattern in file $infile\n");
 	while(<$INPUT>) {
 	    if (m/$pattern/x) {
 #	if ( $_=~/$pattern/) {
