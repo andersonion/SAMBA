@@ -60,7 +60,7 @@ sub CraftOptionDispatchTable  {
 	    my $name=$1;
 #	    my $type=$2;
 	    my $first_letter=substr($name,0,1);
-	    #print("inserting funct reference for $name\n");	    
+#	    print("inserting funct reference for $name\n");	    
 	    require $file;
 	    #eval $name;
 	    $t_ref->{$name}= eval '\&$name';
@@ -86,6 +86,7 @@ sub CraftOptionDispatchTable  {
 #     for my $key ( keys(%{$t_ref}) ){
 # 	print("codt::Opt inserted! ( $key )\n");
 #     }
+#    print("Done craftingoption dispatch\n");
     return;
 }
 
@@ -123,15 +124,30 @@ sub CraftOptionList {
 }
 
 sub ProcessStages {
-    # dispatch_ref,output_status_ref, Stage_flags,stage_order
+    print("Begin real work of $0\n");
+    # dispatch_ref,output_status_ref, Stage_enableflags_ref,stage_order_arrrayref
     my( $d_ref,$s_ref,$s_flags,$o_ref)= @_;
+
     die print("No dispatch found, cannot continue\n") unless( defined $d_ref ); 
-    
+
+    $debug_mode=$s_flags->{"debug"};
+#    print ("\n\ntest\n\n");
+
+    if ( ! defined $debug_mode ) {
+	print("Debug not set, proceding in quiet mode\n");
+	$debug_mode=0;
+    } else {
+	print ("debug level ".$debug_mode."\n");
+    }
     my @order=();
+#    print ref( $o_ref) ."\n";
+    #pprint  (join(':',@{$o_ref})."\n");
     if ( defined $o_ref ) {
 	@order=@{$o_ref};
+	print("defined order ".join(':',@order)."\n") unless $debug_mode < 15;
     } else {
 	@order=keys %{$t_ref};
+	print("undefined order ".join(':',@order)."\n") unless $debug_mode < 15;
     }
     my $first_stage=shift @_;
     my $prefix = shift @_;

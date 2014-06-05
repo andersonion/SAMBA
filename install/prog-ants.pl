@@ -1,7 +1,7 @@
 sub ants(){
     my $mode = shift;
     
-    print("\tants_inst\n");
+    print("\tprog_ants\n");
     
     #look for $ANTS_PATH
     my $do_work=0;
@@ -18,6 +18,7 @@ sub ants(){
 	    $mode=-2;
 	}
     }
+
     if( looks_like_number($mode) ){
 	if ($mode>0 ) {
 	    print ("force\t");
@@ -30,8 +31,9 @@ sub ants(){
 	    $do_work=1;
 	}
     }
-    
-    if ( $IS_MAC ) {
+
+
+    if ( $IS_MAC ) { #IS_MAC global is false when not set, This global is set by the ./install.pl routine.
 	if ( ! -e "$WKS_HOME/../usr/bin/ANTS" ) 
 	{
 	    print("---\n");

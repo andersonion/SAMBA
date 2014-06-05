@@ -12,7 +12,7 @@ sub oracle () {
 	$os='mac';
     } else {
 	$os=$OS;
-	print ("oracle install not supported on non-mac systems yet. os is $OS\n");
+	print ("oracle install not supported on non-mac systems yet. os is $os\n");
 	return 0;
     }
     
