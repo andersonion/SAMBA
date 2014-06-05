@@ -293,11 +293,11 @@ sub process_external_deff(){
 		    print("\tWarning! Also not git\n");
 		}
 		print ("\tUpdate done<$local_name >\n");
-	    } 
-	    if ( ! CheckFileForPattern($code_updatefile,"$update_line") ) {
-		print ("$update_line\n") unless $mode <=0; # >> $svn_uninstfile
+	    }
+	    if ( ! CheckFileForPattern($code_updatefile,"$update_line") && length($update_line) ) {
+		print ("running update $update_line\n") unless $mode <=0; # >> $svn_uninstfile
 		FileAddText($code_updatefile,"$update_line\n");
-		if ( $mode>0){
+		if ( $mode>=0){
 		    `$update_line`;
 		}
 	    }

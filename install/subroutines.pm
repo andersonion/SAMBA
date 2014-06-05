@@ -24,7 +24,7 @@ sub CheckFileForPattern {
 	while(<$INPUT>) {
 	    if (m/$pattern/x) {
 #	if ( $_=~/$pattern/) {
-		print;
+#		print;
 		$found += 1;
 		# exit; # put the exit here, if only the first match is required
 	    } else {
