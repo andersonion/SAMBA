@@ -18,12 +18,13 @@ sub CheckFileForPattern {
     my $INPUT;
     my $found=0;
     $infile =~ s/~/${HOME}/gx;
+    $pattern =~ s|(/\|[ ])|\\\1|gx;
     if (-f $infile && open($INPUT, $infile) ){
-	#print("looking up pattern $pattern in file $infile\n");
+	print("looking up pattern $pattern in file $infile\n");
 	while(<$INPUT>) {
 	    if (m/$pattern/x) {
 #	if ( $_=~/$pattern/) {
-		#print;
+		print;
 		$found += 1;
 		# exit; # put the exit here, if only the first match is required
 	    } else {
