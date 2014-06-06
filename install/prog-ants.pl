@@ -47,7 +47,7 @@ sub ants(){
 	    $ants_dmg=basename($ants_dmg);
 	    #scp dmg
 	    $scp_cmd="scp syros:/Volumes/xsyros/Software/SegmentationSoftware/$ants_dmg $WKS_HOME/../$ants_dmg";
-	    if ( ! -f "../$ants_dmg" ) 
+	    if ( ! -f "$WKS_HOME/../$ants_dmg" ) 
 	    { 
 		print ("$scp_cmd\n");
 		`$scp_cmd`;
@@ -55,7 +55,7 @@ sub ants(){
 		print("found dmg: $ants_dmg found\n");
 	    }
 	    #mount dmg
-	    my $hdi_cmd="hdiutil attach ../$ants_dmg";
+	    my $hdi_cmd="hdiutil attach $WKS_HOME/../$ants_dmg";
 	    print("$hdi_cmd\n");
 	    `$hdi_cmd`;
 	    #find pkg in dmg volume
@@ -72,6 +72,7 @@ sub ants(){
 	    return 0;
 	} else {
 	    print ("\tAnts Found in $WKS_HOME/../usr/bin/ANTS\n" ) ;
+	    return 0;
 	}
     } else { 
 	print("Not mac, no ants install, check shared location in /cm/shared\n");

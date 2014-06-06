@@ -73,11 +73,15 @@ our $ARCH=`uname -m`; chomp($ARCH);
 my @alist = split(/\./, $HOSTNAME) ;
 $HOSTNAME=$alist[0];
 our $IS_MAC=0;#true always for now, should fix this to find linux
+our $IS_LINUX=0;
 our $OS="$^O\n";
 if ( $OS =~ /^darwin$/x ) {
     $IS_MAC=1;
-} else { 
-    
+} elsif( $OS =~ /^linux$/x )  { 
+    $IS_LINUX=1;
+} else {
+    #unix windows or something else, we should probalby quit here.
+    warn("Unexpected OS, good luck!");
 }
 ###
 # get user information

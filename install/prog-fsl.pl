@@ -123,6 +123,6 @@ sub fsl() {
 #	close SESAME_OUT;
     }
     
-    return;
+    return 0;
 }
 1;

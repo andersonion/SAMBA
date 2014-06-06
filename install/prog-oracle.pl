@@ -100,7 +100,6 @@ sub oracle () {
 	# Cpan requirements for oracle
 	###
 	my $outpath="$WKS_HOME/oracle_cpaninst.bash";
-	
 	print("creating oracle_cpaninst.bash for root to run\n");
 	open SESAME_OUT, ">$outpath"; 
 	print SESAME_OUT "#!/bin/bash\n".

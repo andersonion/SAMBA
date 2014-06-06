@@ -32,8 +32,8 @@ sub ij_macros() {
     if ( defined($ln_source) && defined($ln_dest) ){
 	$ln_cmd="ln -sf $ln_source $ln_dest";
 	print ("$ln_cmd\n");
-	#`$ln_cmd`;
-	return 1;
+	`$ln_cmd`;
+	return $?;
     } else {
 	return 0;
     }

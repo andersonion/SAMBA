@@ -4,6 +4,7 @@ sub matlab (){
     if ( ! $? ) {
 	#when true matlab found.
 	print("\tMatlab found, at $output\n");
+	return 0;
     } else {
 	print("ERROR: Matlab not found, it should be linked into place on the path. path <$ENV{PATH}>\n");
 	if ( $IS_MAC ) {

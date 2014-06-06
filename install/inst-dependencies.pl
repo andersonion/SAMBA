@@ -161,6 +161,6 @@ sub dependencies (){
 	print("moving $outpath to $inpath\n");
 	`mv $outpath $inpath`;
 #`mv  ${dep_file}.bak $dep_file`
-	return 1;
+	return 0;
 }
 1;

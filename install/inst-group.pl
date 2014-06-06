@@ -82,9 +82,9 @@ sub group () {
 	    print("Current user must be an admin and part of ipl and recon group.\nOmega should ONLY be part of ipl group.\nPipeliner should be part of ipl and recon group.\n @g_errors");
 	    print("TODO createm missing groups, add basic memberships\n");
 	}
-	return 0;
-    } else {
 	return 1;
+    } else {
+	return 0;
     }
 }
 1;

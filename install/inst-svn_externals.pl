@@ -24,7 +24,8 @@ sub svn_externals () {
 # check if we're an svn or git project.
 ###
     my $svnout=`svn info`;
-    if ( ! $? ) {
+    my $proj_is_svn=! $?;
+    if ( $proj_is_svn ) {
 	print ("svn true\nuse command : svn update for code updates\n");
 	
 	return 1;
@@ -93,7 +94,7 @@ sub svn_externals () {
 
 #    die "End of svn_externals hard stop";
     
-    return 1;
+    return 0;
 }
 sub process_external_file() {
     my $infile =shift;
@@ -210,11 +211,19 @@ sub process_external_deff(){
     #my $svn_uninstfile=dirname(__FILE__)."/uninstall_svn_externals.sh";
     my $svn_uninstfile=$MAIN_DIR."/uninstall_svn_externals.sh";
     my $git_uninstfile=$MAIN_DIR."/uninstall_git_projects.sh";
+    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".$git_uninstfile) ) {
+	FileAddText($MAIN_DIR."/.gitignore",$git_uninstfile."\n"); }
+    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".$svn_uninstfile) ) {
+	FileAddText($MAIN_DIR."/.gitignore",$svn_uninstfile."\n"); }
     my $project_rm="rm -fr $c_dir/$local_name";
     my $update_line="";
     my $status_line="";
     my $code_updatefile=$MAIN_DIR."/update_code.sh";;
-    my $code_statusfile=$MAIN_DIR."/find_modified_code.sh";;
+    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".$code_updatefile) ) {
+	FileAddText($MAIN_DIR."/.gitignore",$code_updatefile."\n"); }
+    my $code_statusfile=$MAIN_DIR."/find_modified_code.sh";
+    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".$code_statusfile) ) {
+	FileAddText($MAIN_DIR."/.gitignore",$code_statusfile."\n"); }
     if ( $git_project !~ /UNKNOWN/x && $local_name !~ /UNKNOWN/x && $branch !~ /UNKNOWN/x ) {
 	### 
 	# download code from git or svn
@@ -251,9 +260,11 @@ sub process_external_deff(){
 
 	if (  -d $local_name ) {
 	    # dir exists, we've gotten it at least once.
+	    check_add_gitignore($local_name);
 	    chdir $local_name;
 	    my $svnout=`svn info `;#return code is 1 for error from program output, eg, not svn. 
 	    my $is_svn=! $?;
+	    
 	    if ( $is_svn ){ #double negative aweful condition 
 		print("---WARNING---\n");
 		print("- SVN PROJECT -\n");
@@ -290,7 +301,6 @@ sub process_external_deff(){
 		    #print ("\t\tupdate from git\n")unless $mode <= 0;
 		    $update_line=join(';',@cmd_list);#."\n";
 		    $status_line="cd $c_dir/$local_name; echo --check $local_name -- ; git status";
-		    check_add_gitignore($local_name);
 		    if ( ! CheckFileForPattern($git_uninstfile,"$project_rm") ) {
 			print ("adding rm instructions to $git_uninstfile\n");
 			FileAddText($git_uninstfile,"$project_rm\n");
@@ -340,35 +350,37 @@ sub check_add_gitignore () {
     
     my $infile='.gitignore';
     my $gitigline='';
-
+    if ( ! -f $infile ) {
+	$pattern=".gitignore\n".$pattern;
+    }
     if ( ! CheckFileForPattern($infile,$pattern) ) {
-	FileAddText($infile,".gitignore\n".$pattern."\n");
+	FileAddText($infile,$pattern."\n");
     }
     return;
     
 
-    open($INPUT, $infile) || (warn "Error opening $infile : $!\n" and $gitigline=".gitignore\n");
-    #print("looking up pattern $pattern in file $infile\n");
-    #if(tell(FH) != -1)
-    if (-f $infile ){
-    while(<$INPUT>) {
-	#if ( $_ ~ m/[\w]+[\s]+(?:svn(?:+ssh)?)|http|file:\/\//x) {
-	chomp;
-	if ( $_ =~m/$pattern/x) {
-	    $found += 1;
-	    # exit; # put the exit here, if only the first match is required
-	} else {
-	    #print "  nomatch ".$_;
-	}
-    }
-    }
-    close($INPUT);
-    if ( $found <=0 ) {
-	my $FILE;
-	open ($FILE, ">>",$infile) || die "Could not open file: $!\n";
-	print $FILE $gitigline."$pattern\n";
-	close $FILE;
-    }
-    return;
+#     open($INPUT, $infile) || (warn "Error opening $infile : $!\n" and $gitigline=".gitignore\n");
+#     #print("looking up pattern $pattern in file $infile\n");
+#     #if(tell(FH) != -1)
+#     if (-f $infile ){
+#     while(<$INPUT>) {
+# 	#if ( $_ ~ m/[\w]+[\s]+(?:svn(?:+ssh)?)|http|file:\/\//x) {
+# 	chomp;
+# 	if ( $_ =~m/$pattern/x) {
+# 	    $found += 1;
+# 	    # exit; # put the exit here, if only the first match is required
+# 	} else {
+# 	    #print "  nomatch ".$_;
+# 	}
+#     }
+#     }
+#     close($INPUT);
+#     if ( $found <=0 ) {
+# 	my $FILE;
+# 	open ($FILE, ">>",$infile) || die "Could not open file: $!\n";
+# 	print $FILE $gitigline."$pattern\n";
+# 	close $FILE;
+#     }
+#     return;
 }
 1;

@@ -52,9 +52,9 @@ sub handle_required_progs  {
     
 #    print("done with required_progs\n");
     if( $work_done) {
-	return 1; 
+	return 0; 
     } else{
-	return 0 ;
+	return 1 ;
     }
 }
 
