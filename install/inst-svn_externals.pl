@@ -93,7 +93,6 @@ sub svn_externals () {
     }
 
 #    die "End of svn_externals hard stop";
-    
     return 0;
 }
 sub process_external_file() {
@@ -208,20 +207,20 @@ sub process_external_deff(){
 #     print (" setting svn uninst starting with ".abs_path($0)."\n");
     use File::Basename;
     my $dirname = dirname(__FILE__);
-    #my $svn_uninstfile=dirname(__FILE__)."/uninstall_svn_externals.sh";
-    my $svn_uninstfile=$MAIN_DIR."/uninstall_svn_externals.sh";
-    my $git_uninstfile=$MAIN_DIR."/uninstall_git_projects.sh";
+    #my $svn_uninstfile=dirname(__FILE__)."/uninstall_svn_externals.bash";
+    my $svn_uninstfile=$MAIN_DIR."/uninstall_svn_externals.bash";
+    my $git_uninstfile=$MAIN_DIR."/uninstall_git_projects.bash";
     if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".basename($git_uninstfile)) ) {
-	FileAddText($MAIN_DIR."/.gitignore",basenem($git_uninstfile)."\n"); }
+	FileAddText($MAIN_DIR."/.gitignore",basename($git_uninstfile)."\n"); }
     if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".basename($svn_uninstfile)) ) {
 	FileAddText($MAIN_DIR."/.gitignore",basename($svn_uninstfile)."\n"); }
     my $project_rm="rm -fr $c_dir/$local_name";
     my $update_line="";
     my $status_line="";
-    my $code_updatefile=$MAIN_DIR."/update_code.sh";;
+    my $code_updatefile=$MAIN_DIR."/update_code.bash";;
     if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".basename($code_updatefile)) ) {
 	FileAddText($MAIN_DIR."/.gitignore",basename($code_updatefile)."\n"); }
-    my $code_statusfile=$MAIN_DIR."/find_modified_code.sh";
+    my $code_statusfile=$MAIN_DIR."/find_modified_code.bash";
     if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".basename($code_statusfile)) ) {
 	FileAddText($MAIN_DIR."/.gitignore",basename($code_statusfile)."\n"); }
     if ( $git_project !~ /UNKNOWN/x && $local_name !~ /UNKNOWN/x && $branch !~ /UNKNOWN/x ) {

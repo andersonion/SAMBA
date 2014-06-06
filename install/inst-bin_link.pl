@@ -95,7 +95,7 @@ sub bin_link ()
 		`chmod 775 bin/$outname`;
 		`chmod 775 $ln_source`;
 		$link_text="$link_text linked.\n";
-		my $rm_cmd="unlink $WKS_HOME$ln_dest";
+		my $rm_cmd="unlink $WKS_HOME/$ln_dest";
 		if ( ! CheckFileForPattern($bin_uninstfile,"$rm_cmd") ) {
 		    print ("adding bin removal instructions to $bin_uninstfile:$rm_cmd\n");
 		    FileAddText($bin_uninstfile,"$rm_cmd\n");

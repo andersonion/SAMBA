@@ -234,6 +234,9 @@ while($order[$#order] ne $last_stage && length ($last_stage) && $#order>=0 ) {
 # run each function of dispatch table, pass each function the value of $option{funct_name}
 # storting the output status to dispatch_status
 # 
+if ( ! -f "$MAIN_DIR/.gitignore" ) {
+    FileAddText("$MAIN_DIR/.gitignore",".gitignore\n");
+}
 ProcessStages(\%dispatch_table,\%dispatch_status,\%options,\@order);
 
 
