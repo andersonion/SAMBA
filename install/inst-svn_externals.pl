@@ -4,8 +4,8 @@ use Scalar::Util qw(looks_like_number);
 our %ML=(
     'rmsvn'    =>  3,
     'nosvn'    =>  2,
-    'force' =>  1,
-    'normal',  =>  0,
+    'force'    =>  1,
+    'normal'   =>  0,
     'quiet'    => -1,
     'silent'   => -2,
 );

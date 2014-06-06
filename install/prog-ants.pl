@@ -18,6 +18,9 @@ sub ants(){
 	    $mode=-2;
 	}
     }
+    if ( defined $ENV{ANTSPATH} || defined $ENV{ANTS_PATH} ){
+	$work_done=1;
+    }
 
     if( looks_like_number($mode) ){
 	if ($mode>0 ) {
@@ -33,7 +36,7 @@ sub ants(){
     }
 
 
-    if ( $IS_MAC ) { #IS_MAC global is false when not set, This global is set by the ./install.pl routine.
+    if ( $do_work && $IS_MAC ) { #IS_MAC global is false when not set, This global is set by the ./install.pl routine.
 	if ( ! -e "$WKS_HOME/../usr/bin/ANTS" ) 
 	{
 	    print("---\n");
