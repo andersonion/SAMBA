@@ -231,7 +231,7 @@ sub process_external_deff(){
 	    my $clone_cmd="git clone $git_url $local_name";
 	    print ("  \t$clone_cmd\n")unless $mode <= 0;
 	    my @output=`$clone_cmd 2>&1`;
-	    if ( ! -d $local_name && $branch !~ /master/x ){	    
+	    if ( -d $local_name && $branch !~ /master/x ){	    
 		chdir $local_name;
 		my $checkout_cmd="git checkout $branch";
 		my @output=`$checkout_cmd`;
@@ -240,8 +240,8 @@ sub process_external_deff(){
 		    push(@errors ,"\tgit FAIL!.".join("\t\t".@output)."\n");
 		}
 		chdir $c_dir;
-	    } else {
-		push (@errors, "Error cloning $git_url to $local_name\n".join("\t\t",@output)) unless $mode <= -1;
+	    } elsif ( ! -d $local_name ) {
+		push (@errors, "Error cloning $git_url to $local_name\nwith git cmd \n\t$clone_cmd\n message:".join("\t\t",@output)) unless $mode <= -1;
 		push (@errors, "\t ATTEMPTING Subversion! for $local_name from $svn_url\n");
 		my $svn_checkout_cmd="svn checkout ".$svn_url." ".$local_name ;
 		print ("  \t$svn_checkout_cmd\n") unless $mode <= 0 ;
