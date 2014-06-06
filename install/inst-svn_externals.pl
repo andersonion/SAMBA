@@ -211,19 +211,19 @@ sub process_external_deff(){
     #my $svn_uninstfile=dirname(__FILE__)."/uninstall_svn_externals.sh";
     my $svn_uninstfile=$MAIN_DIR."/uninstall_svn_externals.sh";
     my $git_uninstfile=$MAIN_DIR."/uninstall_git_projects.sh";
-    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".$git_uninstfile) ) {
-	FileAddText($MAIN_DIR."/.gitignore",$git_uninstfile."\n"); }
-    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".$svn_uninstfile) ) {
-	FileAddText($MAIN_DIR."/.gitignore",$svn_uninstfile."\n"); }
+    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".basename($git_uninstfile)) ) {
+	FileAddText($MAIN_DIR."/.gitignore",basenem($git_uninstfile)."\n"); }
+    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".basename($svn_uninstfile)) ) {
+	FileAddText($MAIN_DIR."/.gitignore",basename($svn_uninstfile)."\n"); }
     my $project_rm="rm -fr $c_dir/$local_name";
     my $update_line="";
     my $status_line="";
     my $code_updatefile=$MAIN_DIR."/update_code.sh";;
-    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".$code_updatefile) ) {
-	FileAddText($MAIN_DIR."/.gitignore",$code_updatefile."\n"); }
+    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".basename($code_updatefile)) ) {
+	FileAddText($MAIN_DIR."/.gitignore",basename($code_updatefile)."\n"); }
     my $code_statusfile=$MAIN_DIR."/find_modified_code.sh";
-    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".$code_statusfile) ) {
-	FileAddText($MAIN_DIR."/.gitignore",$code_statusfile."\n"); }
+    if (! CheckFileForPattern($MAIN_DIR."/.gitignore","^".basename($code_statusfile)) ) {
+	FileAddText($MAIN_DIR."/.gitignore",basename($code_statusfile)."\n"); }
     if ( $git_project !~ /UNKNOWN/x && $local_name !~ /UNKNOWN/x && $branch !~ /UNKNOWN/x ) {
 	### 
 	# download code from git or svn

@@ -78,7 +78,7 @@ sub ants(){
 	    return 0;
 	}
     } else { 
-	print("Not mac, no ants install, check shared location in /cm/shared\n");
+	print("Not mac or ANTSPATH defined no ants install, check shared location in /cm/shared\n");
 	return 0;
     }
 

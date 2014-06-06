@@ -21,8 +21,8 @@ sub bin_link ()
 	print ("Not part of user group, not bothering to link\n");
     }
     
-    if ( ! CheckFileForPattern("$MAIN_DIR/.gitignore","^".$bin_uninstfile) ) {
-	FileAddText("$MAIN_DIR/.gitignore",$bin_uninstfile."\n");
+    if ( ! CheckFileForPattern("$MAIN_DIR/.gitignore","^".basename($bin_uninstfile)) ) {
+	FileAddText("$MAIN_DIR/.gitignore",basename($bin_uninstfile)."\n");
     } else {
 	print ("$MAIN_DIR/.gitignore set up.(binuninst)\n");
     }

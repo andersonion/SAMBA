@@ -166,9 +166,11 @@ sub ProcessStages {
 	    my $status=$d_ref->{$opt}->($s_flags->{$opt} #put params in here.
 		);
 	    $s_ref->{$opt}=$status;
-	    if ( $status ){
-		print("Stage error\n");
-	    }
+	    if (! $status ) {
+		print("Stage exit clean:$opt\n");
+	    } else {
+		print("Stage error:$opt\n");
+	    } 
 	}
     }
     
