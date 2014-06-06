@@ -91,7 +91,7 @@ sub svn_externals () {
     for my $ext (@svn_externals) {
 	process_external_file($ext,$mode);
     }
-
+    `chmod u+x $MAIN_DIR/*.bash`;
 #    die "End of svn_externals hard stop";
     return 0;
 }
