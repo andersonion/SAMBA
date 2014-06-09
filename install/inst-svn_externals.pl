@@ -265,23 +265,25 @@ sub process_external_deff(){
 	    my $is_svn=! $?;
 	    
 	    if ( $is_svn ){ #double negative aweful condition 
-		print("---WARNING---\n");
+		print("---WARNING---:");
 		print("- SVN PROJECT -\n");
 		if ( $mode == $ML{rmsvn} ){
 		    print("!!!RMSVN MODE!!!\n");
 		    
 		    `$project_rm`;
 		} else {
+		    
 		    if ( ! CheckFileForPattern($svn_uninstfile,"$project_rm") ) {
 			print ("adding rm instructions to $svn_uninstfile\n");
 			FileAddText($svn_uninstfile,"$project_rm\n");
 		    }
-		    $update_line="cd $c_dir/$local_name; echo --update $local_name -- ; svn update;";
+		    $update_line="cd $c_dir/$local_name; echo -- update $local_name -- ; svn update;";
 		    $status_line="cd $c_dir/$local_name; echo -- status $c_dir/$local_name -- ;echo -- $local_name --; svn status;";
-		    print("updating svn project:$local_name\n");
+		    print("  updating svn project:$local_name\n");
 		    `$update_line` unless $mode ==$ML{nosvn};
 		}
 	    } elsif ( ! $is_svn ){
+		print("- GIT project -\n");
 		print("    svn false, assuming git. \n");
 		@cmd_list=();
 		my $c_branch=`git symbolic-ref --short HEAD`;
@@ -294,7 +296,7 @@ sub process_external_deff(){
 		    my $g_abspath=`pwd`;
 		    chomp($g_abspath);
 		    push(@cmd_list,"cd $c_dir/$local_name");
-		    push(@cmd_list," echo --update $local_name -- ; ");
+		    push(@cmd_list,"echo \"-- update $local_name --\" ");
 		    push(@cmd_list,"git stash");
 		    push(@cmd_list,"git pull");
 		    push(@cmd_list,"git stash pop");
@@ -306,7 +308,7 @@ sub process_external_deff(){
 			FileAddText($git_uninstfile,"$project_rm\n");
 		    }
 		    if ( $mode>=0){
-			print ("running update $update_line\n") unless $mode <=0; # >> $svn_uninstfile
+			print ("  updating git project:$local_name with $update_line\n") if $mode >=0; # >> $svn_uninstfile
 			`$update_line` ;
 		    }
 		} else {
