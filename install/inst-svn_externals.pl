@@ -231,14 +231,22 @@ sub process_external_deff(){
 	    my $clone_cmd="git clone $git_url $local_name";
 	    print ("  \t$clone_cmd\n")unless $mode <= 0;
 	    my @output=`$clone_cmd 2>&1`;
-	    if ( -d $local_name && $branch !~ /master/x ){	    
+	    if ( -d $local_name ) {
 		chdir $local_name;
-		my $checkout_cmd="git checkout $branch";
-		my @output=`$checkout_cmd`;
-		print ("  \t$checkout_cmd\n")unless $mode <= 0;
-		if ( ! -d $local_name ) {
-		    push(@errors ,"\tgit FAIL!.".join("\t\t".@output)."\n");
+		if ( $branch !~ /master/x ){	    
+		    my $checkout_cmd="git checkout $branch";
+		    my @output=`$checkout_cmd`;
+		    print ("  \t$checkout_cmd\n")unless $mode <= 0;
+		    if ( ! -d $local_name ) {
+			push(@errors ,"\tgit FAIL!.".join("\t\t".@output)."\n");
+		    }
 		}
+		$git_url=~ s|https://|ssh://git@|x;
+		#git@github.com:jamesjcook/$git_project.$GITHUB_SUFFIX
+		my $url_set_cmd="git remote set-url --push origin $git_url ";
+		print ("\tchanging push url with:$url_set_cmd\n") unless $mode<0;
+		my @us_out=`$url_set_cmd `;
+		push(@errors ,"\tgit FAIL on remote set with message, <".join("\t\t".@us_out).">\n") if($#us_out>=0 || $? != 0);
 		chdir $c_dir;
 	    } elsif ( ! -d $local_name ) {
 		push (@errors, "Error cloning $git_url to $local_name\nwith git cmd \n\t$clone_cmd\n message:".join("\t\t",@output)) unless $mode <= -1;
@@ -250,6 +258,7 @@ sub process_external_deff(){
 		    push(@errors ,"\tsubversion FAIL!.".join("\t\t".@output)."\n");
 		}
 	    }
+
 	} 
 	
 	###
@@ -286,7 +295,10 @@ sub process_external_deff(){
 		print("- GIT project -\n");
 		print("    svn false, assuming git. \n");
 		@cmd_list=();
-		my $c_branch=`git symbolic-ref --short HEAD`;
+		#my $git_check_branch_cmd="git symbolic-ref --short HEAD";
+		my $git_check_branch_cmd="git rev-parse --abbrev-ref HEAD|tail -n 1";
+		print ("\t branch checking with : $git_check_branch_cmd\n") unless $mode <0;
+		my $c_branch=`$git_check_branch_cmd`;
 		my $is_git= ! $?;
 		if ( $c_branch !~  /master/x) {
 		    push(@errors,"ERROR: current project $git_project NOT on master !, You must be on master to update! Currently on $c_branch instead.\n");
