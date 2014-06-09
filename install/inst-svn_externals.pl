@@ -276,8 +276,8 @@ sub process_external_deff(){
 			print ("adding rm instructions to $svn_uninstfile\n");
 			FileAddText($svn_uninstfile,"$project_rm\n");
 		    }
-		    $update_line="cd $c_dir/$local_name;"."svn update;";
-		    $status_line="cd $c_dir/$local_name; echo --check $local_name -- ; svn status;";
+		    $update_line="cd $c_dir/$local_name; echo --update $local_name -- ; svn update;";
+		    $status_line="cd $c_dir/$local_name; echo -- status $c_dir/$local_name -- ;echo -- $local_name --; svn status;";
 		    print("updating svn project:$local_name\n");
 		    `$update_line` unless $mode ==$ML{nosvn};
 		}
@@ -294,12 +294,13 @@ sub process_external_deff(){
 		    my $g_abspath=`pwd`;
 		    chomp($g_abspath);
 		    push(@cmd_list,"cd $c_dir/$local_name");
+		    push(@cmd_list," echo --update $local_name -- ; ");
 		    push(@cmd_list,"git stash");
 		    push(@cmd_list,"git pull");
 		    push(@cmd_list,"git stash pop");
 		    #print ("\t\tupdate from git\n")unless $mode <= 0;
 		    $update_line=join(';',@cmd_list);#."\n";
-		    $status_line="cd $c_dir/$local_name; echo --check $local_name -- ; git status";
+		    $status_line="cd $c_dir/$local_name; echo -- status $c_dir/$local_name -- ;echo -- $local_name --; git status";
 		    if ( ! CheckFileForPattern($git_uninstfile,"$project_rm") ) {
 			print ("adding rm instructions to $git_uninstfile\n");
 			FileAddText($git_uninstfile,"$project_rm\n");
