@@ -48,7 +48,7 @@ It is HIGHLY RECOMMENDED To look at what is happening during the install before 
 To have a better idea of what is happening examine the contents of the install folder.
 THE INSTALLER MUST BE RUN FROM THE WORKSTATION_CODE DIRECTORY.
 cd to workstation_code and run install.pl to set up the environment for a new computer or user.
-
+ 
 This should try to solve any pre-requsite issues, or warn about what is required.
 Some thing just wont work on linux/unix/windows. This is a work in progress.
 
