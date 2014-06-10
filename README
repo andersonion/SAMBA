@@ -36,8 +36,11 @@ diffusion       - diffusion pipelines, tensor calculator for now,
 
 Install errors remaining.
 ----
+Should check on java
 mathworks third-party libraries.
-imagej finding etc
+imagej finding uses curl and wget to grab imagej from official imagej website.
+
+       
 
 Install
 ----
