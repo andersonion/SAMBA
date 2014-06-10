@@ -93,15 +93,20 @@ sub shell () {
 # 	    print $FILE "$src_wks_settings\n";
 # 	    close $FILE;
 	}
+	my $scratch_disk='/NOTADIR';
+	do {
+	    print("Enter data working directory(BIGGUS_DISKUS).\n");
+	    $scratch_disk=readline(*STDIN);
+	    chomp($scratch_disk);
+	} while ( ! -d $scratch_disk ) ;
 
 	if ( ! -f ".${SHELL}_workstation_settings" ) {
 	    my $wrk_home       ="export WORKSTATION_HOME=$WKS_HOME";
-	    my $wrk_src        ="source \$WORKSTATION_HOME/pipeline_settings/${SHELL}/${SHELL}rc_pipeline_setup";
+	    my $wrk_src        ="source \$WORKSTATION_HOME/pipeline_settings/${SHELL}/${SHELL}rc_pipeline_setup $scratch_disk";
 	    my $wrk_data     ="export WORKSTATION_DATA=$DATA_HOME";
 	    my $rad_home       ="export RADISH_RECON_DIR=$WKS_HOME/recon/legacy";
 	    my $rad_src        ="source \$WORKSTATION_HOME/pipeline_settings/${SHELL}/legacy_radish_${SHELL}rc";
 	    my $pipe_home      ="export PIPELINE_HOME=$WKS_HOME/";
-	    
 #	    my @wrk_lines=($wrk_home,$wrk_src);
 #	    my @rad_lines=($rad_home,$rad_src);
 #	    my @pipe_lines=($pipe_home);#,$pipe_line,$pipe_src);

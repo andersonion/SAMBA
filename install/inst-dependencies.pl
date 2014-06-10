@@ -125,8 +125,18 @@ sub dependencies (){
 		$string="engine_radish_contributed_bin_directory=$WKS_HOME/recon/legacy/modules/contributed/bin_${os}_${ARCH}";
 # engine_app_matlab=/usr/bin/matlab
  	    } elsif ($line =~ /^engine_app_matlab=/x ) { 
- 		$string="engine_app_matlab=/usr/bin/matlab";# -nosplash -nodisplay -nodesktop ";
+		my $mat_path=`which matlab`;
+		chomp($mat_path);
+		if ( ! $? ) {
+		    #when true matlab found.
+		    print("\tMatlab found, at $mat_path\n");
+		    $string="engine_app_matlab=$mat_path -nosplash"#; -nodisplay -nodesktop ";
+		} else {
+		    $string="engine_app_matlab=/usr/bin/matlab";# -nosplash -nodisplay -nodesktop ";
 # engine_app_matlab_opts=-nosplash -nodisplay -nodesktop
+		}
+		
+
  	    } elsif ($line =~ /^engine_app_matlab_opts=/x ) { 
  		$string="engine_app_matlab_opts=-nosplash -nodisplay -nodesktop";
 # engine_app_ants_dir=/Applications/SegmentationSoftware/ANTS/
