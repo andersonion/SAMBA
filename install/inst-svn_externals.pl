@@ -157,42 +157,67 @@ sub process_external_deff(){
 	    $git_project=$svnpath[$#svnpath-1];
 	    $branch='master';
 	} elsif ( $svnpath[$#svnpath-1] =~ m/tags|branches/x ) {
-	$git_project=$svnpath[$#svnpath-2];
-	if ( $svnpath[$#svnpath-1] =~ m/branches/x ) {
-	    push(@errors,"Error in svn.externals processing. Branches not supported from svn.externals\n \t$svnpath_string\n");
-	} else {
-	    $branch = $svnpath[$#svnpath-1];
-	}
+	    $git_project=$svnpath[$#svnpath-2];
+	    if ( $svnpath[$#svnpath-1] =~ m/branches/x ) {
+		push(@errors,"Error in svn.externals processing. Branches not supported from svn.externals\n \t$svnpath_string\n");
+	    } else {
+		$branch = $svnpath[$#svnpath-1];
+	    }
 	} else {
 	    $branch='';
 	}
     } else {
 	my $p_idx;
 	my $sp_idx=0;
-	do {
-	    my $d_name = $svnpath[$sp_idx];
-	    if ($d_name =~ m/trunk/x ) {
-		$p_idx=$sp_idx-1;
-		$branch='master';	    
-	    }elsif ($d_name =~ m/tags/x ) {
-		$p_idx=$sp_idx-1;
-		$branch=$svnpath[$sp_idx+1] unless $p_idx+1>$#svnpath;
-		push(@errors,"Error in svn.externals processing. Branches not supported from svn.externals\n \t$svnpath_string branch:$branch\n");
-	    }elsif ($d_name =~ m/branches/x ) {
-		$p_idx=$sp_idx-1;
-		$branch=$svnpath[$sp_idx+1] unless $p_idx+1>$#svnpath;
+	# separate svn project by path component, 
+	# loop while we dont see the standard elements of an svn path(trunk/branches/tag), 
+	# on finding those, set p_idx(projectname) to 1 less than that, and set the sp_idx to that point. 
+	if ( 0 ) {
+	    do {
+		my $d_name = $svnpath[$sp_idx];
+		if ($d_name =~ m/trunk/x ) {
+		    $p_idx=$sp_idx-1;
+		    $branch='master';	    
+		} elsif ($d_name =~ m/tags/x ) {
+		    $p_idx=$sp_idx-1;
+		    $branch=$svnpath[$sp_idx+1] unless $sp_idx+1>$#svnpath;
+		    push(@errors,"Error in svn.externals processing. Tags not supported from svn.externals\n \t$svnpath_string branch:$branch\n");
+		} elsif ($d_name =~ m/branches/x ) {
+		    $p_idx=$sp_idx-1;
+		    $branch=$svnpath[$sp_idx+1] unless $sp_idx+1>$#svnpath;
+		} elsif ($#sp_idx==$#svnpath) {# this is failover for non-standard repo layouts .
+		    $p_idx=$sp_idx;
+		    $branch='master';
+		    print("\tNon-standard repo contidion, $d_name\n");
+		}else { 
+		    print("\tnomatch $d_name\n");
+		}
+		$sp_idx++;
+	    } while ( ! defined $p_idx && $sp_idx<=$#svnpath+1);
+	    if( defined ($p_idx) ) {
+		$git_project=$svnpath[$p_idx];
+		#$branch=
 	    } else { 
-#		print("\tnomatch $d_name\n");
+		push(@errors, "Error getting the a git project name from the svn url\n");
 	    }
-	    $sp_idx++;
-	} while ( ! defined $p_idx && $sp_idx<=$#svnpath);
-	if( defined ($p_idx) ) {
-	    $git_project=$svnpath[$p_idx];
-	    #$branch=
-	} else { 
-	    push(@errors, "Error getting the get project from the svn url\n");
+	} else {
+	    #if ($svnpath_string =~ m#^(?:.*)/(.*)/(?:trunk|branches|tags)/(.*)/?\s*$:b#x ){
+	    #print ("Testing svnurplpath $svnpath_string \n");
+	    if ($svnpath_string =~ m/^(?:.*)\/(.*)\/(?:trunk|branches|tags)(?:\/(.*))?\s*/x ){
+		$git_project=$1;
+		$branch=defined $2 ? $2 : "master";
+		#print("urlparsing returned project $git_project, branch $branch\n");
+	    } else {
+		$git_project=$svnpath[$#svnpath];
+		$branch="master";
+		#print("urlparsing returned project $git_project, branch $branch\n");
+	    }
+	    if($git_project eq "UNKNOWN") { push(@errors, "Error getting the a git project name from the svn url\n"); }
+		
 	}
     }
+    
+
 
     $git_url=$GITHUB_BASE.$git_project.$GITHUB_SUFFIX;
     #    my( $local_name,$url_type,$svnpath_string)
@@ -340,7 +365,7 @@ sub process_external_deff(){
 	}
 	
     } else {
-	push (@errors, "error with git_name, local_name or branch.git_name=$git_project, Localname=$local_name, branch=$branch\n");
+	push (@errors, "error with git_name, local_name or branch, git_name=$git_project, Localname=$local_name, branch=$branch\n");
     }
 #     $ext_def =~ /^([\w]+)[\s]+
 #     ((?:svn(?:\+ssh)?)|http|file):\/\/

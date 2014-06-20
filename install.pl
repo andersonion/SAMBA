@@ -127,6 +127,7 @@ if ( !GetOptions( eval $opt_eval_string,
 		  "only=s" => \$only_stage,
 		  "only_stage=s" => \$only_stage,
 		  "only_step=s" => \$only_stage,
+		  "print_order" => \$options{"print_order"},
      )
     ) { 
     print("Option error:\n$!");
@@ -152,7 +153,6 @@ if ( 0 ) {
 	} else {
 	    print("\n") unless (  $DEBUG<25 ) ;
 	}
-	
 	
 	for my $opt ( keys %options)  {
 	    if ($opt =~ m/^skip_(.*)$/x ) {}
@@ -191,6 +191,7 @@ for my $opt ( @order) {
 	print("stage $opt not available, perhaps old entries still in inst-order.txt\n");
     }
 }
+
 # check that all keys of dispatch_table have an entry in dispatch_status, add any that do not to the order array and set 0 status for all.
 @order=@o_temp;
 for my $key ( sort( keys( %dispatch_table ) ) ) {
@@ -236,6 +237,13 @@ while($order[$#order] ne $last_stage && length ($last_stage) && $#order>=0 ) {
 # 
 if ( ! -f "$MAIN_DIR/.gitignore" ) {
     FileAddText("$MAIN_DIR/.gitignore",".gitignore\n");
+}
+
+
+if ( defined $options{"print_order"} ){
+    
+    print("working order is :\n\t".join("\n\t",@order )."\n");
+    exit 0 ;
 }
 ProcessStages(\%dispatch_table,\%dispatch_status,\%options,\@order);
 
