@@ -1,0 +1,228 @@
+/bin/bash: BASH_FUNC_module(): line 0: syntax error near unexpected token `)'
+/bin/bash: BASH_FUNC_module(): line 0: `BASH_FUNC_module() () {  eval `/cm/local/apps/environment-modules/3.2.10/Modules/$MODULE_VERSION/bin/modulecmd bash $*`'
+/bin/bash: error importing function definition for `BASH_FUNC_module'
+Using double precision for computations.
+=============================================================================
+The composite transform comprises the following transforms (in order): 
+  1. /glusterspace/VBM_13colton01_whs-work/dwi/N51201_0GenericAffine.mat (type = AffineTransform)
+=============================================================================
+=============================================================================
+The composite transform comprises the following transforms (in order): 
+  1. /glusterspace/VBM_13colton01_whs-work/dwi/N51392_0GenericAffine.mat (type = AffineTransform)
+=============================================================================
+  number of levels = 4
+  fixed image: /glusterspace/VBM_13colton01_whs-inputs/N51392_m0_DTI_fa.nii
+  moving image: /glusterspace/VBM_13colton01_whs-inputs/N51201_m0_DTI_fa.nii
+Dimension = 3
+Number of stages = 1
+Use Histogram Matching true
+Winsorize Image Intensities false
+Lower Quantile = 0
+Upper Quantile = 1
+Stage 1 State
+   Metric = CC
+     Fixed Image = Image (0xa6e720)
+  RTTI typeinfo:   itk::Image<double, 3u>
+  Reference Count: 2
+  Modified Time: 1292
+  Debug: Off
+  Object Name: 
+  Observers: 
+    none
+  Source: (none)
+  Source output name: (none)
+  Release Data: Off
+  Data Released: False
+  Global Release Data: Off
+  PipelineMTime: 0
+  UpdateMTime: 1118
+  RealTimeStamp: 0 seconds 
+  LargestPossibleRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [400, 200, 164]
+  BufferedRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [400, 200, 164]
+  RequestedRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [400, 200, 164]
+  Spacing: [0.055, 0.055, 0.055]
+  Origin: [-0.055, -0.055, 0.055]
+  Direction: 
+-1 0 0
+0 -1 0
+0 0 1
+
+  IndexToPointMatrix: 
+-0.055 0 0
+0 -0.055 0
+0 0 0.055
+
+  PointToIndexMatrix: 
+-18.1818 0 0
+0 -18.1818 0
+0 0 18.1818
+
+  Inverse Direction: 
+-1 0 0
+0 -1 0
+0 0 1
+
+  PixelContainer: 
+    ImportImageContainer (0xa6f610)
+      RTTI typeinfo:   itk::ImportImageContainer<unsigned long, double>
+      Reference Count: 1
+      Modified Time: 1115
+      Debug: Off
+      Object Name: 
+      Observers: 
+        none
+      Pointer: 0x2aaab80d7010
+      Container manages memory: true
+      Size: 13120000
+      Capacity: 13120000
+
+     Moving Image = Image (0xa87c10)
+  RTTI typeinfo:   itk::Image<double, 3u>
+  Reference Count: 2
+  Modified Time: 1293
+  Debug: Off
+  Object Name: 
+  Observers: 
+    none
+  Source: (none)
+  Source output name: (none)
+  Release Data: Off
+  Data Released: False
+  Global Release Data: Off
+  PipelineMTime: 0
+  UpdateMTime: 1290
+  RealTimeStamp: 0 seconds 
+  LargestPossibleRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [400, 200, 164]
+  BufferedRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [400, 200, 164]
+  RequestedRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [400, 200, 164]
+  Spacing: [0.055, 0.055, 0.055]
+  Origin: [-0.055, -0.055, 0.055]
+  Direction: 
+-1 0 0
+0 -1 0
+0 0 1
+
+  IndexToPointMatrix: 
+-0.055 0 0
+0 -0.055 0
+0 0 0.055
+
+  PointToIndexMatrix: 
+-18.1818 0 0
+0 -18.1818 0
+0 0 18.1818
+
+  Inverse Direction: 
+-1 0 0
+0 -1 0
+0 0 1
+
+  PixelContainer: 
+    ImportImageContainer (0xa8b0d0)
+      RTTI typeinfo:   itk::ImportImageContainer<unsigned long, double>
+      Reference Count: 1
+      Modified Time: 1287
+      Debug: Off
+      Object Name: 
+      Observers: 
+        none
+      Pointer: 0x2aaabe4f1010
+      Container manages memory: true
+      Size: 13120000
+      Capacity: 13120000
+
+     Weighting = 1
+     Sampling Strategy = none
+     NumberOfBins = 1
+     Radius = 4
+     Sampling percentage  = 1
+   Transform = SyN
+     Gradient Step = 0.5
+     Update Field Sigma (voxel space) = 3
+     Total Field Sigma (voxel space) = 0
+     Update Field Time Sigma = 0
+     Total Field Time Sigma  = 0
+     Number of Time Indices = 0
+     Number of Time Point Samples = 0
+Registration using 1 total stages.
+
+Stage 0
+  iterations = 2x2x2x2
+  convergence threshold = 1e-08
+  convergence window size = 20
+  number of levels = 4
+  Shrink factors (level 1 out of 4): [8, 8, 8]
+  Shrink factors (level 2 out of 4): [4, 4, 4]
+  Shrink factors (level 3 out of 4): [2, 2, 2]
+  Shrink factors (level 4 out of 4): [1, 1, 1]
+  smoothing sigmas per level: [0, 0, 0, 0]
+  preprocessing:  histogram matching the images
+  using the CC metric (radius = 4, weight = 1)
+  Using default NONE metricSamplingStrategy 
+
+*** Running SyN registration (varianceForUpdateField = 3, varianceForTotalField = 0) ***
+
+  Current level = 1 of 4
+    number of iterations = 2
+    shrink factors = [8, 8, 8]
+    smoothing sigmas = 0 vox
+    required fixed parameters = [50, 25, 20, -0.2474999986588955, -0.2474999986588955, 0.35749999806284904, 0.4399999976158142, 0.4399999976158142, 0.4399999976158142, -1, 0, 0, 0, -1, 0, 0, 0, 1]
+XXDIAGNOSTIC,Iteration,metricValue,convergenceValue,ITERATION_TIME_INDEX,SINCE_LAST
+ 1DIAGNOSTIC,     1, -9.066886502796e-01, 1.797693134862e+308, 6.1900e-01, 6.1893e-01, 
+ 1DIAGNOSTIC,     2, -9.062292108952e-01, 1.797693134862e+308, 7.4384e-01, 1.2484e-01, 
+  Current level = 2 of 4
+    number of iterations = 2
+    shrink factors = [4, 4, 4]
+    smoothing sigmas = 0.0000e+00 vox
+    required fixed parameters = [100, 50, 41, -0.13749999925494194, -0.13749999925494194, 0.13749999925494194, 0.2199999988079071, 0.2199999988079071, 0.2199999988079071, -1, 0, 0, 0, -1, 0, 0, 0, 1]
+XXDIAGNOSTIC,Iteration,metricValue,convergenceValue,ITERATION_TIME_INDEX,SINCE_LAST
+ 1DIAGNOSTIC,     1, -9.316768341727e-01, 1.797693134862e+308, 1.9840e+00, 1.2401e+00, 
+ 1DIAGNOSTIC,     2, -9.321305388829e-01, 1.797693134862e+308, 2.7513e+00, 7.6732e-01, 
+  Current level = 3 of 4
+    number of iterations = 2
+    shrink factors = [2, 2, 2]
+    smoothing sigmas = 0.0000e+00 vox
+    required fixed parameters = [200, 100, 82, -0.08249999955296516, -0.08249999955296516, 0.08249999955296516, 0.10999999940395355, 0.10999999940395355, 0.10999999940395355, -1, 0, 0, 0, -1, 0, 0, 0, 1]
+XXDIAGNOSTIC,Iteration,metricValue,convergenceValue,ITERATION_TIME_INDEX,SINCE_LAST
+ 1DIAGNOSTIC,     1, -9.439586555575e-01, 1.797693134862e+308, 8.3118e+00, 5.5604e+00, 
+ 1DIAGNOSTIC,     2, -9.444083124248e-01, 1.797693134862e+308, 1.3252e+01, 4.9398e+00, 
+  Current level = 4 of 4
+    number of iterations = 2
+    shrink factors = [1, 1, 1]
+    smoothing sigmas = 0.0000e+00 vox
+    required fixed parameters = [400, 200, 164, -0.054999999701976776, -0.054999999701976776, 0.054999999701976776, 0.054999999701976776, 0.054999999701976776, 0.054999999701976776, -1, 0, 0, 0, -1, 0, 0, 0, 1]
+XXDIAGNOSTIC,Iteration,metricValue,convergenceValue,ITERATION_TIME_INDEX,SINCE_LAST
+ 1DIAGNOSTIC,     1, -9.523372659068e-01, 1.797693134862e+308, 5.3482e+01, 4.0228e+01, 
+ 1DIAGNOSTIC,     2, -9.527236670479e-01, 1.797693134862e+308, 9.1697e+01, 3.8215e+01, 
+  Elapsed time (stage 0): 9.4616e+01
+
+
+Total elapsed time: 9.4620e+01
+Can't write transform file /glusterspace/VBM_13colton01_whs-work/dwi/fa/MDT_pairs/N51201_to_N51392_0GenericAffine.mat
+Exception Object caught: 
+
+itk::ExceptionObject (0xa88a40)
+Location: "unknown" 
+File: /cm/shared/build/ants_superbuild_20140416/ITKv4/Modules/IO/TransformBase/include/itkTransformIOBase.hxx
+Line: 96
+Description: itk::ERROR: MatlabTransformIOTemplate(0xa89350): Failed opening file/glusterspace/VBM_13colton01_whs-work/dwi/fa/MDT_pairs/N51201_to_N51392_0GenericAffine.mat
+
+

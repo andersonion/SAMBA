@@ -1,0 +1,12 @@
+q/bin/bash: BASH_FUNC_module(): line 0: syntax error near unexpected token `)'
+/bin/bash: BASH_FUNC_module(): line 0: `BASH_FUNC_module() () {  eval `/cm/local/apps/environment-modules/3.2.10/Modules/$MODULE_VERSION/bin/modulecmd bash $*`'
+/bin/bash: error importing function definition for `BASH_FUNC_module'
+Using double precision for computations.
+Transform file does not exist: xform_suffix
+Can't read initial transform xform_suffix
+ls: cannot access /glusterspace/VBM_13colton01_whs-work/dwi/fa/N51136_to_N51234_*: No such file or directory
+mv: missing destination file operand after `/glusterspace/VBM_13colton01_whs-work/dwi/fa/N51234_to_N51136.nii'
+Try `mv --help' for more information.
+ls: cannot access /glusterspace/VBM_13colton01_whs-work/dwi/fa/N51136_to_N51234_*: No such file or directory
+mv: missing destination file operand after `/glusterspace/VBM_13colton01_whs-work/dwi/fa/N51136_to_N51234.nii'
+Try `mv --help' for more information.

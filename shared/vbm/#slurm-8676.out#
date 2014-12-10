@@ -1,0 +1,202 @@
+/bin/bash: BASH_FUNC_module(): line 0: syntax error near unexpected token `)'
+/bin/bash: BASH_FUNC_module(): line 0: `BASH_FUNC_module() () {  eval `/cm/local/apps/environment-modules/3.2.10/Modules/$MODULE_VERSION/bin/modulecmd bash $*`'
+/bin/bash: error importing function definition for `BASH_FUNC_module'
+Using double precision for computations.
+  number of levels = 4
+  fixed image: /glusterspace/VBM_13colton01_whs-work/dwi/N51136_fa.nii
+  moving image: /glusterspace/VBM_13colton01_whs-work/dwi/N51234_fa.nii
+Dimension = 3
+Number of stages = 1
+Use Histogram Matching true
+Winsorize Image Intensities false
+Lower Quantile = 0
+Upper Quantile = 1
+Stage 1 State
+   Metric = CC
+     Fixed Image = Image (0xa71ee0)
+  RTTI typeinfo:   itk::Image<double, 3u>
+  Reference Count: 2
+  Modified Time: 574
+  Debug: Off
+  Object Name: 
+  Observers: 
+    none
+  Source: (none)
+  Source output name: (none)
+  Release Data: Off
+  Data Released: False
+  Global Release Data: Off
+  PipelineMTime: 0
+  UpdateMTime: 400
+  RealTimeStamp: 0 seconds 
+  LargestPossibleRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [512, 256, 256]
+  BufferedRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [512, 256, 256]
+  RequestedRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [512, 256, 256]
+  Spacing: [0.043, 0.043, 0.043]
+  Origin: [10.965, 5.461, -5.461]
+  Direction: 
+-1 0 0
+0 -1 0
+0 0 1
+
+  IndexToPointMatrix: 
+-0.043 0 0
+0 -0.043 0
+0 0 0.043
+
+  PointToIndexMatrix: 
+-23.2558 0 0
+0 -23.2558 0
+0 0 23.2558
+
+  Inverse Direction: 
+-1 0 0
+0 -1 0
+0 0 1
+
+  PixelContainer: 
+    ImportImageContainer (0xa721a0)
+      RTTI typeinfo:   itk::ImportImageContainer<unsigned long, double>
+      Reference Count: 1
+      Modified Time: 397
+      Debug: Off
+      Object Name: 
+      Observers: 
+        none
+      Pointer: 0x2aaab80d7010
+      Container manages memory: true
+      Size: 33554432
+      Capacity: 33554432
+
+     Moving Image = Image (0xa75500)
+  RTTI typeinfo:   itk::Image<double, 3u>
+  Reference Count: 2
+  Modified Time: 575
+  Debug: Off
+  Object Name: 
+  Observers: 
+    none
+  Source: (none)
+  Source output name: (none)
+  Release Data: Off
+  Data Released: False
+  Global Release Data: Off
+  PipelineMTime: 0
+  UpdateMTime: 572
+  RealTimeStamp: 0 seconds 
+  LargestPossibleRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [512, 256, 256]
+  BufferedRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [512, 256, 256]
+  RequestedRegion: 
+    Dimension: 3
+    Index: [0, 0, 0]
+    Size: [512, 256, 256]
+  Spacing: [0.043, 0.043, 0.043]
+  Origin: [10.965, 5.461, -5.461]
+  Direction: 
+-1 0 0
+0 -1 0
+0 0 1
+
+  IndexToPointMatrix: 
+-0.043 0 0
+0 -0.043 0
+0 0 0.043
+
+  PointToIndexMatrix: 
+-23.2558 0 0
+0 -23.2558 0
+0 0 23.2558
+
+  Inverse Direction: 
+-1 0 0
+0 -1 0
+0 0 1
+
+  PixelContainer: 
+    ImportImageContainer (0xa696a0)
+      RTTI typeinfo:   itk::ImportImageContainer<unsigned long, double>
+      Reference Count: 1
+      Modified Time: 569
+      Debug: Off
+      Object Name: 
+      Observers: 
+        none
+      Pointer: 0x2aaac80d8010
+      Container manages memory: true
+      Size: 33554432
+      Capacity: 33554432
+
+     Weighting = 1
+     Sampling Strategy = none
+     NumberOfBins = 1
+     Radius = 4
+     Sampling percentage  = 1
+   Transform = SyN
+     Gradient Step = 0.5
+     Update Field Sigma (voxel space) = 3
+     Total Field Sigma (voxel space) = 0
+     Update Field Time Sigma = 0
+     Total Field Time Sigma  = 0
+     Number of Time Indices = 0
+     Number of Time Point Samples = 0
+Registration using 1 total stages.
+
+Stage 0
+  iterations = 1x0x0x0
+  convergence threshold = 1e-08
+  convergence window size = 20
+  number of levels = 4
+  Shrink factors (level 1 out of 4): [8, 8, 8]
+  Shrink factors (level 2 out of 4): [4, 4, 4]
+  Shrink factors (level 3 out of 4): [2, 2, 2]
+  Shrink factors (level 4 out of 4): [1, 1, 1]
+  smoothing sigmas per level: [0, 0, 0, 0]
+  preprocessing:  histogram matching the images
+  using the CC metric (radius = 4, weight = 1)
+  Using default NONE metricSamplingStrategy 
+
+*** Running SyN registration (varianceForUpdateField = 3, varianceForTotalField = 0) ***
+
+  Current level = 1 of 4
+    number of iterations = 1
+    shrink factors = [8, 8, 8]
+    smoothing sigmas = 0 vox
+    required fixed parameters = [64, 32, 32, 10.814500147476792, 5.310499960556626, -5.310499960556626, 0.3440000116825104, 0.3440000116825104, 0.3440000116825104, -1, 0, 0, 0, -1, 0, 0, 0, 1]
+XXDIAGNOSTIC,Iteration,metricValue,convergenceValue,ITERATION_TIME_INDEX,SINCE_LAST
+ 1DIAGNOSTIC,     1, -4.306540640931e-01, 1.797693134862e+308, 9.8767e-01, 9.8759e-01, 
+  Current level = 2 of 4
+    number of iterations = 0
+    shrink factors = [4, 4, 4]
+    smoothing sigmas = 0.0000e+00 vox
+    required fixed parameters = [128, 64, 64, 10.90050015039742, 5.396499963477254, -5.396499963477254, 0.1720000058412552, 0.1720000058412552, 0.1720000058412552, -1, 0, 0, 0, -1, 0, 0, 0, 1]
+  Current level = 3 of 4
+    number of iterations = 0
+    shrink factors = [2, 2, 2]
+    smoothing sigmas = 0.0000e+00 vox
+    required fixed parameters = [256, 128, 128, 10.943500151857734, 5.439499964937568, -5.439499964937568, 0.0860000029206276, 0.0860000029206276, 0.0860000029206276, -1, 0, 0, 0, -1, 0, 0, 0, 1]
+  Current level = 4 of 4
+    number of iterations = 0
+    shrink factors = [1, 1, 1]
+    smoothing sigmas = 0.0000e+00 vox
+    required fixed parameters = [512, 256, 256, 10.96500015258789, 5.460999965667725, -5.460999965667725, 0.0430000014603138, 0.0430000014603138, 0.0430000014603138, -1, 0, 0, 0, -1, 0, 0, 0, 1]
+  Elapsed time (stage 0): 1.2347e+01
+
+
+Total elapsed time: 1.2355e+01
+mv: target `/glusterspace/VBM_13colton01_whs-work/dwi/fa/N51234_to_N51136.nii' is not a directory
+/cm/local/apps/slurm/var/spool/job08676/slurm_script: line 3: /nmv: No such file or directory

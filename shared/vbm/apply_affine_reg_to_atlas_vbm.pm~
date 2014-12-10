@@ -1,0 +1,157 @@
+#!/usr/local/pipeline-link/perl
+# register_to_atlas_vbm.pm 
+
+
+
+
+
+my $PM = "register_to_atlas_vbm.pm";
+my $VERSION = "2014/11/20";
+my $NAME = "Bulk rigid/affine registration to a specified atlas";
+my $DESC = "ants";
+my $ggo = 1;  # Needed for compatability with seg_pipe code
+
+use strict;
+use warnings;
+
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode);
+require Headfile;
+require pipeline_utilities;
+
+my $do_inverse_bool = 1;
+my ($atlas,$contrast, $runlist,$work_path,$current_path);
+my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
+my (@array_of_runnos,@jobs);
+my (%create_go,%create_output,%apply_go,%apply_output);
+my $go = 1;
+my $job;
+
+# ------------------
+sub register_to_atlas_vbm {  # Main code
+# ------------------
+
+
+    register_to_atlas_vbm_Runtime_check();
+
+    foreach my $runno (@array_of_runnos) {
+	opendir(DIR, $inputs_dir);
+	my @input_files = grep(/^$runno.*$contrast/ ,readdir(DIR));
+	my $to_xform_path= $inputs_dir.'/'.$input_files[0];
+	my $result_path_base = "${current_path}/${runno}_";
+	$go = $create_go{$runno};
+	$xform_suffix =  $Hf->get_value('rigid_transform_suffix');
+	#get_target_path($runno,$contrast);
+
+
+	($xform_path,$job) = create_affine_transform($go,$xform_code, $to_xform_path, $domain_path, $result_path_base, '');
+	if ($xform_suffix eq 'NO_KEY') {
+	    if ($xform_path =~ m/${result_path_base}(.*$)/) { #grep to get suffix
+		$xform_suffix = $1;
+		print STDOUT " Ants adds the following suffix to the resulting affine transforms: ${xform_suffix}\n";
+		$Hf->set_value('rigid_transform_suffix',$xform_suffix);
+	    }
+	}
+
+	if ($job > 1) {
+	    push(@jobs,$job);
+	}
+
+#	apply_affine_transform(1,$to_deform_path, $result_path,$xform_path, $target, $PM, $HfResult);
+    }
+    if (cluster_check()) {
+	my $interval = 2;
+	my $verbose = 1;
+	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+
+	if ($done_waiting) {
+	    print STDOUT  "  All rigid registration jobs have completed; moving on to next step.\n";
+	}
+    }
+}
+
+# ------------------
+sub register_to_atlas_vbm_Compile_check {
+# ------------------
+
+# check for valid atlas
+    $atlas = $Hf->get_value('atlas_name');
+    $contrast = $Hf->get_value('rigid_contrast');
+ 
+    $domain_dir   = $Hf->get_value ('rigid_atlas_dir');   
+    $domain_path  = "$domain_dir/${atlas}_${contrast}.nii"; 
+    if (!-e $domain_path)  {
+	error_out ("$PM Compile_check:${contrast}: missing domain nifti file ${domain_path}\n");
+    }
+    $inputs_dir = $Hf->get_value('inputs_dir');
+
+}
+
+# ------------------
+sub register_to_atlas_vbm_Runtime_check {
+# ------------------
+
+# Set up work
+    $work_path = $Hf->get_value('work_dir');
+    $current_path = $Hf->get_value('rigid_work_dir');
+    if ($current_path eq 'NO_KEY') {
+	$current_path = "${work_path}/${contrast}";
+	$Hf->set_value('$rigid_work_dir',$current_path);
+	if (! -e $current_path) {
+	    mkdir ($current_path,0777);
+	}
+    }
+    $runlist = $Hf->get_value('complete_comma_list');
+    @array_of_runnos = split(',',$runlist);
+
+    #$atlas = $Hf->get_value('atlas_name');
+    #$contrast = $Hf->get_value('rigid_contrast');
+ 
+    #my $domain_dir   = $Hf->get_value ('rigid_atlas_dir');   
+    #my $domain_path  = "$domain_dir/${atlas}_${contrast}.nii"; 
+
+
+
+    $xform_code = 'rigid1';
+    $xform_suffix = $Hf->get_value('rigid_transform_suffix');
+
+
+# check for output files
+    my $full_file;
+    my $existing_files_message_prefix = "  Rigid transform(s) already exist for the following runno(s) and will not be recalculated:\n";
+    my $existing_files_message = '';
+    foreach my $runno (@array_of_runnos) {
+	if ($xform_suffix ne 'NO_KEY') {
+	    $full_file = "${current_path}/${runno}_${xform_suffix}";
+	    if (! -e  $full_file) {
+		$create_go{$runno}=1;
+	#	$create_output{$runno} = $full_file; # Don't think this is really useful...
+	    } else {
+		$create_go{$runno}=0;
+		$existing_files_message = $existing_files_message."   $runno \n";
+	    }
+	} else {
+	    $create_go{$runno} = 1;
+	}
+    }
+    if ($existing_files_message ne '') {
+	print STDOUT "${existing_files_message_prefix}${existing_files_message}";
+    }
+# check for needed input files to produce output files which need to be produced in this step
+
+    my $missing_files_message_prefix = " Unable to locate input images for the following runno(s):\n";
+    my $missing_files_message = '';
+    my $missing_files_message_postfix = " Process stopped during $PM. Please check input runnos and try again.\n";
+    foreach my $runno (@array_of_runnos) {
+	opendir(DIR, $inputs_dir);
+	if ($create_go{$runno}) {
+	    my @input_files = grep(/^$runno.*$contrast/ ,readdir(DIR));
+	    if ($input_files[0] eq '') {
+		$missing_files_message = $missing_files_message."   $runno \n";
+	    }
+	}
+    }
+    if ($missing_files_message ne '') {
+	error_out("${missing_files_message_prefix}${missing_files_message}${missing_files_message_postfix}");
+    }
+}
+1;
