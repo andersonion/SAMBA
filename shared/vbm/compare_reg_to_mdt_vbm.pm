@@ -1,11 +1,11 @@
 #!/usr/local/pipeline-link/perl
-# pairwise_reg_vbm.pm 
+# compare_reg_to_mdt_vbm.pm 
 
 
 
 
 
-my $PM = "pairwise_reg_vbm.pm";
+my $PM = "compare_reg_to_mdt_vbm.pm";
 my $VERSION = "2014/12/02";
 my $NAME = "Pairwise registration for Minimum Deformation Template calculation.";
 my $DESC = "ants";
@@ -19,7 +19,7 @@ require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
-my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$mdt_path,$current_path);
+my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
 my ($diffsyn_iter,$syn_param);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed);
@@ -40,14 +40,12 @@ if (! $intermediate_affine) {
 
 my $affine = 0;
 
-# my @parents = qw(apply_affine_reg_to_atlas_vbm);
-# my @children = qw (reg_template_vbm);
 
 #$test_mode=0;
 
 
 # ------------------
-sub pairwise_reg_vbm {  # Main code
+sub compare_reg_to_mdt_vbm {  # Main code
 # ------------------
     
     my ($type) = @_;
@@ -55,21 +53,25 @@ sub pairwise_reg_vbm {  # Main code
 	$affine = 1;
     }
 
-    pairwise_reg_vbm_Runtime_check();
+    compare_reg_to_mdt_vbm_Runtime_check();
     
-    my @remaining_runnos = @sorted_runnos;
-    for ((my $moving_runno = shift(@remaining_runnos)); ($remaining_runnos[0] ne ''); ($moving_runno = shift(@remaining_runnos)))  {
-	foreach my $fixed_runno (@remaining_runnos) {
-	    $go = $go_hash{$moving_runno}{$fixed_runno};
-	    if ($go) {
-		($job) = create_pairwise_warps($moving_runno,$fixed_runno);
-	#	sleep(0.25);
-		if ($job > 1) {
-		    push(@jobs,$job);
-		}
+ 
+    foreach my $runno (@array_of_runnos) {
+	my ($f_xform_path,$i_xform_path);
+	$go = $go_hash{$runno};
+	if ($go) {
+	    ($job,$f_xform_path,$i_xform_path) = reg_to_mdt($runno);
+	    #	sleep(0.25);
+	    if ($job > 1) {
+		push(@jobs,$job);
 	    }
+	} else {
+	    $f_xform_path = "${current_path}/${runno}_to_MDT_warp.nii";
+	    $i_xform_path = "${current_path}/MDT_to_${runno}_warp.nii";
 	}
-    }
+	    headfile_list_handler($Hf,"forward_xforms_${runno}",$f_xform_path,0);
+	    headfile_list_handler($Hf,"inverse_xforms_${runno}",$i_xform_path,1);    }
+    
     
     if (cluster_check() && ($jobs[0] ne '')) {
 	my $interval = 15;
@@ -81,7 +83,7 @@ sub pairwise_reg_vbm {  # Main code
 	}
     }
     my $case = 2;
-    my ($dummy,$error_message)=pairwise_reg_Output_check($case);
+    my ($dummy,$error_message)=compare_reg_to_mdt_Output_check($case);
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);
@@ -91,56 +93,55 @@ sub pairwise_reg_vbm {  # Main code
 
 
 # ------------------
-sub pairwise_reg_Output_check {
+sub compare_reg_to_mdt_Output_check {
 # ------------------
      my ($case) = @_;
      my $message_prefix ='';
      my ($file_1,$file_2);
      my @file_array=();
      if ($case == 1) {
-  	$message_prefix = "  Pairwise diffeomorphic warps already exist for the following runno pairs and will not be recalculated:\n";
+	 $message_prefix = " Diffeomorphic warps to the MDT already exist for the following runno(s) and will not be recalculated:\n";
      } elsif ($case == 2) {
- 	$message_prefix = "  Unable to create pairwise diffeomorphic warps for the following runno pairs:\n";
+	 $message_prefix = "  Unable to diffeomorphic warps to the MDT for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
-
-
+     
+     
      my $existing_files_message = '';
      my $missing_files_message = '';
-     my @remaining_runnos = @sorted_runnos;
-     for ((my $moving_runno = shift(@remaining_runnos)); ($remaining_runnos[0] ne ''); ($moving_runno = shift(@remaining_runnos)))  {
-	 foreach my $fixed_runno (@remaining_runnos) {
-	     $file_1 = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz";
-	     $file_2 = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
+     
+     foreach my $runno (@array_of_runnos) {
+	 $file_1 = "${current_path}/${runno}_to_MDT_warp.nii.gz";
+	 $file_2 = "${current_path}/MDT_to_${runno}_warp.nii.gz";
 	     if (((! -e ($file_1 || $file_2)) || (((-l $file_1) && (! -e readlink($file_1))) || ((-l $file_2) && (! -e readlink($file_2)))))) {
-		 $go_hash{$moving_runno}{$fixed_runno}=1;
+		 $go_hash{$runno}=1;
 		 push(@file_array,$file_1,$file_2);
-		 $missing_files_message = $missing_files_message."\t${moving_runno}<-->${fixed_runno}";
-	     } else {
-		 $go_hash{$moving_runno}{$fixed_runno}=0;
-		 $existing_files_message = $existing_files_message."\t${moving_runno}<-->${fixed_runno}";
-	     }
-	 }
-	 if (($existing_files_message ne '') && ($case == 1)) {
-	     $existing_files_message = $existing_files_message."\n";
-	 } elsif (($missing_files_message ne '') && ($case == 2)) {
-	     $missing_files_message = $missing_files_message."\n";
+		 $missing_files_message = $missing_files_message."${runno}\n";
+	 } else {
+	     $go_hash{$runno}=0;
+	     $existing_files_message = $existing_files_message."${runno}\n";
 	 }
      }
+     if (($existing_files_message ne '') && ($case == 1)) {
+	 $existing_files_message = $existing_files_message."\n";
+     } elsif (($missing_files_message ne '') && ($case == 2)) {
+	 $missing_files_message = $missing_files_message."\n";
+     }
+     
      
      my $error_msg='';
-
+     
      if (($existing_files_message ne '') && ($case == 1)) {
 	 $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
 	 $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
      }
-
+     
      my $file_array_ref = \@file_array;
      return($file_array_ref,$error_msg);
- }
+}
 
 # ------------------
-sub pairwise_reg_Input_check {
+sub compare_reg_to_mdt_Input_check {
 # ------------------
 
 
@@ -148,40 +149,39 @@ sub pairwise_reg_Input_check {
 
 
 # ------------------
-sub create_pairwise_warps {
+sub reg_to_mdt {
 # ------------------
-    my ($moving_runno,$fixed_runno) = @_;
+    my ($runno) = @_;
     my $pre_affined = $intermediate_affine;
     # Set to "1" for using results of apply_affine_reg_to_atlas module, 
     # "0" if we decide to skip that step.  It appears the letter is easily the superior option.
 
     my ($fixed,$moving,$pairwise_cmd);
-    my $out_file =  "${current_path}/${moving_runno}_to_${fixed_runno}_"; # Same
-    my $new_warp = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz"; # none 
-    my $new_inverse = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
-    my $new_affine = "${current_path}/${moving_runno}_to_${fixed_runno}_affine.nii.gz";
+    my $out_file =  "${current_path}/${runno}_to_MDT_"; # Same
+    my $new_warp = "${current_path}/${runno}_to_MDT_warp.nii.gz"; # none 
+    my $new_inverse = "${current_path}/MDT_to_${runno}_warp.nii.gz";
+    my $new_affine = "${current_path}/${runno}_to_MDT_affine.nii.gz";
     my $out_warp = "${out_file}${warp_suffix}";
     my $out_inverse =  "${out_file}${inverse_suffix}";
     my $out_affine = "${out_file}${affine_suffix}";
 
+    $fixed = $median_images_path."/final_average_${mdt_contrast}.nii";
 
     if ($pre_affined) {
-	$fixed = $rigid_path."/${fixed_runno}_${mdt_contrast}.nii";
-	$moving = $rigid_path."/${moving_runno}_${mdt_contrast}.nii";; 
+
+	$moving = $rigid_path."/${runno}_${mdt_contrast}.nii";; 
 	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] -o ${out_file} ". 
 	    "  -c [ ${diffsyn_iter},1.e-8,20] -f 8x4x2x1 -t SyN[0.5,3,0] -s 0x0x0x0 -u;\n";
     } else {
-	$fixed = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast);
-	$moving = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
-	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}"; 
-	my $moving_affine =  $rigid_path."/${moving_runno}_${xform_suffix}";
+	$moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
+#	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}"; 
+	my $moving_affine =  $rigid_path."/${runno}_${xform_suffix}";
 	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] -o ${out_file} ".
-	    "  -c [ ${diffsyn_iter},1.e-8,20] -f 8x4x2x1 -t SyN[0.5,3,0] -s 0x0x0x0 -q ${fixed_affine} -r ${moving_affine} -u;\n"
+	    "  -c [ ${diffsyn_iter},1.e-8,20] -f 8x4x2x1 -t SyN[0.5,3,0] -s 0x0x0x0 -r ${moving_affine} -u;\n"
     }
 
-    if (-e $new_warp) { unlink($new_warp);}
-    if (-e $new_inverse) { unlink($new_inverse);}
-
+    my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
+    my $stop_message = "$PM: could not create diffeomorphic warp to MDT for ${runno}:\n${pairwise_cmd}\n" ;
 
 
     my $jid = 0;
@@ -189,22 +189,22 @@ sub create_pairwise_warps {
 	my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s;\n"; # random sleep of 5-15 seconds
 	my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
 	    "ln -s ${out_warp} ${new_warp};\n".
-	    "ln -s ${out_inverse} ${new_inverse};\n".#.
+	    "ln -s ${out_inverse} ${new_inverse};\n";#.
 	    "rm ${out_affine};\n";
     
 	my $cmd = $pairwise_cmd.$rename_cmd;
 	
 	my $home_path = $current_path;
-	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
+	my $Id= "${runno}_to_MDT_create_warp";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, "$PM: create pairwise warp for the pair ${moving_runno} and ${fixed_runno}", $cmd ,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose);     
 	if (! $jid) {
-	   # error_out("$PM: could not create warp between ${moving_runno} and ${fixed_runno}:\n${pairwise_cmd}\n");
+	    error_out($stop_message);
 	}
     } else {
 	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
-	if (! execute($go, "$PM create pairwise warp for the pair ${moving_runno} and ${fixed_runno}", @cmds) ) {
-	    error_out("$PM: could not create warp between ${moving_runno} and ${fixed_runno}:\n${pairwise_cmd}\n");
+	if (! execute($go, $go_message, @cmds) ) {
+	    error_out($stop_message);
 	}
     }
 
@@ -213,18 +213,18 @@ sub create_pairwise_warps {
     }
     print "** $PM created ${new_warp} and ${new_inverse}\n";
   
-    return($jid);
+    return($jid,$new_warp,$new_inverse);
 }
 
 
 # ------------------
-sub pairwise_reg_vbm_Init_check {
+sub compare_reg_to_mdt_vbm_Init_check {
 # ------------------
 
     return('');
 }
 # ------------------
-sub pairwise_reg_vbm_Runtime_check {
+sub compare_reg_to_mdt_vbm_Runtime_check {
 # ------------------
 
     $diffsyn_iter="4000x4000x4000x4000";
@@ -243,29 +243,25 @@ sub pairwise_reg_vbm_Runtime_check {
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');
     $mdt_path = $Hf->get_value('mdt_work_dir');
-    $current_path = $Hf->get_value('mdt_pairwise_dir');
- 
-    if ($mdt_path eq 'NO_KEY') {
-	$mdt_path = "${rigid_path}/${mdt_contrast}";
- 	$Hf->set_value('mdt_work_dir',$mdt_path);
- 	if (! -e $mdt_path) {
- 	    mkdir ($mdt_path,0777);
- 	}
-    }
+    
+    $predictor_path = $Hf->get_value('predictor_work_dir');  
+    $median_images_path = $Hf->get_value('median_images_path');    
+    $current_path = $Hf->get_value('reg_diffeo_dir');
+
 
     if ($current_path eq 'NO_KEY') {
-	$current_path = "${mdt_path}/MDT_pairs";
- 	$Hf->set_value('mdt_pairwise_dir',$current_path);
+	$current_path = "${predictor_path}/reg_diffeo";
+ 	$Hf->set_value('reg_diffeo_dir',$current_path);
  	if (! -e $current_path) {
  	    mkdir ($current_path,0777);
  	}
     }
 
-    $runlist = $Hf->get_value('control_comma_list');
+    $runlist = $Hf->get_value('compare_comma_list');
     @array_of_runnos = split(',',$runlist);
-    @sorted_runnos=sort(@array_of_runnos);
+    
     my $case = 1;
-    my ($dummy,$skip_message)=pairwise_reg_Output_check($case);
+    my ($dummy,$skip_message)=compare_reg_to_mdt_Output_check($case);
 
     if ($skip_message ne '') {
 	print "${skip_message}";

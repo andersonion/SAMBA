@@ -21,9 +21,9 @@ use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $intermediate_affine);
 require Headfile;
 require pipeline_utilities;
 
-my $do_inverse_bool = 0; # This is the opposite of how seg_pipe_mc handles it...be careful!
+my $do_inverse_bool = 0; # Reset to 0...This is the opposite of how seg_pipe_mc handles it...be careful!
 my ($atlas,$rigid_contrast,$moving_contrast, $runlist,$work_path,$current_path);
-my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
+my ($xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
 my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
 my (%go_hash);
 my $go = 1;
@@ -50,8 +50,6 @@ sub apply_affine_reg_to_atlas_vbm {  # Main code
 	#get_target_path($runno,$rigid_contrast);
 
 	($job) = apply_affine_transform($go,$to_xform_path, $result_path,$do_inverse_bool,$xform_path, $domain_path,'','',$PM);
-	# ($xform_path,$job) = create_affine_transform($go,$xform_code, $to_xform_path, $domain_path, $result_path_base, '');
-
 
 	if ($job > 1) {
 	    push(@jobs,$job);
@@ -118,32 +116,7 @@ sub apply_affine_Output_check {
 sub apply_affine_Input_check {
 # ------------------
 
-# This code was not completed before it was commented out.  It will need to be worked on further if put back into action.
-# Its function is to use the files specified by @needed_array and check to see that both the original image and the affine transform existed,
-# returning an error stating which ones were missing.
-
-#     my ($needed_array_ref)=@_;
-#     my @needed_array = @$needed_array_ref;
-
-# # check for needed input files to produce output files which need to be produced in this step
-
-#     my $message_prefix = " Unable to locate the following input files:\n";
-#     my $missing_files_message = '';
-#     my $message_postfix = " Process stopped during $PM. Please check for missing inputs and try again.\n";
-#     foreach my $needed_runno (@needed_array) {
-# 	opendir(DIR, $inputs_dir);
-# 	# if ($go_hash{$runno}) {
-# 	if (){
-# 	    my @input_files = grep(/^$runno.*${rigid_contrast}/ ,readdir(DIR));
-# 	    if ($input_files[0] eq '') {
-# 		$missing_files_message = $missing_files_message."   $runno \n";
-# 	    }
-# 	}
-#     }
-#     if ($missing_files_message ne '') {
-# 	error_out("$PM:\n${missing_files_message_prefix}${missing_files_message}${missing_files_message_postfix}");
-#     }
-
+    return('');
 
 }
 
@@ -167,7 +140,7 @@ sub apply_affine_reg_to_atlas_vbm_Runtime_check {
     $rigid_contrast = $Hf->get_value('rigid_contrast');
     $domain_path =$Hf->get_value('rigid_atlas_path');
     $inputs_dir = $Hf->get_value('inputs_dir');
-    $work_path = $Hf->get_value('work_dir');
+    $work_path = $Hf->get_value('dir_work');
     $current_path = $Hf->get_value('rigid_work_dir');
     if ($current_path eq 'NO_KEY') {
 	$current_path = "${work_path}/${rigid_contrast}";
@@ -179,8 +152,8 @@ sub apply_affine_reg_to_atlas_vbm_Runtime_check {
     $runlist = $Hf->get_value('complete_comma_list');
     @array_of_runnos = split(',',$runlist);
 
-    #$xform_code = 'rigid1';
-    $xform_suffix = $Hf->get_value('rigid_transform_suffix');
+
+    $xform_suffix =  $Hf->get_value('rigid_transform_suffix');
 
 
 # check for output files
