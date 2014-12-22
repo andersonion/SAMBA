@@ -76,14 +76,14 @@ sub calculate_mdt_warps_vbm {  # Main code
     }
     my $case = 2;
     my ($dummy,$error_message)=calculate_mdt_warps_Output_check($case,$direction);
-
+    $Hf->write_headfile($write_path_for_Hf);
+    
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
-	$Hf->write_headfile($write_path_for_Hf);
 	symbolic_link_cleanup($pairwise_path);
     }
- 
+    
 }
 
 
@@ -95,9 +95,9 @@ sub calculate_mdt_warps_Output_check {
      my $message_prefix ='';
      my ($out_file,$dir_string);
      if ($direction eq 'f' ) {
-	 $dir_string = 'FORWARD';
+	 $dir_string = 'forward';
      } elsif ($direction eq 'i') {
-	 $dir_string = 'INVERSE';
+	 $dir_string = 'inverse';
      } else {
 	 error_out("$PM: direction of warp \"$direction \"not recognized. Use \"f\" for forward and \"i\" for inverse.\n");
      }
@@ -162,10 +162,10 @@ sub calculate_average_mdt_warp {
     my $dir_string = '';
     if ($direction eq 'f') {
 	$out_file = "${current_path}/${runno}_to_MDT_warp.nii";
-	$dir_string = 'FORWARD';
+	$dir_string = 'forward';
     } else {
 	$out_file = "${current_path}/MDT_to_${runno}_warp.nii";
-	$dir_string = 'INVERSE';
+	$dir_string = 'inverse';
     }
  
     $cmd =" AverageImages 3 ${out_file} 0";
@@ -192,7 +192,7 @@ sub calculate_average_mdt_warp {
 	    error_out("$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n");
 	}
     } else {
-	my @cmds = ($cmd);#, "mv  `ls ${out_file}* | grep -E '[0-9]+Warp'` ${new_warp}", "mv  `ls ${out_file}* | grep -E '[0-9]+InverseWarp'` ${new_inverse}");
+	my @cmds = ($cmd);
 	if (! execute($go, "$PM: create ${dir_string} MDT warp for ${runno}", @cmds) ) {
 	    error_out("$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n");
 	}
@@ -250,7 +250,11 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 	$work_done = 0;
 	my $Hf_comp = '';
 	my $include = 0; # We will exclude certain keys from headfile comparison.
-	my @excluded_keys =qw(compare_comma_list forward_xforms inverse_xforms last_headfile_checkpoint); 
+	my @excluded_keys =qw(compare_comma_list 
+                              forward_xforms 
+                              inverse_xforms
+                              last_headfile_checkpoint
+                              threshold_hash_ref ); 
  
 	if ($current_tempHf ne "0"){# numeric compare vs string?
 	    $Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);

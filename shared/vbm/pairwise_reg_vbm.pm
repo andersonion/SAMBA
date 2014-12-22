@@ -19,10 +19,10 @@ require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
-my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$mdt_path,$current_path);
+my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
 my ($diffsyn_iter,$syn_param);
-my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed);
+my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
 my $job;
@@ -155,7 +155,7 @@ sub create_pairwise_warps {
     # Set to "1" for using results of apply_affine_reg_to_atlas module, 
     # "0" if we decide to skip that step.  It appears the letter is easily the superior option.
 
-    my ($fixed,$moving,$pairwise_cmd);
+    my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
     my $out_file =  "${current_path}/${moving_runno}_to_${fixed_runno}_"; # Same
     my $new_warp = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz"; # none 
     my $new_inverse = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
@@ -165,17 +165,32 @@ sub create_pairwise_warps {
     my $out_affine = "${out_file}${affine_suffix}";
 
 
+    my $second_contrast_string='';
+
+    print "\n\n\nMDT Contrast 2 = ${mdt_contrast_2}\n\n\n";
+
     if ($pre_affined) {
 	$fixed = $rigid_path."/${fixed_runno}_${mdt_contrast}.nii";
-	$moving = $rigid_path."/${moving_runno}_${mdt_contrast}.nii";; 
-	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] -o ${out_file} ". 
+	$moving = $rigid_path."/${moving_runno}_${mdt_contrast}.nii";
+	if ($mdt_contrast_2 ne '') {
+	    $fixed_2 = $rigid_path."/${fixed_runno}_${mdt_contrast_2}.nii" ;
+	    $moving_2 =$rigid_path."/${moving_runno}_${mdt_contrast_2}.nii" ;
+	    $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
+	}
+	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ". 
 	    "  -c [ ${diffsyn_iter},1.e-8,20] -f 8x4x2x1 -t SyN[0.5,3,0] -s 0x0x0x0 -u;\n";
     } else {
 	$fixed = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast);
 	$moving = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
+	if ($mdt_contrast_2 ne '') {
+	  $fixed_2 = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast_2) ;
+	  $moving_2 = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast_2) ;
+	  $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
+	}
+
 	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}"; 
 	my $moving_affine =  $rigid_path."/${moving_runno}_${xform_suffix}";
-	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] -o ${out_file} ".
+	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
 	    "  -c [ ${diffsyn_iter},1.e-8,20] -f 8x4x2x1 -t SyN[0.5,3,0] -s 0x0x0x0 -q ${fixed_affine} -r ${moving_affine} -u;\n"
     }
 
@@ -199,7 +214,7 @@ sub create_pairwise_warps {
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, "$PM: create pairwise warp for the pair ${moving_runno} and ${fixed_runno}", $cmd ,$home_path,$Id,$verbose);     
 	if (! $jid) {
-	   # error_out("$PM: could not create warp between ${moving_runno} and ${fixed_runno}:\n${pairwise_cmd}\n");
+	    error_out("$PM: could not create warp between ${moving_runno} and ${fixed_runno}:\n${pairwise_cmd}\n");
 	}
     } else {
 	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
@@ -239,14 +254,20 @@ sub pairwise_reg_vbm_Runtime_check {
 
 # # Set up work
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
-    $mdt_contrast = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
+    $mdt_contrast_string = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
+    @mdt_contrasts = split('_',$mdt_contrast_string); 
+    $mdt_contrast = $mdt_contrasts[0];
+    if ($#mdt_contrasts > 0) {
+	$mdt_contrast_2 = $mdt_contrasts[1];
+    }  #The working assumption is that we will not expand beyond using two contrasts for registration...
+
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');
     $mdt_path = $Hf->get_value('mdt_work_dir');
     $current_path = $Hf->get_value('mdt_pairwise_dir');
  
     if ($mdt_path eq 'NO_KEY') {
-	$mdt_path = "${rigid_path}/${mdt_contrast}";
+	$mdt_path = "${rigid_path}/${mdt_contrast_string}";
  	$Hf->set_value('mdt_work_dir',$mdt_path);
  	if (! -e $mdt_path) {
  	    mkdir ($mdt_path,0777);

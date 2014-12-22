@@ -26,13 +26,15 @@ require pipeline_utilities;
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$flip_x,$flip_z,$do_mask);
 my (@array_of_runnos,@channel_array);
 my (%go_hash,%go_mask,%mask_hash);
+my $skip=0;
 
 # ------------------
 sub convert_all_to_nifti_vbm {
 # ------------------
 # convert the source image volumes used in this SOP to nifti format (.nii)
 # could use image name (suffix) to figure out datatype
-
+    ($skip) = @_;
+    if ($skip eq '') {$skip = 0;}
     convert_all_to_nifti_vbm_Runtime_check();
 
     my @nii_cmds;
@@ -61,20 +63,24 @@ sub convert_all_to_nifti_vbm {
 
 	my $nifti_args = "\'${in_path}\', \'$name\', \'nii\', \'${current_path}/$name$ext\', 0, 0, ".
       " 0, 0, 0,0,0, ${flip_x}, ${flip_z},0,0";
+	if (! $skip) {
 	my $nifti_command = make_matlab_command('civm_to_nii',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
 	execute(1, "Recentering nifti images from tensor inputs", $nifti_command);	
-
+	}
 	#push(@nii_cmds,$nifti_command);           
     }
    # execute_indep_forks(1,"Recentering nifti images from tensor inputs", @nii_cmds);
 
     my $case = 2;
-    my ($dummy,$error_message)=convert_all_to_nifti_Output_check($case,$direction);
+    my ($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);
+    } else {
+    # Clean up matlab junk
+	`rm ${work_dir}/*.m`;
+	`rm ${work_dir}/*matlab*`;
     }
-
 }
 
 
@@ -145,7 +151,7 @@ sub convert_all_to_nifti_vbm_Runtime_check {
 
 # # Set up work
     $in_folder = $Hf->get_value('pristine_input_dir');
-    $work_dir = $Hf->get_value('work_dir');
+    $work_dir = $Hf->get_value('dir_work');
     $current_path = $Hf->get_value('inputs_dir');
 
     $flip_x = $Hf->get_value('flip_x'); 

@@ -24,7 +24,7 @@ require pipeline_utilities;
 
 
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$do_mask,$mask_dir,$template_contrast);
-my ($mask_threshold, $num_morphs,$morph_radius,$dim_divisor, $status_display_level);
+my ($thresh_ref,$mask_threshold,$default_mask_threshold,$num_morphs,$morph_radius,$dim_divisor, $status_display_level);
 my (@array_of_runnos,@channel_array,@jobs);
 my (%go_hash,%make_hash,%mask_hash);
 my $go=1;
@@ -46,6 +46,11 @@ sub mask_images_vbm {
 	if ($go) {
 	    my $current_file=get_nii_from_inputs($current_path,$runno,$template_contrast);
 	    my ($name,$in_path,$ext) = fileparts($current_file);
+	    if (($thresh_ref ne "NO_KEY") && ($$thresh_ref{$runno})){
+		$mask_threshold = $$thresh_ref{$runno};
+	    } else {
+		$mask_threshold=$default_mask_threshold;
+	    }
 	    my $mask_path     = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
 	    $mask_hash{$runno} = $mask_path;
 	    if (! -e $mask_path) {
@@ -57,7 +62,7 @@ sub mask_images_vbm {
     }
 
 
-## Apply masks to all imaages in each runno set.
+## Apply masks to all images in each runno set.
     foreach my $runno (@array_of_runnos) {
 	if ($make_hash{$runno}) {
 	    foreach my $ch (@channel_array) {
@@ -84,8 +89,12 @@ sub mask_images_vbm {
     my $case = 2;
     my ($dummy,$error_message)=mask_images_Output_check($case);
 
-    if ($error_message ne '') {
+    if (($error_message ne '') && ($do_mask)) {
 	error_out("${error_message}",0);
+    } else {
+	# Clean up matlab junk
+	`rm ${work_dir}/*.m`;
+	`rm ${work_dir}/*matlab*`;
     }
 
 }
@@ -117,7 +126,7 @@ sub mask_images_Output_check {
 	foreach my $ch (@channel_array) {
 	    $file_1 = "${current_path}/${runno}_${ch}_masked.nii";
 	    if (! -e $file_1 ) {
-		$go_hash{$runno}{$ch}=1;
+		$go_hash{$runno}{$ch}=1*$do_mask;
 		push(@file_array,$file_1);
 		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
 	    } else {
@@ -132,7 +141,7 @@ sub mask_images_Output_check {
 	}
 
 	if (($sub_missing_files_message ne '') && ($case == 1)) {
-	    $make_hash{$runno} = 1;
+	    $make_hash{$runno} = $do_mask;
 	} else {
 	    $make_hash{$runno} = 0;
 	}
@@ -172,7 +181,7 @@ sub mask_one_image {
 	my $cmd = $apply_cmd.$remove_cmd;
 	
 	my $home_path = $current_path;
-	my $Id= "${runno}_{ch}_apply_${template_contrast}_mask";
+	my $Id= "${runno}_${ch}_apply_${template_contrast}_mask";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose);     
 	if (! $jid) {
@@ -212,7 +221,8 @@ sub mask_images_vbm_Runtime_check {
     $do_mask = $Hf->get_value('do_mask');
     $mask_dir = $Hf->get_value('mask_dir');
     $template_contrast = $Hf->get_value('skull_strip_contrast');
-    $mask_threshold=$Hf->get_value('threshold_code');
+    $thresh_ref = $Hf->get_value('threshold_hash_reference');
+    $default_mask_threshold=$Hf->get_value('threshold_code'); # Do this on an the basis of individual runnos
                         # -1 use imagej (like evan and his dti pipe)
                         # 0-100 use threshold_zero 0-100, 
                         # 100-inf is set threshold.

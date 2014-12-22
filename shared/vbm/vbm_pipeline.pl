@@ -32,8 +32,8 @@ $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
 
-$intermediate_affine = 1;
-$test_mode = 1;
+$intermediate_affine = 0;
+$test_mode = 0;
 use lib dirname(abs_path($0));
 use Env qw(RADISH_PERL_LIB);
 if (! defined($RADISH_PERL_LIB)) {
@@ -69,16 +69,46 @@ my @channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by comman
 my $flip_x = 1;
 my $flip_z = 0;
 
-my $optional_suffix = '';
+my $optional_suffix = 'dual_channel';
 my $atlas_name = 'DTI';
 my $rigid_contrast = 'dwi';
-my $mdt_contrast = 'fa';
-my $atlas_dir = "/home/rja20/cluster_code/data/atlas/DTI";
+my $mdt_contrast = 'fa_dwi';
+my $atlas_dir = "/home/rja20/cluster_code/data/atlas/${atlas_name}";
 my $skull_strip_contrast = 'dwi';
-my $threshold_code = 2200;
+my $threshold_code = 4;
 my $do_mask = 1;
 
-
+#custom thresholds for Colton study
+my $thresh_ref = {
+    'N51124'   => 2296,
+    'N51130'   => 2644,
+    'N51393'   => 2034,
+    'N51392'   => 2372,
+    'N51390'   => 2631,
+    'N51388'   => 2298,
+    'N51136'   => 1738,
+    'N51133'   => 1808,
+    'N51282'   => 2131,
+    'N51234'   => 2287,
+    'N51201'   => 1477,
+    'N51241'   => 1694,
+    'N51252'   => 1664,
+    'N51383'   => 1981,
+    'N51386'   => 2444,
+    'N51231'   => 1964,
+    'N51404'   => 2057,
+    'N51406'   => 2004,
+    'N51211'   => 1668,
+    'N51221'   => 2169,
+    'N51193'   => 2709,
+    'N51182'   => 1841,
+    'N51151'   => 2188,
+    'N51131'   => 2098,
+    'N51164'   => 2001,
+    'N51617'   => 2867,
+    'N51620'   => 2853,
+    'N51622'   => 3160,
+};
 
 ## The following are mostly ready-to-go variables (i.e. non hard-coded)
 
@@ -119,7 +149,13 @@ $Hf->set_value('rigid_transform_suffix','rigid.mat');
 
 $Hf->set_value('flip_x',$flip_x);
 $Hf->set_value('flip_z',$flip_z);
+
 $Hf->set_value('do_mask',$do_mask);
+if (defined $thresh_ref) {
+    $Hf->set_value('threshold_hash_reference',$thresh_ref);
+}
+
+
 
 $Hf->set_value('predictor_id',$custom_predictor_string);
 
@@ -210,7 +246,6 @@ $Hf->set_value('nifti_matlab_converter','civm_to_nii'); # This should stay hardc
     }
 
 # Gather all needed data and put in inputs directory
- 
     convert_all_to_nifti_vbm();
     sleep($interval);
 
@@ -245,36 +280,27 @@ $Hf->set_value('nifti_matlab_converter','civm_to_nii'); # This should stay hardc
 
 ## Put this elsewhere
     my @master_contrast_list=qw(adc dwi e1 e2 e3 fa);   
-    my @other_contrasts = ();
-    foreach my $this_contrast (@master_contrast_list) {
-	if ($this_contrast ne $mdt_contrast) {
-	    push(@other_contrasts,$this_contrast);
-	}
-    }
+#    my @other_contrasts = ();
+#    foreach my $this_contrast (@master_contrast_list) {
+#	if ($mdt_contrast !~ /${this_contrast}/) {
+#	    push(@other_contrasts,$this_contrast);
+#	}
+#    }
 ##
     my $group_name = "control";
-    apply_mdt_warps_vbm($mdt_contrast,"f",$group_name);
-    sleep($interval);
-
-    calculate_mdt_images_vbm($mdt_contrast);
-    sleep($interval);
-
-    foreach my $other_contrast (@other_contrasts) {
-	apply_mdt_warps_vbm($other_contrast,"f",$group_name);
+    foreach my $a_contrast (@master_contrast_list) {
+	apply_mdt_warps_vbm($a_contrast,"f",$group_name);
     }
-    calculate_mdt_images_vbm(@other_contrasts);
+    calculate_mdt_images_vbm(@master_contrast_list);
     sleep($interval);
 
     compare_reg_to_mdt_vbm("d");
     sleep($interval);
     #create_average_mdt_image_vbm();
 
-    $group_name = "compare";
-    apply_mdt_warps_vbm($mdt_contrast,"f",$group_name);
-    sleep($interval);
-    
-    foreach my $other_contrast (@other_contrasts) {
-	apply_mdt_warps_vbm($other_contrast,"f",$group_name);
+    $group_name = "compare";    
+    foreach my $a_contrast (@master_contrast_list) {
+	apply_mdt_warps_vbm($a_contrast,"f",$group_name);
     }
     sleep($interval);
 

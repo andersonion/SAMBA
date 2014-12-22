@@ -74,8 +74,11 @@ sub apply_mdt_warps_vbm {  # Main code
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
-#	$Hf->write_headfile($write_path_for_Hf);
-#	symbolic_link_cleanup($pairwise_path);
+	$Hf->write_headfile($write_path_for_Hf);
+	if (! $gid) {
+	    symbolic_link_cleanup($diffeo_path);
+	}
+	symbolic_link_cleanup($rigid_path);
     }
  
 }
@@ -221,6 +224,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
     $mdt_contrast = $Hf->get_value('mdt_contrast');
     $mdt_path = $Hf->get_value('mdt_work_dir');
     $inputs_dir = $Hf->get_value('inputs_dir');
+    $rigid_path = $Hf->get_value('rigid_work_dir');
     $predictor_id = $Hf->get_value('predictor_id');
     $predictor_path = $Hf->get_value('predictor_work_dir');
     if ($gid) {

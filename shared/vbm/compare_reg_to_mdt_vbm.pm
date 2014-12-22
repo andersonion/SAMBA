@@ -19,10 +19,10 @@ require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
-my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
+my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
 my ($diffsyn_iter,$syn_param);
-my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed);
+my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
 my $job;
@@ -102,7 +102,7 @@ sub compare_reg_to_mdt_Output_check {
      if ($case == 1) {
 	 $message_prefix = " Diffeomorphic warps to the MDT already exist for the following runno(s) and will not be recalculated:\n";
      } elsif ($case == 2) {
-	 $message_prefix = "  Unable to diffeomorphic warps to the MDT for the following runno(s):\n";
+	 $message_prefix = "  Unable to create diffeomorphic warps to the MDT for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
      
      
@@ -154,9 +154,9 @@ sub reg_to_mdt {
     my ($runno) = @_;
     my $pre_affined = $intermediate_affine;
     # Set to "1" for using results of apply_affine_reg_to_atlas module, 
-    # "0" if we decide to skip that step.  It appears the letter is easily the superior option.
+    # "0" if we decide to skip that step.  It appears the latter is easily the superior option.
 
-    my ($fixed,$moving,$pairwise_cmd);
+    my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
     my $out_file =  "${current_path}/${runno}_to_MDT_"; # Same
     my $new_warp = "${current_path}/${runno}_to_MDT_warp.nii.gz"; # none 
     my $new_inverse = "${current_path}/MDT_to_${runno}_warp.nii.gz";
@@ -164,19 +164,35 @@ sub reg_to_mdt {
     my $out_warp = "${out_file}${warp_suffix}";
     my $out_inverse =  "${out_file}${inverse_suffix}";
     my $out_affine = "${out_file}${affine_suffix}";
+    my $second_contrast_string='';
 
-    $fixed = $median_images_path."/final_average_${mdt_contrast}.nii";
-
+    $fixed = $median_images_path."/MDT_${mdt_contrast}.nii";
+    
+    if ($mdt_contrast_2 ne '') {
+	$fixed_2 = $rigid_path."/${runno}_${mdt_contrast_2}.nii" ;
+	$fixed_2 = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast_2) ;
+    }
+    
     if ($pre_affined) {
 
-	$moving = $rigid_path."/${runno}_${mdt_contrast}.nii";; 
-	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] -o ${out_file} ". 
+	$moving = $rigid_path."/${runno}_${mdt_contrast}.nii";
+	if ($mdt_contrast_2 ne '') {
+	    
+	    $moving_2 =$rigid_path."/${runno}_${mdt_contrast_2}.nii" ;
+	    $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
+	}
+	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ". 
 	    "  -c [ ${diffsyn_iter},1.e-8,20] -f 8x4x2x1 -t SyN[0.5,3,0] -s 0x0x0x0 -u;\n";
     } else {
 	$moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
+	if ($mdt_contrast_2 ne '') {
+	 
+	    $moving_2 = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast_2) ;
+	    $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
+	}
 #	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}"; 
 	my $moving_affine =  $rigid_path."/${runno}_${xform_suffix}";
-	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] -o ${out_file} ".
+	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
 	    "  -c [ ${diffsyn_iter},1.e-8,20] -f 8x4x2x1 -t SyN[0.5,3,0] -s 0x0x0x0 -r ${moving_affine} -u;\n"
     }
 
@@ -189,7 +205,7 @@ sub reg_to_mdt {
 	my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s;\n"; # random sleep of 5-15 seconds
 	my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
 	    "ln -s ${out_warp} ${new_warp};\n".
-	    "ln -s ${out_inverse} ${new_inverse};\n";#.
+	    "ln -s ${out_inverse} ${new_inverse};\n".
 	    "rm ${out_affine};\n";
     
 	my $cmd = $pairwise_cmd.$rename_cmd;
@@ -239,7 +255,13 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
 
 # # Set up work
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
-    $mdt_contrast = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
+    $mdt_contrast_string = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
+    @mdt_contrasts = split('_',$mdt_contrast_string); 
+    $mdt_contrast = $mdt_contrasts[0];
+    if ($#mdt_contrasts > 0) {
+	$mdt_contrast_2 = $mdt_contrasts[1];
+    }  #The working assumption is that we will not expand beyond using two contrasts for registration...
+
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');
     $mdt_path = $Hf->get_value('mdt_work_dir');
@@ -251,7 +273,7 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
 
     if ($current_path eq 'NO_KEY') {
 	$current_path = "${predictor_path}/reg_diffeo";
- 	$Hf->set_value('reg_diffeo_dir',$current_path);
+ 	$Hf->set_value('reg_diffeo_path',$current_path);
  	if (! -e $current_path) {
  	    mkdir ($current_path,0777);
  	}
