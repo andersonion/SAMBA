@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $native_reference_space $permissions);
 require Headfile;
 require pipeline_utilities;
 
@@ -30,7 +30,7 @@ my (%go_hash);
 my $go = 1;
 my $job;
 
-my ($current_contrast,$group,$gid);
+my ($current_contrast,$group,$gid,$affine_target);
 
 
 # ------------------
@@ -38,6 +38,11 @@ sub apply_mdt_warps_vbm {  # Main code
 # ------------------
     my $direction;
     ($current_contrast,$direction,$group) = @_;
+
+    if ($current_contrast eq '') { # Skip this step entirely in case pipeline accidentally supplies a null contrast.
+	return();
+    }
+
     if ($group eq "control") {
 	$gid = 1;
     } elsif ($group eq "compare") {
@@ -116,7 +121,7 @@ sub apply_mdt_warps_Output_check {
 	     $out_file =  "${current_path}/MDT_to_${runno}_${current_contrast}.nii";
 	 }
 
-	 if (! -e  $out_file) {
+	 if (data_double_check($out_file)) {
 	     $go_hash{$runno}=1;
 	     push(@file_array,$out_file);
 	     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
@@ -167,16 +172,32 @@ sub apply_mdt_warp {
     }
 
     my $image_to_warp = get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
+    my $reference_image;
+    if ($native_reference_space) {
+	$reference_image = $image_to_warp;
+    } else {
+	$reference_image = $Hf->get_value('rigid_atlas_path');
+    }
+
     my ($warp_train,$warp_string,@warp_array);
-## TEST
-#    $direction_string = 'inverse';
-## TEST
+
     $warp_string = $Hf->get_value("${direction_string}_xforms_${runno}");
 
     @warp_array = split(',',$warp_string);
+## TEST
+#  Test to see if the rigid affine is being folded into the full affine xform.  This test removes the rigid xform from the xforms that are appleied.
+    if ($runno ne $affine_target) {
+
+	if ($direction eq 'f') {
+	    pop(@warp_array);
+	} else {
+	    shift(@warp_array);	
+	}
+    }
+## TEST
     $warp_train = join(' ',@warp_array);
 
-    $cmd = "WarpImageMultiTransform 3 ${image_to_warp} ${out_file} -R ${image_to_warp} ${warp_train}";
+    $cmd = "WarpImageMultiTransform 3 ${image_to_warp} ${out_file} -R ${reference_image} ${warp_train}";
 
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} MDT warp(s) to ${current_contrast} image for  ${runno}:\n${cmd}\n";
@@ -227,6 +248,9 @@ sub apply_mdt_warps_vbm_Runtime_check {
     $rigid_path = $Hf->get_value('rigid_work_dir');
     $predictor_id = $Hf->get_value('predictor_id');
     $predictor_path = $Hf->get_value('predictor_work_dir');
+    $affine_target = $Hf->get_value('affine_target_image');
+
+
     if ($gid) {
 	$diffeo_path = $Hf->get_value('mdt_diffeo_path');   
 	$current_path = $Hf->get_value('mdt_images_path');
@@ -247,7 +271,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
     }
     
     if (! -e $current_path) {
-	mkdir ($current_path,0777);
+	mkdir ($current_path,$permissions);
     }
     
     $write_path_for_Hf = "${current_path}/${predictor_id}_temp.headfile";

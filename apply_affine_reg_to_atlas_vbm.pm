@@ -17,7 +17,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $intermediate_affine);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $intermediate_affine $native_reference_space $permissions);
 require Headfile;
 require pipeline_utilities;
 
@@ -49,7 +49,7 @@ sub apply_affine_reg_to_atlas_vbm {  # Main code
 	$xform_path = "${current_path}/${runno}_${xform_suffix}";
 	#get_target_path($runno,$rigid_contrast);
 
-	($job) = apply_affine_transform($go,$to_xform_path, $result_path,$do_inverse_bool,$xform_path, $domain_path,'','',$PM);
+	($job) = apply_affine_transform($go,$to_xform_path, $result_path,$do_inverse_bool,$xform_path, $domain_path,'','',$PM,$native_reference_space);
 
 	if ($job > 1) {
 	    push(@jobs,$job);
@@ -90,7 +90,7 @@ sub apply_affine_Output_check {
 
     foreach my $runno (@array_of_runnos) {
 	$full_file = "${current_path}/${runno}_${moving_contrast}.nii";
-	if (! -e  $full_file) {
+	if (data_double_check($full_file)) {
 	   $go_hash{$runno}=1;
 	   # push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
 	    push(@file_array,$full_file);
@@ -146,7 +146,7 @@ sub apply_affine_reg_to_atlas_vbm_Runtime_check {
 	$current_path = "${work_path}/${rigid_contrast}";
 	$Hf->set_value('rigid_work_dir',$current_path);
 	if (! -e $current_path) {
-	    mkdir ($current_path,0777);
+	    mkdir ($current_path,$permissions);
 	}
     }
     $runlist = $Hf->get_value('complete_comma_list');

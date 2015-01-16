@@ -1,13 +1,13 @@
 #!/usr/local/pipeline-link/perl
-# compare_reg_to_mdt_vbm.pm 
+# mdt_reg_to_atlas_vbm.pm 
 
 
 
 
 
-my $PM = "compare_reg_to_mdt_vbm.pm";
-my $VERSION = "2014/12/02";
-my $NAME = "Pairwise registration for Minimum Deformation Template calculation.";
+my $PM = "mdt_reg_to_atlas_vbm.pm";
+my $VERSION = "2015/01/06";
+my $NAME = ".";
 my $DESC = "ants";
 
 use strict;
@@ -19,15 +19,15 @@ require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
-my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
-my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
+my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
+my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path);
 my ($diffsyn_iter,$syn_param,$downsampling,$sigmas);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
 my $job;
 
-my($warp_suffix,$inverse_suffix,$affine_suffix);
+my($warp_suffix,$inverse_suffix,$affine_suffix,$label_atlas);
 if (! $intermediate_affine) {
    $warp_suffix = "1Warp.nii.gz";
    $inverse_suffix = "1InverseWarp.nii.gz";
@@ -45,7 +45,7 @@ my $affine = 0;
 
 
 # ------------------
-sub compare_reg_to_mdt_vbm {  # Main code
+sub mdt_reg_to_atlas_vbm {  # Main code
 # ------------------
     
     my ($type) = @_;
@@ -53,74 +53,78 @@ sub compare_reg_to_mdt_vbm {  # Main code
 	$affine = 1;
     }
 
-    compare_reg_to_mdt_vbm_Runtime_check();
+    mdt_reg_to_atlas_vbm_Runtime_check();
     
  
     foreach my $runno (@array_of_runnos) {
 	my ($f_xform_path,$i_xform_path);
 	$go = $go_hash{$runno};
 	if ($go) {
-	    ($job,$f_xform_path,$i_xform_path) = reg_to_mdt($runno);
+	    ($job,$f_xform_path,$i_xform_path) = mdt_reg_to_atlas($runno);
 	    #	sleep(0.25);
 	    if ($job > 1) {
 		push(@jobs,$job);
 	    }
 	} else {
-	    $f_xform_path = "${current_path}/${runno}_to_MDT_warp.nii";
-	    $i_xform_path = "${current_path}/MDT_to_${runno}_warp.nii";
+	    $f_xform_path = "${current_path}/MDT_to_${label_atlas}_warp.nii";
+	    $i_xform_path = "${current_path}/${label_atlas}_to_MDT_warp.nii";
 	}
-	    headfile_list_handler($Hf,"forward_xforms_${runno}",$f_xform_path,0);
-	    headfile_list_handler($Hf,"inverse_xforms_${runno}",$i_xform_path,1);    }
-    
-    
-    if (cluster_check() && ($jobs[0] ne '')) {
-	my $interval = 15;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-
-	if ($done_waiting) {
-	    print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
-	}
+	    headfile_list_handler($Hf,"forward_label_xforms",$f_xform_path,0);
+	    headfile_list_handler($Hf,"inverse_label_xforms",$i_xform_path,1);    
     }
-    my $case = 2;
-    my ($dummy,$error_message)=compare_reg_to_mdt_Output_check($case);
+    
+    $Hf->set_value('MDT_to_atlas_JobID',$jobs[0]);    
 
-    if ($error_message ne '') {
-	error_out("${error_message}",0);
-    }
+    # if (cluster_check() && ($jobs[0] ne '')) {
+    # 	my $interval = 15;
+    # 	my $verbose = 1;
+    # 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+
+    # 	if ($done_waiting) {
+    # 	    print STDOUT  " Diffeomorphic registration from MDT to label atlas ${label_atlas} job has completed; moving on to next serial step.\n";
+    # 	}
+    # }
+    # my $case = 2;
+    # my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
+
+    # if ($error_message ne '') {
+    # 	error_out("${error_message}",0);
+    # }
 }
 
 
 
 # ------------------
-sub compare_reg_to_mdt_Output_check {
+sub mdt_reg_to_atlas_Output_check {
 # ------------------
      my ($case) = @_;
      my $message_prefix ='';
      my ($file_1,$file_2);
      my @file_array=();
      if ($case == 1) {
-	 $message_prefix = " Diffeomorphic warps to the MDT already exist for the following runno(s) and will not be recalculated:\n";
+	 $message_prefix = " MDT diffeomorphic warps to ${label_atlas} atlas  already exists  and will not be recalculated:\n";
      } elsif ($case == 2) {
-	 $message_prefix = "  Unable to create diffeomorphic warps to the MDT for the following runno(s):\n";
+	 $message_prefix = "  Unable to create a diffeomorphic warp to the ${label_atlas} atlas for the MDT images:\n";
      }   # For Init_check, we could just add the appropriate cases.
      
      
      my $existing_files_message = '';
      my $missing_files_message = '';
      
-     foreach my $runno (@array_of_runnos) {
-	 $file_1 = "${current_path}/${runno}_to_MDT_warp.nii.gz";
-	 $file_2 = "${current_path}/MDT_to_${runno}_warp.nii.gz";
-	     if (data_double_check($file_1,$file_2) {
-		 $go_hash{$runno}=1;
-		 push(@file_array,$file_1,$file_2);
-		 $missing_files_message = $missing_files_message."${runno}\n";
-	 } else {
-	     $go_hash{$runno}=0;
-	     $existing_files_message = $existing_files_message."${runno}\n";
-	 }
+     my $runno = $array_of_runnos[0];
+
+     $file_1 = "${current_path}/MDT_to_${label_atlas}_warp.nii.gz";
+     $file_2 = "${current_path}/${label_atlas}_to_MDT_warp.nii.gz";
+
+     if ((data_double_check($file_1,$file_2)) {
+	 $go_hash{$runno}=1;
+	 push(@file_array,$file_1,$file_2);
+	 $missing_files_message = $missing_files_message."\n";
+     } else {
+	 $go_hash{$runno}=0;
+	 $existing_files_message = $existing_files_message."\n";
      }
+     
      if (($existing_files_message ne '') && ($case == 1)) {
 	 $existing_files_message = $existing_files_message."\n";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
@@ -141,7 +145,7 @@ sub compare_reg_to_mdt_Output_check {
 }
 
 # ------------------
-sub compare_reg_to_mdt_Input_check {
+sub mdt_reg_to_atlas_Input_check {
 # ------------------
 
 
@@ -149,7 +153,7 @@ sub compare_reg_to_mdt_Input_check {
 
 
 # ------------------
-sub reg_to_mdt {
+sub mdt_reg_to_atlas {
 # ------------------
     my ($runno) = @_;
     my $pre_affined = $intermediate_affine;
@@ -157,22 +161,28 @@ sub reg_to_mdt {
     # "0" if we decide to skip that step.  It appears the latter is easily the superior option.
 
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
-    my $out_file =  "${current_path}/${runno}_to_MDT_"; # Same
-    my $new_warp = "${current_path}/${runno}_to_MDT_warp.nii.gz"; # none 
-    my $new_inverse = "${current_path}/MDT_to_${runno}_warp.nii.gz";
-    my $new_affine = "${current_path}/${runno}_to_MDT_affine.nii.gz";
+    my $out_file =  "${current_path}/MDT_to_${label_atlas}_"; # Same
+    my $new_warp = "${current_path}/MDT_to_${label_atlas}_warp.nii.gz"; # none 
+    my $new_inverse = "${current_path}/${label_atlas}_to_MDT_warp.nii.gz";
+#    my $new_affine = "${current_path}/${runno}_to_MDT_affine.nii.gz";
     my $out_warp = "${out_file}${warp_suffix}";
     my $out_inverse =  "${out_file}${inverse_suffix}";
     my $out_affine = "${out_file}${affine_suffix}";
     my $second_contrast_string='';
 
-    $fixed = $median_images_path."/MDT_${mdt_contrast}.nii";
+    $fixed = $Hf->get_value ('label_atlas_path');  
+    $moving = $median_images_path."/MDT_${mdt_contrast}.nii";
 
+    if ($mdt_contrast_2 ne '') {
+	$fixed_2 = $Hf->get_value('label_atlas_path_2'); 
+	$moving_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii";
+	$second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
+    }
     my ($r_string);
 
     my (@moving_warps,$moving_affine);
 
-    @moving_warps = split(',',$Hf->get_value("forward_xforms_${runno}"));
+    @moving_warps = split(',',$Hf->get_value("forward_label_xforms"));
 
     $moving_affine = shift(@moving_warps); # We are assuming that the most recent affine xform will incorporate any preceding xforms.
 
@@ -181,37 +191,13 @@ sub reg_to_mdt {
     } else {
 	$r_string = '';
     }
+    
+    $pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
+	"  -c [ ${diffsyn_iter},1.e-8,20] -f $downsampling -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n";
 
     
-    if ($mdt_contrast_2 ne '') {
-	$fixed_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii";
-    }
-    
-    if ($pre_affined) {
-
-	$moving = $rigid_path."/${runno}_${mdt_contrast}.nii";
-	if ($mdt_contrast_2 ne '') {
-	    
-	    $moving_2 =$rigid_path."/${runno}_${mdt_contrast_2}.nii" ;
-	    $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
-	}
-	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ". 
-	    "  -c [ ${diffsyn_iter},1.e-8,20] -f $downsampling -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n";
-    } else {
-	$moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
-	if ($mdt_contrast_2 ne '') {
-	 
-	    $moving_2 = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast_2) ;
-	    $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
-	}
-#	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}"; 
-#	my $moving_affine =  $rigid_path."/${runno}_${xform_suffix}";
-	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
-	    "  -c [ ${diffsyn_iter},1.e-8,20] -f $downsampling -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n"
-    }
-
-    my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
-    my $stop_message = "$PM: could not create diffeomorphic warp to MDT for ${runno}:\n${pairwise_cmd}\n" ;
+    my $go_message = "$PM: create diffeomorphic warp from MDT to label atlas ${label_atlas}" ;
+    my $stop_message = "$PM: could not create diffeomorphic warp from MDT for label atlas ${label_atlas}:\n${pairwise_cmd}\n" ;
 
 
     my $jid = 0;
@@ -225,7 +211,7 @@ sub reg_to_mdt {
 	my $cmd = $pairwise_cmd.$rename_cmd;
 	
 	my $home_path = $current_path;
-	my $Id= "${runno}_to_MDT_create_warp";
+	my $Id= "MDT_to_${label_atlas}_create_warp";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose);     
 	if (! $jid) {
@@ -248,13 +234,13 @@ sub reg_to_mdt {
 
 
 # ------------------
-sub compare_reg_to_mdt_vbm_Init_check {
+sub mdt_reg_to_atlas_vbm_Init_check {
 # ------------------
 
     return('');
 }
 # ------------------
-sub compare_reg_to_mdt_vbm_Runtime_check {
+sub mdt_reg_to_atlas_vbm_Runtime_check {
 # ------------------
 
 
@@ -272,36 +258,46 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
 #     }
 
 # # Set up work
+    $work_path = $Hf->get_value('regional_stats_dir');
+    $current_path = $Hf->get_value('labels_dir');
+    if ($work_path eq 'NO_KEY') {
+	my $predictor_path = $Hf->get_value('predictor_work_dir'); 
+	$work_path = "${predictor_path}/regional_stats";
+	$Hf->set_value('regional_stats_dir',$work_path);
+	if (! -e $work_path) {
+	    mkdir ($work_path,$permissions);
+	}
+    }
+    if ($current_path eq 'NO_KEY') {
+	$current_path = "${work_path}/labels";
+	$Hf->set_value('labels_dir',$current_path);
+	if (! -e $current_path) {
+	    mkdir ($current_path,$permissions);
+	}
+    }
+
+    $label_atlas = $Hf->get_value('label_atlas_name');
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
-    $mdt_contrast_string = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
+    $mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
     @mdt_contrasts = split('_',$mdt_contrast_string); 
     $mdt_contrast = $mdt_contrasts[0];
     if ($#mdt_contrasts > 0) {
 	$mdt_contrast_2 = $mdt_contrasts[1];
+	
+	$domain_dir   = $Hf->get_value ('label_atlas_dir');   
+	$domain_path  = "$domain_dir/${label_atlas}_${mdt_contrast_2}.nii";
+
     }  #The working assumption is that we will not expand beyond using two contrasts for registration...
 
-    $inputs_dir = $Hf->get_value('inputs_dir');
-    $rigid_path = $Hf->get_value('rigid_work_dir');
     $mdt_path = $Hf->get_value('mdt_work_dir');
     
-    $predictor_path = $Hf->get_value('predictor_work_dir');  
+      
     $median_images_path = $Hf->get_value('median_images_path');    
-    $current_path = $Hf->get_value('reg_diffeo_dir');
-
-
-    if ($current_path eq 'NO_KEY') {
-	$current_path = "${predictor_path}/reg_diffeo";
- 	$Hf->set_value('reg_diffeo_path',$current_path);
- 	if (! -e $current_path) {
- 	    mkdir ($current_path,$permissions);
- 	}
-    }
-
-    $runlist = $Hf->get_value('compare_comma_list');
-    @array_of_runnos = split(',',$runlist);
+    
+    @array_of_runnos = ("MDT_${mdt_contrast}");
     
     my $case = 1;
-    my ($dummy,$skip_message)=compare_reg_to_mdt_Output_check($case);
+    my ($dummy,$skip_message)=mdt_reg_to_atlas_Output_check($case);
 
     if ($skip_message ne '') {
 	print "${skip_message}";

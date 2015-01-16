@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $forward_xform_hash $inverse_xform_hash $test_mode $intermediate_affine);
+use vars qw($Hf $BADEXIT $GOODEXIT $forward_xform_hash $inverse_xform_hash $test_mode $intermediate_affine $permissions);
 require Headfile;
 require pipeline_utilities;
 
@@ -77,6 +77,7 @@ sub calculate_mdt_warps_vbm {  # Main code
     my $case = 2;
     my ($dummy,$error_message)=calculate_mdt_warps_Output_check($case,$direction);
     $Hf->write_headfile($write_path_for_Hf);
+    `chmod 777 ${write_path_for_Hf}`;
     
     if ($error_message ne '') {
 	error_out("${error_message}",0);
@@ -105,7 +106,7 @@ sub calculate_mdt_warps_Output_check {
      if ($case == 1) {
   	$message_prefix = "  ${dir_string} MDT warp(s) already exist(s) for the following runno(s) and will not be recalculated:\n";
      } elsif ($case == 2) {
- 	$message_prefix = "  Unable to create ${dir_string} MDT warp(s) for the following runno pairs:\n";
+ 	$message_prefix = "  Unable to create ${dir_string} MDT warp(s) for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
 
      
@@ -118,7 +119,7 @@ sub calculate_mdt_warps_Output_check {
 	 } elsif ($direction eq 'i') {
 	     $out_file = "${current_path}/MDT_to_${runno}_warp.nii";
 	 }
-	 if (! -e  $out_file) {
+	 if (data_double_check($out_file)) {
 	     $go_hash{$runno}=1;
 	     push(@file_array,$out_file);
 	     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
@@ -183,7 +184,7 @@ sub calculate_average_mdt_warp {
     }
 
     my $jid = 0;
-    if (cluster_check) {
+    if (cluster_check()) {
 	my $home_path = $current_path;
 	my $Id= "${runno}_calculate_${dir_string}_MDT_warp";
 	my $verbose = 2; # Will print log only for work done.
@@ -198,7 +199,7 @@ sub calculate_average_mdt_warp {
 	}
     }
 
-    if ((!-e $out_file) && ($jid == 0)) {
+    if ((data_double_check($out_file)) && ($jid == 0)) {
 	error_out("$PM: missing ${dir_string} MDT warp results for ${runno}: ${out_file}");
     }
     print "** $PM created ${out_file}\n";
@@ -281,13 +282,13 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 	}
 	
 	if ((! -e $predictor_path) | ($current_tempHf eq "0")) {
-	    mkdir ($predictor_path,0777);
+	    mkdir ($predictor_path,$permissions);
 	}
 	$Hf->set_value('last_headfile_checkpoint',$current_checkpoint);
     }
     
     if (! -e $current_path) {
-	mkdir ($current_path,0777);
+	mkdir ($current_path,$permissions);
     }
     
 

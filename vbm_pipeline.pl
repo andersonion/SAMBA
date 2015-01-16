@@ -24,16 +24,23 @@ no warnings qw(uninitialized bareword);
 
 use Cwd qw(abs_path);
 use File::Basename;
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $intermediate_affine);
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $intermediate_affine $syn_params $permissions);
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA);
+
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
+$permissions = '0755';
+my $interval = 1;
+
+my $import_data = 0;
 
 $intermediate_affine = 0;
 $test_mode = 0;
+$syn_params = "0.5,3,0"; # Normally use 0.5,3,0
+
 use lib dirname(abs_path($0));
 use Env qw(RADISH_PERL_LIB);
 if (! defined($RADISH_PERL_LIB)) {
@@ -45,6 +52,7 @@ use lib split(':',$RADISH_PERL_LIB);
 # require ...
 require Headfile;
 require retrieve_archived_data;
+require study_variables_vbm;
 #require create_labels;  #when will I need this?
 
 require convert_all_to_nifti_vbm;
@@ -56,59 +64,38 @@ require calculate_mdt_warps_vbm;
 require apply_mdt_warps_vbm;
 require calculate_mdt_images_vbm;
 require compare_reg_to_mdt_vbm;
+require mdt_reg_to_atlas_vbm;
+require warp_atlas_labels_vbm;
 
 
-my $interval = 1;
 # Temporary hardcoded variables
 
-my $project_name = "13.colton.01";
-my @control_group = qw(N51193 N51211 N51221 N51406);
-my @compare_group = qw(N51136 N51201 N51234 N51392);
-my @channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+use vars qw(
+$project_name 
+@control_group
+@compare_group
+@channel_array
+$custom_predictor_string
+$flip_x
+$flip_z 
+$optional_suffix
+$atlas_name
+$label_atlas_name
+$rigid_contrast
+$mdt_contrast
+$skull_strip_contrast
+$threshold_code
+$do_mask
+$thresh_ref
+$syn_iterations
+$diffeo_downsampling
+$affine_target
+$affine_contrast
+$native_reference_space
+$create_labels
+ );
 
-my $flip_x = 1;
-my $flip_z = 0;
-
-my $optional_suffix = 'dual_channel';
-my $atlas_name = 'DTI';
-my $rigid_contrast = 'dwi';
-my $mdt_contrast = 'fa_dwi';
-my $atlas_dir = "/home/rja20/cluster_code/data/atlas/${atlas_name}";
-my $skull_strip_contrast = 'dwi';
-my $threshold_code = 4;
-my $do_mask = 1;
-
-#custom thresholds for Colton study
-my $thresh_ref = {
-    'N51124'   => 2296,
-    'N51130'   => 2644,
-    'N51393'   => 2034,
-    'N51392'   => 2372,
-    'N51390'   => 2631,
-    'N51388'   => 2298,
-    'N51136'   => 1738,
-    'N51133'   => 1808,
-    'N51282'   => 2131,
-    'N51234'   => 2287,
-    'N51201'   => 1477,
-    'N51241'   => 1694,
-    'N51252'   => 1664,
-    'N51383'   => 1981,
-    'N51386'   => 2444,
-    'N51231'   => 1964,
-    'N51404'   => 2057,
-    'N51406'   => 2004,
-    'N51211'   => 1668,
-    'N51221'   => 2169,
-    'N51193'   => 2709,
-    'N51182'   => 1841,
-    'N51151'   => 2188,
-    'N51131'   => 2098,
-    'N51164'   => 2001,
-    'N51617'   => 2867,
-    'N51620'   => 2853,
-    'N51622'   => 3160,
-};
+study_variables_vbm();
 
 ## The following are mostly ready-to-go variables (i.e. non hard-coded)
 
@@ -116,18 +103,25 @@ if ($optional_suffix ne '') {
     $optional_suffix = "_${optional_suffix}";
 }
 
+my $reference_space='';
+if ($native_reference_space) {
+    $reference_space = 'native';
+} else {
+    $reference_space = $atlas_name;
+}
+
 
 my @project_components = split(/[.]/,$project_name); # $project_name =~ s/[.]//g;
 my $project_id =  join('',@project_components);
 $project_id = "VBM_".$project_id.'_'.$atlas_name.$optional_suffix; #create_identifer($project_name);
 
-my $custom_predictor_string = "Genotype_1_vs_2";
 my ($pristine_input_dir,$work_dir,$result_dir,$result_headfile) = make_process_dirs($project_id); #new_get_engine_dependencies($project_id);
 $Hf = new Headfile ('rw',$result_headfile );
 open_log($result_dir);
 
 my $inputs_dir = $work_dir.'/base_images';
-
+my $atlas_dir = "${WORKSTATION_DATA}/atlas/${atlas_name}";
+my $label_atlas_dir = "${WORKSTATION_DATA}/atlas/${label_atlas_name}";
 my $control_comma_list = join(',',@control_group);
 my $compare_comma_list = join(',',@compare_group);
 my $complete_comma_list = $control_comma_list.','.$compare_comma_list;
@@ -140,12 +134,18 @@ $Hf->set_value('complete_comma_list',$complete_comma_list);
 $Hf->set_value('channel_comma_list',$channel_comma_list);
 
 $Hf->set_value('atlas_name',$atlas_name);
+$Hf->set_value('label_atlas_name',$label_atlas_name);
 $Hf->set_value('rigid_contrast',$rigid_contrast);
 $Hf->set_value('mdt_contrast',$mdt_contrast);
 $Hf->set_value('rigid_atlas_dir',$atlas_dir);
+$Hf->set_value('label_atlas_dir',$label_atlas_dir);
 $Hf->set_value('skull_strip_contrast',$skull_strip_contrast);
 $Hf->set_value('threshold_code',$threshold_code);
 $Hf->set_value('rigid_transform_suffix','rigid.mat');
+$Hf->set_value('affine_transform_suffix','affine.mat');
+$Hf->set_value('affine_target_image',$affine_target);
+$Hf->set_value('full_affine_contrast',$affine_contrast);
+
 
 $Hf->set_value('flip_x',$flip_x);
 $Hf->set_value('flip_z',$flip_z);
@@ -167,6 +167,39 @@ $Hf->set_value('results_dir',$result_dir);
 $Hf->set_value('engine_app_matlab','/usr/local/bin/matlab');
 $Hf->set_value('engine_app_matlab_opts','-nosplash -nodisplay -nodesktop');
 $Hf->set_value('nifti_matlab_converter','civm_to_nii'); # This should stay hardcoded.
+
+
+
+my @iterations = split(',',$diffeo_downsampling);
+my $levels = $#iterations + 1;
+my $sigma_string = "0";
+
+if ($test_mode) {
+    $Hf->set_value('test_mode','on');
+    my $new_syn_iter = "1";
+   
+    for (my $ii = 2; $ii <= $levels; $ii++) {
+	$new_syn_iter = $new_syn_iter.',0'; # $diffsyn_iter="1x0x0x0";
+    }
+    $syn_iterations = $new_syn_iter;
+} else {
+    $Hf->set_value('test_mode','off');
+
+}
+
+for (my $jj = 2; $jj <= $levels; $jj++) {
+	$sigma_string = $sigma_string.'x0';
+}
+
+my $syn_iter_string = join('x',split(',',$syn_iterations));
+my $downsample_string = join('x',split(',',$diffeo_downsampling));
+
+$Hf->set_value('syn_iteration_string',$syn_iter_string);
+$Hf->set_value('diffeo_downsampling',$downsample_string);
+$Hf->set_value('smoothing_sigmas',$sigma_string);
+$Hf->set_value('SyN_parameters', $syn_params);
+
+$Hf->set_value('reference_space',$reference_space);
 
 #maincode
 {
@@ -197,6 +230,8 @@ $Hf->set_value('nifti_matlab_converter','civm_to_nii'); # This should stay hardc
      apply_mdt_warps_vbm
      calculate_mdt_images_vbm
      compare_reg_to_mdt_vbm
+     mdt_reg_to_atlas_vbm
+     warp_atlas_labels_vbm
      );
 
 
@@ -233,18 +268,22 @@ $Hf->set_value('nifti_matlab_converter','civm_to_nii'); # This should stay hardc
 
 # Begin work:
 ## Stopgap business
-    my $bd = '/glusterspace'; #bd for Biggus-Diskus
-    my $dr = $pristine_input_dir;
-    my @all_runnos =  split(',',$complete_comma_list);
-    foreach my $runno (@all_runnos) {
-	my $path_string = "${bd}/${runno}Labels-inputs/${runno}/";
-	`cp ${path_string}/* $dr/`;
-    }
+    # if ($import_data) {
+    # 	my $bd = '/glusterspace'; #bd for Biggus-Diskus
+    # 	my $dr = $pristine_input_dir;
+    # 	my @all_runnos =  split(',',$complete_comma_list);
+    # 	foreach my $runno (@all_runnos) {
+    # 	    my $path_string = "${bd}/${runno}Labels-inputs/${runno}/";
+    # 	    `cp ${path_string}/* $dr/`;
+    # 	}
+    # }
 ##
     if (! -e $inputs_dir) {
 	mkdir($inputs_dir,0777);
     }
-
+    if ($import_data) { 
+	load_study_data_vbm();
+    }
 # Gather all needed data and put in inputs directory
     convert_all_to_nifti_vbm();
     sleep($interval);
@@ -256,12 +295,18 @@ $Hf->set_value('nifti_matlab_converter','civm_to_nii'); # This should stay hardc
 
 
 # Register all to atlas
-   
-    create_affine_reg_to_atlas_vbm();
+    my $do_rigid = 1;   
+    create_affine_reg_to_atlas_vbm($do_rigid);
     sleep($interval);
 
     apply_affine_reg_to_atlas_vbm();
     sleep($interval);
+
+    if (1) { #  Need to take out this hardcoded bit!
+	$do_rigid = 0;
+	create_affine_reg_to_atlas_vbm($do_rigid);
+	sleep($interval);
+    }
 
    # pairwise_reg_vbm("a");
    # sleep($interval);    
@@ -278,31 +323,62 @@ $Hf->set_value('nifti_matlab_converter','civm_to_nii'); # This should stay hardc
     calculate_mdt_warps_vbm("i","diffeo");
     sleep($interval);
 
-## Put this elsewhere
-    my @master_contrast_list=qw(adc dwi e1 e2 e3 fa);   
-#    my @other_contrasts = ();
-#    foreach my $this_contrast (@master_contrast_list) {
-#	if ($mdt_contrast !~ /${this_contrast}/) {
-#	    push(@other_contrasts,$this_contrast);
-#	}
-#    }
-##
     my $group_name = "control";
-    foreach my $a_contrast (@master_contrast_list) {
+    foreach my $a_contrast (@channel_array) {
 	apply_mdt_warps_vbm($a_contrast,"f",$group_name);
     }
-    calculate_mdt_images_vbm(@master_contrast_list);
+    calculate_mdt_images_vbm(@channel_array);
     sleep($interval);
 
+# Things can get parallel right about here...
+
+# Branch one: 
+   if ($create_labels) {
+	$do_rigid = 0;
+	my $mdt_to_atlas = 1;
+	create_affine_reg_to_atlas_vbm($do_rigid,$mdt_to_atlas);
+	sleep($interval);
+
+	mdt_reg_to_atlas_vbm();
+	sleep($interval);
+    }
+
+# Branch two:
     compare_reg_to_mdt_vbm("d");
     sleep($interval);
     #create_average_mdt_image_vbm();
 
     $group_name = "compare";    
-    foreach my $a_contrast (@master_contrast_list) {
+    foreach my $a_contrast (@channel_array) {
 	apply_mdt_warps_vbm($a_contrast,"f",$group_name);
     }
     sleep($interval);
+
+
+# Remerge before ending pipeline
+
+    my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
+    if (cluster_check() && ($MDT_to_atlas_JobID ne 'NO_KEY')) {
+    	my $interval = 15;
+    	my $verbose = 1;
+    	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$MDT_to_atlas_JobID);
+	print " Waiting for Job ${MDT_to_atlas_JobID}\n";
+    	if ($done_waiting) {
+    	    print STDOUT  " Diffeomorphic registration from MDT to label atlas ${label_atlas_name} job has completed; moving on to next serial step.\n";
+    	}
+    }
+    my $case = 2;
+    my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
+
+    if ($error_message ne '') {
+    	error_out("${error_message}",0);
+    }
+
+    warp_atlas_labels_vbm();
+    sleep($interval);
+
+#
+
 
 
     $Hf->write_headfile($result_headfile);

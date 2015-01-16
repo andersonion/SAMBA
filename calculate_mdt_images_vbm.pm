@@ -7,14 +7,14 @@
 
 my $PM = "calculate_mdt_images_vbm.pm";
 my $VERSION = "2014/12/02";
-my $NAME = "Calculation of the average Minimum Deformation Template for a given contrast.";
+my $NAME = "Calculation of the average Minimal Deformation Template for a given contrast.";
 my $DESC = "ants";
 
 use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $intermediate_affine);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $intermediate_affine $permissions);
 require Headfile;
 require pipeline_utilities;
 
@@ -108,7 +108,7 @@ sub calculate_mdt_images_Output_check {
      
      $out_file = "${current_path}/MDT_${contrast}.nii";
 
-     if (! -e  $out_file) {
+     if (data_double_check($out_file)) {
 	 $go_hash{$contrast}=1;
 	 push(@file_array,$out_file);
 	 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
@@ -208,7 +208,7 @@ sub calculate_mdt_images_vbm_Runtime_check {
 
     if ($current_path eq 'NO_KEY') {
 	$current_path = "${predictor_path}/median_images";
-	mkdir ($current_path,0777);
+	mkdir ($current_path,$permissions);
  	$Hf->set_value('median_images_path',$current_path);
     }
     

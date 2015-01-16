@@ -17,7 +17,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions);
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
@@ -109,7 +109,7 @@ sub convert_all_to_nifti_Output_check {
 	
 	foreach my $ch (@channel_array) {
 	    $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
-	    if ((! -e $file_1 ) || ((! $do_mask) &&  ($file_1 =~ /.*masked\.nii / ))) {
+	    if ((data_double_check($file_1) ) || ((! $do_mask) &&  ($file_1 =~ /.*masked\.nii / ))) {
 		$go_hash{$runno}{$ch}=1;
 		push(@file_array,$file_1);
 		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
@@ -166,7 +166,7 @@ sub convert_all_to_nifti_vbm_Runtime_check {
  	$Hf->set_value('input_dir',$current_path); 	
     }
     if (! -e $current_path) {
-	mkdir ($current_path,0777);
+	mkdir ($current_path,$permissions);
     }
 
     $runlist = $Hf->get_value('complete_comma_list');

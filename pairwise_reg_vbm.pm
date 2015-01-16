@@ -14,14 +14,14 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $syn_params $permissions);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my ($diffsyn_iter,$syn_param);
+my ($diffsyn_iter,$syn_param,$downsampling,$sigmas);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
@@ -111,7 +111,7 @@ sub pairwise_reg_Output_check {
 	 foreach my $fixed_runno (@remaining_runnos) {
 	     $file_1 = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz";
 	     $file_2 = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
-	     if (((! -e ($file_1 || $file_2)) || (((-l $file_1) && (! -e readlink($file_1))) || ((-l $file_2) && (! -e readlink($file_2)))))) {
+	     if (data_double_check($file_1, $file_2)) {
 		 $go_hash{$moving_runno}{$fixed_runno}=1;
 		 push(@file_array,$file_1,$file_2);
 		 $missing_files_message = $missing_files_message."\t${moving_runno}<-->${fixed_runno}";
@@ -152,8 +152,9 @@ sub create_pairwise_warps {
 # ------------------
     my ($moving_runno,$fixed_runno) = @_;
     my $pre_affined = $intermediate_affine;
+
     # Set to "1" for using results of apply_affine_reg_to_atlas module, 
-    # "0" if we decide to skip that step.  It appears the letter is easily the superior option.
+    # "0" if we decide to skip that step.  It appears the latter is easily the superior option.
 
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
     my $out_file =  "${current_path}/${moving_runno}_to_${fixed_runno}_"; # Same
@@ -164,10 +165,24 @@ sub create_pairwise_warps {
     my $out_inverse =  "${out_file}${inverse_suffix}";
     my $out_affine = "${out_file}${affine_suffix}";
 
-
     my $second_contrast_string='';
 
-    print "\n\n\nMDT Contrast 2 = ${mdt_contrast_2}\n\n\n";
+    my ($q_string,$r_string);
+    my (@fixed_warps,@moving_warps,$fixed_affine,$moving_affine);
+    @fixed_warps = split(',',$Hf->get_value("forward_xforms_${fixed_runno}"));
+    @moving_warps = split(',',$Hf->get_value("forward_xforms_${moving_runno}"));
+    $fixed_affine = shift(@fixed_warps); # We are assuming that the most recent affine xform will incorporate any preceding xforms.
+    $moving_affine = shift(@moving_warps);
+    if (defined $fixed_affine) {
+	$q_string = " -q ${fixed_affine} ";
+    } else {
+	$q_string ='';
+    }
+    if (defined $moving_affine) {
+	$r_string = " -r ${moving_affine} ";
+    } else {
+	$r_string = '';
+    }
 
     if ($pre_affined) {
 	$fixed = $rigid_path."/${fixed_runno}_${mdt_contrast}.nii";
@@ -178,7 +193,7 @@ sub create_pairwise_warps {
 	    $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
 	}
 	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ". 
-	    "  -c [ ${diffsyn_iter},1.e-8,20] -f 8x4x2x1 -t SyN[0.5,3,0] -s 0x0x0x0 -u;\n";
+	    "  -c [ ${diffsyn_iter},1.e-8,20] -f $downsampling -t SyN[${syn_params}] -s $sigmas ${q_string} ${r_string} -u;\n";
     } else {
 	$fixed = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast);
 	$moving = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
@@ -188,10 +203,10 @@ sub create_pairwise_warps {
 	  $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
 	}
 
-	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}"; 
-	my $moving_affine =  $rigid_path."/${moving_runno}_${xform_suffix}";
+#	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}";
+#	my $moving_affine =  $rigid_path."/${moving_runno}_${xform_suffix}";
 	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
-	    "  -c [ ${diffsyn_iter},1.e-8,20] -f 8x4x2x1 -t SyN[0.5,3,0] -s 0x0x0x0 -q ${fixed_affine} -r ${moving_affine} -u;\n"
+	    "  -c [ ${diffsyn_iter},1.e-8,20] -f $downsampling -t SyN[${syn_params}] -s $sigmas ${q_string} ${r_string} -u;\n" 
     }
 
     if (-e $new_warp) { unlink($new_warp);}
@@ -242,15 +257,18 @@ sub pairwise_reg_vbm_Init_check {
 sub pairwise_reg_vbm_Runtime_check {
 # ------------------
 
-    $diffsyn_iter="4000x4000x4000x4000";
+ #   $diffsyn_iter="4000x4000x4000x4000";
+    $diffsyn_iter=$Hf->get_value('syn_iteration_string');
+    $downsampling = $Hf->get_value('diffeo_downsampling');
+    $sigmas = $Hf->get_value('smoothing_sigmas');
     $syn_param = 0.5;
 
-    if ( defined($test_mode)) {
-	if( $test_mode == 1 ) {
-#	    $diffsyn_iter="2x2x2x2";
-	    $diffsyn_iter="1x0x0x0";
-	}
-    }
+  #  if ( defined($test_mode)) {
+#	if( $test_mode == 1 ) {
+##	    $diffsyn_iter="2x2x2x2";
+#	    $diffsyn_iter="1x0x0x0";
+#	}
+ #   }
 
 # # Set up work
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
@@ -270,7 +288,7 @@ sub pairwise_reg_vbm_Runtime_check {
 	$mdt_path = "${rigid_path}/${mdt_contrast_string}";
  	$Hf->set_value('mdt_work_dir',$mdt_path);
  	if (! -e $mdt_path) {
- 	    mkdir ($mdt_path,0777);
+ 	    mkdir ($mdt_path,$permissions);
  	}
     }
 
@@ -278,7 +296,7 @@ sub pairwise_reg_vbm_Runtime_check {
 	$current_path = "${mdt_path}/MDT_pairs";
  	$Hf->set_value('mdt_pairwise_dir',$current_path);
  	if (! -e $current_path) {
- 	    mkdir ($current_path,0777);
+ 	    mkdir ($current_path,$permissions);
  	}
     }
 

@@ -10,14 +10,14 @@
 # created 2010/11/02 Sally Gewalt CIVM
 
 my $PM = "mask_images_vbm.pm";
-my $VERSION = "2014/12/12";
+my $VERSION = "2014/12/23";
 my $NAME = "Convert input data into the proper format, flipping x and/or z if need be.";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
+#no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions);
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
@@ -77,7 +77,7 @@ sub mask_images_vbm {
 	}
     }
 
-    if (cluster_check() && ($jobs[0] ne '')) {
+    if (cluster_check() && ($#jobs > 0)) {
 	my $interval = 1;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
@@ -125,7 +125,7 @@ sub mask_images_Output_check {
 	
 	foreach my $ch (@channel_array) {
 	    $file_1 = "${current_path}/${runno}_${ch}_masked.nii";
-	    if (! -e $file_1 ) {
+	    if (data_double_check($file_1) ) {
 		$go_hash{$runno}{$ch}=1*$do_mask;
 		push(@file_array,$file_1);
 		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
@@ -195,7 +195,7 @@ sub mask_one_image {
 	}
     }
 
-    if ((!-e $out_path) && ($jid == 0)) {
+    if ((data_double_check($out_path)) && ($jid == 0)) {
 	error_out("$PM: missing masked image: ${out_path}");
     }
     print "** $PM created ${out_path}\n";
@@ -216,7 +216,7 @@ sub mask_images_vbm_Runtime_check {
 
 # # Set up work
     $in_folder = $Hf->get_value('pristine_input_dir');
-    $work_dir = $Hf->get_value('work_dir');
+    $work_dir = $Hf->get_value('dir_work');
     $current_path = $Hf->get_value('inputs_dir');  # Dammit, "input" or "inputs"???
     $do_mask = $Hf->get_value('do_mask');
     $mask_dir = $Hf->get_value('mask_dir');
@@ -239,7 +239,7 @@ sub mask_images_vbm_Runtime_check {
     }
 
     if ((! -e $mask_dir) && ($do_mask)) {
-	mkdir ($mask_dir,0777);
+	mkdir ($mask_dir,$permissions);
     }
 
     $runlist = $Hf->get_value('complete_comma_list');
