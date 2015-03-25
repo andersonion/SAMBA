@@ -6,20 +6,21 @@
 
 
 my $PM = "study_variables_vbm.pm";
-my $VERSION = "2014/12/23";
+my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 1;
-my $colton = 0;
-my $mcnamara = 0;
+my $obrien = 0;
+my $obrien_invivo=0;
+my $colton = 1;
+my $mcnamara =0;
 my $premont = 0;
 
 
 use strict;
 use warnings;
 
-use vars qw($test_mode);
+use vars qw($test_mode $combined_rigid_and_affine);
 
 use vars qw(
 $project_name 
@@ -37,14 +38,19 @@ $mdt_contrast
 $skull_strip_contrast
 $threshold_code
 $do_mask
+$pre_masked
 $thresh_ref
+$syn_params
 $syn_iterations
 $diffeo_downsampling
 $affine_target
 $affine_contrast
 $native_reference_space
+$vbm_reference_space
 $create_labels
-);
+$label_space
+$label_reference
+); # Need to replace $native_reference_space with $reference_space
 
 
 sub study_variables_vbm {
@@ -53,14 +59,23 @@ sub study_variables_vbm {
     $diffeo_downsampling="8,4,2,1";
     $affine_target = "NO_KEY"; # If not specified, will follow default behaviour of selecting first listed control runno.
     $affine_contrast = "NO_KEY";
-    $native_reference_space = 1; # 1 -> native reference space, 0 -> atlas reference space
-    $create_labels = 1;
-
+    $vbm_reference_space = "native";# "native"; # Options: "native", "<atlas_name>","<full path to an arbitrary image>"
+    # $vbm_reference_space = "/home/rja20/cluster_code/data/atlas/DTI_dwi_55.nii";
+    
+    $create_labels = 1; ### CHANGE BACK TO ONE
+    $label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine". 
+    # Note: pre_affine/post_rigid is not available with $combined_rigid_and_affine =1 & $old_ants = 1.
+    $port_atlas_mask =0; # This is just setting the default.
+    $combined_rigid_and_affine = 1; # Will eventually always be "0" (and hardcoded accordingly)
 ## Study variables for O'Brien
     if ($obrien) {
 	
 	$project_name = "14.obrien.01";
 	$custom_predictor_string = "Control_vs_Reacher";
+	$syn_params = "0.5,3,1";
+	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+	$vbm_reference_space = "/glusterspace/VBM_14obrien01_DTI101b-work/preprocess/DTI101b_recentered_rereffed_dwi.nii";
+
 	@control_group = qw(
         controlSpring2013_4
         controlSpring2013_7
@@ -120,14 +135,93 @@ sub study_variables_vbm {
 	$flip_x = 0;
 	$flip_z = 0;
 
-	$optional_suffix = '';
+	$optional_suffix = 'v2';
 	$atlas_name = 'DTI101b';
 	$label_atlas_name = 'DTI101b';
 	$rigid_contrast = 'dwi';
-	$mdt_contrast = 'fa';
+	$mdt_contrast = 'dwi'; #WAS fa
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
 	$do_mask = 0;
+	$pre_masked = 1;
+
+	$thresh_ref = {};
+
+    } elsif ($obrien_invivo) {
+	
+	$project_name = "14.obrien.02";
+	$custom_predictor_string = "Control_vs_Reacher";
+	$syn_params = "0.5,3,0.5";
+	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+	$vbm_reference_space = "native";
+	$create_labels = 1;
+	$label_space = "pre_affine";
+
+	@control_group = qw(
+	    BCS10
+	    BCS11
+	    BCS4
+	    BCS7
+	    BCS8
+	    BCS9
+	    BCU1
+	    BCU7
+        );
+    
+	@compare_group = qw(
+	    BRS1
+	    BRS2
+	    BRS3
+	    BRS5
+	    BRS6
+	    BRU2
+	    BRU3
+	    ICS10
+	    ICS11
+	    ICS4
+	    ICS7
+	    ICS8
+	    ICS9
+	    ICU1
+	    ICU7
+	    IRS1
+	    IRS2
+	    IRS3
+	    IRS5
+	    IRS6
+	    IRU2
+	    IRU3
+	    TCS10
+	    TCS11
+	    TCS4
+	    TCS7
+	    TCS8
+	    TCS9
+	    TCU1
+	    TCU7
+	    TRS1
+	    TRS2
+	    TRS3
+	    TRS5
+	    TRS6
+	    TRU2
+	    TRU3
+        );
+
+	@channel_array = qw(T2star); 
+
+	$flip_x = 0;
+	$flip_z = 0;
+
+	$optional_suffix = '';
+	$atlas_name = 'DTI101b';
+	$label_atlas_name = 'DTI101b';
+	$rigid_contrast = 'T2star';
+	$mdt_contrast = 'T2star';
+	$skull_strip_contrast = 'T2star';
+	$threshold_code = 4;
+	$do_mask = 0;
+	$pre_masked = 1;
 
 	$thresh_ref = {};
 
@@ -138,33 +232,42 @@ sub study_variables_vbm {
 ### Study variables for Colton.
     {
 	$project_name = "13.colton.01";
-	$custom_predictor_string = "Genotype_1_vs_2";
+	$custom_predictor_string = "nos2_vs_cvn";
+	$optional_suffix = 'aTest2';
+	$syn_params = "0.5,3,1";
+	$combined_rigid_and_affine = 1; # We want to eventually have this set to zero and remove this variable from the code.
+	$vbm_reference_space = "native";
+	$create_labels = 1;
+	$label_space = "pre_affine";
 
-	print " Test mode = ${test_mode}\n";
 	if ($test_mode) {
-	    @control_group = qw(N51193 N51211 N51221 N51406);
+	    @control_group = qw(N51386 N51211 N51221 N51406);
 	    @compare_group = qw(N51136 N51201 N51234 N51392);
+	    @channel_array = qw(dwi e2 fa);
 	    $affine_target = 'N51406';
 	} else {
-	    @control_group = qw(N51193 N51211 N51221 N51231 N51383 N51386 N51404 N51406);
-	    @compare_group = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393);
+	    @control_group = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406); #N51193-exclude N51404,N51383,N51386-manually z-roll and recalc tensors
+	    @compare_group = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388);
+	    @channel_array = qw(adc dwi e1 e2 e3 fa);
 	    $affine_target = 'N51383';
 	}	
 
-	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
     
 	$flip_x = 1;
 	$flip_z = 0;
 	
-	$optional_suffix = '2_channels';
+	
 	$atlas_name = 'DTI';
-	$label_atlas_name = 'DTI';
+	$label_atlas_name = 'DTI101b';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
-	$mdt_contrast = 'fa_dwi';
+	$mdt_contrast = 'fa';
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
 	$do_mask = 1;
+	$port_atlas_mask = 1;
+	$pre_masked = 0;
     
 #custom thresholds for Colton study
 	$thresh_ref = {
@@ -199,10 +302,12 @@ sub study_variables_vbm {
 	};
 	
     } elsif ($mcnamara) 
- {
+
+    {
 	$project_name = "13.mcnamara.02";
 	$custom_predictor_string = "Control_vs_KA";
-
+	# $syn_params = ?;
+	$combined_rigid_and_affine = 1; # We want to eventually have this set to zero and remove this variable from the code.
 
 	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
 	@compare_group = qw(S64745 S64763 S64766 S64769 S64772 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
@@ -213,24 +318,27 @@ sub study_variables_vbm {
 	$flip_x = 0;
 	$flip_z = 0;
 	
-	$optional_suffix = '';
+	$optional_suffix = 'dual_channel';
 	$atlas_name = 'DTI101';
 	$label_atlas_name = 'DTI101';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
-	$mdt_contrast = 'fa';
+	$mdt_contrast = 'dwi_fa';
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
 	$do_mask = 0;    
-
+	$pre_masked = 1;
 
         # Load McNamara Data
 	
- } elsif ($premont)
- {
+    } elsif ($premont)
+    
+    {
 	$project_name = "11.premont.01";
 	$custom_predictor_string = "WT_vs_KO";
-
+	$vbm_reference_space = "glusterspace/VBM_11premont01_whs-work/base_images/N38709_T2star.nii.gz";
+	# $syn_params = ?;
+	$combined_rigid_and_affine = 1; # We want to eventually have this set to zero and remove this variable from the code.
 
 	@control_group = qw(N38845 N38851 N38761 N38721 N38714 N38709);
 	@compare_group = qw(N38848 N38767 N38764 N38717 N38693 N38699);
@@ -250,7 +358,7 @@ sub study_variables_vbm {
 	$skull_strip_contrast = 'T2star';
 	$threshold_code = 4;
 	$do_mask = 0;    
-	
+	$pre_masked = 1;	
  }
 
 
@@ -262,11 +370,13 @@ sub study_variables_vbm {
 sub load_study_data_vbm {
 
 	my $bd = '/glusterspace'; #bd for Biggus-Diskus
-	my $base_image_path = $Hf->get_value('inputs_dir');
+	my $preprocess_path = $Hf->get_value('preprocess_dir');
 	my @all_runnos =  split(',',$Hf->get_value('complete_comma_list'));
 
     if ($obrien) {
-	`cp /glusterspace/VBM_14obrien01_DTI101b-work/base_images/* ${base_image_path}`
+	`cp /glusterspace/VBM_14obrien01_DTI101b-work/base_images/* ${preprocess_path}`
+    } elsif ($obrien_invivo) {
+	`cp /glusterspace/VBM_14obrien02_DTI101b-work/base_images/* ${preprocess_path}`
     } elsif ($colton) {
 	my $dr =$Hf->get_value('pristine_input_dir');
 	foreach my $runno (@all_runnos) {
@@ -274,17 +384,17 @@ sub load_study_data_vbm {
 	    `cp ${path_string}/* $dr/`;
 	}
     } elsif ($mcnamara) {
-
-	foreach my $runno (@all_runnos) {
-	    my $path_string = "${bd}/${runno}_m0Labels-results/";
-	    foreach my $contrast (@channel_array){
-	    
-	    `cp ${path_string}/*DTI_${contrast}*.nii ${base_image_path}/${runno}_${contrast}.nii`;
-	    }	    
-	}
+	`cp /glusterspace/VBM_13mcnamara02_DTI101-work/base_images/* ${preprocess_path}`
+#	foreach my $runno (@all_runnos) {
+#	    my $path_string = "${bd}/${runno}_m0Labels-results/";
+#	    foreach my $contrast (@channel_array){
+#	    
+#	    `cp ${path_string}/*DTI_${contrast}*.nii ${preprocess_path}/${runno}_${contrast}.nii`;
+#	    }	    
+#	}
 
     } elsif ($premont) {
-	`cp /glusterspace/VBM_11premont01_whs-work/base_images/* ${base_image_path}`
+	`cp /glusterspace/VBM_11premont01_whs-work/base_images/* ${preprocess_path}`
     }
 
 }

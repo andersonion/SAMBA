@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $syn_params $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $combined_rigid_and_affine $syn_params $nodes $permissions);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -26,6 +26,7 @@ my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_co
 my (%go_hash);
 my $go = 1;
 my $job;
+my $mem_request;
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
 if (! $intermediate_affine) {
@@ -54,7 +55,9 @@ sub compare_reg_to_mdt_vbm {  # Main code
     }
 
     compare_reg_to_mdt_vbm_Runtime_check();
-    
+
+    my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
+    $mem_request = memory_estimator($expected_number_of_jobs,$nodes);    
  
     foreach my $runno (@array_of_runnos) {
 	my ($f_xform_path,$i_xform_path);
@@ -66,11 +69,12 @@ sub compare_reg_to_mdt_vbm {  # Main code
 		push(@jobs,$job);
 	    }
 	} else {
-	    $f_xform_path = "${current_path}/${runno}_to_MDT_warp.nii";
-	    $i_xform_path = "${current_path}/MDT_to_${runno}_warp.nii";
+	    $f_xform_path = "${current_path}/${runno}_to_MDT_warp.nii.gz";
+	    $i_xform_path = "${current_path}/MDT_to_${runno}_warp.nii.gz";
 	}
-	    headfile_list_handler($Hf,"forward_xforms_${runno}",$f_xform_path,0);
-	    headfile_list_handler($Hf,"inverse_xforms_${runno}",$i_xform_path,1);    }
+	headfile_list_handler($Hf,"forward_xforms_${runno}",$f_xform_path,0);
+	headfile_list_handler($Hf,"inverse_xforms_${runno}",$i_xform_path,1);
+    }
     
     
     if (cluster_check() && ($jobs[0] ne '')) {
@@ -112,14 +116,14 @@ sub compare_reg_to_mdt_Output_check {
      foreach my $runno (@array_of_runnos) {
 	 $file_1 = "${current_path}/${runno}_to_MDT_warp.nii.gz";
 	 $file_2 = "${current_path}/MDT_to_${runno}_warp.nii.gz";
-	     if (data_double_check($file_1,$file_2) {
-		 $go_hash{$runno}=1;
-		 push(@file_array,$file_1,$file_2);
-		 $missing_files_message = $missing_files_message."${runno}\n";
+	 if (data_double_check($file_1,$file_2)) {
+	     $go_hash{$runno}=1;
+	     push(@file_array,$file_1,$file_2);
+	     $missing_files_message = $missing_files_message."${runno}\n";
 	 } else {
 	     $go_hash{$runno}=0;
 	     $existing_files_message = $existing_files_message."${runno}\n";
-	 }
+	     }
      }
      if (($existing_files_message ne '') && ($case == 1)) {
 	 $existing_files_message = $existing_files_message."\n";
@@ -128,7 +132,7 @@ sub compare_reg_to_mdt_Output_check {
      }
      
      
-     my $error_msg='';
+	 my $error_msg='';
      
      if (($existing_files_message ne '') && ($case == 1)) {
 	 $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
@@ -138,6 +142,7 @@ sub compare_reg_to_mdt_Output_check {
      
      my $file_array_ref = \@file_array;
      return($file_array_ref,$error_msg);
+
 }
 
 # ------------------
@@ -151,11 +156,28 @@ sub compare_reg_to_mdt_Input_check {
 # ------------------
 sub reg_to_mdt {
 # ------------------
+    
+    
+#
+    my 	%node_ref = (	   
+	    'N51393'   => 'civmcluster1-01',
+	    'N51392'   => 'civmcluster1-01',
+	    'N51390'   => 'civmcluster1-05',	   
+	    'N51136'   => 'civmcluster1-01',	    
+	    'N51282'   => 'civmcluster1-03',
+	    'N51234'   => 'civmcluster1-02',	   
+	    'N51241'   => 'civmcluster1-04',
+	    'N51252'   => 'civmcluster1-04',
+	    'N51201'   => 'civmcluster1-02',
+	);
+    
+#
+
     my ($runno) = @_;
     my $pre_affined = $intermediate_affine;
     # Set to "1" for using results of apply_affine_reg_to_atlas module, 
     # "0" if we decide to skip that step.  It appears the latter is easily the superior option.
-
+    
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
     my $out_file =  "${current_path}/${runno}_to_MDT_"; # Same
     my $new_warp = "${current_path}/${runno}_to_MDT_warp.nii.gz"; # none 
@@ -165,23 +187,23 @@ sub reg_to_mdt {
     my $out_inverse =  "${out_file}${inverse_suffix}";
     my $out_affine = "${out_file}${affine_suffix}";
     my $second_contrast_string='';
-
+    
     $fixed = $median_images_path."/MDT_${mdt_contrast}.nii";
-
+    
     my ($r_string);
-
-    my (@moving_warps,$moving_affine);
-
-    @moving_warps = split(',',$Hf->get_value("forward_xforms_${runno}"));
-
-    $moving_affine = shift(@moving_warps); # We are assuming that the most recent affine xform will incorporate any preceding xforms.
-
-    if (defined $moving_affine) {
-	$r_string = " -r ${moving_affine} ";
+    my ($moving_string,$moving_affine);
+    
+    $moving_string=$Hf->get_value("forward_xforms_${runno}");
+    my $stop = 2;
+    my $start;
+    if ($combined_rigid_and_affine) {
+	$start = 2;
     } else {
-	$r_string = '';
+	$start = 1;
     }
 
+    $r_string = format_transforms_for_command_line($moving_string,"r",$start,$stop);
+    
     
     if ($mdt_contrast_2 ne '') {
 	$fixed_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii";
@@ -210,9 +232,10 @@ sub reg_to_mdt {
 	    "  -c [ ${diffsyn_iter},1.e-8,20] -f $downsampling -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n"
     }
 
-    my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
-    my $stop_message = "$PM: could not create diffeomorphic warp to MDT for ${runno}:\n${pairwise_cmd}\n" ;
-
+ my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
+ my $stop_message = "$PM: could not create diffeomorphic warp to MDT for ${runno}:\n${pairwise_cmd}\n" ;
+ my $node_name = $node_ref{$runno};
+ #print "Node name = ${node_name}\n";
 
     my $jid = 0;
     if (cluster_check) {
@@ -227,7 +250,7 @@ sub reg_to_mdt {
 	my $home_path = $current_path;
 	my $Id= "${runno}_to_MDT_create_warp";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request);#,$node_name);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}

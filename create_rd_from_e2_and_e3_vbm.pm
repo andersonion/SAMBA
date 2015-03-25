@@ -87,8 +87,9 @@ sub create_rd_from_e2_and_e3_Output_check {
  
      foreach my $runno (@array_of_runnos) {  
 	my  $out_file =  get_nii_from_inputs($current_path,$runno,'e2'); 
+	print "First out_file = ${out_file}\n";
 	$out_file =~ s/_e2/_rd/;
-
+	print "Second out file = ${out_file}\n";
 	 if (data_double_check($out_file)) {
 	     $go_hash{$runno}=1;
 	     push(@file_array,$out_file);
@@ -181,7 +182,8 @@ sub create_rd_from_e2_and_e3_vbm_Runtime_check {
      
     if (($channel_comma_list =~ /[,]*e2[,]*/) && ($channel_comma_list =~ /[,]*e3[,]*/) && ($channel_comma_list !~ /[,]*rd[,]*/)) {
 	$create_rd=1;
-	$current_path = $Hf->get_value('inputs_dir'); 
+	$current_path = $Hf->get_value('preprocess_dir'); 
+	# $current_path = $Hf->get_value('inputs_dir'); 
 
 	$runlist = $Hf->get_value('complete_comma_list');
 	@array_of_runnos = split(',',$runlist);

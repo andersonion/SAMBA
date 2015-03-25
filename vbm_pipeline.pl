@@ -4,13 +4,6 @@
 #
 # Roughly modeled after seg_pipe_mc structure. (For better or for worse.)
 #
-#
-#
-#
-#
-#
-#
-#
 
 
 # All my includes and requires are belong to us.
@@ -24,7 +17,7 @@ no warnings qw(uninitialized bareword);
 
 use Cwd qw(abs_path);
 use File::Basename;
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $intermediate_affine $syn_params $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $nodes);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
@@ -32,14 +25,18 @@ $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
-$permissions = '0755';
+$permissions = 0755;
 my $interval = 1;
 
 my $import_data = 0;
 
 $intermediate_affine = 0;
-$test_mode = 0;
-$syn_params = "0.5,3,0"; # Normally use 0.5,3,0
+$test_mode = 1;
+
+($nodes) = @ARGV;
+
+if (! defined $nodes) { $nodes = 2 ;} 
+umask(022);
 
 use lib dirname(abs_path($0));
 use Env qw(RADISH_PERL_LIB);
@@ -53,9 +50,10 @@ use lib split(':',$RADISH_PERL_LIB);
 require Headfile;
 require retrieve_archived_data;
 require study_variables_vbm;
-#require create_labels;  #when will I need this?
 
 require convert_all_to_nifti_vbm;
+require set_reference_space_vbm;
+require create_rd_from_e2_and_e3_vbm;
 require mask_images_vbm;
 require create_affine_reg_to_atlas_vbm;
 require apply_affine_reg_to_atlas_vbm;
@@ -66,7 +64,9 @@ require calculate_mdt_images_vbm;
 require compare_reg_to_mdt_vbm;
 require mdt_reg_to_atlas_vbm;
 require warp_atlas_labels_vbm;
-
+require mask_for_mdt_vbm;
+require calculate_jacobians_vbm;
+#require smooth_images_vbm;
 
 # Temporary hardcoded variables
 
@@ -85,17 +85,29 @@ $rigid_contrast
 $mdt_contrast
 $skull_strip_contrast
 $threshold_code
+$pre_masked
 $do_mask
+$port_atlas_mask
 $thresh_ref
+$syn_params
 $syn_iterations
 $diffeo_downsampling
 $affine_target
 $affine_contrast
 $native_reference_space
+$vbm_reference_space
+$reference_path
 $create_labels
+$label_space
+$label_reference
+$label_reference_path
  );
 
 study_variables_vbm();
+
+if (($syn_params eq '') || (! defined $syn_params)) {
+    $syn_params = "0.5,3,0"; # Should decide on default values...
+}
 
 ## The following are mostly ready-to-go variables (i.e. non hard-coded)
 
@@ -103,49 +115,87 @@ if ($optional_suffix ne '') {
     $optional_suffix = "_${optional_suffix}";
 }
 
-my $reference_space='';
-if ($native_reference_space) {
-    $reference_space = 'native';
-} else {
-    $reference_space = $atlas_name;
-}
+# if (! defined $vbm_reference_space) {
+#     print "No reference space specified.  Will use native image space.\n";
+#     $vbm_reference_space = 'native';
+# }
+
+# if (! defined $label_reference) {
+#     print "No label reference space specified.  Will inherit from regular reference space.\n";
+#     $label_reference=$reference_space;
+# }
 
 
 my @project_components = split(/[.]/,$project_name); # $project_name =~ s/[.]//g;
 my $project_id =  join('',@project_components);
 $project_id = "VBM_".$project_id.'_'.$atlas_name.$optional_suffix; #create_identifer($project_name);
 
+
 my ($pristine_input_dir,$work_dir,$result_dir,$result_headfile) = make_process_dirs($project_id); #new_get_engine_dependencies($project_id);
+
+## Mini-kludge...until we can get a proper data importer in place...
+my $test_for_inputs = `ls ${pristine_input_dir}`;
+if ($test_for_inputs eq'') {
+    $import_data = 1;
+} 
+#  Mini-kludge
+
 $Hf = new Headfile ('rw',$result_headfile );
 open_log($result_dir);
 
-my $inputs_dir = $work_dir.'/base_images';
-my $atlas_dir = "${WORKSTATION_DATA}/atlas/${atlas_name}";
-my $label_atlas_dir = "${WORKSTATION_DATA}/atlas/${label_atlas_name}";
+my $preprocess_dir = $work_dir.'/preprocess';
+my $inputs_dir = $preprocess_dir.'/base_images';
+
 my $control_comma_list = join(',',@control_group);
 my $compare_comma_list = join(',',@compare_group);
 my $complete_comma_list = $control_comma_list.','.$compare_comma_list;
 
 my $channel_comma_list = join(',',@channel_array);
 
+$Hf->set_value('vbm_reference_space',$vbm_reference_space);
+$Hf->set_value('label_reference',$label_reference);
+
 $Hf->set_value('control_comma_list',$control_comma_list);
 $Hf->set_value('compare_comma_list',$compare_comma_list);
 $Hf->set_value('complete_comma_list',$complete_comma_list);
 $Hf->set_value('channel_comma_list',$channel_comma_list);
 
-$Hf->set_value('atlas_name',$atlas_name);
-$Hf->set_value('label_atlas_name',$label_atlas_name);
+if (($combined_rigid_and_affine eq '') || (! defined $combined_rigid_and_affine)) {
+    $combined_rigid_and_affine=1; # Temporary default--> will eventually always be set to "0"
+}
+
+$Hf->set_value('combined_rigid_and_affine',$combined_rigid_and_affine);
+
+$Hf->set_value('rigid_atlas_name',$atlas_name);
 $Hf->set_value('rigid_contrast',$rigid_contrast);
 $Hf->set_value('mdt_contrast',$mdt_contrast);
-$Hf->set_value('rigid_atlas_dir',$atlas_dir);
-$Hf->set_value('label_atlas_dir',$label_atlas_dir);
+
+
+
+if ($create_labels) {
+    my $label_atlas_dir = "${WORKSTATION_DATA}/atlas/${label_atlas_name}";
+    $Hf->set_value('label_atlas_dir',$label_atlas_dir);
+    $Hf->set_value('label_atlas_name',$label_atlas_name);
+    if (! defined $label_space) {
+	$label_space = "pre_affine"; # Pre-affine is the tentative default label space.
+    }
+    $Hf->set_value('label_space',$label_space);
+}
+$Hf->set_value('create_labels',$create_labels);
+
+
 $Hf->set_value('skull_strip_contrast',$skull_strip_contrast);
+$Hf->set_value('pre_masked',$pre_masked);
 $Hf->set_value('threshold_code',$threshold_code);
+$Hf->set_value('port_atlas_mask',$port_atlas_mask);
+
+
 $Hf->set_value('rigid_transform_suffix','rigid.mat');
+
 $Hf->set_value('affine_transform_suffix','affine.mat');
 $Hf->set_value('affine_target_image',$affine_target);
 $Hf->set_value('full_affine_contrast',$affine_contrast);
-
+$Hf->set_value('affine_identity_matrix',"$WORKSTATION_DATA/identity_affine.mat");
 
 $Hf->set_value('flip_x',$flip_x);
 $Hf->set_value('flip_z',$flip_z);
@@ -160,6 +210,7 @@ if (defined $thresh_ref) {
 $Hf->set_value('predictor_id',$custom_predictor_string);
 
 $Hf->set_value('pristine_input_dir',$pristine_input_dir);
+$Hf->set_value('preprocess_dir',$preprocess_dir);
 $Hf->set_value('inputs_dir',$inputs_dir);
 $Hf->set_value('dir_work',$work_dir);
 $Hf->set_value('results_dir',$result_dir);
@@ -177,19 +228,24 @@ my $sigma_string = "0";
 if ($test_mode) {
     $Hf->set_value('test_mode','on');
     my $new_syn_iter = "1";
-   
+    
     for (my $ii = 2; $ii <= $levels; $ii++) {
 	$new_syn_iter = $new_syn_iter.',0'; # $diffsyn_iter="1x0x0x0";
     }
     $syn_iterations = $new_syn_iter;
 } else {
     $Hf->set_value('test_mode','off');
-
+    
 }
 
 for (my $jj = 2; $jj <= $levels; $jj++) {
-	$sigma_string = $sigma_string.'x0';
+    $sigma_string = $sigma_string.'x0';
 }
+
+## Custom sigma string
+
+#$sigma_string = "2x2x1x0";
+
 
 my $syn_iter_string = join('x',split(',',$syn_iterations));
 my $downsample_string = join('x',split(',',$diffeo_downsampling));
@@ -199,13 +255,25 @@ $Hf->set_value('diffeo_downsampling',$downsample_string);
 $Hf->set_value('smoothing_sigmas',$sigma_string);
 $Hf->set_value('SyN_parameters', $syn_params);
 
-$Hf->set_value('reference_space',$reference_space);
+$Hf->set_value('vbm_reference_space',$vbm_reference_space);
 
 #maincode
 {
     print STDOUT " Running the main code of $PM. \n";
 # Set up needed variables
 
+
+##Stopgap business
+    if ($import_data) {
+    	my $bd = '/glusterspace'; #bd for Biggus-Diskus
+    	my $dr = $pristine_input_dir;
+    	my @all_runnos =  split(',',$complete_comma_list);
+    	foreach my $runno (@all_runnos) {
+    	    my $path_string = "${bd}/${runno}Labels-inputs/${runno}/";
+    	    `cp ${path_string}/* $dr/`;
+    	}
+    }
+##
 
 # Set up headfile
 #HfResult='';
@@ -222,6 +290,8 @@ $Hf->set_value('reference_space',$reference_space);
 
     my @modules_for_Init_check = qw(
      convert_all_to_nifti_vbm
+     create_rd_from_e2_and_e3_vbm
+     set_reference_space_vbm
      mask_images_vbm
      create_affine_reg_to_atlas_vbm
      apply_affine_reg_to_atlas_vbm
@@ -229,55 +299,53 @@ $Hf->set_value('reference_space',$reference_space);
      calculate_mdt_warps_vbm
      apply_mdt_warps_vbm
      calculate_mdt_images_vbm
+     mask_for_mdt_vbm
      compare_reg_to_mdt_vbm
      mdt_reg_to_atlas_vbm
+     vbm_with_surfstat_vbm
      warp_atlas_labels_vbm
-     );
+     calculate_jacobians_vbm
+      );
+#     smooth_images_vbm
+#     );
+    
+    
+    my $checkCall; # Using camelCase here to avoid the potential need for playing the escape character game when calling command with backticks, etc.
+    my $Init_suffix = "_Init_check()";
+    
+   
+   # for (my $mm = $#modules_for_Init_check; $mm >=0; $mm--)) { # This checks backwards
+    for (my $mm = 0; $mm <= $#modules_for_Init_check; $mm++) { # This checks forwards
+	my $module = $modules_for_Init_check[$mm];	 
+	$checkCall = "${module}${Init_suffix}";
+	print STDOUT "Check call is $checkCall\n";
+	my $temp_error_msg = '';
 
-
-     my $checkCall; # Using camelCase here to avoid the potential need for playing the escape character game when calling command with backticks, etc.
-     my $Init_suffix = "_Init_check()";
-
-     for (my $mm = $#modules_for_Init_check; $mm >=0; $mm=($mm-1)) {
-	 my $module = $modules_for_Init_check[$mm];	 
-	 $checkCall = "${module}${Init_suffix}";
-	 print STDOUT "Check call is $checkCall\n";
-	 my $temp_error_msg = '';
-
-	 ($temp_error_msg) = eval($checkCall);
-
-	 if ($temp_error_msg ne '') {
-	     if ($init_error_msg ne '') {
-		 $init_error_msg = "${temp_error_msg}\n------\n\n${init_error_msg}";
-	     } else {
-		 $init_error_msg = $temp_error_msg;
-	     }
-	 }
-     }
-
- if ($init_error_msg ne '') {
-     log_info($init_error_msg,0);
-     error_out("\n\nPrework errors found:\n${init_error_msg}\nNo work has been performed!\n");
- } else {
-     log_info("No errors found during initialization check stage.\nLet the games begin!\n");
- }
-
-
+	($temp_error_msg) = eval($checkCall);
+	
+	if ($temp_error_msg ne '') {
+	    if ($init_error_msg ne '') {
+		$init_error_msg = "${init_error_msg}\n------\n\n${temp_error_msg}"; # This prints the results forwards
+		# $init_error_msg = "${temp_error_msg}\n------\n\n${init_error_msg}"; # This prints the results backwards
+	    } else {
+		$init_error_msg = $temp_error_msg;
+	    }
+	}
+    }
+    
+    if ($init_error_msg ne '') {
+	log_info($init_error_msg,0);
+	error_out("\n\nPrework errors found:\n${init_error_msg}\nNo work has been performed!\n");
+    } else {
+	log_info("No errors found during initialization check stage.\nLet the games begin!\n");
+    }
+    
+  
 # Finish headfile
 
 
 # Begin work:
-## Stopgap business
-    # if ($import_data) {
-    # 	my $bd = '/glusterspace'; #bd for Biggus-Diskus
-    # 	my $dr = $pristine_input_dir;
-    # 	my @all_runnos =  split(',',$complete_comma_list);
-    # 	foreach my $runno (@all_runnos) {
-    # 	    my $path_string = "${bd}/${runno}Labels-inputs/${runno}/";
-    # 	    `cp ${path_string}/* $dr/`;
-    # 	}
-    # }
-##
+
     if (! -e $inputs_dir) {
 	mkdir($inputs_dir,0777);
     }
@@ -288,11 +356,16 @@ $Hf->set_value('reference_space',$reference_space);
     convert_all_to_nifti_vbm();
     sleep($interval);
 
+    if (create_rd_from_e2_and_e3_vbm()) {
+	push(@channel_array,'rd');
+    }
+    sleep($interval);
+
     mask_images_vbm();
     sleep($interval);
 
-# Convert file names if need be?
-
+    set_reference_space_vbm();
+    sleep($interval);
 
 # Register all to atlas
     my $do_rigid = 1;   
@@ -330,6 +403,14 @@ $Hf->set_value('reference_space',$reference_space);
     calculate_mdt_images_vbm(@channel_array);
     sleep($interval);
 
+    mask_for_mdt_vbm();
+    sleep($interval);
+
+    calculate_jacobians_vbm('i','control');
+    sleep($interval);
+
+
+
 # Things can get parallel right about here...
 
 # Branch one: 
@@ -346,7 +427,7 @@ $Hf->set_value('reference_space',$reference_space);
 # Branch two:
     compare_reg_to_mdt_vbm("d");
     sleep($interval);
-    #create_average_mdt_image_vbm();
+    #create_average_mdt_image_vbm(); ### What the heck was this?
 
     $group_name = "compare";    
     foreach my $a_contrast (@channel_array) {
@@ -355,6 +436,9 @@ $Hf->set_value('reference_space',$reference_space);
     sleep($interval);
 
 
+#    vbm_with_surfstat_vbm();
+#    sleep($interval);
+
 # Remerge before ending pipeline
 
     my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
@@ -362,7 +446,7 @@ $Hf->set_value('reference_space',$reference_space);
     	my $interval = 15;
     	my $verbose = 1;
     	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$MDT_to_atlas_JobID);
-	print " Waiting for Job ${MDT_to_atlas_JobID}\n";
+    	print " Waiting for Job ${MDT_to_atlas_JobID}\n";
     	if ($done_waiting) {
     	    print STDOUT  " Diffeomorphic registration from MDT to label atlas ${label_atlas_name} job has completed; moving on to next serial step.\n";
     	}
@@ -374,10 +458,24 @@ $Hf->set_value('reference_space',$reference_space);
     	error_out("${error_message}",0);
     }
 
+    warp_atlas_labels_vbm('MDT');
+    sleep($interval);
+
     warp_atlas_labels_vbm();
     sleep($interval);
 
-#
+    $group_name = "all";    
+    foreach my $a_contrast (@channel_array) {
+    	apply_mdt_warps_vbm($a_contrast,"f",$group_name);
+    }
+    sleep($interval);
+   
+    my $new_contrast = calculate_jacobians_vbm('i','compare');
+    push(@channel_array,$new_contrast);
+    sleep($interval);
+
+   # smooth_images_vbm();
+    sleep($interval);
 
 
 
@@ -404,5 +502,9 @@ $Hf->set_value('reference_space',$reference_space);
     print "\n\nVBM Pipeline has completed successfully.  Great job, you.\n\n";
 } #end main
 
-sub sub1 {
+#---------------------
+sub some_subroutine {
+#---------------------
+
 }
+    

@@ -245,13 +245,21 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 
     my $checkpoint = $Hf->get_value('last_headfile_checkpoint'); # For now, this is the first checkpoint, but that will probably evolve.
     my $previous_checkpoint = $current_checkpoint - 1;
-
+    if (1) {  ####### if (0) is only a temporary measure!!!
     if (($checkpoint eq "NO_KEY") || ($checkpoint <= $previous_checkpoint)) {
 	my $current_tempHf = find_temp_headfile_pointer($current_path);
 	$work_done = 0;
 	my $Hf_comp = '';
-	my $include = 0; # We will exclude certain keys from headfile comparison.
-	my @excluded_keys =qw(compare_comma_list 
+	my $include = 0; # We will exclude certain keys from headfile comparison. Exclude key list getting bloated...may need to switch to include.
+	my @excluded_keys =qw(affine_identity_matrix
+                              compare_comma_list  
+                              complete_comma_list
+                              channel_comma_list
+                              create_labels
+                              label_atlas_dir
+                              label_atlas_name
+                              label_atlas_path
+                              label_space
                               forward_xforms 
                               inverse_xforms
                               last_headfile_checkpoint
@@ -265,7 +273,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 	    }
 	}
     
-	if ($Hf_comp ne '') { # Move most recent (different) work to backup folder.	
+	if (($Hf_comp ne '') && ($current_tempHf == 0)) { # Move most recent (different) work to backup folder.	
 	    my $new_backup;
 	    my $existence=1;
 
@@ -286,7 +294,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 	}
 	$Hf->set_value('last_headfile_checkpoint',$current_checkpoint);
     }
-    
+}    
     if (! -e $current_path) {
 	mkdir ($current_path,$permissions);
     }

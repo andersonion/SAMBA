@@ -28,7 +28,7 @@ my ($thresh_ref,$mask_threshold,$default_mask_threshold,$num_morphs,$morph_radiu
 my (@array_of_runnos,@channel_array,@jobs);
 my (%go_hash,%make_hash,%mask_hash);
 my $go=1;
-
+my ($port_atlas_mask_path,$port_atlas_mask);
 
 # ------------------
 sub mask_images_vbm {
@@ -45,7 +45,6 @@ sub mask_images_vbm {
 	my $go = $make_hash{$runno};
 	if ($go) {
 	    my $current_file=get_nii_from_inputs($current_path,$runno,$template_contrast);
-	    my ($name,$in_path,$ext) = fileparts($current_file);
 	    if (($thresh_ref ne "NO_KEY") && ($$thresh_ref{$runno})){
 		$mask_threshold = $$thresh_ref{$runno};
 	    } else {
@@ -58,6 +57,42 @@ sub mask_images_vbm {
 		my $nifti_command = make_matlab_command('strip_mask',$nifti_args,"${runno}_${template_contrast}_",$Hf,0); # 'center_nii'
 		execute(1, "Creating mask for $runno using ${template_contrast} channel", $nifti_command);
 	    }
+	    if ($port_atlas_mask) {
+		my $input_mask = $mask_path;
+		
+		my $atlas_mask =$Hf->get_value('port_atlas_mask_path') ;
+		my $new_mask = $mask_dir.'/'.$runno.'_atlas_mask.nii';
+
+		my $current_norm_mask = "${mask_dir}/${runno}_norm_mask.nii";
+		my $out_prefix = $mask_dir.'/'.$runno."_mask_";
+		my $port_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
+
+		if (! -e $current_norm_mask) {
+		my $norm_command = "ImageMath 3 $current_norm_mask Normalize $input_mask";
+		`$norm_command`;
+		}
+		my $temp_out_file = $out_prefix."0GenericAffine.mat";
+		if (! -e $temp_out_file) {
+		    print "Temp_out_file = $temp_out_file\n";
+		    my $atlas_mask_reg_command = "antsRegistration -d 3 -r [$atlas_mask,$current_norm_mask,1] ".
+			#" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t translation[0.1] -c [3000x3000x0x0,1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 ".
+			#" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t rigid[0.1] -c [3000x3000x0x0,1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 ". 
+			" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t affine[0.1] -c [3000x3000x0x0,1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 ".
+			" -u 1 -z 1 -o $out_prefix";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
+		`$atlas_mask_reg_command`;
+		}
+
+		if (! -e $new_mask) {
+		    my $apply_xform_command = "antsApplyTransforms --float -d 3 -i $atlas_mask -o $new_mask -t [${temp_out_file}, 1] -r $current_norm_mask -n NearestNeighbor";
+
+		    `$apply_xform_command`;
+		}
+		if (! -e $port_mask) {
+		    my $new_norm_command = "ImageMath 3 $port_mask Normalize $new_mask";
+		    `$new_norm_command`;
+		}
+	    }
+	    
 	}
     }
 
@@ -92,11 +127,14 @@ sub mask_images_vbm {
     if (($error_message ne '') && ($do_mask)) {
 	error_out("${error_message}",0);
     } else {
-	# Clean up matlab junk
-	`rm ${work_dir}/*.m`;
-	`rm ${work_dir}/*matlab*`;
+    # Clean up matlab junk
+	if (`ls ${work_dir} | grep -E /.m$/`) {
+	    `rm ${work_dir}/*.m`;
+	}
+	if (`ls ${work_dir} | grep -E /matlab/`) {
+	    `rm ${work_dir}/*matlab*`;
+	}
     }
-
 }
 
 
@@ -165,7 +203,12 @@ sub mask_images_Output_check {
 sub mask_one_image {
 # ------------------
     my ($runno,$ch) = @_;
-    my $runno_mask = $mask_hash{$runno};
+    my $runno_mask;
+    if ($port_atlas_mask) {
+	$runno_mask=$mask_dir.'/'.$runno.'_port_mask.nii';
+    } else {
+	$runno_mask = $mask_hash{$runno};
+    }
     my $out_path = "${current_path}/${runno}_${ch}_masked.nii";
     my $centered_path = get_nii_from_inputs($current_path,$runno,$ch);
     my $apply_cmd =  "ImageMath 3 ${out_path} m ${centered_path} ${runno_mask};\n";
@@ -206,8 +249,74 @@ sub mask_one_image {
 # ------------------
 sub mask_images_vbm_Init_check {
 # ------------------
+    my $init_error_msg='';
+    my $message_prefix="$PM initialization check:\n";
+    my $log_msg='';
 
-    return('');
+    $pre_masked = $Hf->get_value('pre_masked');
+    $do_mask = $Hf->get_value('do_mask');
+    $port_atlas_mask = $Hf->get_value('port_atlas_mask');
+
+    if ($pre_masked  == 1) {
+	$do_mask = 0;
+	$Hf->set_value('do_mask',$do_mask);
+	$port_atlas_mask = 0;
+	$Hf->set_value('port_atlas_mask',$port_atlas_mask);
+	$log_msg=$log_msg."\tImages have been pre-masked. No skulls will be stripped today.\n";
+    }
+
+    $port_atlas_mask_path = $Hf->get_value('port_atlas_mask_path');
+    $rigid_contrast = $Hf->get_value('rigid_contrast');
+    my $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
+    my $rigid_atlas=$Hf->get_value('rigid_atlas_name');
+    if ($do_mask eq 'NO_KEY') { $do_mask=0;}
+    if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
+    
+    my $default_mask = "${WORKSTATION_DATA}/atlas/DTI/DTI_mask.nii"; ## Set default mask for porting here!
+    if (($do_mask == 1) && ($port_atlas_mask == 1)) {
+	if ($port_atlas_mask_path eq 'NO_KEY') {
+	    my ($dummy1,$rigid_dir,$dummy2);
+	    if (! data_double_check($rigid_atlas_path)){
+		($dummy1,$rigid_dir,$dummy2) = fileparts($rigid_atlas_path);
+		$port_atlas_mask_path = get_nii_from_inputs($rigid_dir,"(mask|Mask|MASK)",'nii');
+		if ($port_atlas_mask_path =~ /[\n]+/) {
+		    $port_atlas_mask_path=$default_mask;  # Use default mask
+		    $log_msg=$log_msg."\tNo atlas mask specified; porting default atlas mask: ${port_atlas_mask_path}\n";
+		} else {
+		    $log_msg=$log_msg."\tNo atlas mask specified; porting rigid ${rigid_atlas} atlas mask: ${port_atlas_mask_path}\n";
+		}
+	    } else {
+		$port_atlas_mask_path=$default_mask;  # Use default mask
+		$log_msg=$log_msg."\tNo atlas mask specified and rigid atlas being used; porting default atlas mask: ${port_atlas_mask_path}\n";
+	    }
+	}  
+	
+	if (data_double_check($port_atlas_mask_path)) {
+	    $init_error_msg=$init_error_msg."Unable to port atlas mask (i.e. file does not exist): ${port_atlas_mask_path}\n";
+	} else {	    
+	    $Hf->set_value('port_atlas_mask_path',$port_atlas_mask_path);
+	}
+    }
+
+    my $threshold_code;
+    if ($do_mask) {
+	$threshold_code = $Hf->get_value('threshold_code');
+	if ($threshold_code eq 'NO_KEY') {
+	    $threshold_code = 4;
+	    $Hf->set_value('threshold_code',$threshold_code);
+	    $log_msg=$log_msg."\tThreshold code for skull-stripping is not set. Will use default value of ${threshold_code}.\n";
+	}    
+    }
+
+
+    if ($log_msg ne '') {
+	log_info("${message_prefix}${log_msg}");
+    }
+ 
+    if ($init_error_msg ne '') {
+	$init_error_msg = $message_prefix.$init_error_msg;
+    }
+    return($init_error_msg);
 }
 
 # ------------------
@@ -215,9 +324,11 @@ sub mask_images_vbm_Runtime_check {
 # ------------------
 
 # # Set up work
+    $port_atlas_mask=$Hf->get_value('port_atlas_mask');
     $in_folder = $Hf->get_value('pristine_input_dir');
     $work_dir = $Hf->get_value('dir_work');
-    $current_path = $Hf->get_value('inputs_dir');  # Dammit, "input" or "inputs"???
+    #$current_path = $Hf->get_value('inputs_dir');  # Dammit, "input" or "inputs"???
+    $current_path = $Hf->get_value('preprocess_dir');
     $do_mask = $Hf->get_value('do_mask');
     $mask_dir = $Hf->get_value('mask_dir');
     $template_contrast = $Hf->get_value('skull_strip_contrast');

@@ -30,7 +30,7 @@ my (%go_hash);
 my $go = 1;
 my $job;
 
-my ($current_contrast,$group,$gid,$affine_target);
+my ($new_contrast,$group,$gid,$affine_target);
 
 
 # ------------------
@@ -42,8 +42,10 @@ sub calculate_jacobians_vbm {  # Main code
 
     if ($direction eq 'f' ) {
 	$space_string = 'individual image';
+	$new_contrast = "jac_to_MDT";
     } elsif ($direction eq 'i') {
 	$space_string = 'MDT';
+	$new_contrast = "jac_from_MDT";
     }
 
 
@@ -84,6 +86,15 @@ sub calculate_jacobians_vbm {  # Main code
 	error_out("${error_message}",0);
     } else {
  	$Hf->write_headfile($write_path_for_Hf);
+	my $temp_list = $Hf->get_value('channel_comma_list');
+	print "$PM: temp_list before: ${temp_list}\n";
+	if ($temp_list !~ /[,]*${new_contrast}[,]*/) {
+	    $temp_list=$temp_list.",${new_contrast}";
+	    $Hf->set_value('channel_comma_list',$temp_list);
+	}
+	print "$PM: temp_list after: ${temp_list}\n";
+	
+	return($new_contrast);
     }
  
  }

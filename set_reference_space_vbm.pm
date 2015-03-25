@@ -19,8 +19,9 @@ require Headfile;
 require pipeline_utilities;
 require civm_simple_util;
 
-my ($inputs_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
+my ($inputs_dir,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
 my (%reference_space_hash,%reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
+my ($rigid_name,$rigid_dir,$rigid_ext,$new_rigid_path);
 my ($process_dir_for_labels);
 my ($log_msg);
 my $split_string = ",,,";
@@ -40,8 +41,10 @@ sub set_reference_space_vbm {  # Main code
 	 $ref_file = $reference_path_hash{$V_or_L};
 	 my %hashish = %$work_to_do_HoA;
 	 my $array_ref = $hashish{$V_or_L};
-	 foreach my $file (@$array_ref) {
-	     ($job) = apply_new_reference_space_vbm($file,$ref_file);
+	 foreach my $out_file (@$array_ref) {
+	     my ($in_name,$dumdum,$in_ext) = fileparts($out_file);
+	     my $in_file = "${preprocess_dir}/${in_name}${in_ext}";
+	     ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
 	     if ($job > 1) {
 		 push(@jobs,$job);
 	     }
@@ -101,33 +104,41 @@ sub set_reference_space_Output_check {
 	 my $existing_files_message = '';
 	 my $missing_files_message = '';
 	 print "$PM: Checking ${V_or_L} folder...";
-	 opendir(DIR, $work_folder);
+	 opendir(DIR, $preprocess_dir);
 	 my @input_files = grep(/(\.nii)+(\.gz)*$/ ,readdir(DIR));
 	 my @files_to_check;
 
 	 if ($case == 1) {
-	     @files_to_check = @input_files;
+	     print "$PM: Checking ${V_or_L} and preprocess folders...";
+	     opendir(DIR, $preprocess_dir);
+	     @files_to_check = grep(/(\.nii)+(\.gz)*$/ ,readdir(DIR));# @input_files;
 	 } else {
+	     print "$PM: Checking ${V_or_L} folder...";
 	     my %hashish = %$work_to_do_HoA;
 	     my $array_ref = $hashish{$V_or_L};
 	     @files_to_check = @$array_ref;
 	 }
 
-	 my $nn=0;
+	 
 	 foreach my $file (@files_to_check) {
-	     $nn++;
-	     my $full_file;
+	     
+	     my $out_file;
 	     if ($case == 1) {
-		 $full_file = $work_folder.'/'.$file;
+		 # $in_file = $preprocess_dir.'/'.$file;
+		 $out_file = $work_folder.'/'.$file;
 	     } else {
-		 $full_file = $file;
+		 $out_file = $file;
 	     }
 	     print ".";
-	     if (! compare_two_reference_spaces($full_file,$refspace)) {
+	     if (data_double_check($out_file)) {
 		 if ($case == 1) {
-		     print "\n${full_file} added to list of files to be re-referenced.\n";
+		     print "\n${out_file} added to list of files to be re-referenced.\n";
 		 }
-		 push(@file_array,$full_file);	     
+		 push(@file_array,$out_file);	     
+		 $missing_files_message = $missing_files_message."   $file \n";
+	     } elsif (! compare_two_reference_spaces($out_file,$refspace)) {
+		 print "\n${out_file} added to list of files to be re-referenced.\n";
+		 push(@file_array,$out_file);	     
 		 $missing_files_message = $missing_files_message."   $file \n";
 	     } else {
 		 $existing_files_message = $existing_files_message."   $file \n";
@@ -158,14 +169,6 @@ sub set_reference_space_Output_check {
 sub apply_new_reference_space_vbm {
 # ------------------
     my ($in_file,$ref_file,$out_file)=@_;
-    my $in_place = 0;
-
-    if (! defined $out_file){
-	$out_file=$in_file;
-#	$in_place=1;
-#	my ($nm,$pth,$ext)=fileparts($in_file);
-#	$out_file="$pth/${nm}_temp$ext";
-   }
     my $interp = "Linear"; # Default    
     my $in_spacing = `PrintHeader ${in_file} 1`;
     my $ref_spacing = `PrintHeader ${ref_file} 1`;
@@ -176,12 +179,13 @@ sub apply_new_reference_space_vbm {
 	$interp="NearestNeighbor";
     }
     
-    my $cmd = "antsApplyTransforms -d 3 -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file};\n"; 
-    if ($in_place) {
-	my $replace_cmd='';
-	#$replace_cmd = "ln -s ${out_file} ${in_file};\n";
-	$cmd=$cmd.$replace_cmd;
-    }
+    my $cmd;
+    if (compare_two_reference_spaces($in_file,$ref_file)) {
+	$cmd = "ln -s ${in_file} ${out_file}";
+    } else {
+	$cmd = "antsApplyTransforms -d 3 -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file};\n"; 
+    }  
+    
     my @list = split('/',$in_file);
     my $short_filename = pop(@list);
     
@@ -202,12 +206,10 @@ sub apply_new_reference_space_vbm {
 	    error_out($stop_message);
 	}
     }
-    if ($in_place) {
-	$out_file = $in_file;
-    }
+
     if (data_double_check($out_file)  && ($jid == 0)) {
 	error_out("$PM: could not properly apply reference: ${out_file}");
-    print "** $PM: apply reference created ${out_file}\n";
+	print "** $PM: apply reference created ${out_file}\n";
     }
     return($jid);
 }
@@ -219,52 +221,29 @@ sub prep_atlas_for_referencing_vbm {
     my ($in_path,$out_path);
     my ($dummy1,$dummy2);
     my ($nifti_args,$name,$nifti_command);
+    my ($rigid_atlas_mask_path,$rigid_mask_name,$rigid_mask_ext,$mask_ref,$copy_cmd,$future_rigid_path);
     
-    $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
-    $port_atlas_mask = $Hf->get_value('port_atlas_mask');
-    my $port_atlas_mask_path=$Hf->get_value('port_atlas_mask_path');
-    
-    if ($port_atlas_mask == 1) {
-	my ($port_atlas_name,$port_atlas_ext,$new_port_path);
-	($port_atlas_name,$dummy1,$port_atlas_ext) = fileparts($port_atlas_mask_path);
-	$out_path = "${inputs_dir}/${port_atlas_name}${port_atlas_ext}";
-	if ((data_double_check($out_path)) || (! compare_two_reference_spaces($out_path,$reference_path_hash{'vbm'}))) {
-	    $in_path = $port_atlas_mask_path;
-	    $nifti_args = "\'${in_path}\', \'${out_path}\', 0, 0, 0";
-	    $name= $port_atlas_name;
-	    $nifti_command = make_matlab_command('center_nii_around_center_of_mass',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
-	    execute_log(1, "Recentering ${name} atlas mask around its center of mass", $nifti_command);
-	    `$nifti_command`;
-	    log_info("Ported atlas mask has been recentered around its center of mass:\n\tOriginal path: ${port_atlas_mask_path}\n\tNew path: ${out_path}");
-	} else {
-	    log_info("Ported atlas mask has been previously recentered around its cente of mass:\n\tOriginal path: ${port_atlas_mask_path}\n\tNew path: ${out_path}");
-	}
-	$Hf->set_value('port_atlas_mask_path',$out_path);
-	$new_port_path=$out_path;
-
-    }
-    
-    my ($rigid_name,$rigid_dir,$rigid_ext,$rigid_atlas_mask_path,$mask_ref,$copy_cmd,$new_rigid_path);
-    my ($rigid_mask_name,$rigid_mask_ext);
-
-    if (! data_double_check($rigid_atlas_path)){
-	($rigid_name,$rigid_dir,$rigid_ext) = fileparts($rigid_atlas_path);
-	$new_rigid_path="${inputs_dir}/${rigid_name}${rigid_ext}";
-	$rigid_atlas_mask_path = get_nii_from_inputs($rigid_dir,".*(mask|Mask|MASK)","nii");
-	($rigid_mask_name,$dummy1,$rigid_mask_ext) = fileparts($rigid_atlas_mask_path);
-	$mask_ref = "${inputs_dir}/${rigid_mask_name}_recentered${rigid_mask_ext}";
-    } else {
+    $future_rigid_path = "${inputs_dir}/${rigid_name}${rigid_ext}";
+    $rigid_atlas_mask_path = get_nii_from_inputs($rigid_dir,".*(mask|Mask|MASK)","nii");
+    if ($rigid_atlas_mask_path =~ /[\n]+/) {
 	$mask_ref = 'NULL';
+    } else {
+	($rigid_mask_name,$dummy1,$rigid_mask_ext) = fileparts($rigid_atlas_mask_path);
+	$mask_ref = "${preprocess_dir}/${rigid_mask_name}_recentered${rigid_mask_ext}";
     }
-    
-    my ($new_rigid_mask_path,$new_port_path);
+
+    ##KLUDGE
+    # Skip the attempt to use the mask for recentering for now, at least until the matlab command can be fixed...
+    $mask_ref = "NULL";
+
+    #KLUDGE
+
+
+    my $new_rigid_mask_path;
     my $delete_rigid_atlas_mask=0;
-    if (($mask_ref ne 'NULL') && ($rigid_atlas_mask_path eq $port_atlas_mask_path) && (! data_double_check($new_port_path))) {
-	$rigid_atlas_mask_path = $new_port_path;
-    } elsif (! data_double_check($rigid_atlas_mask_path)) {
-#	my ($rigid_mask_name,$rigid_mask_ext);
-#	($rigid_mask_name,$dummy1,$rigid_mask_ext) = fileparts($rigid_atlas_mask_path);
-	$out_path = $mask_ref;#"${inputs_dir}/${rigid_mask_name}_recentered${rigid_mask_ext}";
+    if (($mask_ref ne 'NULL') && (! data_double_check($rigid_atlas_mask_path))) {
+	#print "This should NOT be happening.\n\n\n";
+	$out_path = $mask_ref;
 	$in_path = $rigid_atlas_mask_path;
 	$nifti_args = "\'${in_path}\', \'${out_path}\', 0, 0, 0";
 	$name= $rigid_mask_name;
@@ -273,9 +252,12 @@ sub prep_atlas_for_referencing_vbm {
 	`$nifti_command`;
 	$delete_rigid_atlas_mask = 1;
 	$new_rigid_mask_path=$out_path;
+    } else {
+	$mask_ref = 'NULL';
     }
     
     my $last_cmd;
+
     if ($new_rigid_path ne '') {
 	if ($mask_ref ne 'NULL') { 
 	    $copy_cmd = "CopyImageHeaderInformation ${mask_ref} ${rigid_atlas_path} ${new_rigid_path} 1 1 1";
@@ -296,15 +278,15 @@ sub prep_atlas_for_referencing_vbm {
 	if (data_double_check($new_rigid_path)) {
 	    error_out("Failed to create recentered copy of ${rigid_atlas_path}: ${new_rigid_path}\nMost recent command: ${last_cmd}");
 	} else {
-	    $Hf->set_value('rigid_atlas_path',$new_rigid_path);
-	    log_info("Properly referenced rigid atlas path is expected to be ${new_rigid_path}\n(Derived from ${rigid_atlas_path}");
+	    $Hf->set_value('rigid_atlas_path',$future_rigid_path);
+	    log_info("Properly referenced rigid atlas path is expected to be ${future_rigid_path}\n(Derived from ${rigid_atlas_path}");
 	}
     }
     
     if ($delete_rigid_atlas_mask) {
 	my $rm_cmd = "rm ${new_rigid_mask_path}";
-	execute_log(1,"Deleting extraneous mask: ${new_rigid_mask_path}",$rm_cmd);
-	`$rm_cmd`;
+#	execute_log(1,"Deleting extraneous mask: ${new_rigid_mask_path}",$rm_cmd);
+#	`$rm_cmd`;
     }
 }
 
@@ -323,7 +305,6 @@ sub set_reference_space_vbm_Init_check {
 
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_contrast = $Hf->get_value('rigid_contrast'); 
-    $port_atlas_mask = $Hf->get_value('port_atlas_mask');
     $runno_list= $Hf->get_value('complete_comma_list');
     
     ($refspace_hash{'existing_vbm'},$refname_hash{'existing_vbm'})=read_refspace_txt($inputs_dir,$split_string);
@@ -336,6 +317,8 @@ sub set_reference_space_vbm_Init_check {
 	$reference_space_hash{'vbm'} = 'native';
     }
     
+
+    $process_dir_for_labels =0;
     if ($create_labels == 1) {
 	$process_dir_for_labels = 1;
 	if ((! defined $reference_space_hash{'label'}) || ($reference_space_hash{'label'} eq 'NO_KEY')) {
@@ -344,9 +327,10 @@ sub set_reference_space_vbm_Init_check {
 	    $process_dir_for_labels = 0;
 	    $label_image_inputs_dir = $inputs_dir;	   
 	} 
-	$Hf->set_value('base_images_for_labels',$process_dir_for_labels);
     }
-    
+
+    $Hf->set_value('base_images_for_labels',$process_dir_for_labels);    
+
     my @spaces;
     if ($create_labels) {#($process_dir_for_labels) {
 	@spaces = ("vbm","label");
@@ -406,13 +390,12 @@ sub set_reference_space_vbm_Init_check {
     }
     if (($process_dir_for_labels == 1) && ($refspace_hash{'vbm'} eq $refspace_hash{'label'})) {
 	$process_dir_for_labels = 0;
-	$Hf->set_value('base_images_for_labels',$process_dir_for_labels);
 	$Hf->set_value('label_reference_path',$reference_path_hash{'vbm'});	
 	$Hf->set_value('label_refname',$refname_hash{'vbm'});
 	$Hf->set_value('label_refspace',$refspace_hash{'vbm'});
 	$Hf->set_value('label_refspace_path',$inputs_dir);
     }
-    
+    $Hf->set_value('base_images_for_labels',$process_dir_for_labels);
   
     
     if ($process_dir_for_labels == 1) {
@@ -449,30 +432,29 @@ sub set_reference_space_vbm_Init_check {
 	$Hf->set_value("label_reference_path",$reference_path_hash{'vbm'});
     }
 
-
-
-
     
-    my $rigid_atlas = $Hf->get_value('rigid_atlas_name');
+    $rigid_atlas_name = $Hf->get_value('rigid_atlas_name');
     $rigid_contrast = $Hf->get_value('rigid_contrast');
     $rigid_target = $Hf->get_value('rigid_target');
     
-    my ($this_path,$port_atlas_mask_path);
-    if ($rigid_atlas eq 'NO_KEY') {
+    my $this_path;
+    if ($rigid_atlas_name eq 'NO_KEY') {
 	if ($rigid_target eq 'NO_KEY') {
 	    $Hf->set_value('rigid_atlas_path','null');
 	    $Hf->set_value('rigid_contrast','null');
 	    $log_msg=$log_msg."\tNo rigid target or atlas has been specified. No rigid registration will be performed. Rigid contrast is \"null\".\n";
-	    if ($do_mask && $port_atlas_mask) {
-		$port_atlas_mask_path = "${WORKSTATION_DATA}/atlas/DTI/DTI_mask.nii"; # The default mask will be set here, currently DTI.
-		$Hf->set_value('port_atlas_mask_path',$port_atlas_mask_path);
-		$log_msg=$log_msg."\tThe default atlas mask is being ported: ${port_atlas_mask_path}\n";
-	    }
 	} else {
 	    if ($runno_list =~ /[,]*${rigid_target}[,]*}/) {
-		$this_path=get_nii_from_inputs($inputs_dir,$rigid_target,$rigid_contrast);
-		$Hf->set_value('rigid_atlas_path',$this_path);
-		$log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${this_path} as the interim rigid atlas path.\n"; 
+		$this_path=get_nii_from_inputs($preprocess_dir,$rigid_target,$rigid_contrast);
+		if ($this_path !~ /[\n]+/) {
+		   my ($this_name,$dumdum,$this_ext)= fileparts($this_path);
+		   my $that_path = "${inputs_dir}/${this_name}${this_ext}";
+		    $Hf->set_value('rigid_atlas_path',$that_path);
+		    $log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${that_path} as the expected rigid atlas path.\n";
+		} else {
+		    $init_error_msg=$init_error_msg."The desired target for rigid registration appears to be runno: ${rigid_target}, ".
+			"but could not locate appropriate image.\nError message is: ${this_path}";	    
+		}
 	    } else {
 		if (data_double_check($rigid_target)) {
 		    $log_msg=$log_msg."\tNo valid rigid targets have been implied or specified (${rigid_target} could not be validated). Rigid registration will be skipped.\n";
@@ -485,9 +467,9 @@ sub set_reference_space_vbm_Init_check {
 	}
     } else {
 	if ($rigid_contrast eq 'NO_KEY') {
-	    $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.";
+	    $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.\n";
 	} else {
-	    $rigid_atlas_path  = "${WORKSTATION_DATA}/atlas/${rigid_atlas}/${rigid_atlas}_${rigid_contrast}.nii"; 
+	    $rigid_atlas_path  = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/${rigid_atlas_name}_${rigid_contrast}.nii"; 
 	    
 	    if (data_double_check($rigid_atlas_path))  {
 		$init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${rigid_atlas_path}\n";
@@ -515,7 +497,7 @@ sub set_reference_path_vbm {
 #---------------------
     my ($ref_option,$for_labels) = @_;
     my $ref_string; 
-    $inputs_dir = $Hf->get_value('inputs_dir');
+#    $inputs_dir = $Hf->get_value('inputs_dir');
     my $ref_path;
     my $error_message;
     
@@ -565,7 +547,7 @@ sub set_reference_path_vbm {
 	    $ref_runno = shift(@control_runnos);
 	}
 	print " Ref_runno = ${ref_runno}\n";
-	($ref_path,$error_message) = get_nii_from_inputs($preprocess_dir,$ref_runno,$rigid_contrast);
+	$ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,$rigid_contrast);
 	$ref_string="native";
 
 
@@ -577,7 +559,6 @@ sub set_reference_path_vbm {
 	    if (! data_double_check($file)) {
 		if (! -e  $preprocess_dir) {
 		    mkdir ( $preprocess_dir,$permissions);
-		    print "fuck yeah.\n";
 		}
 		print "\$preprocess_dir = ${preprocess_dir}\n";
 		my $new_file = "${pristine_dir}/${ref_runno}_${rigid_contrast}.nii";
@@ -608,8 +589,12 @@ sub set_reference_path_vbm {
 # ------------------
 sub set_reference_space_vbm_Runtime_check {
 # ------------------
+    $preprocess_dir = $Hf->get_value('preprocess_dir');
     $inputs_dir = $Hf->get_value('inputs_dir');
 
+    if (! -e $preprocess_dir ) {
+	    mkdir ($preprocess_dir,$permissions);
+    }
 
     if (! -e $inputs_dir ) {
 	    mkdir ($inputs_dir,$permissions);
@@ -646,8 +631,14 @@ sub set_reference_space_vbm_Runtime_check {
 	write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp")
     }
 
-
-    prep_atlas_for_referencing_vbm();
+    $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
+    if (! data_double_check($rigid_atlas_path)) {
+	($rigid_name,$rigid_dir,$rigid_ext) = fileparts($rigid_atlas_path);
+	$new_rigid_path="${preprocess_dir}/${rigid_name}${rigid_ext}";
+	if (data_double_check($new_rigid_path)) {
+	    prep_atlas_for_referencing_vbm();
+	}
+    }
     if ($process_dir_for_labels == 1) {
 	`cp ${refspace_folder_hash{"vbm"}}/*\.nii* ${refspace_folder_hash{"label"}}`;
     }   

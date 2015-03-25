@@ -46,7 +46,12 @@ sub convert_all_to_nifti_vbm {
 	    my $go = $go_hash{$runno}{$ch};
 	    if ($go) {
 		my $current_file=get_nii_from_inputs($in_folder,$runno,$ch);
-		push(@nii_files,$current_file);
+
+		if ($current_file) {
+		    push(@nii_files,$current_file);
+		} else {
+		    print "Unable to find input image for $runno and $ch in folder: ${in_folder}.\n";
+		}
 	    }
 	}
     }
@@ -58,16 +63,7 @@ sub convert_all_to_nifti_vbm {
 
 
     foreach my $file (@nii_files) {
-
-	my ($name,$in_path,$ext) = fileparts($file);	
-
-	my $nifti_args = "\'${in_path}\', \'$name\', \'nii\', \'${current_path}/$name$ext\', 0, 0, ".
-      " 0, 0, 0,0,0, ${flip_x}, ${flip_z},0,0";
-	if (! $skip) {
-	my $nifti_command = make_matlab_command('civm_to_nii',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
-	execute(1, "Recentering nifti images from tensor inputs", $nifti_command);	
-	}
-	#push(@nii_cmds,$nifti_command);           
+	recenter_nii_function($file,$current_path,$skip,$Hf);
     }
    # execute_indep_forks(1,"Recentering nifti images from tensor inputs", @nii_cmds);
 
@@ -78,8 +74,13 @@ sub convert_all_to_nifti_vbm {
 	error_out("${error_message}",0);
     } else {
     # Clean up matlab junk
-	`rm ${work_dir}/*.m`;
-	`rm ${work_dir}/*matlab*`;
+	my $test_string = `ls ${work_dir} `;
+	if ($test_string =~ /.m$/) {
+	    `rm ${work_dir}/*.m`;
+	}
+	if ($test_string =~ /matlab/) {
+	    `rm ${work_dir}/*matlab*`;
+	}
     }
 }
 
@@ -109,6 +110,9 @@ sub convert_all_to_nifti_Output_check {
 	
 	foreach my $ch (@channel_array) {
 	    $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
+	    if ($file_1 =~ /[\n]+/) {
+		$file_1 = "${current_path}/${runno}_${ch}.nii";
+	    }
 	    if ((data_double_check($file_1) ) || ((! $do_mask) &&  ($file_1 =~ /.*masked\.nii / ))) {
 		$go_hash{$runno}{$ch}=1;
 		push(@file_array,$file_1);
@@ -152,7 +156,9 @@ sub convert_all_to_nifti_vbm_Runtime_check {
 # # Set up work
     $in_folder = $Hf->get_value('pristine_input_dir');
     $work_dir = $Hf->get_value('dir_work');
-    $current_path = $Hf->get_value('inputs_dir');
+#    $work_dir = $Hf->get_value('preprocess_dir');
+#   $current_path = $Hf->get_value('inputs_dir');
+    $current_path = $Hf->get_value('preprocess_dir');
 
     $flip_x = $Hf->get_value('flip_x'); 
     $flip_z = $Hf->get_value('flip_z'); 
@@ -162,8 +168,10 @@ sub convert_all_to_nifti_vbm_Runtime_check {
 #    my @nii_files = grep(/\.nii$/,readdir(DIR));
 
     if ($current_path eq 'NO_KEY') {
-	$current_path = "${work_dir}/base_images";
- 	$Hf->set_value('input_dir',$current_path); 	
+#	$current_path = "${work_dir}/base_images";
+	$current_path = "${work_dir}/preprocess";
+# 	$Hf->set_value('inputs_dir',$current_path); 	
+	$Hf->set_value('preprocess_dir',$current_path);
     }
     if (! -e $current_path) {
 	mkdir ($current_path,$permissions);

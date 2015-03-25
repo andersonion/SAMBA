@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $native_reference_space);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $reference_path  $intermediate_affine);
 require Headfile;
 require pipeline_utilities;
 
@@ -23,12 +23,14 @@ use List::Util qw(max);
 
 my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
-my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
+my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir,$median_images_path);
 my ($mdt_path,$predictor_id,$predictor_path, $diffeo_path,$work_done);
+my ($label_path,$label_reference_path,$label_refname);
 my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
 my (%go_hash);
 my $go = 1;
 my $job;
+my $group='all';
 
 my ($label_atlas,$atlas_label_dir,$atlas_label_path);
 
@@ -36,7 +38,10 @@ my ($label_atlas,$atlas_label_dir,$atlas_label_path);
 # ------------------
 sub warp_atlas_labels_vbm {  # Main code
 # ------------------
-
+    ($group) = @_;
+    if (! defined $group) {
+	$group = 'all';
+    }
     warp_atlas_labels_vbm_Runtime_check();
 
     foreach my $runno (@array_of_runnos) {
@@ -91,10 +96,14 @@ sub warp_atlas_labels_Output_check {
      
      my $existing_files_message = '';
      my $missing_files_message = '';
-     
+     #my $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
      foreach my $runno (@array_of_runnos) {
-
-	 my $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
+	 if ($group eq 'MDT') {
+	     $out_file = "${median_images_path}/MDT_labels_${atlas_name}.nii.gz";
+	 }else {
+	     $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
+	 }
+	
 	# my $out_file      = "$out_file_path_base\.nii";
 
 	 if  (data_double_check($out_file)) {
@@ -137,33 +146,70 @@ sub apply_mdt_warp_to_labels {
 # ------------------
     my ($runno) = @_;
     my ($cmd);
-    my $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
-
+    my $out_file;
+    if ($group eq 'MDT') {
+	$out_file = "${median_images_path}/MDT_labels_${atlas_name}.nii.gz";
+    }else {
+	$out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
+    }
+    my ($start,$stop);
     my $image_to_warp = $atlas_label_path;# get label set from atlas #get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
     my $reference_image;
-    if ($native_reference_space) {
-	$reference_image = $image_to_warp;
-    } else {
-	my @mdt_contrast  = split('_',$mdt_contrast);
-	my $some_valid_contrast = $mdt_contrast[0];
-	$reference_image =get_nii_from_inputs($inputs_dir,$runno,$some_valid_contrast);
-    }
+
+    # if (! $native_reference_space) {
+    # 	$reference_image = $image_to_warp;
+    # } else {
+    # 	my @mdt_contrast  = split('_',$mdt_contrast);
+    # 	my $some_valid_contrast = $mdt_contrast[0];
+    # 	if ($runno ne 'MDT') {
+    # 	    $reference_image =get_nii_from_inputs($inputs_dir,$runno,$some_valid_contrast);
+    # 	} else {
+    # 	    $reference_image =get_nii_from_inputs($median_images_path,$runno,$some_valid_contrast);
+    # 	}
+    # }
     my @mdt_warp_array = split(',',$Hf->get_value('inverse_label_xforms'));
-    my $mdt_warp_train = join(' ',@mdt_warp_array);
+    my $mdt_warp_string = $Hf->get_value('inverse_label_xforms');
+    my $mdt_warp_train;
     my ($warp_train,$warp_string,@warp_array);
+    my $create_cmd;
+    my $option_letter = "t";
+    my $additional_warp='';
+    my $raw_warp;
 
-    $warp_string = $Hf->get_value("inverse_xforms_${runno}");
-
-    @warp_array = split(',',$warp_string);
-
-    if ($runno ne $affine_target) {
-	shift(@warp_array);	
+    if ($runno ne 'MDT') {
+	my $add_warp_string = $Hf->get_value("forward_xforms_${runno}");    
+	my @add_warp_array = split(',',$add_warp_string);
+	$raw_warp = pop(@add_warp_array);
     }
-
-    $warp_train = join(' ',@warp_array).' '.$mdt_warp_train;
-
-
-    my $create_cmd = "WarpImageMultiTransform 3 ${image_to_warp} ${out_file} -R ${reference_image} ${warp_train} --use-NN;\n";
+ 
+    $reference_image = $label_reference_path;
+    $mdt_warp_train=format_transforms_for_command_line($mdt_warp_string);
+    if ($runno ne 'MDT') {
+	$warp_string = $Hf->get_value("inverse_xforms_${runno}");
+	$stop=3;
+	if ($label_space eq 'pre_rigid') {
+	    if ($combined_rigid_and_affine) {
+		$start=2;
+	    } else {
+		$start=1;
+	    }
+	} elsif (($label_space eq 'pre_affine') || ($label_space eq 'post_rigid')) {
+	    $start=2;
+	    if ($combined_rigid_and_affine) {
+		$additional_warp = " -t [${raw_warp},0] ";  
+	    } 
+	} elsif ($label_space eq 'post_affine') {
+	    $start= 3;	
+	}
+	$warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
+    } else {
+	$warp_train = "-${option_letter} ";
+    }
+    
+    $warp_train=$additional_warp.' '.$warp_train.' '.$mdt_warp_train;
+    
+    $create_cmd = "antsApplyTransforms --float -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n NearestNeighbor ${warp_train};\n";
+    
     my $byte_cmd = "ImageMath 3 ${out_file} Byte ${out_file};\n";
     $cmd =$create_cmd.$byte_cmd;
     my $go_message =  "$PM: create ${atlas_name} label set for ${runno}";
@@ -207,33 +253,53 @@ sub warp_atlas_labels_vbm_Runtime_check {
 # ------------------
     my ($direction)=@_;
  
+    if ($group eq 'MDT') {
+	$median_images_path = $Hf->get_value('median_images_path');
+    }
 # # Set up work
     $label_atlas = $Hf->get_value('label_atlas_name');
-    $atlas_label_dir   = $Hf->get_value ('label_atlas_dir');   
-    $atlas_label_path  = "${atlas_label_dir}/${label_atlas}_labels.nii";    
-
+    $atlas_label_dir   = $Hf->get_value('label_atlas_dir');   
+    $atlas_label_path  = "${atlas_label_dir}/${label_atlas}_labels.nii";
+    $label_reference_path = $Hf->get_value('label_reference_path');    
+    $label_refname = $Hf->get_value('label_refname');
     $mdt_contrast = $Hf->get_value('mdt_contrast');
-
-    
-
-   
-
-#    $mdt_path = $Hf->get_value('mdt_work_dir');
     $inputs_dir = $Hf->get_value('inputs_dir');
-#    $rigid_path = $Hf->get_value('rigid_work_dir');
     $predictor_id = $Hf->get_value('predictor_id');
-#    $predictor_path = $Hf->get_value('predictor_work_dir');
     $affine_target = $Hf->get_value('affine_target_image');
- 
-#	$diffeo_path = $Hf->get_value('reg_diffeo_path');   
-    $current_path = $Hf->get_value('labels_dir');
+
+    $label_path = $Hf->get_value('labels_dir');
+    if ($label_path eq 'NO_KEY') {
+	$label_path = "${work_path}/labels";
+	$Hf->set_value('labels_dir',$label_path);
+	if (! -e $label_path) {
+	    mkdir ($label_path,$permissions);
+	}
+    }
+
+    $current_path = $Hf->get_value('label_results_dir');
+
+    if ($current_path eq 'NO_KEY') {
+	$current_path = "${label_path}/${label_space}_${label_refname}_space/${label_atlas}";
+	$Hf->set_value('label_results_dir',$current_path);
+    }
+    my $intermediary_path = "${label_path}/${label_space}_${label_refname}_space";
+    if (! -e $intermediary_path) {
+	mkdir ($intermediary_path,$permissions);
+    }
+
+    if (! -e $current_path) {
+	mkdir ($current_path,$permissions);
+    }
+    
+    print " $PM: current path is ${current_path}\n";
 
     $write_path_for_Hf = "${current_path}/${predictor_id}_temp.headfile";
-
-#   Functionize?
-    $runlist = $Hf->get_value('complete_comma_list');
+    if ($group ne 'MDT') {
+	$runlist = $Hf->get_value('complete_comma_list');
+    } else {
+	$runlist = 'MDT';
+    }
     @array_of_runnos = split(',',$runlist);
-#
 
     my $case = 1;
     my ($dummy,$skip_message)=warp_atlas_labels_Output_check($case,$direction);

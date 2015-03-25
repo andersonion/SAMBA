@@ -163,26 +163,6 @@ sub apply_affine_reg_to_atlas_vbm_Runtime_check {
     if ($skip_message ne '') {
 	print "${skip_message}";
     }
-
-# check for needed input files to produce output files which need to be produced in this step
-
-    # apply_affine_Input_check($to_create_array_ref);
-
-    # my $missing_files_message_prefix = " Unable to locate input images for the following runno(s):\n";
-    # my $missing_files_message = '';
-    # my $missing_files_message_postfix = " Process stopped during $PM. Please check input runnos and try again.\n";
-    # foreach my $runno (@array_of_runnos) {
-    # 	opendir(DIR, $inputs_dir);
-    # 	if ($create_go{$runno}) {
-    # 	    my @input_files = grep(/^$runno.*${rigid_contrast}/ ,readdir(DIR));
-    # 	    if ($input_files[0] eq '') {
-    # 		$missing_files_message = $missing_files_message."   $runno \n";
-    # 	    }
-    # 	}
-    # }
-    # if ($missing_files_message ne '') {
-    # 	error_out("$PM:\n${missing_files_message_prefix}${missing_files_message}${missing_files_message_postfix}");
-    # }
 }
 
 1;

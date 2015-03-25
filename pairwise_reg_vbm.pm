@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $syn_params $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $intermediate_affine $syn_params $permissions);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -26,17 +26,19 @@ my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_co
 my (%go_hash);
 my $go = 1;
 my $job;
+my ($expected_number_of_jobs,$hash_errors);
+my $mem_request;
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
-if (! $intermediate_affine) {
+# if (! $intermediate_affine) {
    $warp_suffix = "1Warp.nii.gz";
    $inverse_suffix = "1InverseWarp.nii.gz";
    $affine_suffix = "0GenericAffine.mat";
-} else {
-    $warp_suffix = "0Warp.nii.gz";
-    $inverse_suffix = "0InverseWarp.nii.gz";
-    $affine_suffix = "0GenericAffine.mat";
-}
+# } else {
+#     $warp_suffix = "0Warp.nii.gz";
+#     $inverse_suffix = "0InverseWarp.nii.gz";
+#     $affine_suffix = "0GenericAffine.mat";
+# }
 
 my $affine = 0;
 
@@ -57,6 +59,10 @@ sub pairwise_reg_vbm {  # Main code
 
     pairwise_reg_vbm_Runtime_check();
     
+
+#    my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
+    $mem_request = memory_estimator($expected_number_of_jobs,$nodes);
+
     my @remaining_runnos = @sorted_runnos;
     for ((my $moving_runno = shift(@remaining_runnos)); ($remaining_runnos[0] ne ''); ($moving_runno = shift(@remaining_runnos)))  {
 	foreach my $fixed_runno (@remaining_runnos) {
@@ -107,12 +113,16 @@ sub pairwise_reg_Output_check {
      my $existing_files_message = '';
      my $missing_files_message = '';
      my @remaining_runnos = @sorted_runnos;
+
+     $expected_number_of_jobs = 0;
+
      for ((my $moving_runno = shift(@remaining_runnos)); ($remaining_runnos[0] ne ''); ($moving_runno = shift(@remaining_runnos)))  {
 	 foreach my $fixed_runno (@remaining_runnos) {
 	     $file_1 = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz";
 	     $file_2 = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
 	     if (data_double_check($file_1, $file_2)) {
 		 $go_hash{$moving_runno}{$fixed_runno}=1;
+		 $expected_number_of_jobs++;
 		 push(@file_array,$file_1,$file_2);
 		 $missing_files_message = $missing_files_message."\t${moving_runno}<-->${fixed_runno}";
 	     } else {
@@ -168,22 +178,20 @@ sub create_pairwise_warps {
     my $second_contrast_string='';
 
     my ($q_string,$r_string);
-    my (@fixed_warps,@moving_warps,$fixed_affine,$moving_affine);
-    @fixed_warps = split(',',$Hf->get_value("forward_xforms_${fixed_runno}"));
-    @moving_warps = split(',',$Hf->get_value("forward_xforms_${moving_runno}"));
-    $fixed_affine = shift(@fixed_warps); # We are assuming that the most recent affine xform will incorporate any preceding xforms.
-    $moving_affine = shift(@moving_warps);
-    if (defined $fixed_affine) {
-	$q_string = " -q ${fixed_affine} ";
+    my ($fixed_string,$moving_string,$fixed_affine,$moving_affine);
+    $fixed_string=$Hf->get_value("forward_xforms_${fixed_runno}");
+    $moving_string=$Hf->get_value("forward_xforms_${moving_runno}");
+	
+    my $stop = 2;
+    my $start;
+    if ($combined_rigid_and_affine) {
+	$start = 2;
     } else {
-	$q_string ='';
+	$start = 1;
     }
-    if (defined $moving_affine) {
-	$r_string = " -r ${moving_affine} ";
-    } else {
-	$r_string = '';
-    }
-
+    $q_string = format_transforms_for_command_line($fixed_string,"q",$start,$stop);
+    $r_string = format_transforms_for_command_line($moving_string,"r",$start,$stop);
+    
     if ($pre_affined) {
 	$fixed = $rigid_path."/${fixed_runno}_${mdt_contrast}.nii";
 	$moving = $rigid_path."/${moving_runno}_${mdt_contrast}.nii";
@@ -203,20 +211,18 @@ sub create_pairwise_warps {
 	  $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
 	}
 
-#	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}";
-#	my $moving_affine =  $rigid_path."/${moving_runno}_${xform_suffix}";
 	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
 	    "  -c [ ${diffsyn_iter},1.e-8,20] -f $downsampling -t SyN[${syn_params}] -s $sigmas ${q_string} ${r_string} -u;\n" 
     }
 
     if (-e $new_warp) { unlink($new_warp);}
     if (-e $new_inverse) { unlink($new_inverse);}
-
+    my $go_message = "$PM: create pairwise warp for the pair ${moving_runno} and ${fixed_runno}" ;
+    my $stop_message = "$PM: could not create warp between ${moving_runno} and ${fixed_runno}:\n${pairwise_cmd}\n";
 
 
     my $jid = 0;
     if (cluster_check) {
-	my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s;\n"; # random sleep of 5-15 seconds
 	my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
 	    "ln -s ${out_warp} ${new_warp};\n".
 	    "ln -s ${out_inverse} ${new_inverse};\n".#.
@@ -227,19 +233,19 @@ sub create_pairwise_warps {
 	my $home_path = $current_path;
 	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, "$PM: create pairwise warp for the pair ${moving_runno} and ${fixed_runno}", $cmd ,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request);     
 	if (! $jid) {
-	    error_out("$PM: could not create warp between ${moving_runno} and ${fixed_runno}:\n${pairwise_cmd}\n");
+	    error_out();
 	}
     } else {
 	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
-	if (! execute($go, "$PM create pairwise warp for the pair ${moving_runno} and ${fixed_runno}", @cmds) ) {
-	    error_out("$PM: could not create warp between ${moving_runno} and ${fixed_runno}:\n${pairwise_cmd}\n");
+	if (! execute($go, $go_message, @cmds) ) {
+	    error_out($stop_message);
 	}
     }
 
     if (((!-e $new_warp) | (!-e $new_inverse)) && ($jid == 0)) {
-	error_out("$PM: missing one or both of the warp results ${new_warp} and ${new_inverse}");
+	error_out($stop_message);
     }
     print "** $PM created ${new_warp} and ${new_inverse}\n";
   
@@ -257,20 +263,12 @@ sub pairwise_reg_vbm_Init_check {
 sub pairwise_reg_vbm_Runtime_check {
 # ------------------
 
- #   $diffsyn_iter="4000x4000x4000x4000";
     $diffsyn_iter=$Hf->get_value('syn_iteration_string');
     $downsampling = $Hf->get_value('diffeo_downsampling');
     $sigmas = $Hf->get_value('smoothing_sigmas');
     $syn_param = 0.5;
 
-  #  if ( defined($test_mode)) {
-#	if( $test_mode == 1 ) {
-##	    $diffsyn_iter="2x2x2x2";
-#	    $diffsyn_iter="1x0x0x0";
-#	}
- #   }
 
-# # Set up work
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
     $mdt_contrast_string = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
     @mdt_contrasts = split('_',$mdt_contrast_string); 

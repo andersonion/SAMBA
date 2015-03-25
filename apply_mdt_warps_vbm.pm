@@ -6,7 +6,7 @@
 
 
 my $PM = "apply_mdt_warps_vbm.pm";
-my $VERSION = "2014/12/11";
+my $VERSION = "2015/02/19";
 my $NAME = "Application of warps derived from the calculation of the Minimum Deformation Template.";
 my $DESC = "ants";
 
@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $native_reference_space $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $permissions  $intermediate_affine);
 require Headfile;
 require pipeline_utilities;
 
@@ -24,7 +24,7 @@ use List::Util qw(max);
 my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my ($mdt_path,$predictor_id,$predictor_path, $diffeo_path,$work_done);
+my ($interp,$mdt_path,$predictor_id,$predictor_path, $diffeo_path,$work_done,$vbm_reference_path,$label_reference_path,$label_refname,$label_results_path,$label_path);
 my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
 my (%go_hash);
 my $go = 1;
@@ -39,6 +39,8 @@ sub apply_mdt_warps_vbm {  # Main code
     my $direction;
     ($current_contrast,$direction,$group) = @_;
 
+    $interp = "Linear"; # Hardcode this here for now...may need to make it a soft variable.
+
     if ($current_contrast eq '') { # Skip this step entirely in case pipeline accidentally supplies a null contrast.
 	return();
     }
@@ -47,7 +49,9 @@ sub apply_mdt_warps_vbm {  # Main code
 	$gid = 1;
     } elsif ($group eq "compare") {
 	$gid = 0;
-    } else {
+    } elsif ($group eq "all"){
+	$gid = 2;
+    }else {
 	error_out("$PM: invalid group of runnos specified.  Please consult your local coder and have them fix their problem.");
     }
     apply_mdt_warps_vbm_Runtime_check($direction);
@@ -82,8 +86,8 @@ sub apply_mdt_warps_vbm {  # Main code
 	$Hf->write_headfile($write_path_for_Hf);
 	if (! $gid) {
 	    symbolic_link_cleanup($diffeo_path);
+	    symbolic_link_cleanup($rigid_path);
 	}
-	symbolic_link_cleanup($rigid_path);
     }
  
 }
@@ -116,7 +120,11 @@ sub apply_mdt_warps_Output_check {
      
      foreach my $runno (@array_of_runnos) {
 	 if ($direction eq 'f' ) {
-	     $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii";
+	     if ($gid == 2) {
+		 $out_file = "${current_path}/${runno}_${current_contrast}.nii";
+	     } else {
+		 $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii";
+	     }
 	 } elsif ($direction eq 'i') {
 	     $out_file =  "${current_path}/MDT_to_${runno}_${current_contrast}.nii";
 	 }
@@ -163,41 +171,66 @@ sub apply_mdt_warp {
     my ($cmd);
     my $out_file = '';
     my $direction_string = '';
-    if ($direction eq 'f') {
-	$out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii"; # Need to settle on exact file name format...
-	$direction_string = 'forward';
+    my ($start,$stop);
+    my $reference_image;
+    my $option_letter = "t";
+
+    if ($gid == 2 ) {
+	$out_file = "${current_path}/${runno}_${current_contrast}.nii";
+	$reference_image = $label_reference_path;
+	if ($direction eq 'f') {
+	    $direction_string = 'forward';
+	    if ($label_space eq 'pre_rigid') {
+		$start=0;
+		$stop=0;
+	    } elsif (($label_space eq 'pre_affine') ||($label_space eq 'post_rigid')) {
+		$start=3;
+		$stop=3;
+	    } elsif ($label_space eq 'post_affine') {
+		if ($combined_rigid_and_affine) {
+		    $start= 2;
+		    $stop=2;
+		} else {
+		    $start=2;
+		    $stop=3;
+		}
+	    }
+	} else { # No known use for inverting for label purposes yet...would make sense if this code had been generalized enough to handle label warping.
+	    $direction_string = 'inverse';
+	    ###
+	}
     } else {
-	$out_file = "${current_path}/MDT_to_${runno}_${current_contrast}.nii"; # I don't think this will be the proper implementation of the "inverse" option.
-	$direction_string = 'inverse';
+	$reference_image=$vbm_reference_path;
+	if ($direction eq 'f') {
+	    $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii"; # Need to settle on exact file name format...
+	    $direction_string = 'forward';
+	    if ($combined_rigid_and_affine) {
+		$start= 1;
+		$stop=2;
+	    } else {
+		$start=1;
+		$stop=3;
+	    }
+	} else {
+	    $out_file = "${current_path}/MDT_to_${runno}_${current_contrast}.nii"; # I don't think this will be the proper implementation of the "inverse" option.
+	    $direction_string = 'inverse';
+	    if ($combined_rigid_and_affine) {
+		$start= 2;
+		$stop=3;
+	    } else {
+		$start=1;
+		$stop=3;
+	    }
+	}
     }
 
     my $image_to_warp = get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
-    my $reference_image;
-    if ($native_reference_space) {
-	$reference_image = $image_to_warp;
-    } else {
-	$reference_image = $Hf->get_value('rigid_atlas_path');
-    }
+    
+    my $warp_string = $Hf->get_value("${direction_string}_xforms_${runno}");
+    my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
 
-    my ($warp_train,$warp_string,@warp_array);
-
-    $warp_string = $Hf->get_value("${direction_string}_xforms_${runno}");
-
-    @warp_array = split(',',$warp_string);
-## TEST
-#  Test to see if the rigid affine is being folded into the full affine xform.  This test removes the rigid xform from the xforms that are appleied.
-    if ($runno ne $affine_target) {
-
-	if ($direction eq 'f') {
-	    pop(@warp_array);
-	} else {
-	    shift(@warp_array);	
-	}
-    }
-## TEST
-    $warp_train = join(' ',@warp_array);
-
-    $cmd = "WarpImageMultiTransform 3 ${image_to_warp} ${out_file} -R ${reference_image} ${warp_train}";
+    $cmd = "antsApplyTransforms --float -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";  
+ 
 
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} MDT warp(s) to ${current_contrast} image for  ${runno}:\n${cmd}\n";
@@ -230,8 +263,27 @@ sub apply_mdt_warp {
 # ------------------
 sub apply_mdt_warps_vbm_Init_check {
 # ------------------
+# It does not make sense to have the images for label overlay in post-rigid space if 
+# the rigid and affine transforms are combined. While it is easy to get the images into
+# post-rigid space, it is not straightfoward to get the labels into said space. It could
+# in theory by lastly applying an forward rigid transform, but we will leave such tomfoolery for another day.
 
-    return('');
+    my $init_error_msg='';
+    my $message_prefix="$PM:\n";
+    # my $rigid_plus_affine = $Hf->get_value('combined_rigid_and_affine');
+    # my $do_labels = $Hf->get_value('create_labels');
+    # $label_space = $Hf->get_value('label_space');
+    # if ($label_space eq ('post_rigid' || 'pre_affine' || 'postrigid' || 'preaffine')) {
+    # 	if (($do_labels == 1) && ($rigid_plus_affine) && ($old_ants)) {
+    # 	    $init_error_msg = $init_error_msg."Label space of ${label_space} is not compatible with combined rigid and affine transforms using old ants.\n".
+    # 		"Please consider setting label space to either \"pre_rigid\" or \"post_affine\".\n";
+    # 	}
+    # } 
+
+    if ($init_error_msg ne '') {
+	$init_error_msg = $message_prefix.$init_error_msg;
+    }
+    return($init_error_msg);
 }
 
 
@@ -249,9 +301,9 @@ sub apply_mdt_warps_vbm_Runtime_check {
     $predictor_id = $Hf->get_value('predictor_id');
     $predictor_path = $Hf->get_value('predictor_work_dir');
     $affine_target = $Hf->get_value('affine_target_image');
+    $vbm_reference_path = $Hf->get_value('vbm_reference_path');
 
-
-    if ($gid) {
+    if ($gid == 1) {
 	$diffeo_path = $Hf->get_value('mdt_diffeo_path');   
 	$current_path = $Hf->get_value('mdt_images_path');
 	if ($current_path eq 'NO_KEY') {
@@ -260,7 +312,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	}
 	$runlist = $Hf->get_value('control_comma_list');
 	
-    } else {
+    } elsif ($gid == 0) {
 	$diffeo_path = $Hf->get_value('reg_diffeo_path');   
 	$current_path = $Hf->get_value('reg_images_path');
 	if ($current_path eq 'NO_KEY') {
@@ -268,6 +320,39 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	    $Hf->set_value('reg_images_path',$current_path);
 	}
 	$runlist = $Hf->get_value('compare_comma_list');
+    } elsif ($gid == 2) {
+	$inputs_dir = $Hf->get_value('label_refspace_path');
+	$label_reference = $Hf->get_value('label_reference');
+	$label_reference_path = $Hf->get_value('label_reference_path');
+	$label_refname = $Hf->get_value('label_refname');
+
+	$label_space = $Hf->get_value('label_space');
+	$label_path=$Hf->get_value('labels_dir');
+	$label_results_path=$Hf->get_value('label_results_path');
+   
+
+	$current_path=$Hf->get_value('label_images_dir');
+
+
+
+	my $intermediary_path = "${label_path}/${label_space}_${label_refname}_space";
+
+	if (! -e  $intermediary_path) {
+	    mkdir ( $intermediary_path,$permissions);
+	}
+
+	if ($current_path eq 'NO_KEY') {
+	    $current_path = "${intermediary_path}/images";
+	    $Hf->set_value('label_images_dir',$current_path);
+	}
+	if (! -e $current_path) {
+	    mkdir ($current_path,$permissions);
+	}
+
+	$runlist = $Hf->get_value('complete_comma_list');
+    } else {
+	print " ERROR: Invalid group ID in $PM.  Dying now...\n";
+	die;
     }
     
     if (! -e $current_path) {

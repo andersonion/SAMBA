@@ -22,6 +22,7 @@ require pipeline_utilities;
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path);
 my ($diffsyn_iter,$syn_param,$downsampling,$sigmas);
+my ($label_path);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
@@ -66,8 +67,8 @@ sub mdt_reg_to_atlas_vbm {  # Main code
 		push(@jobs,$job);
 	    }
 	} else {
-	    $f_xform_path = "${current_path}/MDT_to_${label_atlas}_warp.nii";
-	    $i_xform_path = "${current_path}/${label_atlas}_to_MDT_warp.nii";
+	    $f_xform_path = "${current_path}/MDT_to_${label_atlas}_warp.nii.gz";
+	    $i_xform_path = "${current_path}/${label_atlas}_to_MDT_warp.nii.gz";
 	}
 	    headfile_list_handler($Hf,"forward_label_xforms",$f_xform_path,0);
 	    headfile_list_handler($Hf,"inverse_label_xforms",$i_xform_path,1);    
@@ -98,6 +99,11 @@ sub mdt_reg_to_atlas_vbm {  # Main code
 sub mdt_reg_to_atlas_Output_check {
 # ------------------
      my ($case) = @_;
+     if (($current_path eq '') || ($array_of_runnos[0] eq '')) {
+	 mdt_reg_to_atlas_vbm_Runtime_check();
+     }
+
+
      my $message_prefix ='';
      my ($file_1,$file_2);
      my @file_array=();
@@ -116,13 +122,13 @@ sub mdt_reg_to_atlas_Output_check {
      $file_1 = "${current_path}/MDT_to_${label_atlas}_warp.nii.gz";
      $file_2 = "${current_path}/${label_atlas}_to_MDT_warp.nii.gz";
 
-     if ((data_double_check($file_1,$file_2)) {
+     if (data_double_check($file_1,$file_2)) {
 	 $go_hash{$runno}=1;
 	 push(@file_array,$file_1,$file_2);
-	 $missing_files_message = $missing_files_message."\n";
+	 $missing_files_message = $missing_files_message."$file_1\n$file_2\n";
      } else {
 	 $go_hash{$runno}=0;
-	 $existing_files_message = $existing_files_message."\n";
+	 $existing_files_message = $existing_files_message."$file_1\n$file_2\n";
      }
      
      if (($existing_files_message ne '') && ($case == 1)) {
@@ -243,40 +249,42 @@ sub mdt_reg_to_atlas_vbm_Init_check {
 sub mdt_reg_to_atlas_vbm_Runtime_check {
 # ------------------
 
-
+    $label_atlas = $Hf->get_value('label_atlas_name');
 
     $diffsyn_iter=$Hf->get_value('syn_iteration_string');
     $downsampling = $Hf->get_value('diffeo_downsampling');
     $sigmas = $Hf->get_value('smoothing_sigmas');
     $syn_param = 0.5;
+   
 
-#     if ( defined($test_mode)) {
-# 	if( $test_mode == 1 ) {
-# #	    $diffsyn_iter="2x2x2x2";
-# 	    $diffsyn_iter="1x0x0x0";
-# 	}
-#     }
-
-# # Set up work
     $work_path = $Hf->get_value('regional_stats_dir');
-    $current_path = $Hf->get_value('labels_dir');
+    $label_path=$Hf->get_value('labels_dir');
+    $current_path = $Hf->get_value('label_transform_dir');
     if ($work_path eq 'NO_KEY') {
 	my $predictor_path = $Hf->get_value('predictor_work_dir'); 
-	$work_path = "${predictor_path}/regional_stats";
+	$work_path = "${predictor_path}/stats_by_region";
 	$Hf->set_value('regional_stats_dir',$work_path);
 	if (! -e $work_path) {
 	    mkdir ($work_path,$permissions);
 	}
     }
-    if ($current_path eq 'NO_KEY') {
-	$current_path = "${work_path}/labels";
-	$Hf->set_value('labels_dir',$current_path);
-	if (! -e $current_path) {
-	    mkdir ($current_path,$permissions);
-	}
-    }
 
-    $label_atlas = $Hf->get_value('label_atlas_name');
+	if ($label_path eq 'NO_KEY') {
+	    $label_path = "${work_path}/labels";
+	    $Hf->set_value('labels_dir',$label_path);
+	    if (! -e $label_path) {
+		mkdir ($label_path,$permissions);
+	    }
+	}
+
+	if ($current_path eq 'NO_KEY') {
+	    $current_path = "${label_path}/transforms";
+	    $Hf->set_value('label_tranform_dir',$current_path);
+	    if (! -e $current_path) {
+		mkdir ($current_path,$permissions);
+	    }
+	}
+
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
     $mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
     @mdt_contrasts = split('_',$mdt_contrast_string); 
