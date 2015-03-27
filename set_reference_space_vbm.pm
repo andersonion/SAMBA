@@ -183,6 +183,7 @@ sub apply_new_reference_space_vbm {
     my $cmd;
     if (compare_two_reference_spaces($in_file,$ref_file)) {
 	$cmd = "ln -s ${in_file} ${out_file}";
+	print "Linking $in_file to $out_file\n\n";
     } else {
 	$cmd = "antsApplyTransforms -d 3 -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file};\n"; 
     }  
@@ -419,15 +420,19 @@ sub set_reference_space_vbm_Init_check {
 	my $existence = 1;
 	for (my $i=1; $existence== 1; $i++) {
 	    $current_folder =  "${intermediary_path}/ref_$i";
-	    if (! -e $current_folder) {
+	    if (! -d "${current_folder}") {
 		$existence = 0;
 		$refspace_folder_hash{'label'} = $current_folder;
 		$log_msg=$log_msg."\tCreating new base images folder for label space \"ref_$i\": ${refspace_folder_hash{'label'}}\n";
 	    } else {
-		($refspace_hash{'existing_label'},$refname_hash{'existing_label'})= read_refspace_txt($current_folder,$split_string);
+
+		($refspace_hash{'existing_label'},$refname_hash{'existing_label'}) = read_refspace_txt($current_folder,$split_string);
+
 		if ($refspace_hash{'label'} eq $refspace_hash{'existing_label'}) {
+
 		    $existence = 0;
 		    $refspace_folder_hash{'label'} = $current_folder;
+
 		    if ($refname_hash{'label'} ne $refname_hash{'existing_label'}) {
 			$log_msg=$log_msg."\tThe specified label reference space is identical to the existing label reference space.".
 			    " Existing label reference string will be used.\n".
@@ -583,7 +588,9 @@ sub set_reference_path_vbm {
 	$ref_path = get_nii_from_inputs($preprocess_dir,"native_reference",$ref_runno);
 	$ref_string="native";
 	$native_ref_name = "native_reference_${ref_runno}.nii";	
+	print "\$ref path = ${ref_path}\n";
 	if ($ref_path =~ /[\n]+/) {
+	    print "Apparently ref path does not exist : ${ref_path}\n";
 	    my $pristine_dir = $Hf->get_value('pristine_input_dir');
 	    my $file =  get_nii_from_inputs($pristine_dir,$ref_runno,$rigid_contrast);
 
@@ -593,7 +600,7 @@ sub set_reference_path_vbm {
 		}
 		print "\$preprocess_dir = ${preprocess_dir}\n";
 		my $new_file = "${preprocess_dir}/native_reference_${ref_runno}.nii";
-		`ln -s $file $new_file`;
+		`cp $file $new_file`;
 		my $skip = 0;
 		recenter_nii_function($new_file,$preprocess_dir,$skip,$Hf);
 		$ref_path = $new_file;

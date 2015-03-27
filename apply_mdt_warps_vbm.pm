@@ -321,7 +321,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	}
 	$runlist = $Hf->get_value('compare_comma_list');
     } elsif ($gid == 2) {
-	$inputs_dir = $Hf->get_value('label_refspace_path');
+	$inputs_dir = $Hf->get_value('label_refspace_folder');
 	$label_reference = $Hf->get_value('label_reference');
 	$label_reference_path = $Hf->get_value('label_reference_path');
 	$label_refname = $Hf->get_value('label_refname');

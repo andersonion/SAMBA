@@ -18,10 +18,10 @@ no warnings qw(uninitialized bareword);
 use Cwd qw(abs_path);
 use File::Basename;
 use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $nodes);
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA);
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
-
+$ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
@@ -115,17 +115,6 @@ if (($syn_params eq '') || (! defined $syn_params)) {
 if ($optional_suffix ne '') {
     $optional_suffix = "_${optional_suffix}";
 }
-
-# if (! defined $vbm_reference_space) {
-#     print "No reference space specified.  Will use native image space.\n";
-#     $vbm_reference_space = 'native';
-# }
-
-# if (! defined $label_reference) {
-#     print "No label reference space specified.  Will inherit from regular reference space.\n";
-#     $label_reference=$reference_space;
-# }
-
 
 my @project_components = split(/[.]/,$project_name); # $project_name =~ s/[.]//g;
 my $project_id =  join('',@project_components);

@@ -233,7 +233,7 @@ sub study_variables_vbm {
     {
 	$project_name = "13.colton.01";
 	$custom_predictor_string = "nos2_vs_cvn";
-	$optional_suffix = 'aTest5';
+	$optional_suffix = 'aTest6';
 	$syn_params = "0.5,3,1";
 	$combined_rigid_and_affine = 1; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
