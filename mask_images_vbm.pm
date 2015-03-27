@@ -29,7 +29,7 @@ my (@array_of_runnos,@channel_array,@jobs);
 my (%go_hash,%make_hash,%mask_hash);
 my $go=1;
 my ($port_atlas_mask_path,$port_atlas_mask);
-
+my ($job);
 # ------------------
 sub mask_images_vbm {
 # ------------------
@@ -51,51 +51,46 @@ sub mask_images_vbm {
 		$mask_threshold=$default_mask_threshold;
 	    }
 	    my $mask_path     = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
+	    my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
+
 	    $mask_hash{$runno} = $mask_path;
+
 	    if (! -e $mask_path) {
-		my $nifti_args ="\'$current_file\', $dim_divisor, $mask_threshold, \'$mask_path\',$num_morphs , $morph_radius,$status_display_level";
-		my $nifti_command = make_matlab_command('strip_mask',$nifti_args,"${runno}_${template_contrast}_",$Hf,0); # 'center_nii'
-		execute(1, "Creating mask for $runno using ${template_contrast} channel", $nifti_command);
-	    }
-	    if ($port_atlas_mask) {
-		my $input_mask = $mask_path;
-		
-		my $atlas_mask =$Hf->get_value('port_atlas_mask_path') ;
-		my $new_mask = $mask_dir.'/'.$runno.'_atlas_mask.nii';
-
-		my $current_norm_mask = "${mask_dir}/${runno}_norm_mask.nii";
-		my $out_prefix = $mask_dir.'/'.$runno."_mask_";
-		my $port_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
-
-		if (! -e $current_norm_mask) {
-		my $norm_command = "ImageMath 3 $current_norm_mask Normalize $input_mask";
-		`$norm_command`;
-		}
-		my $temp_out_file = $out_prefix."0GenericAffine.mat";
-		if (! -e $temp_out_file) {
-		    print "Temp_out_file = $temp_out_file\n";
-		    my $atlas_mask_reg_command = "antsRegistration -d 3 -r [$atlas_mask,$current_norm_mask,1] ".
-			#" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t translation[0.1] -c [3000x3000x0x0,1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 ".
-			#" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t rigid[0.1] -c [3000x3000x0x0,1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 ". 
-			" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t affine[0.1] -c [3000x3000x0x0,1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 ".
-			" -u 1 -z 1 -o $out_prefix";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
-		`$atlas_mask_reg_command`;
-		}
-
-		if (! -e $new_mask) {
-		    my $apply_xform_command = "antsApplyTransforms --float -d 3 -i $atlas_mask -o $new_mask -t [${temp_out_file}, 1] -r $current_norm_mask -n NearestNeighbor";
-
-		    `$apply_xform_command`;
-		}
-		if (! -e $port_mask) {
-		    my $new_norm_command = "ImageMath 3 $port_mask Normalize $new_mask";
-		    `$new_norm_command`;
+		if ( ( (! $port_atlas_mask)) || (($port_atlas_mask) && (! -e $ported_mask)) ) {
+		    my $nifti_args ="\'$current_file\', $dim_divisor, $mask_threshold, \'$mask_path\',$num_morphs , $morph_radius,$status_display_level";
+		    my $nifti_command = make_matlab_command('strip_mask',$nifti_args,"${runno}_${template_contrast}_",$Hf,0); # 'center_nii'
+		    execute(1, "Creating mask for $runno using ${template_contrast} channel", $nifti_command);
 		}
 	    }
-	    
 	}
     }
 
+    if ($port_atlas_mask) {
+	my $atlas_mask =$Hf->get_value('port_atlas_mask_path') ;
+	foreach my $runno (@array_of_runnos) {
+	    my $go = $make_hash{$runno};
+	    if ($go){		
+		my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
+		if (data_double_check($ported_mask)) {
+		    ($job) = port_atlas_mask_vbm($runno,$atlas_mask,$ported_mask);
+		    if ($job > 1) {
+			push(@jobs,$job);
+		    }
+		}
+		$mask_hash{$runno} = $ported_mask;
+	    }
+	}
+	
+	if (cluster_check() && ($#jobs != -1)) {
+	    my $interval = 2;
+	    my $verbose = 1;
+	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+	    
+	    if ($done_waiting) {
+		print STDOUT  "  All port_atlas_mask jobs have completed; moving on to next step.\n";
+	    }
+	}
+    }
 
 ## Apply masks to all images in each runno set.
     foreach my $runno (@array_of_runnos) {
@@ -198,17 +193,80 @@ sub mask_images_Output_check {
     return($file_array_ref,$error_msg);
 }
 
+# ------------------
+sub port_atlas_mask_vbm {
+# ------------------
+    my ($runno,$atlas_mask,$port_mask) = @_;
+
+    my $input_mask = $mask_hash{$runno};
+    my $new_mask = $mask_dir.'/'.$runno.'_atlas_mask.nii';
+    
+    my $current_norm_mask = "${mask_dir}/${runno}_norm_mask.nii";
+    my $out_prefix = $mask_dir.'/'.$runno."_mask_";
+   # my $port_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
+    my $temp_out_file = $out_prefix."0GenericAffine.mat";
+    my ($cmd,$norm_command,$atlas_mask_reg_command,$apply_xform_command,$new_norm_command,$cleanup_command);
+
+    $new_norm_command = "ImageMath 3 $port_mask Normalize $new_mask;\n";
+    $cleanup_command=$cleanup_command."if [ -e \"${port_mask}\" ]\nthen\n\tif [ -e \"${new_mask}\" ]\n\tthen\n\t\trm ${new_mask};\n";
+    
+    if (! -e $new_mask) {
+	$apply_xform_command = "antsApplyTransforms --float -d 3 -i $atlas_mask -o $new_mask -t [${temp_out_file}, 1] -r $current_norm_mask -n NearestNeighbor;\n";
+	$cleanup_command=$cleanup_command."\t\tif [ -e \"${temp_out_file}\" ]\n\t\tthen\n\t\t\trm ${temp_out_file};\n";
+	
+	if (! -e $temp_out_file) {
+	    $atlas_mask_reg_command = "antsRegistration -d 3 -r [$atlas_mask,$current_norm_mask,1] ".
+		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t affine[0.1] -c [3000x3000x0x0,1.e-8,20] ". 
+		" -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 -u 1 -z 1 -o $out_prefix;\n";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
+	
+	    $cleanup_command=$cleanup_command."\t\t\tif [ -e \"${current_norm_mask}\" ]\n\t\t\tthen\n\t\t\t\trm ${current_norm_mask};\n\t\t\tfi\n";
+	    if (! -e $current_norm_mask) {
+		$norm_command = "ImageMath 3 $current_norm_mask Normalize $input_mask;\n";
+	    }	    
+	    }
+	$cleanup_command=$cleanup_command."\t\tfi\n";
+    }
+    $cleanup_command=$cleanup_command."\tfi\nfi\n";
+    
+    $cmd = $norm_command.$atlas_mask_reg_command.$apply_xform_command.$new_norm_command.$cleanup_command;
+    my @cmds =  ($norm_command,$atlas_mask_reg_command,$apply_xform_command,$new_norm_command,$cleanup_command);
+    my $go_message =  "$PM: Creating port atlas mask for ${runno}\n";
+    my $stop_message = "$PM: Unable to create port atas mask for ${runno}:  $cmd\n";
+    
+    my $jid = 0;
+    if (cluster_check) {
+	my ($dummy1,$home_path,$dummy2) = fileparts($port_mask);
+	my $Id= "${runno}_create_port_atlas_mask";
+	my $verbose = 2; # Will print log only for work done.
+	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose);     
+	if (! $jid) {
+	    error_out($stop_message);
+	}
+    } else {
+	if (! execute($go, $go_message, @cmds) ) {
+	    error_out($stop_message);
+	}
+    }
+
+    if (data_double_check($port_mask)  && ($jid == 0)) {
+	error_out("$PM: could not properly create port atlas mask: ${port_mask}");
+	print "** $PM: port atlas mask created ${port_mask}\n";
+    }
+    return($jid);
+}
+
+
 
 # ------------------
 sub mask_one_image {
 # ------------------
     my ($runno,$ch) = @_;
     my $runno_mask;
-    if ($port_atlas_mask) {
-	$runno_mask=$mask_dir.'/'.$runno.'_port_mask.nii';
-    } else {
+#    if ($port_atlas_mask) {
+#	$runno_mask=$mask_dir.'/'.$runno.'_port_mask.nii';
+#    } else {
 	$runno_mask = $mask_hash{$runno};
-    }
+#    }
     my $out_path = "${current_path}/${runno}_${ch}_masked.nii";
     my $centered_path = get_nii_from_inputs($current_path,$runno,$ch);
     my $apply_cmd =  "ImageMath 3 ${out_path} m ${centered_path} ${runno_mask};\n";

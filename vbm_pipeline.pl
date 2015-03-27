@@ -100,8 +100,9 @@ $reference_path
 $create_labels
 $label_space
 $label_reference
-$label_reference_path
  );
+
+# $label_reference_path
 
 study_variables_vbm();
 
@@ -153,7 +154,7 @@ my $complete_comma_list = $control_comma_list.','.$compare_comma_list;
 my $channel_comma_list = join(',',@channel_array);
 
 $Hf->set_value('vbm_reference_space',$vbm_reference_space);
-$Hf->set_value('label_reference',$label_reference);
+$Hf->set_value('label_reference_space',$label_reference);
 
 $Hf->set_value('control_comma_list',$control_comma_list);
 $Hf->set_value('compare_comma_list',$compare_comma_list);

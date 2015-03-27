@@ -21,7 +21,7 @@ require civm_simple_util;
 
 my ($inputs_dir,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
 my (%reference_space_hash,%reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
-my ($rigid_name,$rigid_dir,$rigid_ext,$new_rigid_path);
+my ($rigid_name,$rigid_dir,$rigid_ext,$new_rigid_path,$native_ref_name);
 my ($process_dir_for_labels);
 my ($log_msg);
 my $split_string = ",,,";
@@ -80,9 +80,10 @@ sub set_reference_space_Output_check {
 # ------------------
      my ($case) = @_;
      my $full_error_msg;
-     my @file_array;
+ 
  
      foreach my $V_or_L (@spaces) {
+	 my @file_array;
 	 my $message_prefix ='';  
 	 @file_array=();
 	 my $work_folder = $refspace_folder_hash{$V_or_L};
@@ -103,9 +104,9 @@ sub set_reference_space_Output_check {
 
 	 my $existing_files_message = '';
 	 my $missing_files_message = '';
-	 print "$PM: Checking ${V_or_L} folder...";
-	 opendir(DIR, $preprocess_dir);
-	 my @input_files = grep(/(\.nii)+(\.gz)*$/ ,readdir(DIR));
+	# print "$PM: Checking ${V_or_L} folder...";
+	# opendir(DIR, $preprocess_dir);
+	# my @input_files = grep(/(\.nii)+(\.gz)*$/ ,readdir(DIR));
 	 my @files_to_check;
 
 	 if ($case == 1) {
@@ -297,6 +298,17 @@ sub set_reference_space_vbm_Init_check {
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
 
+    $preprocess_dir = $Hf->get_value('preprocess_dir');
+    $inputs_dir = $Hf->get_value('inputs_dir');
+
+    if (! -e $preprocess_dir ) {
+	    mkdir ($preprocess_dir,$permissions);
+    }
+
+    if (! -e $inputs_dir ) {
+	    mkdir ($inputs_dir,$permissions);
+    }
+
     my $create_labels= $Hf->get_value('create_labels');
     my $do_mask= $Hf->get_value('do_mask');
     
@@ -306,6 +318,9 @@ sub set_reference_space_vbm_Init_check {
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_contrast = $Hf->get_value('rigid_contrast'); 
     $runno_list= $Hf->get_value('complete_comma_list');
+
+    $refspace_folder_hash{'vbm'} = $inputs_dir;
+
     
     ($refspace_hash{'existing_vbm'},$refname_hash{'existing_vbm'})=read_refspace_txt($inputs_dir,$split_string);
     
@@ -325,7 +340,7 @@ sub set_reference_space_vbm_Init_check {
 	    $log_msg=$log_msg."\tNo label reference space specified.  Will inherit from VBM reference space.\n";
 	    $reference_space_hash{'label'}=$reference_space_hash{'vbm'};
 	    $process_dir_for_labels = 0;
-	    $label_image_inputs_dir = $inputs_dir;	   
+	    $refspace_folder_hash{'label'} = $inputs_dir;	   
 	} 
     }
 
@@ -406,13 +421,13 @@ sub set_reference_space_vbm_Init_check {
 	    $current_folder =  "${intermediary_path}/ref_$i";
 	    if (! -e $current_folder) {
 		$existence = 0;
-		$label_image_inputs_dir = $current_folder;
-		$log_msg=$log_msg."\tCreating new base images folder for label space \"ref_$i\": ${label_image_inputs_dir}\n";
+		$refspace_folder_hash{'label'} = $current_folder;
+		$log_msg=$log_msg."\tCreating new base images folder for label space \"ref_$i\": ${refspace_folder_hash{'label'}}\n";
 	    } else {
 		($refspace_hash{'existing_label'},$refname_hash{'existing_label'})= read_refspace_txt($current_folder,$split_string);
 		if ($refspace_hash{'label'} eq $refspace_hash{'existing_label'}) {
 		    $existence = 0;
-		    $label_image_inputs_dir = $current_folder;
+		    $refspace_folder_hash{'label'} = $current_folder;
 		    if ($refname_hash{'label'} ne $refname_hash{'existing_label'}) {
 			$log_msg=$log_msg."\tThe specified label reference space is identical to the existing label reference space.".
 			    " Existing label reference string will be used.\n".
@@ -426,10 +441,28 @@ sub set_reference_space_vbm_Init_check {
 	
     }
 
-    $Hf->set_value('label_refspace_path',$label_image_inputs_dir);
+    foreach my $V_or_L (@spaces) {
+	my $native_ref_file = "${preprocess_dir}/${native_ref_name}";
+	if ($refname_hash{$V_or_L} eq "native") {
+	    my $local_ref_file = "${refspace_folder_hash{${V_or_L}}}/${native_ref_name}";
+	    print "Native ref file = ${native_ref_file}\n";
+	    print "Local ref file = ${local_ref_file}\n";
+	    `cp ${native_ref_file} ${local_ref_file}`;
+	    $reference_path_hash{$V_or_L} = $local_ref_file;
+	}
+    }
+    
+    $Hf->set_value('vbm_refspace_folder',$refspace_folder_hash{'vbm'});
+    $Hf->set_value("vbm_reference_path",$reference_path_hash{'vbm'});
 
-    if (($create_labels==1) && ($process_dir_for_labels)) {
-	$Hf->set_value("label_reference_path",$reference_path_hash{'vbm'});
+
+    if ($create_labels==1){ 
+	$Hf->set_value('label_refspace_folder',$refspace_folder_hash{'label'});
+	if ($process_dir_for_labels) {
+	    $Hf->set_value('label_reference_path',$reference_path_hash{'label'});
+	} else {
+	    $Hf->set_value("label_reference_path",$reference_path_hash{'vbm'});
+	} 
     }
 
     
@@ -497,11 +530,11 @@ sub set_reference_path_vbm {
 #---------------------
     my ($ref_option,$for_labels) = @_;
     my $ref_string; 
-#    $inputs_dir = $Hf->get_value('inputs_dir');
+    $inputs_dir = $Hf->get_value('inputs_dir');
     my $ref_path;
     my $error_message;
     
-    my $which_space='VBM';
+    my $which_space='vbm';
     if ($for_labels) {$which_space = 'label';}
     
     if (! data_double_check($ref_option)) {
@@ -531,15 +564,15 @@ sub set_reference_path_vbm {
     
     if (-d $atlas_dir_perhaps) {
 	$log_msg=$log_msg."\tThe ${which_space} reference space will be inherited from the ${ref_option} atlas.\n";
-	$ref_path = get_nii_from_inputs($atlas_dir_perhaps,$ref_option,'nii');
-	if (data_double_check($ref_path)){
+	$ref_path = get_nii_from_inputs($atlas_dir_perhaps,$ref_option,"${rigid_contrast}.nii");
+	if (($ref_path =~ /[\n]+/) || (data_double_check($ref_path))) {
 	    $error_message = $error_message.$ref_path;
 	}
 	$ref_string="a_${ref_option}";
 	$log_msg=$log_msg."\tThe full ${which_space} reference path is ${ref_path}\n";
     } else {
 	my $ref_runno;
-	my $preprocess_dir = $Hf->get_value('preprocess_dir');
+	 my $preprocess_dir = $Hf->get_value('preprocess_dir');
 	if ($runno_list =~ /[,]*${ref_option}[,]*/ ) {
 	    $ref_runno=$ref_option;
 	} else {
@@ -547,21 +580,19 @@ sub set_reference_path_vbm {
 	    $ref_runno = shift(@control_runnos);
 	}
 	print " Ref_runno = ${ref_runno}\n";
-	$ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,$rigid_contrast);
+	$ref_path = get_nii_from_inputs($preprocess_dir,"native_reference",$ref_runno);
 	$ref_string="native";
-
-
-	
+	$native_ref_name = "native_reference_${ref_runno}.nii";	
 	if ($ref_path =~ /[\n]+/) {
 	    my $pristine_dir = $Hf->get_value('pristine_input_dir');
 	    my $file =  get_nii_from_inputs($pristine_dir,$ref_runno,$rigid_contrast);
 
-	    if (! data_double_check($file)) {
+	    if (($file !~ /[\n]+/) || (! data_double_check($file))) {
 		if (! -e  $preprocess_dir) {
 		    mkdir ( $preprocess_dir,$permissions);
 		}
 		print "\$preprocess_dir = ${preprocess_dir}\n";
-		my $new_file = "${pristine_dir}/${ref_runno}_${rigid_contrast}.nii";
+		my $new_file = "${preprocess_dir}/native_reference_${ref_runno}.nii";
 		`ln -s $file $new_file`;
 		my $skip = 0;
 		recenter_nii_function($new_file,$preprocess_dir,$skip,$Hf);
@@ -601,7 +632,7 @@ sub set_reference_space_vbm_Runtime_check {
     }
 
     $process_dir_for_labels = $Hf->get_value('base_images_for_labels');
-    $refspace_folder_hash{'vbm'} = $inputs_dir;
+    $refspace_folder_hash{'vbm'} = $Hf->get_value('vbm_refspace_folder');
     $refspace_folder_hash{'label'} = $Hf->get_value('label_refspace_folder');
     
     my $intermediary_path = "${inputs_dir}/reffed_for_labels";

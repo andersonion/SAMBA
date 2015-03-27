@@ -62,7 +62,7 @@ sub study_variables_vbm {
     $vbm_reference_space = "native";# "native"; # Options: "native", "<atlas_name>","<full path to an arbitrary image>"
     # $vbm_reference_space = "/home/rja20/cluster_code/data/atlas/DTI_dwi_55.nii";
     
-    $create_labels = 1; ### CHANGE BACK TO ONE
+    $create_labels = 1;
     $label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine". 
     # Note: pre_affine/post_rigid is not available with $combined_rigid_and_affine =1 & $old_ants = 1.
     $port_atlas_mask =0; # This is just setting the default.
@@ -233,7 +233,7 @@ sub study_variables_vbm {
     {
 	$project_name = "13.colton.01";
 	$custom_predictor_string = "nos2_vs_cvn";
-	$optional_suffix = 'aTest2';
+	$optional_suffix = 'aTest5';
 	$syn_params = "0.5,3,1";
 	$combined_rigid_and_affine = 1; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
@@ -241,10 +241,11 @@ sub study_variables_vbm {
 	$label_space = "pre_affine";
 
 	if ($test_mode) {
-	    @control_group = qw(N51386 N51211 N51221 N51406);
-	    @compare_group = qw(N51136 N51201 N51234 N51392);
-	    @channel_array = qw(dwi e2 fa);
-	    $affine_target = 'N51406';
+	    @control_group = qw(N51386 N51211 N51221);# N51406);
+	    @compare_group = qw(N51136 N51201);# N51234 N51392);
+	    @channel_array = qw(dwi fa);
+	    $affine_target = 'N51211';
+	    $label_reference = "DTI101b";
 	} else {
 	    @control_group = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406); #N51193-exclude N51404,N51383,N51386-manually z-roll and recalc tensors
 	    @compare_group = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388);
