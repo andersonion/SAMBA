@@ -327,8 +327,8 @@ sub set_reference_space_vbm_Init_check {
     
     $reference_space_hash{'vbm'}=$Hf->get_value('vbm_reference_space');
     $reference_space_hash{'label'}=$Hf->get_value('label_reference_space');     
-    
-    if ((! defined $reference_space_hash{'vbm'}) || ($reference_space_hash{'vbm'} eq 'NO_KEY')) {
+
+    if ((! defined $reference_space_hash{'vbm'}) || ($reference_space_hash{'vbm'} eq ('NO_KEY' || ''))) {
 	$log_msg=$log_msg."\tNo VBM reference space specified.  Will use native image space.\n";
 	$reference_space_hash{'vbm'} = 'native';
     }
@@ -337,12 +337,16 @@ sub set_reference_space_vbm_Init_check {
     $process_dir_for_labels =0;
     if ($create_labels == 1) {
 	$process_dir_for_labels = 1;
-	if ((! defined $reference_space_hash{'label'}) || ($reference_space_hash{'label'} eq 'NO_KEY')) {
+
+	if ((! defined $reference_space_hash{'label'}) || ($reference_space_hash{'label'} eq (('NO_KEY') || ('') || ($reference_space_hash{'vbm'})))) {
+	    
 	    $log_msg=$log_msg."\tNo label reference space specified.  Will inherit from VBM reference space.\n";
 	    $reference_space_hash{'label'}=$reference_space_hash{'vbm'};
+	    $Hf->set_value('label_reference_space',$reference_space_hash{'label'});
 	    $process_dir_for_labels = 0;
 	    $refspace_folder_hash{'label'} = $inputs_dir;	   
 	} 
+
     }
 
     $Hf->set_value('base_images_for_labels',$process_dir_for_labels);    
@@ -446,16 +450,29 @@ sub set_reference_space_vbm_Init_check {
 	
     }
 
-    foreach my $V_or_L (@spaces) {
-	my $native_ref_file = "${preprocess_dir}/${native_ref_name}";
-	if ($refname_hash{$V_or_L} eq "native") {
-	    my $local_ref_file = "${refspace_folder_hash{${V_or_L}}}/${native_ref_name}";
-	    print "Native ref file = ${native_ref_file}\n";
-	    print "Local ref file = ${local_ref_file}\n";
-	    `cp ${native_ref_file} ${local_ref_file}`;
-	    $reference_path_hash{$V_or_L} = $local_ref_file;
-	}
+
+
+    my $native_ref_file = "${preprocess_dir}/${native_ref_name}";
+    my $local_ref_file;
+    if ($refname_hash{'vbm'} eq "native") {
+	$local_ref_file = "${refspace_folder_hash{'vbm'}}/${native_ref_name}";
+	# log_info( "Native ref file = ${native_ref_file}"); # Most of this info is logged in aggregrate anyways...
+	# log_info("Local vbm ref file = ${local_ref_file}");
+	`cp ${native_ref_file} ${local_ref_file}`;
+	$reference_path_hash{'vbm'} = $local_ref_file;
     }
+    
+    
+    if ($refname_hash{'label'} eq "native") {
+	if ($refname_hash{'vbm'} ne "native") {
+	    $local_ref_file = "${refspace_folder_hash{'label'}}/${native_ref_name}";
+	    `cp ${native_ref_file} ${local_ref_file}`;
+	  #  log_info( "Native ref file = ${native_ref_file}");
+	}
+	$reference_path_hash{'label'} = $local_ref_file;
+	# log_info("Local label ref file = ${local_ref_file}");	
+    }
+    
     
     $Hf->set_value('vbm_refspace_folder',$refspace_folder_hash{'vbm'});
     $Hf->set_value("vbm_reference_path",$reference_path_hash{'vbm'});
@@ -588,9 +605,9 @@ sub set_reference_path_vbm {
 	$ref_path = get_nii_from_inputs($preprocess_dir,"native_reference",$ref_runno);
 	$ref_string="native";
 	$native_ref_name = "native_reference_${ref_runno}.nii";	
-	print "\$ref path = ${ref_path}\n";
+	# print "\$ref path = ${ref_path}\n";
 	if ($ref_path =~ /[\n]+/) {
-	    print "Apparently ref path does not exist : ${ref_path}\n";
+	   # print "Apparently ref path does not exist : ${ref_path}\n";
 	    my $pristine_dir = $Hf->get_value('pristine_input_dir');
 	    my $file =  get_nii_from_inputs($pristine_dir,$ref_runno,$rigid_contrast);
 
@@ -598,7 +615,7 @@ sub set_reference_path_vbm {
 		if (! -e  $preprocess_dir) {
 		    mkdir ( $preprocess_dir,$permissions);
 		}
-		print "\$preprocess_dir = ${preprocess_dir}\n";
+		# print "\$preprocess_dir = ${preprocess_dir}\n";
 		my $new_file = "${preprocess_dir}/native_reference_${ref_runno}.nii";
 		`cp $file $new_file`;
 		my $skip = 0;
