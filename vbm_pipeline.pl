@@ -143,7 +143,9 @@ my $complete_comma_list = $control_comma_list.','.$compare_comma_list;
 my $channel_comma_list = join(',',@channel_array);
 
 $Hf->set_value('vbm_reference_space',$vbm_reference_space);
-$Hf->set_value('label_reference_space',$label_reference);
+if ($label_reference ne '') {
+    $Hf->set_value('label_reference_space',$label_reference);
+}
 
 $Hf->set_value('control_comma_list',$control_comma_list);
 $Hf->set_value('compare_comma_list',$compare_comma_list);
@@ -430,9 +432,9 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 #    sleep($interval);
 
 # Remerge before ending pipeline
-
+    
     my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
-    if (cluster_check() && ($MDT_to_atlas_JobID ne 'NO_KEY')) {
+    if (cluster_check() && ($MDT_to_atlas_JobID ne ('NO_KEY' ||'UNDEFINED_VALUE' ))) {
     	my $interval = 15;
     	my $verbose = 1;
     	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$MDT_to_atlas_JobID);
@@ -440,14 +442,14 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     	if ($done_waiting) {
     	    print STDOUT  " Diffeomorphic registration from MDT to label atlas ${label_atlas_name} job has completed; moving on to next serial step.\n";
     	}
+	my $case = 2;
+	my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
+	
+	if ($error_message ne '') {
+	    error_out("${error_message}",0);
+	}
     }
-    my $case = 2;
-    my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
-
-    if ($error_message ne '') {
-    	error_out("${error_message}",0);
-    }
-
+    
     warp_atlas_labels_vbm('MDT');
     sleep($interval);
 
