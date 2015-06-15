@@ -21,12 +21,14 @@ require pipeline_utilities;
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path);
-my ($diffsyn_iter,$syn_param,$downsampling,$sigmas);
+my ($diffsyn_iter,$syn_param,$downsampling,$sigmas,$diffeo_metric);
 my ($label_path);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
 my $job;
+my ($log_msg);
+
 
 my($warp_suffix,$inverse_suffix,$affine_suffix,$label_atlas);
 if (! $intermediate_affine) {
@@ -182,7 +184,7 @@ sub mdt_reg_to_atlas {
     if ($mdt_contrast_2 ne '') {
 	$fixed_2 = $Hf->get_value('label_atlas_path_2'); 
 	$moving_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii";
-	$second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
+	$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,4] ";
     }
     my ($r_string);
 
@@ -198,7 +200,7 @@ sub mdt_reg_to_atlas {
 	$r_string = '';
     }
     
-    $pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
+    $pairwise_cmd = "antsRegistration -d 3 -m ${diffeo_metric}[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
 	"  -c [ ${diffsyn_iter},1.e-8,20] -f $downsampling -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n";
 
     
@@ -242,8 +244,44 @@ sub mdt_reg_to_atlas {
 # ------------------
 sub mdt_reg_to_atlas_vbm_Init_check {
 # ------------------
+    my $init_error_msg='';
+    my $message_prefix="$PM initialization check:\n";
 
-    return('');
+    $diffeo_metric = $Hf->get_value('diffeomorphic_metric');
+    my @valid_metrics = ('CC','MI','Mattes','MeanSquares','Demons','GC');
+    my $valid_metrics = join(', ',@valid_metrics);
+    my $metric_flag = 0;
+
+    if ($diffeo_metric eq ('' || 'NO_KEY')) {
+	$diffeo_metric = 'CC';
+	$metric_flag = 1;
+	$log_msg = $log_msg."\tNo ants metric specified for diffeomorphic registration of compare group to MDT. Will use default: \"${diffeo_metric}\".\n";
+    } else {
+	foreach my $metric (@valid_metrics) {
+	    if ($diffeo_metric =~ /^$metric\Z/i) { # This should be able to catch any capitalization variation and correct it.
+		$diffeo_metric = $metric;
+		$metric_flag = 1;
+	    }
+	}
+    }
+
+    if ($metric_flag) {
+	$log_msg=$log_msg."\tUsing ants metric \"${diffeo_metric}\" for diffeomorphic label registration.\n";
+    } else {
+	$init_error_msg=$init_error_msg."Invalid ants metric requested for diffeomorphic label registration \"${diffeo_metric}\" is invalid.\n".
+	    "\tValid metrics are: ${valid_metrics}\n";
+    }
+
+    if ($log_msg ne '') {
+	log_info("${message_prefix}${log_msg}");
+    }
+
+    if ($init_error_msg ne '') {
+	$init_error_msg = $message_prefix.$init_error_msg;
+    }
+
+    return($init_error_msg);
+
 }
 # ------------------
 sub mdt_reg_to_atlas_vbm_Runtime_check {
@@ -256,6 +294,7 @@ sub mdt_reg_to_atlas_vbm_Runtime_check {
     $sigmas = $Hf->get_value('smoothing_sigmas');
     $syn_param = 0.5;
    
+    $diffeo_metric = $Hf->get_value('diffeomorphic_metric');
 
     $work_path = $Hf->get_value('regional_stats_dir');
     $label_path=$Hf->get_value('labels_dir');

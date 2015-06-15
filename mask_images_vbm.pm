@@ -216,6 +216,8 @@ sub port_atlas_mask_vbm {
 	
 	if (! -e $temp_out_file) {
 	    $atlas_mask_reg_command = "antsRegistration -d 3 -r [$atlas_mask,$current_norm_mask,1] ".
+#		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t translation[0.1] -c [3000x3000x0x0,1.e-8,20] ".
+#		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t rigid[0.1] -c [3000x3000x0x0,1.e-8,20] ".
 		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t affine[0.1] -c [3000x3000x0x0,1.e-8,20] ". 
 		" -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 -u 1 -z 1 -o $out_prefix;\n";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
 	
@@ -228,7 +230,7 @@ sub port_atlas_mask_vbm {
     }
     $cleanup_command=$cleanup_command."\tfi\nfi\n";
     
-    $cmd = $norm_command.$atlas_mask_reg_command.$apply_xform_command.$new_norm_command.$cleanup_command;
+    $cmd = $norm_command.$atlas_mask_reg_command.$apply_xform_command.$new_norm_command;#.$cleanup_command;
     my @cmds =  ($norm_command,$atlas_mask_reg_command,$apply_xform_command,$new_norm_command,$cleanup_command);
     my $go_message =  "$PM: Creating port atlas mask for ${runno}\n";
     my $stop_message = "$PM: Unable to create port atas mask for ${runno}:  $cmd\n";
@@ -279,7 +281,7 @@ sub mask_one_image {
     if (cluster_check) {
 
     
-	my $cmd = $apply_cmd.$remove_cmd;
+	my $cmd = $apply_cmd;#.$remove_cmd; TEMPORARY--used for tweaking Colton in vivo masks--re-add remove.cmd ASAP
 	
 	my $home_path = $current_path;
 	my $Id= "${runno}_${ch}_apply_${template_contrast}_mask";

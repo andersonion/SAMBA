@@ -30,7 +30,7 @@ my (%go_hash);
 my $go = 1;
 my $job;
 my $current_checkpoint = 1; # Bound to change! Change here!
-
+my $number_of_controls;
 # my @parents = qw(pairwise_reg_vbm);
 # my @children = qw (apply_mdt_warps_vbm);
 
@@ -45,8 +45,13 @@ sub calculate_mdt_warps_vbm {  # Main code
     foreach my $runno (@array_of_runnos) {
 	$go = $go_hash{$runno};
 	if ($go) {
-	    ($job,$xform_path) = calculate_average_mdt_warp($runno,$direction);
+	    if ($number_of_controls == 1) {
 
+	    } elsif ($number_of_controls == 2) {
+
+	    } else {
+		($job,$xform_path) = calculate_average_mdt_warp($runno,$direction);
+	    }
 	    if ($job > 1) {
 		push(@jobs,$job);
 	    }
@@ -168,18 +173,24 @@ sub calculate_average_mdt_warp {
 	$out_file = "${current_path}/MDT_to_${runno}_warp.nii";
 	$dir_string = 'inverse';
     }
- 
-    $cmd =" AverageImages 3 ${out_file} 0";
-    foreach my $other_runno (@sorted_runnos) {
-	if ($direction eq 'f') {
-	    $moving = $runno;
-	    $fixed = $other_runno;
-	} else {
-	    $moving = $other_runno;
-	    $fixed = $runno;
-	}
-	if ($fixed ne $moving) {
-	    $cmd = $cmd." ${pairwise_path}/${moving}_to_${fixed}_warp.nii.gz";
+    if ($number_of_controls == 1) {
+	error_out("$PM: Using only one image to create an MDT is currently not supported. However it is hoped to be in the near future.");
+    } else {
+	#if ($number_of_controls == 2) {
+	#    $cmd = " ImageMath 3 ${out_file} / ;"##  Not sure what the right answer is here!
+	#                                        ## Divide by 2? Average of forward and inverse? Etc. Will use $cmd=$cmd.[...] bit below I think
+	$cmd =" AverageImages 3 ${out_file} 0";
+	foreach my $other_runno (@sorted_runnos) {
+	    if ($direction eq 'f') {
+		$moving = $runno;
+		$fixed = $other_runno;
+	    } else {
+		$moving = $other_runno;
+		$fixed = $runno;
+	    }
+	    if ($fixed ne $moving) {
+		$cmd = $cmd." ${pairwise_path}/${moving}_to_${fixed}_warp.nii.gz";
+	    }
 	}
     }
 
@@ -242,7 +253,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
     }
     
     $write_path_for_Hf = "${current_path}/${predictor_id}_temp.headfile";
-
+print "Should run checkpoint here!\n\n";
     my $checkpoint = $Hf->get_value('last_headfile_checkpoint'); # For now, this is the first checkpoint, but that will probably evolve.
     my $previous_checkpoint = $current_checkpoint - 1;
     if (1) {  ####### if (0) is only a temporary measure!!!
@@ -304,6 +315,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
     $runlist = $Hf->get_value('control_comma_list');
     @array_of_runnos = split(',',$runlist);
     @sorted_runnos=sort(@array_of_runnos);
+    $number_of_controls = $#sorted_runnos + 1;
 #
 
     my $case = 1;

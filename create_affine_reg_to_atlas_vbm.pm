@@ -28,6 +28,7 @@ my $job;
 my ($do_rigid,$affine_target,$q_string,$r_string,$other_xform_suffix,$mdt_to_atlas,$mdt_contrast_string,$mdt_contrast,$mdt_contrast_2,$mdt_path);
 my $ants_affine_suffix = "0GenericAffine.mat";
 my $mem_request;
+my $log_msg;
 
 # ------------------
 sub create_affine_reg_to_atlas_vbm {  # Main code
@@ -181,7 +182,7 @@ sub create_affine_transform_vbm {
       $collapse = 1;
   } else {
       if (($xform_code ne 'rigid1') && (! $mdt_to_atlas)){
-	  $transform_path="${result_transform_path_base}2Affine.mat";
+	  $transform_path="${result_transform_path_base}1Affine.mat"; #2Affine.mat
       }
   }
   my ($q,$r);
@@ -226,7 +227,7 @@ sub create_affine_transform_vbm {
 	      " -u 1 -z 1 -l 1 -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";  # "-z 1" instead of "-z $collapse", as we want rigid + affine together in this case.
 
       } else {	  
-	  $cmd = "antsRegistration -d 3 -r [$atlas_path,$B_path,1] ".
+	  $cmd = "antsRegistration -d 3 ". #-r [$atlas_path,$B_path,1] ".
 	      " ${metric_1} ${metric_2} -t affine[0.1] -c [${affine_iter},1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 ".
 	      " $q $r ".
 	      "  -u 1 -z $collapse -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
@@ -315,6 +316,46 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
     }
 
     $inputs_dir = $Hf->get_value('inputs_dir');
+
+
+    $affine_metric = $Hf->get_value('affine_metric');
+    my @valid_metrics = ('CC','MI','Mattes','MeanSquares','Demons','GC');
+    my $valid_metrics = join(', ',@valid_metrics);
+    my $metric_flag = 0;
+    if ($affine_metric eq ('' || 'NO_KEY')) {
+	$affine_metric = 'Mattes';
+	$metric_flag = 1;
+	$log_msg = $log_msg."\tNo ants metric specified for all rigid and/or affine registrations. Will use default: \"${affine_metric}\".\n";
+    } else {
+	foreach my $metric (@valid_metrics) {
+	    if ($affine_metric =~ /^$metric\Z/i) { # This should be able to catch any capitalization variation and correct it.
+		$affine_metric = $metric;
+		$metric_flag = 1;
+		$log_msg=$log_msg."\tUsing ants metric \"${affine_metric}\" for all rigid and/or affine registrations.\n";
+	    }
+	}
+    }
+    if (! $metric_flag) {
+	$init_error_msg=$init_error_msg."Invalid ants metric requested for all rigid and/or affine registrations \"${affine_metric}\".\n".
+	    "\tValid metrics are: ${valid_metrics}\n";
+    }
+    
+    my $affine_iter=$Hf->get_value('affine_iter'); ## Need to add test for valid iteration settings (also: consistent with number of levels?)
+    if ((defined $test_mode) && ($test_mode==1)) {
+	$affine_iter="1x0x0x0";
+	$log_msg = $log_msg."\tRunning in TEST MODE: using minimal affine iterations:  \"${affine_iter}\".\n";
+    } else {
+	if ($affine_iter eq ('' || 'NO_KEY')) {
+	    $affine_iter="3000x3000x0x0";
+	    $log_msg = $log_msg."\tNo affine iterations specified; using default values:  \"${affine_iter}\".\n";
+	}
+    }
+    $Hf->set_value('affine_iter',$affine_iter);
+    
+    if ($log_msg ne '') {
+	log_info("${message_prefix}${log_msg}");
+    }
+
  
    if ($init_error_msg ne '') {
 	$init_error_msg = $message_prefix.$init_error_msg;
@@ -325,8 +366,7 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 # ------------------
 sub create_affine_reg_to_atlas_vbm_Runtime_check {
 # ------------------
- 
-    $affine_iter="3000x3000x0x0";
+    $affine_iter = $Hf->get_value('affine_iter');
     
     if (defined $test_mode) {
 	if ($test_mode==1) {
@@ -334,7 +374,10 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 	}
     }
     $Hf->set_value('affine_iter',$affine_iter);
-    
+
+    $affine_metric = $Hf->get_value('affine_metric');
+
+  
     $inputs_dir = $Hf->get_value('inputs_dir');
     if ($mdt_to_atlas) {
 	$label_atlas = $Hf->get_value('label_atlas_name');

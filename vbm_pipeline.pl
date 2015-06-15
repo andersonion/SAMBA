@@ -28,10 +28,10 @@ my $ERROR_EXIT=$BADEXIT;
 $permissions = 0755;
 my $interval = 1;
 
-my $import_data = 0;
+my $import_data = 1;
 
 $intermediate_affine = 0;
-$test_mode = 1;
+$test_mode = 0;
 
 ($nodes) = @ARGV;
 
@@ -88,12 +88,16 @@ $threshold_code
 $pre_masked
 $do_mask
 $port_atlas_mask
+$port_atlas_mask_path
 $thresh_ref
+$diffeo_metric
 $syn_params
 $syn_iterations
 $diffeo_downsampling
 $affine_target
 $affine_contrast
+$affine_iter
+$affine_metric
 $native_reference_space
 $vbm_reference_space
 $reference_path
@@ -125,7 +129,7 @@ my ($pristine_input_dir,$work_dir,$result_dir,$result_headfile) = make_process_d
 
 ## Mini-kludge...until we can get a proper data importer in place...
 my $test_for_inputs = `ls ${pristine_input_dir}`;
-if ($test_for_inputs eq'') {
+if ($test_for_inputs eq '') {
     $import_data = 1;
 } 
 #  Mini-kludge
@@ -142,6 +146,8 @@ my $complete_comma_list = $control_comma_list.','.$compare_comma_list;
 
 my $channel_comma_list = join(',',@channel_array);
 
+$Hf->set_value('project_id',$project_id);
+
 $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 if ($label_reference ne '') {
     $Hf->set_value('label_reference_space',$label_reference);
@@ -153,10 +159,14 @@ $Hf->set_value('complete_comma_list',$complete_comma_list);
 $Hf->set_value('channel_comma_list',$channel_comma_list);
 
 if (($combined_rigid_and_affine eq '') || (! defined $combined_rigid_and_affine)) {
-    $combined_rigid_and_affine=1; # Temporary default--> will eventually always be set to "0"
+    $combined_rigid_and_affine=0; # Temporary default--> will eventually always be set to "0"
 }
 
 $Hf->set_value('combined_rigid_and_affine',$combined_rigid_and_affine);
+
+if (defined $affine_iter) {
+    $Hf->set_value('affine_iter',$affine_iter);
+}
 
 $Hf->set_value('rigid_atlas_name',$atlas_name);
 $Hf->set_value('rigid_contrast',$rigid_contrast);
@@ -180,7 +190,9 @@ $Hf->set_value('skull_strip_contrast',$skull_strip_contrast);
 $Hf->set_value('pre_masked',$pre_masked);
 $Hf->set_value('threshold_code',$threshold_code);
 $Hf->set_value('port_atlas_mask',$port_atlas_mask);
-
+if (defined $port_atlas_mask_path) {
+    $Hf->set_value('port_atlas_mask_path',$port_atlas_mask_path);
+}
 
 $Hf->set_value('rigid_transform_suffix','rigid.mat');
 
@@ -358,7 +370,7 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 
     set_reference_space_vbm();
     sleep($interval);
-
+   
 # Register all to atlas
     my $do_rigid = 1;   
     create_affine_reg_to_atlas_vbm($do_rigid);
@@ -381,7 +393,9 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 
     pairwise_reg_vbm("d");
     sleep($interval);
-    
+   
+    #die;####
+ 
     calculate_mdt_warps_vbm("f","diffeo");
     sleep($interval);
 
@@ -397,7 +411,7 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 
     mask_for_mdt_vbm();
     sleep($interval);
-
+ #die;###
     calculate_jacobians_vbm('i','control');
     sleep($interval);
 
@@ -433,35 +447,37 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 
 # Remerge before ending pipeline
     
-    my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
-    if (cluster_check() && ($MDT_to_atlas_JobID ne ('NO_KEY' ||'UNDEFINED_VALUE' ))) {
-    	my $interval = 15;
-    	my $verbose = 1;
-    	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$MDT_to_atlas_JobID);
-    	print " Waiting for Job ${MDT_to_atlas_JobID}\n";
-    	if ($done_waiting) {
-    	    print STDOUT  " Diffeomorphic registration from MDT to label atlas ${label_atlas_name} job has completed; moving on to next serial step.\n";
-    	}
-	my $case = 2;
-	my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
-	
-	if ($error_message ne '') {
-	    error_out("${error_message}",0);
+    if ($create_labels) {
+	my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
+	if (cluster_check() && ($MDT_to_atlas_JobID ne ('NO_KEY' ||'UNDEFINED_VALUE' ))) {
+	    my $interval = 15;
+	    my $verbose = 1;
+	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$MDT_to_atlas_JobID);
+	    print " Waiting for Job ${MDT_to_atlas_JobID}\n";
+	    if ($done_waiting) {
+		print STDOUT  " Diffeomorphic registration from MDT to label atlas ${label_atlas_name} job has completed; moving on to next serial step.\n";
+	    }
+	    my $case = 2;
+	    my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
+	    
+	    if ($error_message ne '') {
+		error_out("${error_message}",0);
+	    }
 	}
-    }
     
-    warp_atlas_labels_vbm('MDT');
-    sleep($interval);
+	warp_atlas_labels_vbm('MDT');
+	sleep($interval);
 
-    warp_atlas_labels_vbm();
-    sleep($interval);
+	warp_atlas_labels_vbm();
+	sleep($interval);
 
-    $group_name = "all";    
-    foreach my $a_contrast (@channel_array) {
-    	apply_mdt_warps_vbm($a_contrast,"f",$group_name);
-    }
-    sleep($interval);
-   
+	$group_name = "all";    
+	foreach my $a_contrast (@channel_array) {
+	    apply_mdt_warps_vbm($a_contrast,"f",$group_name);
+	}
+	sleep($interval);
+    }   
+
     my $new_contrast = calculate_jacobians_vbm('i','compare');
     push(@channel_array,$new_contrast);
     sleep($interval);

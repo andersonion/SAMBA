@@ -183,6 +183,7 @@ sub apply_mdt_warp {
 	    if ($label_space eq 'pre_rigid') {
 		$start=0;
 		$stop=0;
+		$option_letter = '';
 	    } elsif (($label_space eq 'pre_affine') ||($label_space eq 'post_rigid')) {
 		$start=3;
 		$stop=3;

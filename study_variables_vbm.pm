@@ -12,9 +12,13 @@ my $NAME = "In lieu of commandline functionality, here is the place to define va
 
 my $obrien = 0;
 my $obrien_invivo=0;
-my $colton = 1;
-my $mcnamara =0;
+my $colton = 0;
+my $colton_invivo = 0;
+my $mcnamara = 0;
 my $premont = 0;
+my $premont_ct = 0;
+my $dave = 0;
+my $bj = 1;
 
 
 use strict;
@@ -39,12 +43,16 @@ $skull_strip_contrast
 $threshold_code
 $do_mask
 $pre_masked
+$port_atlas_mask
+$port_atlas_mask_path
 $thresh_ref
 $syn_params
 $syn_iterations
 $diffeo_downsampling
 $affine_target
 $affine_contrast
+$affine_metric
+$diffeo_metric
 $native_reference_space
 $vbm_reference_space
 $create_labels
@@ -60,13 +68,12 @@ sub study_variables_vbm {
     $affine_target = "NO_KEY"; # If not specified, will follow default behaviour of selecting first listed control runno.
     $affine_contrast = "NO_KEY";
     $vbm_reference_space = "native";# "native"; # Options: "native", "<atlas_name>","<full path to an arbitrary image>"
-    # $vbm_reference_space = "/home/rja20/cluster_code/data/atlas/DTI_dwi_55.nii";
     
     $create_labels = 1;
     $label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine". 
     # Note: pre_affine/post_rigid is not available with $combined_rigid_and_affine =1 & $old_ants = 1.
     $port_atlas_mask =0; # This is just setting the default.
-    $combined_rigid_and_affine = 1; # Will eventually always be "0" (and hardcoded accordingly)
+    $combined_rigid_and_affine = 0; # Will eventually always be "0" (and hardcoded accordingly)
 ## Study variables for O'Brien
     if ($obrien) {
 	
@@ -74,7 +81,9 @@ sub study_variables_vbm {
 	$custom_predictor_string = "Control_vs_Reacher";
 	$syn_params = "0.5,3,1";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
-	$vbm_reference_space = "/glusterspace/VBM_14obrien01_DTI101b-work/preprocess/DTI101b_recentered_rereffed_dwi.nii";
+	$vbm_reference_space = "native";
+	$create_labels = 0;
+#	$label_space = "pre_affine";
 
 	@control_group = qw(
         controlSpring2013_4
@@ -130,16 +139,94 @@ sub study_variables_vbm {
         reacherLRWinter2012_8
         );
 
+
+	# @compare_group = qw(
+	#     BCS10
+	#     BCS11
+	#     BCS4
+	#     BCS7
+	#     BCS8
+	#     BCS9
+	#     BCU1
+	#     BCU7
+        #     BCW1
+        #     BCW4
+        #     BCW6
+        #     BCW9      
+	#     BRS1
+	#     BRS2
+	#     BRS3
+	#     BRS5
+	#     BRS6
+	#     BRU2
+	#     BRU3
+        #     BRU5
+        #     BRW3
+        #     BRW5
+        #     BRW7
+        #     BRW8
+	#     ICS10
+	#     ICS11
+	#     ICS4
+	#     ICS7
+	#     ICS8
+	#     ICS9
+	#     ICU1
+	#     ICU7
+        #     ICW1
+        #     ICW4
+        #     ICW6
+        #     ICW9
+	#     IRS1
+	#     IRS2
+	#     IRS3
+	#     IRS5
+	#     IRS6
+	#     IRU2
+	#     IRU3
+        #     IRU5
+        #     IRW3
+        #     IRW5
+        #     IRW7
+        #     IRW8
+	#     TCS10
+	#     TCS11
+	#     TCS4
+	#     TCS7
+	#     TCS8
+	#     TCS9
+	#     TCU1
+	#     TCU7
+	#     TRS1
+	#     TRS2
+	#     TRS3
+	#     TRS5
+	#     TRS6
+	#     TRU2
+	#     TRU3
+        #     TRU5
+        #     TCW1
+        #     TCW4
+        #     TCW6
+        #     TCW9
+        #     TRW3
+        #     TRW5
+        #     TRW7
+        #     TRW8
+        # );
+
 	@channel_array = qw(dwi fa adc); 
+#	@channel_array = qw(dwi fa);
+
 
 	$flip_x = 0;
 	$flip_z = 0;
 
-	$optional_suffix = 'v2';
+	$optional_suffix = 'SyN3and1';
 	$atlas_name = 'DTI101b';
 	$label_atlas_name = 'DTI101b';
 	$rigid_contrast = 'dwi';
-	$mdt_contrast = 'dwi'; #WAS fa
+	$mdt_contrast = 'fa'; #WAS fa
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
 	$do_mask = 0;
@@ -166,6 +253,10 @@ sub study_variables_vbm {
 	    BCS9
 	    BCU1
 	    BCU7
+            BCW1
+            BCW4
+            BCW6
+            BCW9      
         );
     
 	@compare_group = qw(
@@ -176,6 +267,11 @@ sub study_variables_vbm {
 	    BRS6
 	    BRU2
 	    BRU3
+            BRU5
+            BRW3
+            BRW5
+            BRW7
+            BRW8
 	    ICS10
 	    ICS11
 	    ICS4
@@ -184,6 +280,10 @@ sub study_variables_vbm {
 	    ICS9
 	    ICU1
 	    ICU7
+            ICW1
+            ICW4
+            ICW6
+            ICW9
 	    IRS1
 	    IRS2
 	    IRS3
@@ -191,6 +291,11 @@ sub study_variables_vbm {
 	    IRS6
 	    IRU2
 	    IRU3
+            IRU5
+            IRW3
+            IRW5
+            IRW7
+            IRW8
 	    TCS10
 	    TCS11
 	    TCS4
@@ -206,6 +311,15 @@ sub study_variables_vbm {
 	    TRS6
 	    TRU2
 	    TRU3
+            TRU5
+            TCW1
+            TCW4
+            TCW6
+            TCW9
+            TRW3
+            TRW5
+            TRW7
+            TRW8
         );
 
 	@channel_array = qw(T2star); 
@@ -245,7 +359,7 @@ sub study_variables_vbm {
 	    @compare_group = qw(N51136 N51201);# N51234 N51392);
 	    @channel_array = qw(dwi fa);
 	    $affine_target = 'N51211';
-	    $label_reference = "DTI101b";
+	    $label_reference = "";
 	} else {
 	    @control_group = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406); #N51193-exclude N51404,N51383,N51386-manually z-roll and recalc tensors
 	    @compare_group = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388);
@@ -301,30 +415,100 @@ sub study_variables_vbm {
 	    'N51620'   => 2853,
 	    'N51622'   => 3160,
 	};
+    }
+
+    elsif ($colton_invivo) 
+    
+### Study variables for Colton in vivo.
+    {
+	$project_name = "13.colton.01";
+	$custom_predictor_string = "nos2_vs_cvn";
+	$optional_suffix = 'invivo';
+	$syn_params = "0.5,3,0.5";
+	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+	$vbm_reference_space = "native";
+	$create_labels = 0;
+	$label_space = "pre_rigid";
+
+
+# @control_group = qw(B02335
+# B02492
+# B02494
+# B02497);
+
+	    @control_group = qw(B02335
+B02492
+B02494
+B02497
+B02499
+B02672
+B02674
+B02679
+B02681
+B02683
+B02741
+B02743
+B02804
+B02806
+B03234
+B03236
+B03238
+B03240
+B03242
+B03244); 
+	    @compare_group = qw(dummy); # Just so it doesn't bust...
+	    @channel_array = qw(T1);
+	   # $affine_target = 'N51383';
+		
+
+#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+    
+	$flip_x = 1;
+	$flip_z = 0;
+	
+	
+	$atlas_name = 'DTI'; #DTI
+	$label_atlas_name = 'DTI'; #DTI
+	$rigid_contrast = 'T1';
+	$affine_contrast = 'T1';
+	$mdt_contrast = 'T1';
+	$skull_strip_contrast = 'T1';
+	$threshold_code = 3;
+	$do_mask = 1;
+	$port_atlas_mask = 1;
+	$port_atlas_mask_path = '/glusterspace/VBM_13colton01_DTI_invivo-work/preprocess/masks/approx_atl_mask.nii';
+	$pre_masked = 0;
+ 
 	
     } elsif ($mcnamara) 
 
     {
 	$project_name = "13.mcnamara.02";
+#	$custom_predictor_string = "Control_vs_Phantoms";
 	$custom_predictor_string = "Control_vs_KA";
-	# $syn_params = ?;
-	$combined_rigid_and_affine = 1; # We want to eventually have this set to zero and remove this variable from the code.
+	$syn_params = "0.5,3,0.5";
+	$vbm_reference_space = "DTI101";
+	$combined_rigid_and_affine = 0; # Was 1 for January runs.  We want to eventually have this set to zero and remove this variable from the code.
+	$label_space = "pre_rigid"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
 
-	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-	@compare_group = qw(S64745 S64763 S64766 S64769 S64772 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974);# S65394 S65408 S65411 S65414);
+#	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974);# S65394 S65408 S65411 S65414);
+	@compare_group = qw(S64781);
+#	@compare_group = qw(S64745 S64763 S64766 S64769 S64772 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 	
 
-	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
-    
+#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+    	@channel_array = qw(dwi fa);
+
 	$flip_x = 0;
 	$flip_z = 0;
 	
-	$optional_suffix = 'dual_channel';
+	$optional_suffix = 'fa';
 	$atlas_name = 'DTI101';
 	$label_atlas_name = 'DTI101';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
-	$mdt_contrast = 'dwi_fa';
+	$mdt_contrast = 'fa';
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
 	$do_mask = 0;    
@@ -360,15 +544,254 @@ sub study_variables_vbm {
 	$threshold_code = 4;
 	$do_mask = 0;    
 	$pre_masked = 1;	
- }
+ }  elsif ($premont_ct)
+    
+ {
+     $project_name = "11.premont.01";
+     $custom_predictor_string = "WT_vs_KO";
+     $vbm_reference_space = "WT_111004_3"; #/glusterspace/VBM_11premont01_whs-work/base_images/N38709_T2star.nii.gz";
+     # $syn_params = ?;
+     $combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+     $create_labels = 0;
 
+     @control_group = qw(
+WT_110914_2
+WT_110921_2
+WT_110921_3
+WT_111004_3
+WT_111024_4
+WT_111215_4 );
+     @compare_group = qw(
+GIT1_110914_3 
+GIT1_110914_4
+GIT1_110921_4
+GIT1_111004_4
+GIT1_111004_5
+GIT1_111024_5);
+     
+     
+     @channel_array = qw(ct); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+    
+     $flip_x = 1;
+     $flip_z = 1;
+     
+     $optional_suffix = 'CT';
+     $atlas_name = 'AWHS';
+     $label_atlas_name = '';
+     $rigid_contrast = 'ct';
+     $affine_contrast = 'ct';
+     $mdt_contrast = 'ct';
+     $skull_strip_contrast = 'ct';
+     $threshold_code = 120;
+     $do_mask = 0;
+     $port_atlas_mask = 0;    
+     $pre_masked = 1;	
+ } elsif ($dave)
+    
+    {
+	$project_name = "12.provenzale.02";
+	$custom_predictor_string = "control_vs_diseased";
+	$vbm_reference_space = "native";
+	$syn_params = '0.6,3,1';
+	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+
+	@control_group = qw(S65469 S65519 S65531);
+	@compare_group = qw(S65445 S65542 S65545);
+	
+
+	@channel_array = qw(T2star); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+    
+	$flip_x = 0;
+	$flip_z = 0;
+	
+	$optional_suffix = '';
+	$atlas_name = 'whs';
+	$label_atlas_name = 'whs';
+	$rigid_contrast = 'T2star';
+	$affine_contrast = 'T2star';
+	$mdt_contrast = 'T2star';
+	$skull_strip_contrast = 'T2star';
+	$threshold_code = 4;
+	$do_mask = 0;
+	$port_atlas_mask = 0;    
+	$pre_masked = 1;	
+ }  elsif ($bj)
+    
+    {
+	$project_name = "15.rja.01";
+	$custom_predictor_string = "intra_specimen";
+	$vbm_reference_space = "native";
+	$syn_params = '0.5,3,1';
+	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+
+	my $specimen = 1;
+	if ($specimen == 1) {
+	@control_group = qw(
+S65813
+S65913
+S66013);
+	@compare_group = qw(
+S65613
+S65713
+S66113
+N51813
+N51814
+N52013
+N52014
+N52113
+N52613
+N52614
+N52813
+N52814
+);
+#	Excluded: N51913/N51914 ("presig: high" issue), N52114 (lost tuning during b0 scan)
+
+	} elsif ($specimen == 2) {
+	@control_group = qw(
+S65823
+S65923
+S66023);
+
+
+	@compare_group = qw(
+S65623
+S65624
+S65723
+S65724
+S65824
+S65924
+S66024
+S66123
+S66124
+N51823
+N52023
+N52123
+N52623
+);
+#	Excluded: N51923 ("presig: high"  issue), N52823 (large 180 artifact)
+
+	}  elsif ($specimen == 3) {
+	@control_group = qw(
+S65833
+S65933
+S66033);
+	@compare_group = qw(
+S65633
+S65733
+S66133
+N51833
+N51834
+N51933
+N51934
+N52033
+N52034
+N52133
+N52134
+N52633
+N52634
+N52833
+N52834
+);
+#	Excluded: None
+
+	} elsif ($specimen == 4) {
+	@control_group = qw(
+S65843
+S65943
+S66043);
+	@compare_group = qw(
+S65643
+S65644
+S65743
+S65744
+S65844
+S65944
+S66044
+S66143
+S66144
+N51843
+N51943
+N52043
+N52143
+N52643
+N52843
+);
+#	Excluded: None
+
+	} elsif ($specimen == 5) {
+	@control_group = qw(
+S65853
+S65953
+S66053);
+	@compare_group = qw(
+S65653
+S65753
+S66153
+N51853
+N51854
+N51953
+N51954
+N52053
+N52054
+N52153
+N52154
+N52653
+N52853
+N52854
+);
+#	Excluded: N52654 (lost tuning around b5)
+	} elsif ($specimen == 6) {
+	@control_group = qw(
+S65863
+S65963
+S66063);
+	@compare_group = qw(
+S65663
+S65664
+S65763
+S65764
+S65864
+S65964
+S66064
+S66163
+S66164
+N51863
+N51963
+N52063
+N52163
+N52663
+N52863
+);
+#	Excluded: None
+	}
+
+#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+    	@channel_array = qw(dwi fa);
+
+	$flip_x = 1;
+	$flip_z = 0;
+	
+
+	$optional_suffix = 'spec'.$specimen;
+	$atlas_name = 'DTI101b';
+	$label_atlas_name = 'DTI101b';
+	$rigid_contrast = 'dwi';
+	$affine_contrast = 'dwi';
+	$mdt_contrast = 'fa';
+	$skull_strip_contrast = 'dwi';
+	$threshold_code = 5500;
+	$do_mask = 1;	
+	$port_atlas_mask = 1;
+	$pre_masked = 0;
+ }
+    
 
 
 
     
 }
 
-sub load_study_data_vbm {
+sub  load_study_data_vbm {
 
 	my $bd = '/glusterspace'; #bd for Biggus-Diskus
 	my $preprocess_path = $Hf->get_value('preprocess_dir');

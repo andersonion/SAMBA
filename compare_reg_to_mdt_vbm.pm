@@ -21,12 +21,13 @@ require pipeline_utilities;
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my ($diffsyn_iter,$syn_param,$downsampling,$sigmas);
+my ($diffsyn_iter,$syn_param,$downsampling,$sigmas,$diffeo_metric);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
 my $job;
 my $mem_request;
+my $log_msg;
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
 if (! $intermediate_affine) {
@@ -273,8 +274,41 @@ sub reg_to_mdt {
 # ------------------
 sub compare_reg_to_mdt_vbm_Init_check {
 # ------------------
+    my $init_error_msg='';
+    my $message_prefix="$PM initialization check:\n";
 
-    return('');
+    $diffeo_metric = $Hf->get_value('diffeomorphic_metric');
+    my @valid_metrics = ('CC','MI','Mattes','MeanSquares','Demons','GC');
+    my $valid_metrics = join(', ',@valid_metrics);
+    my $metric_flag = 0;
+    if ($diffeo_metric eq ('' || 'NO_KEY')) {
+	$diffeo_metric = 'CC';
+	$metric_flag = 1;
+	$log_msg = $log_msg."\tNo ants metric specified for diffeomorphic registration of compare group to MDT. Will use default: \"${diffeo_metric}\".\n";
+    } else {
+	foreach my $metric (@valid_metrics) {
+	    if ($diffeo_metric =~ /^$metric\Z/i) { # This should be able to catch any capitalization variation and correct it.
+		$diffeo_metric = $metric;
+		$metric_flag = 1;
+		$log_msg=$log_msg."\tUsing ants metric \"${diffeo_metric}\" for diffeomorphic registration of compare group to MDT.\n";
+	    }
+	}
+    }
+
+    if (! $metric_flag) {
+	$init_error_msg=$init_error_msg."Invalid ants metric requested for diffeomorphic registration of compare group to MDT \"${diffeo_metric}\" is invalid.\n".
+	    "\tValid metrics are: ${valid_metrics}\n";
+    }
+
+    if ($log_msg ne '') {
+	log_info("${message_prefix}${log_msg}");
+    }
+
+    if ($init_error_msg ne '') {
+	$init_error_msg = $message_prefix.$init_error_msg;
+    }
+
+    return($init_error_msg);
 }
 # ------------------
 sub compare_reg_to_mdt_vbm_Runtime_check {
@@ -302,6 +336,8 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
     if ($#mdt_contrasts > 0) {
 	$mdt_contrast_2 = $mdt_contrasts[1];
     }  #The working assumption is that we will not expand beyond using two contrasts for registration...
+
+    $diffeo_metric = $Hf->get_value('diffeomorphic_metric');
 
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');

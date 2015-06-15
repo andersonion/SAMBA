@@ -692,6 +692,8 @@ sub set_reference_space_vbm_Runtime_check {
 	$new_rigid_path="${preprocess_dir}/${rigid_name}${rigid_ext}";
 	if (data_double_check($new_rigid_path)) {
 	    prep_atlas_for_referencing_vbm();
+	} else {
+	    $Hf->set_value('rigid_atlas_path',$new_rigid_path);
 	}
     }
     if ($process_dir_for_labels == 1) {
