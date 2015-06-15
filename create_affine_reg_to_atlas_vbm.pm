@@ -54,7 +54,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 	my  $pipeline_name = $result_path_base.$xform_suffix;
 
 	if ($go) {
-	    if ((! $do_rigid) && ($runno eq $affine_target ) && ($combined_rigid_and_affine)) { # For the affine target, we want to use the identity matrix.
+	    if ((! $do_rigid) && ($runno eq $affine_target ) && (! $combined_rigid_and_affine)) { # For the affine target, we want to use the identity matrix.
 		my $affine_identity = $Hf->get_value('affine_identity_matrix');
 		`cp ${affine_identity} ${pipeline_name}`;
 	    } else {

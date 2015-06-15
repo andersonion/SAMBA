@@ -13,13 +13,13 @@ my $NAME = "In lieu of commandline functionality, here is the place to define va
 my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
-my $colton_invivo = 0;
+my $colton_invivo = 1;
 my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
-my $bj = 1;
-
+my $bj = 0;
+my $bj_group = 0;
 
 use strict;
 use warnings;
@@ -48,7 +48,8 @@ $port_atlas_mask_path
 $thresh_ref
 $syn_params
 $syn_iterations
-$diffeo_downsampling
+$diffeo_shrink_factors
+$affine_shrink_factors
 $affine_target
 $affine_contrast
 $affine_metric
@@ -64,7 +65,7 @@ $label_reference
 sub study_variables_vbm {
 
     $syn_iterations = "4000,4000,4000,4000";
-    $diffeo_downsampling="8,4,2,1";
+    $diffeo_shrink_factors="8,4,2,1";
     $affine_target = "NO_KEY"; # If not specified, will follow default behaviour of selecting first listed control runno.
     $affine_contrast = "NO_KEY";
     $vbm_reference_space = "native";# "native"; # Options: "native", "<atlas_name>","<full path to an arbitrary image>"
@@ -475,7 +476,7 @@ B03244);
 	$skull_strip_contrast = 'T1';
 	$threshold_code = 3;
 	$do_mask = 1;
-	$port_atlas_mask = 1;
+	$port_atlas_mask = 0;
 	$port_atlas_mask_path = '/glusterspace/VBM_13colton01_DTI_invivo-work/preprocess/masks/approx_atl_mask.nii';
 	$pre_masked = 0;
  
@@ -783,6 +784,45 @@ N52863
 	$do_mask = 1;	
 	$port_atlas_mask = 1;
 	$pre_masked = 0;
+ }  elsif ($bj_group)
+    
+    {
+	$project_name = "15.rja.01";
+	$custom_predictor_string = "inter_specimen";
+	$vbm_reference_space = "native";
+	$syn_params = '0.5,3,1';
+	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+
+
+	@control_group = qw(
+spec1
+spec2
+spec3
+spec4
+spec5
+spec6
+);
+	@compare_group = qw(
+dummy
+);
+#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+    	@channel_array = qw(dwi fa);
+
+	$flip_x = 0;
+	$flip_z = 0;
+	
+
+	$optional_suffix = 'group';
+	$atlas_name = 'DTI101b';
+	$label_atlas_name = 'DTI101b';
+	$rigid_contrast = 'dwi';
+	$affine_contrast = 'dwi';
+	$mdt_contrast = 'fa';
+	$skull_strip_contrast = 'dwi';
+	$threshold_code = 5500;
+	$do_mask = 0;	
+	$port_atlas_mask = 0;
+	$pre_masked = 1;
  }
     
 

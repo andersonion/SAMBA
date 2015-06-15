@@ -21,7 +21,7 @@ require pipeline_utilities;
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path);
-my ($diffsyn_iter,$syn_param,$downsampling,$sigmas,$diffeo_metric);
+my ($diffsyn_iter,$syn_param,$diffeo_shrink_factors,$sigmas,$diffeo_metric);
 my ($label_path);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
@@ -201,7 +201,7 @@ sub mdt_reg_to_atlas {
     }
     
     $pairwise_cmd = "antsRegistration -d 3 -m ${diffeo_metric}[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
-	"  -c [ ${diffsyn_iter},1.e-8,20] -f $downsampling -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n";
+	"  -c [ ${diffsyn_iter},1.e-8,20] -f ${diffeo_shrink_factors} -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n";
 
     
     my $go_message = "$PM: create diffeomorphic warp from MDT to label atlas ${label_atlas}" ;
@@ -290,7 +290,7 @@ sub mdt_reg_to_atlas_vbm_Runtime_check {
     $label_atlas = $Hf->get_value('label_atlas_name');
 
     $diffsyn_iter=$Hf->get_value('syn_iteration_string');
-    $downsampling = $Hf->get_value('diffeo_downsampling');
+    $diffeo_shrink_factors = $Hf->get_value('diffeo_shrink_factors');
     $sigmas = $Hf->get_value('smoothing_sigmas');
     $syn_param = 0.5;
    

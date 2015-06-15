@@ -93,7 +93,8 @@ $thresh_ref
 $diffeo_metric
 $syn_params
 $syn_iterations
-$diffeo_downsampling
+$diffeo_shrink_factors
+$affine_shrink_factors
 $affine_target
 $affine_contrast
 $affine_iter
@@ -225,7 +226,7 @@ $Hf->set_value('nifti_matlab_converter','civm_to_nii'); # This should stay hardc
 
 
 
-my @iterations = split(',',$diffeo_downsampling);
+my @iterations = split(',',$diffeo_shrink_factors);
 my $levels = $#iterations + 1;
 my $sigma_string = "0";
 
@@ -252,10 +253,10 @@ for (my $jj = 2; $jj <= $levels; $jj++) {
 
 
 my $syn_iter_string = join('x',split(',',$syn_iterations));
-my $downsample_string = join('x',split(',',$diffeo_downsampling));
+my $downsample_string = join('x',split(',',$diffeo_shrink_factors));
 
 $Hf->set_value('syn_iteration_string',$syn_iter_string);
-$Hf->set_value('diffeo_downsampling',$downsample_string);
+$Hf->set_value('diffeo_shrink_factors',$downsample_string);
 $Hf->set_value('smoothing_sigmas',$sigma_string);
 $Hf->set_value('SyN_parameters', $syn_params);
 

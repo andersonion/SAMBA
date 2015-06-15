@@ -21,7 +21,7 @@ require pipeline_utilities;
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my ($diffsyn_iter,$syn_param,$downsampling,$sigmas,$diffeo_metric);
+my ($diffsyn_iter,$syn_param,$diffeo_shrink_factors,$sigmas,$diffeo_metric);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
@@ -219,7 +219,7 @@ sub reg_to_mdt {
 	    $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
 	}
 	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ". 
-	    "  -c [ ${diffsyn_iter},1.e-8,20] -f $downsampling -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n";
+	    "  -c [ ${diffsyn_iter},1.e-8,20] -f ${diffeo_shrink_factors} -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n";
     } else {
 	$moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
 	if ($mdt_contrast_2 ne '') {
@@ -230,7 +230,7 @@ sub reg_to_mdt {
 #	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}"; 
 #	my $moving_affine =  $rigid_path."/${runno}_${xform_suffix}";
 	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
-	    "  -c [ ${diffsyn_iter},1.e-8,20] -f $downsampling -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n"
+	    "  -c [ ${diffsyn_iter},1.e-8,20] -f ${diffeo_shrink_factors} -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n"
     }
 
  my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
@@ -317,7 +317,7 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
 
 
     $diffsyn_iter=$Hf->get_value('syn_iteration_string');
-    $downsampling = $Hf->get_value('diffeo_downsampling');
+    $diffeo_shrink_factors = $Hf->get_value('diffeo_diffeo_shrink_factors');
     $sigmas = $Hf->get_value('smoothing_sigmas');
     $syn_param = 0.5;
 
