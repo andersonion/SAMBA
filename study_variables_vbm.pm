@@ -13,13 +13,13 @@ my $NAME = "In lieu of commandline functionality, here is the place to define va
 my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
-my $colton_invivo = 1;
+my $colton_invivo = 0;
 my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
 my $bj = 0;
-my $bj_group = 0;
+my $bj_group = 1;
 
 use strict;
 use warnings;
