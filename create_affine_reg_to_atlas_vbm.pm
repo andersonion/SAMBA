@@ -615,7 +615,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
     $affine_radius = $Hf->get_value('affine_radius');
     $affine_shrink_factors = $Hf->get_value('affine_shrink_factors');
     $affine_gradient_step = $Hf->get_value('affine_gradient_step');
-    $affine_convergence_thres = $Hf->get_value('affine_convergence_thres');
+    $affine_convergence_thresh = $Hf->get_value('affine_convergence_thresh');
     $affine_convergence_window = $Hf->get_value('affine_convergence_window');
     $affine_smoothing_sigmas = $Hf->get_value('affine_smoothing_sigmas');
     $affine_sampling_options = $Hf->get_value('affine_sampling_options');

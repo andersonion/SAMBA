@@ -654,7 +654,7 @@ GIT1_111024_5);
 
 	$mdt_contrast = 'fa';
 	$diffeo_metric = 'CC';
-	$diffeo_radius = 6;
+	$diffeo_radius = 4;
 	#$diffeo_shrink_factors = '8x6x4x2x1'; # Commented out to test default behavior.
 	$diffeo_iterations = '500x500x500x500x15';
 	$diffeo_transform_parameters = '0.6,3,1';
