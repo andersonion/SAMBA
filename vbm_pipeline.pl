@@ -242,8 +242,8 @@ if (defined $diffeo_iterations) {
     $Hf->set_value('diffeo_iterations',$diffeo_iterations);
 }
 
-if (defined $diffeo_gradient_step) {
-    $Hf->set_value('diffeo_gradient_step',$diffeo_gradient_step);
+if (defined $diffeo_transform_parameters) {
+    $Hf->set_value('diffeo_transform_parameters',$diffeo_transform_parameters);
 }
 
 if (defined $diffeo_convergence_thresh) {

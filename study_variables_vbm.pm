@@ -17,9 +17,9 @@ my $colton_invivo = 0;
 my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
-my $dave = 0;
+my $dave = 1;
 my $bj = 0;
-my $bj_group = 1;
+my $bj_group = 0;
 
 use strict;
 use warnings;
@@ -81,7 +81,7 @@ $label_reference
 
 sub study_variables_vbm {
 
-    $syn_iterations = "4000,4000,4000,4000";
+    $diffeo_iterations = "4000,4000,4000,4000";
     $diffeo_shrink_factors="8,4,2,1";
     $affine_target = "NO_KEY"; # If not specified, will follow default behaviour of selecting first listed control runno.
     $affine_contrast = "NO_KEY";
@@ -97,7 +97,7 @@ sub study_variables_vbm {
 	
 	$project_name = "14.obrien.01";
 	$custom_predictor_string = "Control_vs_Reacher";
-	$syn_params = "0.5,3,1";
+	$diffeo_transform_parameters = "0.5,3,1";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 0;
@@ -256,7 +256,7 @@ sub study_variables_vbm {
 	
 	$project_name = "14.obrien.02";
 	$custom_predictor_string = "Control_vs_Reacher";
-	$syn_params = "0.5,3,0.5";
+	$diffeo_transform_parameters = "0.5,3,0.5";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1;
@@ -366,7 +366,7 @@ sub study_variables_vbm {
 	$project_name = "13.colton.01";
 	$custom_predictor_string = "nos2_vs_cvn";
 	$optional_suffix = 'aTest6';
-	$syn_params = "0.5,3,1";
+	$diffeo_transform_parameters = "0.5,3,1";
 	$combined_rigid_and_affine = 1; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1;
@@ -442,7 +442,7 @@ sub study_variables_vbm {
 	$project_name = "13.colton.01";
 	$custom_predictor_string = "nos2_vs_cvn";
 	$optional_suffix = 'invivo';
-	$syn_params = "0.5,3,0.5";
+	$diffeo_transform_parameters = "0.5,3,0.5";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 0;
@@ -504,7 +504,7 @@ B03244);
 	$project_name = "13.mcnamara.02";
 #	$custom_predictor_string = "Control_vs_Phantoms";
 	$custom_predictor_string = "Control_vs_KA";
-	$syn_params = "0.5,3,0.5";
+	$diffeo_transform_parameters = "0.5,3,0.5";
 	$vbm_reference_space = "DTI101";
 	$combined_rigid_and_affine = 0; # Was 1 for January runs.  We want to eventually have this set to zero and remove this variable from the code.
 	$label_space = "pre_rigid"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
@@ -540,7 +540,7 @@ B03244);
 	$project_name = "11.premont.01";
 	$custom_predictor_string = "WT_vs_KO";
 	$vbm_reference_space = "glusterspace/VBM_11premont01_whs-work/base_images/N38709_T2star.nii.gz";
-	# $syn_params = ?;
+	# $diffeo_transform_parameters = ?;
 	$combined_rigid_and_affine = 1; # We want to eventually have this set to zero and remove this variable from the code.
 
 	@control_group = qw(N38845 N38851 N38761 N38721 N38714 N38709);
@@ -568,7 +568,7 @@ B03244);
      $project_name = "11.premont.01";
      $custom_predictor_string = "WT_vs_KO";
      $vbm_reference_space = "WT_111004_3"; #/glusterspace/VBM_11premont01_whs-work/base_images/N38709_T2star.nii.gz";
-     # $syn_params = ?;
+     # $diffeo_transform_parameters = ?;
      $combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
      $create_labels = 0;
 
@@ -610,38 +610,52 @@ GIT1_111024_5);
 	$project_name = "12.provenzale.02";
 	$custom_predictor_string = "control_vs_diseased";
 	$vbm_reference_space = "native";
-	$syn_params = '0.6,3,1';
+	$diffeo_transform_parameters = '0.6,3,1';
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
-	$do_labels = 0;
+	$create_labels = 0;
 
-	@control_group = qw(S65469 S65519 S65531);
-	@compare_group = qw(S65445 S65542 S65545);
+#	@control_group = qw(S65469 S65519 S65531);
+#	@compare_group = qw(S65445 S65542 S65545);
 	
+	@control_group = qw(
+        controlSpring2013_4
+        controlSpring2013_7
+        controlSpring2013_8
+);
 
-	@channel_array = qw(dwi fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+@compare_group = qw(
+        controlSpring2013_9
+        controlSpring2013_10
+        controlSpring2013_11
+);
+
+
+	@channel_array = qw(dwi fa);
     
 	$flip_x = 0;
-	$flip_z = 0;
+	$flip_z = 1;
 	
 	$optional_suffix = '';
 	$atlas_name = 'whs';#
 	$label_atlas_name = 'whs';#
 	
 	$rigid_contrast = 'dwi';
-	# $affine_contrast = 'dwi';
+	## $affine_contrast = 'dwi';
+	#$affine_radius=32;
 	$affine_metric = 'MI';
 	$affine_shrink_factors = '6x4x2x1';
-	$affine_iterations = '500x500x500x500';
+	$affine_iterations = '500x500x500,500';
 	$affine_gradient_step = 0.05;
 	$affine_convergence_thresh = '1e-6';
-	$affine_convergence_window = 10;
-	# $affine_smoothing_sigmas; # This should default to 0x0x0x0
+        $affine_convergence_window = 10;
+	$affine_smoothing_sigmas= '0x0x0x0';
 	$affine_sampling_options = 'Random,0.5';
-	#$affine_target;
+	##$affine_target;
 
 	$mdt_contrast = 'fa';
 	$diffeo_metric = 'CC';
-	$diffeo_shrink_factors = '8x6x4x2x1';
+	$diffeo_radius = 6;
+	#$diffeo_shrink_factors = '8x6x4x2x1'; # Commented out to test default behavior.
 	$diffeo_iterations = '500x500x500x500x15';
 	$diffeo_transform_parameters = '0.6,3,1';
 	$diffeo_convergence_thresh = '1e-7';
@@ -661,7 +675,7 @@ GIT1_111024_5);
 	$project_name = "15.rja.01";
 	$custom_predictor_string = "intra_specimen";
 	$vbm_reference_space = "native";
-	$syn_params = '0.5,3,1';
+	$diffeo_transform_parameters = '0.5,3,1';
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 
 	my $specimen = 1;
@@ -829,7 +843,7 @@ N52863
 	$project_name = "15.rja.01";
 	$custom_predictor_string = "inter_specimen";
 	$vbm_reference_space = "native";
-	$syn_params = '0.5,3,1';
+	$diffeo_transform_parameters = '0.5,3,1';
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 
 
