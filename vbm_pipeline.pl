@@ -94,6 +94,7 @@ $rigid_contrast
 
 $affine_contrast
 $affine_metric
+$affine_radius
 $affine_shrink_factors
 $affine_iterations
 $affine_gradient_step
@@ -105,6 +106,7 @@ $affine_target
 
 $mdt_contrast
 $diffeo_metric
+$diffeo_radius
 $diffeo_shrink_factors
 $diffeo_iterations
 $diffeo_transform_parameters
@@ -125,9 +127,9 @@ $label_reference
 
 study_variables_vbm();
 
-if (($diffeo_transform_parameters eq '') || (! defined $diffeo_transform_parameters)) {
-    $diffeo_transform_parameters = "0.5,3,0"; # Should decide on default values...
-}
+# if (($diffeo_transform_parameters eq '') || (! defined $diffeo_transform_parameters)) {
+#     $diffeo_transform_parameters = "0.5,3,0"; # Should decide on default values...
+# }
 
 ## The following are mostly ready-to-go variables (i.e. non hard-coded)
 
@@ -188,6 +190,10 @@ if (defined $affine_metric) {
     $Hf->set_value('affine_metric',$affine_metric);
 }
 
+if (defined $affine_radius) {
+    $Hf->set_value('affine_metric',$affine_radius);
+}
+
 if (defined $affine_shrink_factors) {
     $Hf->set_value('affine_shrink_factors',$affine_shrink_factors);
 }
@@ -223,6 +229,10 @@ if (defined $affine_target) {
 
 if (defined $diffeo_metric) {
     $Hf->set_value('diffeo_metric',$diffeo_metric);
+}
+
+if (defined $diffeo_radius) {
+    $Hf->set_value('diffeo_metric',$diffeo_radius);
 }
 
 if (defined $diffeo_shrink_factors) {
@@ -316,32 +326,32 @@ my $sigma_string = "0";
 
 if ($test_mode) {
     $Hf->set_value('test_mode','on');
-    my $new_syn_iter = "1";
+    # my $new_syn_iter = "1";
     
-    for (my $ii = 2; $ii <= $levels; $ii++) {
-	$new_syn_iter = $new_syn_iter.',0'; # $diffsyn_iter="1x0x0x0";
-    }
-    $syn_iterations = $new_syn_iter;
+    # for (my $ii = 2; $ii <= $levels; $ii++) {
+    # 	$new_syn_iter = $new_syn_iter.',0'; # $diffsyn_iter="1x0x0x0";
+    # }
+    # $syn_iterations = $new_syn_iter;
 } else {
     $Hf->set_value('test_mode','off');
     
 }
 
-for (my $jj = 2; $jj <= $levels; $jj++) {
-    $sigma_string = $sigma_string.'x0';
-}
+# for (my $jj = 2; $jj <= $levels; $jj++) {
+#     $sigma_string = $sigma_string.'x0';
+# }
 
-## Custom sigma string
+# ## Custom sigma string
 
-#$sigma_string = "2x2x1x0";
+# #$sigma_string = "2x2x1x0";
 
 
-my $syn_iter_string = join('x',split(',',$syn_iterations));
-my $downsample_string = join('x',split(',',$diffeo_shrink_factors));
+# my $syn_iter_string = join('x',split(',',$syn_iterations));
+# my $downsample_string = join('x',split(',',$diffeo_shrink_factors));
 
-$Hf->set_value('syn_iteration_string',$syn_iter_string);
-$Hf->set_value('diffeo_shrink_factors',$downsample_string);
-$Hf->set_value('smoothing_sigmas',$sigma_string);
+# $Hf->set_value('syn_iteration_string',$syn_iter_string);
+# $Hf->set_value('diffeo_shrink_factors',$downsample_string);
+# $Hf->set_value('smoothing_sigmas',$sigma_string);
 $Hf->set_value('diffeo_transform_parameters', $diffeo_transform_parameters);
 
 $Hf->set_value('vbm_reference_space',$vbm_reference_space);

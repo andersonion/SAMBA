@@ -50,6 +50,7 @@ $rigid_contrast
 
 $affine_contrast
 $affine_metric
+$affine_radius
 $affine_shrink_factors
 $affine_iterations
 $affine_gradient_step
@@ -61,6 +62,7 @@ $affine_target
 
 $mdt_contrast
 $diffeo_metric
+$diffeo_radius
 $diffeo_shrink_factors
 $diffeo_iterations
 $diffeo_transform_parameters

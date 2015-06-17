@@ -19,7 +19,9 @@ use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $create
 require Headfile;
 require pipeline_utilities;
 
-my ($rigid_atlas,$contrast, $runlist,$work_path,$current_path,$affine_iterations,$label_atlas,$label_path);
+my ($rigid_atlas,$contrast, $runlist,$work_path,$current_path,$label_atlas,$label_path);
+my ($affine_metric,$affine_shrink_factors,$affine_iterations,$affine_gradient_step,$affine_convergence_thres);
+my ($affine_convergence_window,$affine_smoothing_sigmas,$affine_sampling_options,$affine_radius);
 my ($xform_code,$xform_path,$xform_suffix,$atlas_dir,$atlas_path,$inputs_dir);
 my (@array_of_runnos,@jobs,@mdt_contrasts);
 my (%go_hash,%create_output);
@@ -175,6 +177,7 @@ sub create_affine_reg_to_atlas_Output_check {
 # ------------------
 sub create_affine_transform_vbm {
 # ------------------
+
   my ($B_path, $result_transform_path_base,$moving_runno) = @_;
   my $collapse = 0;
   my $transform_path="${result_transform_path_base}0GenericAffine.mat";
@@ -195,13 +198,13 @@ sub create_affine_transform_vbm {
   if ((defined $r_string) && ($r_string ne '')) {
       $r = "-r $r_string";
   }
-  my $metric_1 = " -m Mattes[${atlas_path},${B_path},1,32,random,0.3]";
+  my $metric_1 = " -m ${affine_metric}[${atlas_path},${B_path},1,${affine_radius},${affine_sampling_options}]"; #random,0.3
   my $metric_2 = '';
 
   if (($mdt_to_atlas) && ($mdt_contrast_2 ne '')) {
       my $fixed_2 = $Hf->get_value ('label_atlas_path_2');; 
       my $moving_2 =  $mdt_path."/MDT_${mdt_contrast_2}.nii";
-      $metric_2 = " -m Mattes[ ${fixed_2},${moving_2},1,32,random,0.3] ";
+      $metric_2 = " -m ${affine_metric}[ ${fixed_2},${moving_2},1,{$affine_radius},${affine_sampling_options}]"; #random,0.3
   }
 
 
@@ -209,27 +212,29 @@ sub create_affine_transform_vbm {
   if ($xform_code eq 'rigid1') {
       # if ($mdt_to_atlas) {  # We don't do rigid separately from affine for MDT to Atlas.
       # 	  $cmd = "antsRegistration -d 3 ".
-      # 	      " ${metric_1} ${metric_2} -t rigid[0.1] -c [${affine_iterations},1.e-8,20] -s 4x2x1x1vox -f 6x4x2x1 ".
+      # 	      " ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] -s ${affine_smoothing_sigmas}  -f  ${affine_shrink_factors}  ". #-s 4x2x1x1vox -f 6x4x2x1
       # 	      " -u 1 -z $collapse -l 1 -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4"; 
 
       # } else {
 	  $cmd = "antsRegistration -d 3 -r [$atlas_path,$B_path,1] ". 
-	      " ${metric_1} ${metric_2} -t rigid[0.1] -c [${affine_iterations},1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 ".
-	      " $q $r ".
-	      " -u 1 -z 1 -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
+	      " ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ".
+	      " -s ${affine_smoothing_sigmas} -f ${affine_shrink_factors}  ". #-f 6x4x2x1
+	      " $q $r -u 1 -z 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
       # }	  
   } elsif ($xform_code eq 'full_affine') {
       if ($mdt_to_atlas) {
 	  $cmd = "antsRegistration -d 3 ".
-	      " ${metric_1} ${metric_2} -t rigid[0.1] -c [${affine_iterations},1.e-8,20] -s 4x2x1x1vox -f 6x4x2x1 ".
-	      " ${metric_1} ${metric_2} -t affine[0.1] -c [${affine_iterations},1.e-8,20] -s 4x2x1x0vox -f 6x4x1x1 ".
-	      " -u 1 -z 1 -l 1 -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";  # "-z 1" instead of "-z $collapse", as we want rigid + affine together in this case.
+	      " ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ". 
+	      " -s ${affine_smoothing_sigmas} -f ${affine_shrink_factors}  ". # -s 4x2x1x1vox -f  6x4x2x1 
+	      " ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ". 
+	      " -s  ${affine_smoothing_sigmas} -f ${affine_shrink_factors} ". # -s 4x2x1x0vox  -f  6x4x2x1 
+	      " -u 1 -z 1 -l 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";  # "-z 1" instead of "-z $collapse", as we want rigid + affine together in this case.
 
       } else {	  
 	  $cmd = "antsRegistration -d 3 ". #-r [$atlas_path,$B_path,1] ".
-	      " ${metric_1} ${metric_2} -t affine[0.1] -c [${affine_iterations},1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 ".
-	      " $q $r ".
-	      "  -u 1 -z $collapse -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
+	      " ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ".
+	      "-s ${affine_smoothing_sigmas} -f  ${affine_shrink_factors} -l 1 ". # -s 4x2x1x0.5vox-f 6x4x2x1
+	      " $q $r -u 1 -z $collapse -o $result_transform_path_base":# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
       }
   }
   
@@ -280,11 +285,21 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
     my $rigid_contrast;
 # check for valid atlas
 
+    my $rigid_contrast = $Hf->get_value('rigid_contrast');
+    if ($rigid_contrast eq ('' || 'NO_KEY')) {
+	my @channels = $Hf->get_value('channel_comma_list');
+	$rigid_contrast = shift(@channels);
+	$Hf->set_value('full_affine_contrast',$affine_contrast);
+	$log_msg=$log_msg."\tNo rigid contrast specified; using first specified contrast: \'${rigid_contrast}\' for rigid  registrations.\n";
+	$Hf->set_value('rigid_contrast',$rigid_contrast);
+    }
 
     my $affine_contrast = $Hf->get_value('full_affine_contrast');
-    if ($affine_contrast eq 'NO_KEY') {
+    if ($affine_contrast eq ('' || 'NO_KEY')) {
+	#$affine_contrast = $defaults_Hf->get_value('affine_contrast');
 	$affine_contrast = $Hf->get_value('rigid_contrast');
 	$Hf->set_value('full_affine_contrast',$affine_contrast);
+	$log_msg=$log_msg."\tNo affine contrast specified; using rigid contrast \'${rigid_contrast}\' for affine registrations.\n";
     }
 
     if ($create_labels) {
@@ -322,6 +337,7 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
     my $valid_metrics = join(', ',@valid_metrics);
     my $metric_flag = 0;
     if ($affine_metric eq ('' || 'NO_KEY')) {
+	#$affine_metric = $defaults_Hf->get_value('affine_metric');
 	$affine_metric = 'Mattes';
 	$metric_flag = 1;
 	$log_msg = $log_msg."\tNo ants metric specified for all rigid and/or affine registrations. Will use default: \"${affine_metric}\".\n";
@@ -338,33 +354,18 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 	$init_error_msg=$init_error_msg."Invalid ants metric requested for all rigid and/or affine registrations \"${affine_metric}\".\n".
 	    "\tValid metrics are: ${valid_metrics}\n";
     }
-    
-    my $affine_iterations=$Hf->get_value('affine_iterations'); ## Need to add test for valid iteration settings (also: consistent with number of levels?)
-    if ((defined $test_mode) && ($test_mode==1)) {
-	$affine_iterations="1x0x0x0";
-	$log_msg = $log_msg."\tRunning in TEST MODE: using minimal affine iterations:  \"${affine_iterations}\".\n";
+
+    $affine_radius=$Hf->get_value('affine_radius');
+    if ($affine_radius eq ('' || 'NO_KEY')) {
+	#$affine_radius = $defaults_Hf->get_value('affine_radius');
+	$affine_radius = 32;
+	$log_msg = $log_msg."\tNo affine radius specified; using default value of \'${affine_radius}\'.\n";
+    } elsif ($affine_radius =~ /^[0-9\.]+$/) {
+	# It is assumed that any positive number is righteous.
     } else {
-	if ($affine_iterations eq ('' || 'NO_KEY')) {
-	    $affine_iterations="3000x3000x0x0";
-	    $log_msg = $log_msg."\tNo affine iterations specified; using default values:  \"${affine_iterations}\".\n";
-	}
+	$init_error_msg=$init_error_msg."Non-numeric affine radius specified: \"${affine_radius}\".\n";
     }
-    $Hf->set_value('affine_iterations',$affine_iterations);
-
-
-    $affine_contrast=$Hf->get_value('affine_contrast');
-    if ($affine_contrast eq ('' || 'NO_KEY')) {
-	#$affine_contrast = $defaults_Hf->get_value('affine_contrast');
-
-    }
-    $Hf->set_value('affine_contrast',$affine_contrast);
-
-    $affine_metric=$Hf->set_value('affine_metric');
-    if ($affine_metric  eq ('' || 'NO_KEY')) {
-	#$affine_metric = $defaults_Hf->get_value('affine_metric');
-	
-    }
-    $Hf->set_value('affine_metric',$affine_metric);
+    $Hf->set_value('affine_radius',$affine_radius);
 
     $affine_iterations=$Hf->get_value('affine_iterations');
     my @affine_iteration_array;
@@ -402,11 +403,15 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 
     $affine_shrink_factors=$Hf->get_value('affine_shrink_factors');
     if ( $affine_shrink_factors eq ('' || 'NO_KEY')) {
-	#$affine_shrink_factors = $defaults_Hf->get_value('affine_shrink_factors');
-	$affine_shrink_factors = '0';	    
+	#$affine_shrink_factors = $defaults_Hf->get_value('affine_shrink_factors_${affine_levels}');
+	$affine_shrink_factors = '1';
+	 my $temp_shrink=2;	    
 	for (my $jj = 2; $jj <= $affine_levels; $jj++) {
-	    $affine_shrink_factors = $affine_shrink_factors.'x0';
+	    $affine_shrink_factors = $temp_shrink.'x'.$affine_shrink_factors;
+	    $temp_shrink = 2+$temp_shrink;
 	}
+	$affine_shrink_factors = '6x4x2x1'
+
 	$log_msg = $log_msg."\tNo affine shrink factors specified; using default values:  \"${affine_shrink_factors}\".\n";
     } else {
 	my @affine_shrink_array;
@@ -450,24 +455,70 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 	#$affine_convergence_thresh = $defaults_Hf->get_value('affine_convergence_thresh');
 	$affine_convergence_thresh = '1e-8';
     } elsif ($affine_convergence_thresh =~ /^[0-9\.]+(e(-|\+)?[0-9]+)?/) {
-	# Values specified in engineering notation need to be accepted as well.
+	# Values specified in scientific notation need to be accepted as well.
     } else {
 	$init_error_msg=$init_error_msg."Invalid affine convergence step specified: \"${affine_convergence_step}\". ".
-	    "#####################33\n";;
+	    "Real positive numbers are accepted; scientific notation (\"X.Ye-Z\") are also righteous.\n";
     }
     $Hf->set_value('affine_convergence_thresh',$affine_convergence_thresh);    
 
-
+    my $acw_error = 0;
     $affine_convergence_window=$Hf->get_value('affine_convergence_window');
     if (  $affine_convergence_window eq ('' || 'NO_KEY')) {
 	#$affine_convergence_window = $defaults_Hf->get_value('affine_convergence_window');
+	$affine_convergence_window = 20;
+    } elsif ($affine_convergence_window =~ /^[0-9]+/) {
+	if ($affine_convergence_window < 5) {
+	    $acw_error=1;
+	}
+    } else {
+	$acw_error=1;
     }
-    $Hf->set_value('affine_convergence_window',$affine_convergence_window);
-    
+
+    if ($acw_error) {
+	$init_error_msg=$init_error_msg."Invalid affine convergence window specified: \"${affine_convergence_window}\". ".
+	    "Window size must be an integer greater than 5.\n";
+    } else {
+	$Hf->set_value('affine_convergence_window',$affine_convergence_window);
+    }
+
     $affine_smoothing_sigmas=$Hf->get_value('affine_smoothing_sigmas');
+    
     if (  $affine_smoothing_sigmas eq ('' || 'NO_KEY')) {
-	#$affine_smoothing_sigmas = $defaults_Hf->get_value('affine_smoothing_sigmas');
-	
+	#$affine_smoothing_sigmas = $defaults_Hf->get_value('affine_smoothing_sigmas_${affine_levels}');
+	 $affine_smoothing_sigmas = '0.5vox';
+	 my $temp_sigma=0.5;	    
+	for (my $jj = 2; $jj <= $affine_levels; $jj++) {
+	    $temp_sigma = 2*$temp_sigma;
+	     $affine_smoothing_sigmas = $temp_sigma.'x'.$affine_smoothing_sigmas;
+	}
+	$log_msg = $log_msg."\tNo affine smoothing sigmas specified; using default values:  \"${affine_smoothing_sigmas}\".\n";
+    } else {
+
+	my $affine_smoothing_units ='';
+	if ($affine_smoothing_sigmas =~ s/(vox|mm)$//) {
+	    $affine_smoothing_units = $1;
+	} 
+	my @affine_smoothing_array;
+	my $affine_smoothing_levels;
+	if ($affine_smoothing_sigmas =~ /(,[0-9\.]+/) {
+	    @affine_smoothing_array = split(',',$affine_smoothing_sigmas);
+	    $affine_smoothing_levels=1+$#affine_smoothing_array;
+	} elsif ($affine_smoothing_sigmas =~ /(x[0-9\.])+/) {
+	    @affine_smoothing_array = split('x',$affine_smoothing_sigmas);
+	    $affine_smoothing_levels=1+$#affine_smoothing_array;
+	} elsif ($affine_smoothing_sigmas =~ /^[0-9\.]+$/) {
+	    $affine_smoothing_levels=1;
+	} else {
+	    $init_error_msg=$init_error_msg."Non-numeric affine smoothing factor(s) specified: \"${affine_smoothing_sigmas}\". ".
+		"Multiple smoothing factors may be \'x\'- or comma-separated.\n";
+	}
+     
+	if ($affine_smoothing_levels != $affine_levels) {
+	    $init_error_msg=$init_error_msg."Number of affine levels (${affine_smoothing_levels}) implied by the specified affine smoothing factors (\'${affine_smoothing_sigmas}\'\" ".
+		"does not match the number of levels implied by the affine iterations (${affine_levels})\n";
+	}
+	$affine_smoothing_sigmas = $affine_smoothing_sigmas.$affine_smoothing_units;
     }
     $Hf->set_value('affine_smoothing_sigmas',$affine_smoothing_sigmas);
     
@@ -504,10 +555,21 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
     }
     $Hf->set_value('affine_sampling_options',$affine_sampling_options);
    
-    if (  $affine_target eq ('' || 'NO_KEY')) {
-	$Hf->set_value('affine_target',$affine_target);
-    }
+    ## ADD FUNCTIONALITY: Create an affine MDT (once per study) and allow that to be the affine target.
+    # $affine_target=$Hf->set_value('affine_target');
+    # if (  $affine_target eq ('' || 'NO_KEY')) {
+    # 	$affine_target =  = $defaults_Hf->get_value('affine_target');
+       
+    # }
+    # $Hf->set_value('affine_target',$affine_target);
 
+    ## ADD FUNCTIONALITY: Allow the rigid registration step to be skipped, creating rigid transforms from the identity transform.
+    # $rigid_target=$Hf->set_value('rigid_target');
+    # if (  $rigid_target eq ('' || 'NO_KEY')) {
+    # 	$rigid_target =  = $defaults_Hf->get_value('rigid_target');
+       
+    # }
+    # $Hf->set_value('rigid_target',$rigid_target);
 
     
     if ($log_msg ne '') {
@@ -526,10 +588,24 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 # ------------------
     $affine_iterations = $Hf->get_value('affine_iterations');
     $affine_metric = $Hf->get_value('affine_metric');
+    $affine_radius = $Hf->get_value('affine_radius');
+    $affine_shrink_factors = $Hf->get_value('affine_shrink_factors');
+    $affine_gradient_step = $Hf->get_value('affine_gradient_step');
+    $affine_convergence_thres = $Hf->get_value('affine_convergence_thres');
+    $affine_convergence_window = $Hf->get_value('affine_convergence_window');
+    $affine_smoothing_sigmas = $Hf->get_value('affine_smoothing_sigmas');
+    $affine_sampling_options = $Hf->get_value('affine_sampling_options');
+
+## ADD FUNCTIONALITY: It would be nice to be able to optionally specify any or all the affine registration parameters for 
+#                     the affine_MDT creation and MDT to atlas registration (label creation).  All values would naturally
+#                     default to the general affine options.
+##
 
   
     $inputs_dir = $Hf->get_value('inputs_dir');
     if ($mdt_to_atlas) {
+
+
 	$label_atlas = $Hf->get_value('label_atlas_name');
 	$work_path = $Hf->get_value('regional_stats_dir');
 	$label_path = $Hf->get_value('labels_dir');
