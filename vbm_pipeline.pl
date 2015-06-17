@@ -81,24 +81,38 @@ $flip_z
 $optional_suffix
 $atlas_name
 $label_atlas_name
-$rigid_contrast
-$mdt_contrast
+
 $skull_strip_contrast
 $threshold_code
-$pre_masked
 $do_mask
+$pre_masked
 $port_atlas_mask
 $port_atlas_mask_path
 $thresh_ref
-$diffeo_metric
-$syn_params
-$syn_iterations
-$diffeo_shrink_factors
-$affine_shrink_factors
-$affine_target
+
+$rigid_contrast
+
 $affine_contrast
-$affine_iter
 $affine_metric
+$affine_shrink_factors
+$affine_iterations
+$affine_gradient_step
+$affine_convergence_thresh
+$affine_convergence_window
+$affine_smoothing_sigmas
+$affine_sampling_options
+$affine_target
+
+$mdt_contrast
+$diffeo_metric
+$diffeo_shrink_factors
+$diffeo_iterations
+$diffeo_transform_parameters
+$diffeo_convergence_thresh
+$diffeo_convergence_window
+$diffeo_smoothing_sigmas
+$diffeo_sampling_options
+
 $native_reference_space
 $vbm_reference_space
 $reference_path
@@ -111,8 +125,8 @@ $label_reference
 
 study_variables_vbm();
 
-if (($syn_params eq '') || (! defined $syn_params)) {
-    $syn_params = "0.5,3,0"; # Should decide on default values...
+if (($diffeo_transform_parameters eq '') || (! defined $diffeo_transform_parameters)) {
+    $diffeo_transform_parameters = "0.5,3,0"; # Should decide on default values...
 }
 
 ## The following are mostly ready-to-go variables (i.e. non hard-coded)
@@ -165,9 +179,79 @@ if (($combined_rigid_and_affine eq '') || (! defined $combined_rigid_and_affine)
 
 $Hf->set_value('combined_rigid_and_affine',$combined_rigid_and_affine);
 
-if (defined $affine_iter) {
-    $Hf->set_value('affine_iter',$affine_iter);
+
+if (defined $affine_contrast) {
+    $Hf->set_value('affine_contrast',$affine_contrast);
 }
+
+if (defined $affine_metric) {
+    $Hf->set_value('affine_metric',$affine_metric);
+}
+
+if (defined $affine_shrink_factors) {
+    $Hf->set_value('affine_shrink_factors',$affine_shrink_factors);
+}
+
+if (defined $affine_iterations) {
+    $Hf->set_value('affine_iterations',$affine_iterations);
+}
+
+if (defined $affine_gradient_step) {
+    $Hf->set_value('affine_gradient_step',$affine_gradient_step);
+}
+
+if (defined $affine_convergence_thresh) {
+    $Hf->set_value('affine_convergence_thresh',$affine_convergence_thresh);
+}
+
+if (defined $affine_convergence_window) {
+    $Hf->set_value('affine_convergence_window',$affine_convergence_window);
+}
+
+if (defined $affine_smoothing_sigmas) {
+    $Hf->set_value('affine_smoothing_sigmas',$affine_smoothing_sigmas);
+}
+
+if (defined $affine_sampling_options) {
+    $Hf->set_value('affine_sampling_options',$affine_sampling_options);
+}
+
+if (defined $affine_target) {
+    $Hf->set_value('affine_target',$affine_target);
+}
+
+
+if (defined $diffeo_metric) {
+    $Hf->set_value('diffeo_metric',$diffeo_metric);
+}
+
+if (defined $diffeo_shrink_factors) {
+    $Hf->set_value('diffeo_shrink_factors',$diffeo_shrink_factors);}
+
+if (defined $diffeo_iterations) {
+    $Hf->set_value('diffeo_iterations',$diffeo_iterations);
+}
+
+if (defined $diffeo_gradient_step) {
+    $Hf->set_value('diffeo_gradient_step',$diffeo_gradient_step);
+}
+
+if (defined $diffeo_convergence_thresh) {
+    $Hf->set_value('diffeo_convergence_thresh',$diffeo_convergence_thresh);
+}
+
+if (defined $diffeo_convergence_window) {
+    $Hf->set_value('diffeo_convergence_window',$diffeo_convergence_window);
+}
+
+if (defined $diffeo_smoothing_sigmas) {
+    $Hf->set_value('diffeo_smoothing_sigmas',$diffeo_smoothing_sigmas);
+}
+
+if (defined $diffeo_sampling_options) {
+    $Hf->set_value('diffeo_sampling_options',$diffeo_sampling_options);
+}
+
 
 $Hf->set_value('rigid_atlas_name',$atlas_name);
 $Hf->set_value('rigid_contrast',$rigid_contrast);
@@ -258,7 +342,7 @@ my $downsample_string = join('x',split(',',$diffeo_shrink_factors));
 $Hf->set_value('syn_iteration_string',$syn_iter_string);
 $Hf->set_value('diffeo_shrink_factors',$downsample_string);
 $Hf->set_value('smoothing_sigmas',$sigma_string);
-$Hf->set_value('SyN_parameters', $syn_params);
+$Hf->set_value('diffeo_transform_parameters', $diffeo_transform_parameters);
 
 $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 

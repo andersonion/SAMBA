@@ -19,7 +19,7 @@ use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $create
 require Headfile;
 require pipeline_utilities;
 
-my ($rigid_atlas,$contrast, $runlist,$work_path,$current_path,$affine_iter,$label_atlas,$label_path);
+my ($rigid_atlas,$contrast, $runlist,$work_path,$current_path,$affine_iterations,$label_atlas,$label_path);
 my ($xform_code,$xform_path,$xform_suffix,$atlas_dir,$atlas_path,$inputs_dir);
 my (@array_of_runnos,@jobs,@mdt_contrasts);
 my (%go_hash,%create_output);
@@ -182,8 +182,7 @@ sub create_affine_transform_vbm {
       $collapse = 1;
   } else {
       if (($xform_code ne 'rigid1') && (! $mdt_to_atlas)){
-	  $transform_path="${result_transform_path_base}1Affine.mat"; #2Affine.mat
-      }
+	  $transform_path="${result_transform_path_base}1Affine.mat"; #2Affine.mat      }
   }
   my ($q,$r);
   if ((! $do_rigid) && (! $mdt_to_atlas)) {
@@ -210,25 +209,25 @@ sub create_affine_transform_vbm {
   if ($xform_code eq 'rigid1') {
       # if ($mdt_to_atlas) {  # We don't do rigid separately from affine for MDT to Atlas.
       # 	  $cmd = "antsRegistration -d 3 ".
-      # 	      " ${metric_1} ${metric_2} -t rigid[0.1] -c [${affine_iter},1.e-8,20] -s 4x2x1x1vox -f 6x4x2x1 ".
+      # 	      " ${metric_1} ${metric_2} -t rigid[0.1] -c [${affine_iterations},1.e-8,20] -s 4x2x1x1vox -f 6x4x2x1 ".
       # 	      " -u 1 -z $collapse -l 1 -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4"; 
 
       # } else {
 	  $cmd = "antsRegistration -d 3 -r [$atlas_path,$B_path,1] ". 
-	      " ${metric_1} ${metric_2} -t rigid[0.1] -c [${affine_iter},1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 ".
+	      " ${metric_1} ${metric_2} -t rigid[0.1] -c [${affine_iterations},1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 ".
 	      " $q $r ".
 	      " -u 1 -z 1 -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
       # }	  
   } elsif ($xform_code eq 'full_affine') {
       if ($mdt_to_atlas) {
 	  $cmd = "antsRegistration -d 3 ".
-	      " ${metric_1} ${metric_2} -t rigid[0.1] -c [${affine_iter},1.e-8,20] -s 4x2x1x1vox -f 6x4x2x1 ".
-	      " ${metric_1} ${metric_2} -t affine[0.1] -c [${affine_iter},1.e-8,20] -s 4x2x1x0vox -f 6x4x1x1 ".
+	      " ${metric_1} ${metric_2} -t rigid[0.1] -c [${affine_iterations},1.e-8,20] -s 4x2x1x1vox -f 6x4x2x1 ".
+	      " ${metric_1} ${metric_2} -t affine[0.1] -c [${affine_iterations},1.e-8,20] -s 4x2x1x0vox -f 6x4x1x1 ".
 	      " -u 1 -z 1 -l 1 -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";  # "-z 1" instead of "-z $collapse", as we want rigid + affine together in this case.
 
       } else {	  
 	  $cmd = "antsRegistration -d 3 ". #-r [$atlas_path,$B_path,1] ".
-	      " ${metric_1} ${metric_2} -t affine[0.1] -c [${affine_iter},1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 ".
+	      " ${metric_1} ${metric_2} -t affine[0.1] -c [${affine_iterations},1.e-8,20] -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 ".
 	      " $q $r ".
 	      "  -u 1 -z $collapse -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
       }
@@ -340,17 +339,176 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 	    "\tValid metrics are: ${valid_metrics}\n";
     }
     
-    my $affine_iter=$Hf->get_value('affine_iter'); ## Need to add test for valid iteration settings (also: consistent with number of levels?)
+    my $affine_iterations=$Hf->get_value('affine_iterations'); ## Need to add test for valid iteration settings (also: consistent with number of levels?)
     if ((defined $test_mode) && ($test_mode==1)) {
-	$affine_iter="1x0x0x0";
-	$log_msg = $log_msg."\tRunning in TEST MODE: using minimal affine iterations:  \"${affine_iter}\".\n";
+	$affine_iterations="1x0x0x0";
+	$log_msg = $log_msg."\tRunning in TEST MODE: using minimal affine iterations:  \"${affine_iterations}\".\n";
     } else {
-	if ($affine_iter eq ('' || 'NO_KEY')) {
-	    $affine_iter="3000x3000x0x0";
-	    $log_msg = $log_msg."\tNo affine iterations specified; using default values:  \"${affine_iter}\".\n";
+	if ($affine_iterations eq ('' || 'NO_KEY')) {
+	    $affine_iterations="3000x3000x0x0";
+	    $log_msg = $log_msg."\tNo affine iterations specified; using default values:  \"${affine_iterations}\".\n";
 	}
     }
-    $Hf->set_value('affine_iter',$affine_iter);
+    $Hf->set_value('affine_iterations',$affine_iterations);
+
+
+    $affine_contrast=$Hf->get_value('affine_contrast');
+    if ($affine_contrast eq ('' || 'NO_KEY')) {
+	#$affine_contrast = $defaults_Hf->get_value('affine_contrast');
+
+    }
+    $Hf->set_value('affine_contrast',$affine_contrast);
+
+    $affine_metric=$Hf->set_value('affine_metric');
+    if ($affine_metric  eq ('' || 'NO_KEY')) {
+	#$affine_metric = $defaults_Hf->get_value('affine_metric');
+	
+    }
+    $Hf->set_value('affine_metric',$affine_metric);
+
+    $affine_iterations=$Hf->get_value('affine_iterations');
+    my @affine_iteration_array;
+    my $affine_levels=0;
+    if ($affine_iterations ne ('' || 'NO_KEY')) {
+	if ($affine_iterations =~ /(,[0-9])+/) {
+	    @affine_iteration_array = split(',',$affine_iterations);
+	    $affine_levels=1+$#affine_iteration_array;
+	} elsif ($affine_iterations =~ /(x[0-9])+/) {
+	    @affine_iteration_array = split('x',$affine_iterations);
+	    $affine_levels=1+$#affine_iteration_array;
+	} elsif ($affine_iterations =~ /^[0-9]+$/) {
+	    $affine_levels=1;
+	} else {
+	    $init_error_msg=$init_error_msg."Non-numeric affine iterations specified: \"${affine_iterations}\". ".
+		"Multiple iteration levels may be \'x\'- or comma-separated.\n";
+	}
+	$log_msg=$log_msg."\tNumber of levels for affine registration=${affine_levels}.\n";
+    }
+    if ((defined $test_mode) && ($test_mode==1)) {
+	$affine_iterations = '1';	    
+	for (my $jj = 2; $jj <= $affine_levels; $jj++) {
+	    $affine_iterations = $affine_iterations.'x0';
+	}
+	$log_msg = $log_msg."\tRunning in TEST MODE: using minimal affine iterations:  \"${affine_iterations}\".\n";
+    } else {
+	if ($affine_iterations eq ('' || 'NO_KEY')) {
+	    #$affine_iterations = $defaults_Hf->get_value('affine_iterations');
+	    $affine_iterations="3000x3000x0x0";
+	    $log_msg = $log_msg."\tNo affine iterations specified; using default values:  \"${affine_iterations}\".\n";
+	}
+    }	
+    $Hf->set_value('affine_iterations',$affine_iterations);
+
+
+    $affine_shrink_factors=$Hf->get_value('affine_shrink_factors');
+    if ( $affine_shrink_factors eq ('' || 'NO_KEY')) {
+	#$affine_shrink_factors = $defaults_Hf->get_value('affine_shrink_factors');
+	$affine_shrink_factors = '0';	    
+	for (my $jj = 2; $jj <= $affine_levels; $jj++) {
+	    $affine_shrink_factors = $affine_shrink_factors.'x0';
+	}
+	$log_msg = $log_msg."\tNo affine shrink factors specified; using default values:  \"${affine_shrink_factors}\".\n";
+    } else {
+	my @affine_shrink_array;
+	my $affine_shrink_levels;
+	if ($affine_shrink_factors =~ /(,[0-9\.]+/) {
+	    @affine_shrink_array = split(',',$affine_shrink_factors);
+	    $affine_shrink_levels=1+$#affine_shrink_array;
+	} elsif ($affine_shrink_factors =~ /(x[0-9\.])+/) {
+	    @affine_shrink_array = split('x',$affine_shrink_factors);
+	    $affine_shrink_levels=1+$#affine_shrink_array;
+	} elsif ($affine_shrink_factors =~ /^[0-9\.]+$/) {
+	    $affine_shrink_levels=1;
+	} else {
+	    $init_error_msg=$init_error_msg."Non-numeric affine shrink factor(s) specified: \"${affine_shrink_factors}\". ".
+		"Multiple shrink factors may be \'x\'- or comma-separated.\n";
+	}
+     
+	if ($affine_shrink_levels != $affine_levels) {
+	    $init_error_msg=$init_error_msg."Number of affine levels (${affine_shrink_levels}) implied by the specified affine shrink factors (\'${affine_shrink_factors}\'\" ".
+		"does not match the number of levels implied by the affine iterations (${affine_levles})\n";
+	}
+    }
+    $Hf->set_value('affine_shrink_factors',$affine_shrink_factors);
+
+    
+    $affine_gradient_step=$Hf->get_value('affine_gradient_step');
+    if ($affine_gradient_step eq ('' || 'NO_KEY')) {
+	#$affine_gradient_step = $defaults_Hf->get_value('affine_gradient_step');
+	$affine_gradient_step = 0.1;
+	$log_msg = $log_msg."\tNo affine gradient step specified; using default value of \'${affine_gradient_step}\'.\n";
+    } elsif ($affine_gradient_step =~ /^[0-9\.]+$/) {
+	# It is assumed that any positive number is righteous.
+    } else {
+	$init_error_msg=$init_error_msg."Non-numeric affine gradient step specified: \"${affine_gradient_step}\".\n";
+    }
+    $Hf->set_value('affine_gradient_step',$affine_gradient_step);
+
+    
+    $affine_convergence_thresh=$Hf->get_value('affine_convergence_thresh');
+    if (  $affine_convergence_thresh eq ('' || 'NO_KEY')) {
+	#$affine_convergence_thresh = $defaults_Hf->get_value('affine_convergence_thresh');
+	$affine_convergence_thresh = '1e-8';
+    } elsif ($affine_convergence_thresh =~ /^[0-9\.]+(e(-|\+)?[0-9]+)?/) {
+	# Values specified in engineering notation need to be accepted as well.
+    } else {
+	$init_error_msg=$init_error_msg."Invalid affine convergence step specified: \"${affine_convergence_step}\". ".
+	    "#####################33\n";;
+    }
+    $Hf->set_value('affine_convergence_thresh',$affine_convergence_thresh);    
+
+
+    $affine_convergence_window=$Hf->get_value('affine_convergence_window');
+    if (  $affine_convergence_window eq ('' || 'NO_KEY')) {
+	#$affine_convergence_window = $defaults_Hf->get_value('affine_convergence_window');
+    }
+    $Hf->set_value('affine_convergence_window',$affine_convergence_window);
+    
+    $affine_smoothing_sigmas=$Hf->get_value('affine_smoothing_sigmas');
+    if (  $affine_smoothing_sigmas eq ('' || 'NO_KEY')) {
+	#$affine_smoothing_sigmas = $defaults_Hf->get_value('affine_smoothing_sigmas');
+	
+    }
+    $Hf->set_value('affine_smoothing_sigmas',$affine_smoothing_sigmas);
+    
+    $affine_sampling_options=$Hf->get_value('affine_sampling_options');
+    if ($affine_sampling_options eq ('' || 'NO_KEY')) {
+	#$affine_sampling_options = $defaults_Hf->get_value('affine_sampling_options');
+	$affine_sampling_options='None';
+	$log_msg = $log_msg."\tNo affine sampling option specified; using default values of \'${affine_sampling_options}\'.\n";
+    } else {
+	my ($sampling_strategy,$sampling_percentage) = split(',',$affine_sampling_options);
+	if ($sampling_strategy =~ /Random/z) {
+	    $sampling_strategy = 'Random';
+
+	} elsif ($sampling_strategy =~ /(None)/z) {
+	    $sampling_strategy = 'None';
+	} elsif ($sampling_strategy =~ /(Regular)/z) {
+	    $sampling_strategy = 'Regular';
+	} else {
+	    $init_error_msg=$init_error_msg."The specified affine sampling strategy \'${sampling_strategy}\' is".
+		" invalid. Valid options are \'None\', \'Regular\', or \'Random\'.\n";
+	}
+
+	if ($sampling_strategy eq ('Random'||'Regular')) {
+	    if (($sampling_percentage >1) && ($sampling_percentage < 100)) {
+		$sampling_percentage = $sampling_percentage/100;  # We'll be nice and accept actual percentages for this input.
+	    }
+	    if (($sampling_percentage <= 0) || ($sampling_percentage >= 1)) {
+		$init_error_msg=$init_error_msg."For affine sampling strategy = ${sampling_strategy}, specified sampling percentage ".
+		    " of ${sampling_percentage} is outside of the acceptable range [0,1], exclusive.\n";
+	    } else {
+		$affine_sampling_options = $sampling_strategy.','$sampling_percentage;
+	    }
+	}
+    }
+    $Hf->set_value('affine_sampling_options',$affine_sampling_options);
+   
+    if (  $affine_target eq ('' || 'NO_KEY')) {
+	$Hf->set_value('affine_target',$affine_target);
+    }
+
+
     
     if ($log_msg ne '') {
 	log_info("${message_prefix}${log_msg}");
@@ -366,15 +524,7 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 # ------------------
 sub create_affine_reg_to_atlas_vbm_Runtime_check {
 # ------------------
-    $affine_iter = $Hf->get_value('affine_iter');
-    
-    if (defined $test_mode) {
-	if ($test_mode==1) {
-	    $affine_iter="1x0x0x0";
-	}
-    }
-    $Hf->set_value('affine_iter',$affine_iter);
-
+    $affine_iterations = $Hf->get_value('affine_iterations');
     $affine_metric = $Hf->get_value('affine_metric');
 
   

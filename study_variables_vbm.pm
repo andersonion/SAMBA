@@ -37,8 +37,7 @@ $flip_z
 $optional_suffix
 $atlas_name
 $label_atlas_name
-$rigid_contrast
-$mdt_contrast
+
 $skull_strip_contrast
 $threshold_code
 $do_mask
@@ -46,14 +45,30 @@ $pre_masked
 $port_atlas_mask
 $port_atlas_mask_path
 $thresh_ref
-$syn_params
-$syn_iterations
-$diffeo_shrink_factors
-$affine_shrink_factors
-$affine_target
+
+$rigid_contrast
+
 $affine_contrast
 $affine_metric
+$affine_shrink_factors
+$affine_iterations
+$affine_gradient_step
+$affine_convergence_thresh
+$affine_convergence_window
+$affine_smoothing_sigmas
+$affine_sampling_options
+$affine_target
+
+$mdt_contrast
 $diffeo_metric
+$diffeo_shrink_factors
+$diffeo_iterations
+$diffeo_transform_parameters
+$diffeo_convergence_thresh
+$diffeo_convergence_window
+$diffeo_smoothing_sigmas
+$diffeo_sampling_options
+
 $native_reference_space
 $vbm_reference_space
 $create_labels
@@ -595,23 +610,45 @@ GIT1_111024_5);
 	$vbm_reference_space = "native";
 	$syn_params = '0.6,3,1';
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+	$do_labels = 0;
 
 	@control_group = qw(S65469 S65519 S65531);
 	@compare_group = qw(S65445 S65542 S65545);
 	
 
-	@channel_array = qw(T2star); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+	@channel_array = qw(dwi fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
     
 	$flip_x = 0;
 	$flip_z = 0;
 	
 	$optional_suffix = '';
-	$atlas_name = 'whs';
-	$label_atlas_name = 'whs';
-	$rigid_contrast = 'T2star';
-	$affine_contrast = 'T2star';
-	$mdt_contrast = 'T2star';
-	$skull_strip_contrast = 'T2star';
+	$atlas_name = 'whs';#
+	$label_atlas_name = 'whs';#
+	
+	$rigid_contrast = 'dwi';
+	# $affine_contrast = 'dwi';
+	$affine_metric = 'MI';
+	$affine_shrink_factors = '6x4x2x1';
+	$affine_iterations = '500x500x500x500';
+	$affine_gradient_step = 0.05;
+	$affine_convergence_thresh = '1e-6';
+	$affine_convergence_window = 10;
+	# $affine_smoothing_sigmas; # This should default to 0x0x0x0
+	$affine_sampling_options = 'Random,0.5';
+	#$affine_target;
+
+	$mdt_contrast = 'fa';
+	$diffeo_metric = 'CC';
+	$diffeo_shrink_factors = '8x6x4x2x1';
+	$diffeo_iterations = '500x500x500x500x15';
+	$diffeo_transform_parameters = '0.6,3,1';
+	$diffeo_convergence_thresh = '1e-7';
+	$diffeo_convergence_window = 15;
+	$diffeo_smoothing_sigmas = '0.9x0.6x0.3x0.15mm';
+	$diffeo_sampling_options = 'Random,0.5';
+
+
+	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
 	$do_mask = 0;
 	$port_atlas_mask = 0;    
