@@ -30,8 +30,8 @@ my $job;
 my ($do_rigid,$affine_target,$q_string,$r_string,$other_xform_suffix,$mdt_to_atlas,$mdt_contrast_string,$mdt_contrast,$mdt_contrast_2,$mdt_path);
 my $ants_affine_suffix = "0GenericAffine.mat";
 my $mem_request;
+my $dims;
 my $log_msg;
-
 # ------------------
 sub create_affine_reg_to_atlas_vbm {  # Main code
 # ------------------
@@ -103,6 +103,10 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     
     my $case = 2;
     my ($dummy,$error_message)=create_affine_reg_to_atlas_Output_check($case);
+
+    my $write_path_for_Hf = "${current_path}/${PM}_current.headfile";
+    $Hf->write_headfile($write_path_for_Hf);
+    `chmod 777 ${write_path_for_Hf}`;
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);
@@ -212,20 +216,20 @@ sub create_affine_transform_vbm {
     my $cmd;
     if ($xform_code eq 'rigid1') {
 	# if ($mdt_to_atlas) {  # We don't do rigid separately from affine for MDT to Atlas.
-	# 	  $cmd = "antsRegistration -d 3 ".
+	# 	  $cmd = "antsRegistration -d $dims ".
 	# 	      " ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ". 
 	# " -s ${affine_smoothing_sigmas}  -f  ${affine_shrink_factors}  ". #-s 4x2x1x1vox -f 6x4x2x1
 	# 	      " -u 1 -z $collapse -l 1 -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4"; 
 	
 	# } else {
-	$cmd = "antsRegistration -d 3 -r [$atlas_path,$B_path,1] ". 
+	$cmd = "antsRegistration -d $dims -r [$atlas_path,$B_path,1] ". 
 	    " ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ".
 	    " -s ${affine_smoothing_sigmas} -f ${affine_shrink_factors}  ". #-f 6x4x2x1
 	    " $q $r -u 1 -z 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
 	# }	  
     } elsif ($xform_code eq 'full_affine') {
 	if ($mdt_to_atlas) {
-	    $cmd = "antsRegistration -d 3 ".
+	    $cmd = "antsRegistration -d $dims ".
 		" ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ". 
 		" -s ${affine_smoothing_sigmas} -f ${affine_shrink_factors}  ". # -s 4x2x1x1vox -f  6x4x2x1 
 		" ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ". 
@@ -233,7 +237,7 @@ sub create_affine_transform_vbm {
 		" -u 1 -z 1 -l 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";  # "-z 1" instead of "-z $collapse", as we want rigid + affine together in this case.
 	    
 	} else {	  
-	    $cmd = "antsRegistration -d 3 ". #-r [$atlas_path,$B_path,1] ".
+	    $cmd = "antsRegistration -d $dims ". #-r [$atlas_path,$B_path,1] ".
 		" ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ".
 		"-s ${affine_smoothing_sigmas} -f  ${affine_shrink_factors} -l 1 ". # -s 4x2x1x0.5vox-f 6x4x2x1
 		" $q $r -u 1 -z $collapse -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
@@ -288,16 +292,16 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
     if ($rigid_contrast eq ('' || 'NO_KEY')) {
 	my @channels = $Hf->get_value('channel_comma_list');
 	$rigid_contrast = shift(@channels);
-	$Hf->set_value('full_affine_contrast',$affine_contrast);
+	$Hf->set_value('affine_contrast',$affine_contrast);
 	$log_msg=$log_msg."\tNo rigid contrast specified; using first specified contrast: \"${rigid_contrast}\" for rigid  registrations.\n";
 	$Hf->set_value('rigid_contrast',$rigid_contrast);
     }
 
-    my $affine_contrast = $Hf->get_value('full_affine_contrast');
+    my $affine_contrast = $Hf->get_value('affine_contrast');
     if ($affine_contrast eq ('' || 'NO_KEY')) {
 	#$affine_contrast = $defaults_Hf->get_value('affine_contrast');
 	$affine_contrast = $Hf->get_value('rigid_contrast');
-	$Hf->set_value('full_affine_contrast',$affine_contrast);
+	$Hf->set_value('affine_contrast',$affine_contrast);
 	$log_msg=$log_msg."\tNo affine contrast specified; using rigid contrast \"${rigid_contrast}\" for affine registrations.\n";
     }
 
@@ -493,7 +497,7 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
     }
 
     $affine_smoothing_sigmas=$Hf->get_value('affine_smoothing_sigmas');
-    
+    my $input_affine_smoothing_sigmas=$affine_smoothing_sigmas;
     if (  $affine_smoothing_sigmas eq ('' || 'NO_KEY')) {
 	#$affine_smoothing_sigmas = $defaults_Hf->get_value('affine_smoothing_sigmas_${affine_levels}');
 	 $affine_smoothing_sigmas = '0.5vox';
@@ -504,21 +508,20 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 	}
 	$log_msg = $log_msg."\tNo affine smoothing sigmas specified; using default values:  \"${affine_smoothing_sigmas}\".\n";
     } else {
-	
+		
 	my $affine_smoothing_units ='';
-	if ($affine_smoothing_sigmas =~ s/[0-9\.]+(vox|mm)$//) {
-	    $affine_smoothing_units = $1;
-	} 
-	
-	
 	my @affine_smoothing_array;
 	my $affine_smoothing_levels;
-	if ($affine_smoothing_sigmas =~ /[0-9\.]+\s$/) {
+	$affine_smoothing_sigmas =~ s/[\s]+//g;  #Strip any extraneous whitespace
+	if ($affine_smoothing_sigmas =~ s/([^0-9\.]*)$//) {
+	    $affine_smoothing_units = $1;
+	} 
+ 
+	if ($affine_smoothing_units =~ /^(mm|vox|)$/) {
 	    if ($affine_smoothing_sigmas =~ /(,[0-9\.]+)+/) {
 		@affine_smoothing_array = split(',',$affine_smoothing_sigmas);
-		my $input_affine_smoothing_sigmas=$affine_smoothing_sigmas;
 		$affine_smoothing_sigmas = join('x',@affine_smoothing_array);
-		$log_msg=$log_msg."\tConverting affine smoothing sigmas from \"${input_affine_smoothing_sigmas}\" to \"${affine_smoothing_sigmas}\".\n";
+		$log_msg=$log_msg."\tConverting affine smoothing sigmas from \"${input_affine_smoothing_sigmas}\" to \"${affine_smoothing_sigmas}${affine_smoothing_units}\".\n";
 	    }
 	    if ($affine_smoothing_sigmas =~ /(x[0-9\.]+)+/) {
 		@affine_smoothing_array = split('x',$affine_smoothing_sigmas);
@@ -526,22 +529,60 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 	    } elsif ($affine_smoothing_sigmas =~ /^[0-9\.]+$/) {
 		$affine_smoothing_levels=1;
 	    } else {
-		$init_error_msg=$init_error_msg."Non-numeric affine smoothing factor(s) specified: \"${affine_smoothing_sigmas}\". ".
+		$init_error_msg=$init_error_msg."Non-numeric affine smoothing factor(s) specified: \"${input_affine_smoothing_sigmas}\". ".
 		    "Multiple smoothing factors may be \'x\'- or comma-separated.\n";
 	    }
 	    
 	    if ($affine_smoothing_levels != $affine_levels) {
-		$init_error_msg=$init_error_msg."Number of affine levels (${affine_smoothing_levels}) implied by the specified affine smoothing factors (\'${affine_smoothing_sigmas}\'\" ".
+		$init_error_msg=$init_error_msg."Number of affine levels (${affine_smoothing_levels}) implied by the specified affine smoothing factors \"${affine_smoothing_sigmas}\" ".
 		    "does not match the number of levels implied by the affine iterations (${affine_levels})\n";
 	    } 
 	} else {
-	    $init_error_msg=$init_error_msg."Units specified for affine smoothing sigmas \"${affine_smoothing_sigmas}\" are not valid. ".
-		"Acceptable units are either \'vox\' or \'mm\', or may be omitted (equivalent to \'mm\')./n";
+	    $init_error_msg=$init_error_msg."Units specified for affine smoothing sigmas \"${input_affine_smoothing_sigmas}\" are not valid. ".
+		"Acceptable units are either \'vox\' or \'mm\', or may be omitted (equivalent to \'mm\').\n";
 	}
        
 	$affine_smoothing_sigmas = $affine_smoothing_sigmas.$affine_smoothing_units;
     }
     $Hf->set_value('affine_smoothing_sigmas',$affine_smoothing_sigmas);
+
+    # 	my $affine_smoothing_units ='';
+    # 	if ($affine_smoothing_sigmas =~ s/[0-9\.]+(vox|mm)$//) {
+    # 	    $affine_smoothing_units = $1;
+    # 	} 
+	
+	
+    # 	my @affine_smoothing_array;
+    # 	my $affine_smoothing_levels;
+    # 	if ($affine_smoothing_sigmas =~ /[0-9\.]+\s$/) {
+    # 	    if ($affine_smoothing_sigmas =~ /(,[0-9\.]+)+/) {
+    # 		@affine_smoothing_array = split(',',$affine_smoothing_sigmas);
+    # 		my $input_affine_smoothing_sigmas=$affine_smoothing_sigmas;
+    # 		$affine_smoothing_sigmas = join('x',@affine_smoothing_array);
+    # 		$log_msg=$log_msg."\tConverting affine smoothing sigmas from \"${input_affine_smoothing_sigmas}\" to \"${affine_smoothing_sigmas}\".\n";
+    # 	    }
+    # 	    if ($affine_smoothing_sigmas =~ /(x[0-9\.]+)+/) {
+    # 		@affine_smoothing_array = split('x',$affine_smoothing_sigmas);
+    # 		$affine_smoothing_levels=1+$#affine_smoothing_array;
+    # 	    } elsif ($affine_smoothing_sigmas =~ /^[0-9\.]+$/) {
+    # 		$affine_smoothing_levels=1;
+    # 	    } else {
+    # 		$init_error_msg=$init_error_msg."Non-numeric affine smoothing factor(s) specified: \"${affine_smoothing_sigmas}\". ".
+    # 		    "Multiple smoothing factors may be \'x\'- or comma-separated.\n";
+    # 	    }
+	    
+    # 	    if ($affine_smoothing_levels != $affine_levels) {
+    # 		$init_error_msg=$init_error_msg."Number of affine levels (${affine_smoothing_levels}) implied by the specified affine smoothing factors (\'${affine_smoothing_sigmas}\'\" ".
+    # 		    "does not match the number of levels implied by the affine iterations (${affine_levels})\n";
+    # 	    } 
+    # 	} else {
+    # 	    $init_error_msg=$init_error_msg."Units specified for affine smoothing sigmas \"${affine_smoothing_sigmas}\" are not valid. ".
+    # 		"Acceptable units are either \'vox\' or \'mm\', or may be omitted (equivalent to \'mm\')./n";
+    # 	}
+       
+    # 	$affine_smoothing_sigmas = $affine_smoothing_sigmas.$affine_smoothing_units;
+    # }
+    # $Hf->set_value('affine_smoothing_sigmas',$affine_smoothing_sigmas);
     
     $affine_sampling_options=$Hf->get_value('affine_sampling_options');
     if ($affine_sampling_options eq ('' || 'NO_KEY')) {
@@ -555,6 +596,7 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 
 	} elsif ($sampling_strategy =~ /^None$/i) {
 	    $sampling_strategy = 'None';
+	    $sampling_percentage = '';
 	} elsif ($sampling_strategy =~ /^Regular$/i) {
 	    $sampling_strategy = 'Regular';
 	} else {
@@ -573,7 +615,11 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 		$init_error_msg=$init_error_msg."For affine sampling strategy = \"${sampling_strategy}\", specified sampling percentage ".
 		    " of \"${sampling_percentage}\" is outside of the acceptable range [0,1], exclusive.\n";
 	    } else {
-		$affine_sampling_options = $sampling_strategy.','.$sampling_percentage;
+		if ($sampling_percentage ne ''){ 
+		    $affine_sampling_options = $sampling_strategy.','.$sampling_percentage;
+		} else {
+		    $affine_sampling_options = $sampling_strategy;
+		}
 	    }
 	}
     }
@@ -625,7 +671,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 #                     default to the general affine options.
 ##
 
-  
+    $dims=$Hf->get_value('image_dimensions');  
     $inputs_dir = $Hf->get_value('inputs_dir');
     if ($mdt_to_atlas) {
 
@@ -713,14 +759,14 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 	    $q_string = '';
 	    $r_string = '';
 	} else {
-	    $affine_target = $Hf->get_value('affine_target_image');
+	    $affine_target = $Hf->get_value('affine_target'); # $affine_target = $Hf->get_value('affine_target_image');
 	    if ($affine_target eq 'NO_KEY') {
 		my @controls = split(',',($Hf->get_value('control_comma_list')));
 		$affine_target = shift(@controls);
-		$Hf->set_value('affine_target_image',$affine_target);
+		$Hf->set_value('affine_target',$affine_target); #	$Hf->set_value('affine_target_image',$affine_target);
 	    }
 	    
-	    $contrast = $Hf->get_value('full_affine_contrast');
+	    $contrast = $Hf->get_value('affine_contrast');
 	    $xform_code = 'full_affine';
 	    $xform_suffix = $Hf->get_value('affine_transform_suffix');
 	    $other_xform_suffix = $Hf->get_value('rigid_transform_suffix');

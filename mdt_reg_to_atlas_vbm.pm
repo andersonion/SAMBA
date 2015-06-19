@@ -14,19 +14,21 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $syn_params $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path);
-my ($diffsyn_iter,$syn_param,$diffeo_shrink_factors,$sigmas,$diffeo_metric);
+my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_transform_parameters);
+my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options);
 my ($label_path);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
 my $job;
+my $dims;
 my ($log_msg);
 
 
@@ -78,6 +80,8 @@ sub mdt_reg_to_atlas_vbm {  # Main code
     
     $Hf->set_value('MDT_to_atlas_JobID',$jobs[0]);    
 
+
+## THIS IS COMMENTED OUT BECAUSE WE WANT TO RUN ALL THE COMPARE REGISTRATIONS TO MDT IN PARALLEL TO THIS JOB
     # if (cluster_check() && ($jobs[0] ne '')) {
     # 	my $interval = 15;
     # 	my $verbose = 1;
@@ -184,7 +188,7 @@ sub mdt_reg_to_atlas {
     if ($mdt_contrast_2 ne '') {
 	$fixed_2 = $Hf->get_value('label_atlas_path_2'); 
 	$moving_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii";
-	$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,4] ";
+	$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
     }
     my ($r_string);
 
@@ -200,8 +204,8 @@ sub mdt_reg_to_atlas {
 	$r_string = '';
     }
     
-    $pairwise_cmd = "antsRegistration -d 3 -m ${diffeo_metric}[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
-	"  -c [ ${diffsyn_iter},1.e-8,20] -f ${diffeo_shrink_factors} -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n";
+    $pairwise_cmd = "antsRegistration -d $dims -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
+	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${r_string} -u;\n";
 
     
     my $go_message = "$PM: create diffeomorphic warp from MDT to label atlas ${label_atlas}" ;
@@ -255,7 +259,7 @@ sub mdt_reg_to_atlas_vbm_Init_check {
     if ($diffeo_metric eq ('' || 'NO_KEY')) {
 	$diffeo_metric = 'CC';
 	$metric_flag = 1;
-	$log_msg = $log_msg."\tNo ants metric specified for diffeomorphic registration of compare group to MDT. Will use default: \"${diffeo_metric}\".\n";
+	$log_msg = $log_msg."\tNo ants metric specified for diffeomorphic registration of MDT to labelled atlas. Will use default: \"${diffeo_metric}\".\n";
     } else {
 	foreach my $metric (@valid_metrics) {
 	    if ($diffeo_metric =~ /^$metric\Z/i) { # This should be able to catch any capitalization variation and correct it.
@@ -287,15 +291,18 @@ sub mdt_reg_to_atlas_vbm_Init_check {
 sub mdt_reg_to_atlas_vbm_Runtime_check {
 # ------------------
 
-    $label_atlas = $Hf->get_value('label_atlas_name');
-
-    $diffsyn_iter=$Hf->get_value('syn_iteration_string');
+    $diffeo_iterations = $Hf->get_value('diffeo_iterations');
+    $diffeo_metric = $Hf->get_value('diffeo_metric');
+    $diffeo_radius = $Hf->get_value('diffeo_radius');
     $diffeo_shrink_factors = $Hf->get_value('diffeo_shrink_factors');
-    $sigmas = $Hf->get_value('smoothing_sigmas');
-    $syn_param = 0.5;
-   
-    $diffeo_metric = $Hf->get_value('diffeomorphic_metric');
+    $diffeo_transform_parameters = $Hf->get_value('diffeo_transform_parameters');
+    $diffeo_convergence_thresh = $Hf->get_value('diffeo_convergence_thresh');
+    $diffeo_convergence_window = $Hf->get_value('diffeo_convergence_window');
+    $diffeo_smoothing_sigmas = $Hf->get_value('diffeo_smoothing_sigmas');
+    $diffeo_sampling_options = $Hf->get_value('diffeo_sampling_options');
 
+    $dims=$Hf->get_value('image_dimensions');
+    $label_atlas = $Hf->get_value('label_atlas_name');
     $work_path = $Hf->get_value('regional_stats_dir');
     $label_path=$Hf->get_value('labels_dir');
     $current_path = $Hf->get_value('label_transform_dir');

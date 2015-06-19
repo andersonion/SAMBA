@@ -121,6 +121,8 @@ $reference_path
 $create_labels
 $label_space
 $label_reference
+
+$image_dimensions
  );
 
 # $label_reference_path
@@ -165,6 +167,12 @@ my $channel_comma_list = join(',',@channel_array);
 
 $Hf->set_value('project_id',$project_id);
 
+if (defined $image_dimensions) {
+    $Hf->set_value('image_dimensions',$image_dimensions);
+} else {
+    $Hf->set_value('image_dimensions',3);
+}
+
 $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 if ($label_reference ne '') {
     $Hf->set_value('label_reference_space',$label_reference);
@@ -191,7 +199,7 @@ if (defined $affine_metric) {
 }
 
 if (defined $affine_radius) {
-    $Hf->set_value('affine_metric',$affine_radius);
+    $Hf->set_value('affine_radius',$affine_radius);
 }
 
 if (defined $affine_shrink_factors) {
@@ -232,7 +240,7 @@ if (defined $diffeo_metric) {
 }
 
 if (defined $diffeo_radius) {
-    $Hf->set_value('diffeo_metric',$diffeo_radius);
+    $Hf->set_value('diffeo_radius',$diffeo_radius);
 }
 
 if (defined $diffeo_shrink_factors) {
@@ -293,7 +301,11 @@ $Hf->set_value('rigid_transform_suffix','rigid.mat');
 
 $Hf->set_value('affine_transform_suffix','affine.mat');
 $Hf->set_value('affine_target_image',$affine_target);
-$Hf->set_value('full_affine_contrast',$affine_contrast);
+
+if (defined $affine_contrast) {
+    $Hf->set_value('affine_contrast',$affine_contrast);
+}
+
 $Hf->set_value('affine_identity_matrix',"$WORKSTATION_DATA/identity_affine.mat");
 
 $Hf->set_value('flip_x',$flip_x);
@@ -319,40 +331,12 @@ $Hf->set_value('engine_app_matlab_opts','-nosplash -nodisplay -nodesktop');
 $Hf->set_value('nifti_matlab_converter','civm_to_nii'); # This should stay hardcoded.
 
 
-
-my @iterations = split(',',$diffeo_shrink_factors);
-my $levels = $#iterations + 1;
-my $sigma_string = "0";
-
 if ($test_mode) {
     $Hf->set_value('test_mode','on');
-    # my $new_syn_iter = "1";
-    
-    # for (my $ii = 2; $ii <= $levels; $ii++) {
-    # 	$new_syn_iter = $new_syn_iter.',0'; # $diffsyn_iter="1x0x0x0";
-    # }
-    # $syn_iterations = $new_syn_iter;
 } else {
     $Hf->set_value('test_mode','off');
     
 }
-
-# for (my $jj = 2; $jj <= $levels; $jj++) {
-#     $sigma_string = $sigma_string.'x0';
-# }
-
-# ## Custom sigma string
-
-# #$sigma_string = "2x2x1x0";
-
-
-# my $syn_iter_string = join('x',split(',',$syn_iterations));
-# my $downsample_string = join('x',split(',',$diffeo_shrink_factors));
-
-# $Hf->set_value('syn_iteration_string',$syn_iter_string);
-# $Hf->set_value('diffeo_shrink_factors',$downsample_string);
-# $Hf->set_value('smoothing_sigmas',$sigma_string);
-$Hf->set_value('diffeo_transform_parameters', $diffeo_transform_parameters);
 
 $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 

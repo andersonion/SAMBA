@@ -1,10 +1,6 @@
 #!/usr/local/pipeline-link/perl
 # compare_reg_to_mdt_vbm.pm 
 
-
-
-
-
 my $PM = "compare_reg_to_mdt_vbm.pm";
 my $VERSION = "2014/12/02";
 my $NAME = "Pairwise registration for Minimum Deformation Template calculation.";
@@ -14,19 +10,21 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $combined_rigid_and_affine $syn_params $nodes $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $combined_rigid_and_affine $nodes $permissions);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my ($diffsyn_iter,$syn_param,$diffeo_shrink_factors,$sigmas,$diffeo_metric);
+my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_transform_parameters);
+my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
 my $job;
 my $mem_request;
+my $dims;
 my $log_msg;
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
@@ -216,21 +214,21 @@ sub reg_to_mdt {
 	if ($mdt_contrast_2 ne '') {
 	    
 	    $moving_2 =$rigid_path."/${runno}_${mdt_contrast_2}.nii" ;
-	    $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
+	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
 	}
-	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ". 
-	    "  -c [ ${diffsyn_iter},1.e-8,20] -f ${diffeo_shrink_factors} -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n";
+	$pairwise_cmd = "antsRegistration -d 3 -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
+	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n";
     } else {
 	$moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
 	if ($mdt_contrast_2 ne '') {
 	 
 	    $moving_2 = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast_2) ;
-	    $second_contrast_string = " -m CC[ ${fixed_2},${moving_2},1,4] ";
+	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius}${diffeo_sampling_options}] ";
 	}
 #	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}"; 
 #	my $moving_affine =  $rigid_path."/${runno}_${xform_suffix}";
-	$pairwise_cmd = "antsRegistration -d 3 -m CC[ ${fixed},${moving},1,4] ${second_contrast_string} -o ${out_file} ".
-	    "  -c [ ${diffsyn_iter},1.e-8,20] -f ${diffeo_shrink_factors} -t SyN[${syn_params}] -s $sigmas ${r_string} -u;\n"
+	$pairwise_cmd = "antsRegistration -d 3 -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
+	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n"
     }
 
  my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
@@ -277,28 +275,28 @@ sub compare_reg_to_mdt_vbm_Init_check {
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
 
-    $diffeo_metric = $Hf->get_value('diffeomorphic_metric');
-    my @valid_metrics = ('CC','MI','Mattes','MeanSquares','Demons','GC');
-    my $valid_metrics = join(', ',@valid_metrics);
-    my $metric_flag = 0;
-    if ($diffeo_metric eq ('' || 'NO_KEY')) {
-	$diffeo_metric = 'CC';
-	$metric_flag = 1;
-	$log_msg = $log_msg."\tNo ants metric specified for diffeomorphic registration of compare group to MDT. Will use default: \"${diffeo_metric}\".\n";
-    } else {
-	foreach my $metric (@valid_metrics) {
-	    if ($diffeo_metric =~ /^$metric\Z/i) { # This should be able to catch any capitalization variation and correct it.
-		$diffeo_metric = $metric;
-		$metric_flag = 1;
-		$log_msg=$log_msg."\tUsing ants metric \"${diffeo_metric}\" for diffeomorphic registration of compare group to MDT.\n";
-	    }
-	}
-    }
+    # $diffeo_metric = $Hf->get_value('diffeomorphic_metric');
+    # my @valid_metrics = ('CC','MI','Mattes','MeanSquares','Demons','GC');
+    # my $valid_metrics = join(', ',@valid_metrics);
+    # my $metric_flag = 0;
+    # if ($diffeo_metric eq ('' || 'NO_KEY')) {
+    # 	$diffeo_metric = 'CC';
+    # 	$metric_flag = 1;
+    # 	$log_msg = $log_msg."\tNo ants metric specified for diffeomorphic registration of compare group to MDT. Will use default: \"${diffeo_metric}\".\n";
+    # } else {
+    # 	foreach my $metric (@valid_metrics) {
+    # 	    if ($diffeo_metric =~ /^$metric\Z/i) { # This should be able to catch any capitalization variation and correct it.
+    # 		$diffeo_metric = $metric;
+    # 		$metric_flag = 1;
+    # 		$log_msg=$log_msg."\tUsing ants metric \"${diffeo_metric}\" for diffeomorphic registration of compare group to MDT.\n";
+    # 	    }
+    # 	}
+    # }
 
-    if (! $metric_flag) {
-	$init_error_msg=$init_error_msg."Invalid ants metric requested for diffeomorphic registration of compare group to MDT \"${diffeo_metric}\" is invalid.\n".
-	    "\tValid metrics are: ${valid_metrics}\n";
-    }
+    # if (! $metric_flag) {
+    # 	$init_error_msg=$init_error_msg."Invalid ants metric requested for diffeomorphic registration of compare group to MDT \"${diffeo_metric}\" is invalid.\n".
+    # 	    "\tValid metrics are: ${valid_metrics}\n";
+    # }
 
     if ($log_msg ne '') {
 	log_info("${message_prefix}${log_msg}");
@@ -315,20 +313,17 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
 # ------------------
 
 
+    $diffeo_iterations = $Hf->get_value('diffeo_iterations');
+    $diffeo_metric = $Hf->get_value('diffeo_metric');
+    $diffeo_radius = $Hf->get_value('diffeo_radius');
+    $diffeo_shrink_factors = $Hf->get_value('diffeo_shrink_factors');
+    $diffeo_transform_parameters = $Hf->get_value('diffeo_transform_parameters');
+    $diffeo_convergence_thresh = $Hf->get_value('diffeo_convergence_thresh');
+    $diffeo_convergence_window = $Hf->get_value('diffeo_convergence_window');
+    $diffeo_smoothing_sigmas = $Hf->get_value('diffeo_smoothing_sigmas');
+    $diffeo_sampling_options = $Hf->get_value('diffeo_sampling_options');
 
-    $diffsyn_iter=$Hf->get_value('syn_iteration_string');
-    $diffeo_shrink_factors = $Hf->get_value('diffeo_diffeo_shrink_factors');
-    $sigmas = $Hf->get_value('smoothing_sigmas');
-    $syn_param = 0.5;
-
-#     if ( defined($test_mode)) {
-# 	if( $test_mode == 1 ) {
-# #	    $diffsyn_iter="2x2x2x2";
-# 	    $diffsyn_iter="1x0x0x0";
-# 	}
-#     }
-
-# # Set up work
+    $dims=$Hf->get_value('image_dimensions');
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
     $mdt_contrast_string = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
     @mdt_contrasts = split('_',$mdt_contrast_string); 
@@ -336,8 +331,6 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
     if ($#mdt_contrasts > 0) {
 	$mdt_contrast_2 = $mdt_contrasts[1];
     }  #The working assumption is that we will not expand beyond using two contrasts for registration...
-
-    $diffeo_metric = $Hf->get_value('diffeomorphic_metric');
 
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');

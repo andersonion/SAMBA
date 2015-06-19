@@ -17,10 +17,10 @@ my $colton_invivo = 0;
 my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
-my $dave = 1;
+my $dave = 0;
 my $bj = 0;
 my $bj_group = 0;
-
+my $agoston = 1;
 use strict;
 use warnings;
 
@@ -76,15 +76,17 @@ $vbm_reference_space
 $create_labels
 $label_space
 $label_reference
+
+$image_dimensions
 ); # Need to replace $native_reference_space with $reference_space
 
 
 sub study_variables_vbm {
 
-    $diffeo_iterations = "4000,4000,4000,4000";
-    $diffeo_shrink_factors="8,4,2,1";
-    $affine_target = "NO_KEY"; # If not specified, will follow default behaviour of selecting first listed control runno.
-    $affine_contrast = "NO_KEY";
+    #$diffeo_iterations = "4000,4000,4000,4000";  #Previous default; moved to pairwise_init_check
+    #$diffeo_shrink_factors="8,4,2,1"; #Previous default; moved to pairwise_init_check
+    #$affine_target = "NO_KEY"; # If not specified, will follow default behaviour of selecting first listed control runno.
+    #$affine_contrast = "NO_KEY";
     $vbm_reference_space = "native";# "native"; # Options: "native", "<atlas_name>","<full path to an arbitrary image>"
     
     $create_labels = 1;
@@ -610,25 +612,11 @@ GIT1_111024_5);
 	$project_name = "12.provenzale.02";
 	$custom_predictor_string = "control_vs_diseased";
 	$vbm_reference_space = "native";
-	$diffeo_transform_parameters = '0.6,3,1';
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 0;
 
-#	@control_group = qw(S65469 S65519 S65531);
-#	@compare_group = qw(S65445 S65542 S65545);
-	
-	@control_group = qw(
-        controlSpring2013_4
-        controlSpring2013_7
-        controlSpring2013_8
-);
-
-@compare_group = qw(
-        controlSpring2013_9
-        controlSpring2013_10
-        controlSpring2013_11
-);
-
+	@control_group = qw(S65469 S65519 S65531);
+	@compare_group = qw(S65445 S65542 S65545);
 
 	@channel_array = qw(dwi fa);
     
@@ -644,31 +632,31 @@ GIT1_111024_5);
 	#$affine_radius=32;
 	$affine_metric = 'MI';
 	$affine_shrink_factors = '6x4x2x1';
-	$affine_iterations = '500x500x500,500';
+	$affine_iterations = '500x500x500x500';
 	$affine_gradient_step = 0.05;
 	$affine_convergence_thresh = '1e-6';
         $affine_convergence_window = 10;
-	$affine_smoothing_sigmas= '0x0x0x0';
+	$affine_smoothing_sigmas= '0x0x0x0vox';
 	$affine_sampling_options = 'Random,0.5';
-	##$affine_target;
+	$affine_target='S6546at9';
 
 	$mdt_contrast = 'fa';
 	$diffeo_metric = 'CC';
 	$diffeo_radius = 4;
-	#$diffeo_shrink_factors = '8x6x4x2x1'; # Commented out to test default behavior.
+	$diffeo_shrink_factors = '8x6x4x2x1'; # Commented out to test default behavior.
 	$diffeo_iterations = '500x500x500x500x15';
 	$diffeo_transform_parameters = '0.6,3,1';
 	$diffeo_convergence_thresh = '1e-7';
 	$diffeo_convergence_window = 15;
-	$diffeo_smoothing_sigmas = '0.9x0.6x0.3x0.15mm';
+	$diffeo_smoothing_sigmas = '0.9x0.6x0.3,0.15x0mm';
 	$diffeo_sampling_options = 'Random,0.5';
 
 
 	$skull_strip_contrast = 'dwi';
-	$threshold_code = 4;
+	$threshold_code = 3;
 	$do_mask = 0;
 	$port_atlas_mask = 0;    
-	$pre_masked = 1;	
+	$pre_masked = 0;	
  }  elsif ($bj)
     
     {
@@ -876,6 +864,59 @@ dummy
 	$do_mask = 0;	
 	$port_atlas_mask = 0;
 	$pre_masked = 1;
+ }
+
+elsif ($agoston)
+    
+    {
+	$project_name = "14.agoston.01";
+	$custom_predictor_string = "sham_vs_injured";
+	$vbm_reference_space = "native";
+	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+	$create_labels = 0;
+
+	@control_group = qw(S65456 S65459 S65466 S65521 S65530 S65533 S65537 S65541);
+	@compare_group = qw(S65453 S65461 S65464 S65467 S65524 S65528 S65535 S65539 S65544);
+
+	@channel_array = qw(dwi fa adc e1 e2 e3);
+    
+	$flip_x = 0;
+	$flip_z = 0;
+	
+	$optional_suffix = '';
+	$atlas_name = 'rat';#
+	$label_atlas_name = 'rat';#
+	
+	$rigid_contrast = 'dwi';
+	## $affine_contrast = 'dwi';
+	$affine_metric = 'MI';
+	#$affine_radius=32;
+	$affine_sampling_options = 'Regular,0.75';
+	$affine_gradient_step = 0.05;
+	$affine_iterations = '500x500x500x500';
+	$affine_convergence_thresh = '1e-6';
+        $affine_convergence_window = 15;
+	$affine_smoothing_sigmas= '0x0x0x0vox';
+	$affine_shrink_factors = '6x4x2x1';
+	##$affine_target;
+
+	$mdt_contrast = 'fa';
+	$diffeo_metric = 'CC';
+	$diffeo_radius = 4;
+	$diffeo_shrink_factors = '8x4x2x1'; # Commented out to test default behavior.
+	$diffeo_iterations = '500x500x500x500';
+	$diffeo_transform_parameters = '0.4,3,1';
+	$diffeo_convergence_thresh = '1e-7';
+	$diffeo_convergence_window = 15;
+	$diffeo_smoothing_sigmas = '4x2x1x0vox';
+	$diffeo_sampling_options = 'Random,1';
+
+
+	$skull_strip_contrast = 'dwi';
+	$threshold_code = 4;
+	$do_mask = 0;
+	$port_atlas_mask = 0;    
+	$pre_masked = 1;	
  }
     
 

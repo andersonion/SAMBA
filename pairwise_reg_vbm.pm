@@ -27,6 +27,7 @@ my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_co
 my (%go_hash);
 my $go = 1;
 my $job;
+my $dims;
 my $log_msg;
 my ($expected_number_of_jobs,$hash_errors);
 my $mem_request;
@@ -200,9 +201,9 @@ sub create_pairwise_warps {
 	if ($mdt_contrast_2 ne '') {
 	    $fixed_2 = $rigid_path."/${fixed_runno}_${mdt_contrast_2}.nii" ;
 	    $moving_2 =$rigid_path."/${moving_runno}_${mdt_contrast_2}.nii" ;
-	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius}] ";
+	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
 	}
-	$pairwise_cmd = "antsRegistration -d 3 -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius}] ${second_contrast_string} -o ${out_file} ". 
+	$pairwise_cmd = "antsRegistration -d $dims -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
 	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n";
     } else {
 	$fixed = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast);
@@ -210,10 +211,10 @@ sub create_pairwise_warps {
 	if ($mdt_contrast_2 ne '') {
 	  $fixed_2 = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast_2) ;
 	  $moving_2 = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast_2) ;
-	  $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,4] ";
+	  $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
 	}
 
-	$pairwise_cmd = "antsRegistration -d 3 -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius}] ${second_contrast_string} -o ${out_file} ".
+	$pairwise_cmd = "antsRegistration -d $dims -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
 	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n" 
     }
 
@@ -261,7 +262,7 @@ sub pairwise_reg_vbm_Init_check {
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
     
-    $diffeo_metric = $Hf->get_value('diffeomorphic_metric');
+    $diffeo_metric = $Hf->get_value('diffeo_metric');
     my @valid_metrics = ('CC','MI','Mattes','MeanSquares','Demons','GC');
     my $valid_metrics = join(', ',@valid_metrics);
     my $metric_flag = 0;
@@ -282,6 +283,8 @@ sub pairwise_reg_vbm_Init_check {
     if (! $metric_flag) {
 	$init_error_msg=$init_error_msg."Invalid ants metric requested for diffeomorphic pairwise registration of control group \"${diffeo_metric}\" is invalid.\n".
 	    "\tValid metrics are: ${valid_metrics}\n";
+    } else {
+	$Hf->set_value('diffeo_metric',$diffeo_metric);
     }
 
 
@@ -293,7 +296,7 @@ sub pairwise_reg_vbm_Init_check {
     } elsif ($diffeo_radius =~ /^[0-9\.]+$/) {
 	# It is assumed that any positive number is righteous.
     } else {
-	$init_error_msg=$init_error_msg."Non-numeric diffeo radius specified: \"${diffeo_radius}\".\n";
+	$init_error_msg=$init_error_msg."Non-numeric diffeomorphic radius specified: \"${diffeo_radius}\".\n";
     }
     $Hf->set_value('diffeo_radius',$diffeo_radius);
 
@@ -305,7 +308,7 @@ sub pairwise_reg_vbm_Init_check {
 	    @diffeo_iteration_array = split(',',$diffeo_iterations);
 	    my $input_diffeo_iterations=$diffeo_iterations;
 	    $diffeo_iterations = join('x',@diffeo_iteration_array);
-	    $log_msg=$log_msg."\tConverting diffeo iterations from \"${input_diffeo_iterations}\" to \"${diffeo_iterations}\".\n";
+	    $log_msg=$log_msg."\tConverting diffeomorphic iterations from \"${input_diffeo_iterations}\" to \"${diffeo_iterations}\".\n";
 	}
 	if ($diffeo_iterations =~ /(x([0-9]+)+)/) {
 	    @diffeo_iteration_array = split('x',$diffeo_iterations);
@@ -313,7 +316,7 @@ sub pairwise_reg_vbm_Init_check {
 	} elsif ($diffeo_iterations =~ /^[0-9]+$/) {
 	    $diffeo_levels=1;
 	} else {
-	    $init_error_msg=$init_error_msg."Non-numeric or non-integer  diffeo iterations specified: \"${diffeo_iterations}\". ".
+	    $init_error_msg=$init_error_msg."Non-numeric or non-integer  diffeomorphic iterations specified: \"${diffeo_iterations}\". ".
 		"Multiple iteration levels may be \'x\'- or comma-separated.\n";
 	}
     } else {
@@ -325,15 +328,15 @@ sub pairwise_reg_vbm_Init_check {
 	for (my $jj = 2; $jj <= $diffeo_levels; $jj++) {
 	    $diffeo_iterations = $diffeo_iterations.'x0';
 	}
-	$log_msg = $log_msg."\tRunning in TEST MODE: using minimal diffeo iterations:  \"${diffeo_iterations}\".\n";
+	$log_msg = $log_msg."\tRunning in TEST MODE: using minimal diffeomorphic iterations:  \"${diffeo_iterations}\".\n";
     } else {
 	if ($diffeo_iterations eq ('' || 'NO_KEY')) {
 	    #$diffeo_iterations = $defaults_Hf->get_value('diffeo_iterations');
 	    $diffeo_iterations="4000x4000x4000x4000";
-	    $log_msg = $log_msg."\tNo diffeo iterations specified; using default values:  \"${diffeo_iterations}\".\n";
+	    $log_msg = $log_msg."\tNo diffeomorphic iterations specified; using default values:  \"${diffeo_iterations}\".\n";
 	}
     }
-	$log_msg=$log_msg."\tNumber of levels for diffeo registration=${diffeo_levels}.\n";	
+	$log_msg=$log_msg."\tNumber of levels for diffeomorphic registration=${diffeo_levels}.\n";	
     $Hf->set_value('diffeo_iterations',$diffeo_iterations);
 
 
@@ -346,7 +349,7 @@ sub pairwise_reg_vbm_Init_check {
 	    $diffeo_shrink_factors = $temp_shrink.'x'.$diffeo_shrink_factors;
 	    $temp_shrink = 2*$temp_shrink;
 	}
-	$log_msg = $log_msg."\tNo diffeo shrink factors specified; using default values:  \"${diffeo_shrink_factors}\".\n";
+	$log_msg = $log_msg."\tNo diffeomorphic shrink factors specified; using default values:  \"${diffeo_shrink_factors}\".\n";
     } else {
 	my @diffeo_shrink_array;
 	my $diffeo_shrink_levels;
@@ -354,7 +357,7 @@ sub pairwise_reg_vbm_Init_check {
 	    @diffeo_shrink_array = split(',',$diffeo_shrink_factors);
 	    my $input_diffeo_shrink_factors=$diffeo_shrink_factors;
 	    $diffeo_shrink_factors = join('x',@diffeo_shrink_array);
-	    $log_msg=$log_msg."\tConverting diffeo shrink factors from \"${input_diffeo_shrink_factors}\" to \"${diffeo_shrink_factors}\".\n";
+	    $log_msg=$log_msg."\tConverting diffeomorphic shrink factors from \"${input_diffeo_shrink_factors}\" to \"${diffeo_shrink_factors}\".\n";
 	}
 	if ($diffeo_shrink_factors =~ /(x[0-9\.]+)+/) {
 	    @diffeo_shrink_array = split('x',$diffeo_shrink_factors);
@@ -362,13 +365,13 @@ sub pairwise_reg_vbm_Init_check {
 	} elsif ($diffeo_shrink_factors =~ /^[0-9\.]+$/) {
 	    $diffeo_shrink_levels=1;
 	} else {
-	    $init_error_msg=$init_error_msg."Non-numeric diffeo shrink factor(s) specified: \"${diffeo_shrink_factors}\". ".
+	    $init_error_msg=$init_error_msg."Non-numeric diffeomorphic shrink factor(s) specified: \"${diffeo_shrink_factors}\". ".
 		"Multiple shrink factors may be \'x\'- or comma-separated.\n";
 	}
      
 	if ($diffeo_shrink_levels != $diffeo_levels) {
-	    $init_error_msg=$init_error_msg."Number of diffeo levels (${diffeo_shrink_levels}) implied by the specified diffeo shrink factors \"${diffeo_shrink_factors}\" ".
-		"does not match the number of levels implied by the diffeo iterations (${diffeo_levels}).\n";
+	    $init_error_msg=$init_error_msg."Number of diffeomorphic levels (${diffeo_shrink_levels}) implied by the specified diffeomorphic shrink factors \"${diffeo_shrink_factors}\" ".
+		"does not match the number of levels implied by the diffeomorphic iterations (${diffeo_levels}).\n";
 	}
     }
     $Hf->set_value('diffeo_shrink_factors',$diffeo_shrink_factors);
@@ -379,7 +382,7 @@ sub pairwise_reg_vbm_Init_check {
     if ($diffeo_transform_parameters eq ('' || 'NO_KEY')) {
 	#$diffeo_transform_parameters = $defaults_Hf->get_value('diffeo_transform_parameters');
 	$diffeo_transform_parameters = '0.5,3,0';
-	$log_msg = $log_msg."\tNo diffeo gradient step specified; using default value of \"${diffeo_transform_parameters}\".\n";
+	$log_msg = $log_msg."\tNo diffeomorphic gradient step specified; using default value of \"${diffeo_transform_parameters}\".\n";
     } elsif (($xform_params[0] =~ /^[0-9\.]+$/) && ($xform_params[1] =~ /^[0-9\.]+$/) && ($xform_params[2] =~ /^[0-9\.]+$/)) {
 	$diffeo_transform_parameters = join(',',($xform_params[0],$xform_params[1],$xform_params[2])); # We will ignore any extra input, but not tell anyone--shhh!
     } elsif ($#xform_params<2){
@@ -408,7 +411,7 @@ sub pairwise_reg_vbm_Init_check {
     if (  $diffeo_convergence_window eq ('' || 'NO_KEY')) {
 	#$diffeo_convergence_window = $defaults_Hf->get_value('diffeo_convergence_window');
 	$diffeo_convergence_window = 20;
-	$log_msg = $log_msg."\tNo diffeo convergence window specified; using default value of \"${diffeo_convergence_window}\".\n";
+	$log_msg = $log_msg."\tNo diffeomorphic convergence window specified; using default value of \"${diffeo_convergence_window}\".\n";
     } elsif ($diffeo_convergence_window =~ /^[0-9]+$/) {
 	if ($diffeo_convergence_window < 5) {
 	    $dcw_error=1;
@@ -425,7 +428,7 @@ sub pairwise_reg_vbm_Init_check {
     }
 
     $diffeo_smoothing_sigmas=$Hf->get_value('diffeo_smoothing_sigmas');
-    
+    my $input_diffeo_smoothing_sigmas=$diffeo_smoothing_sigmas;
     if (  $diffeo_smoothing_sigmas eq ('' || 'NO_KEY')) {
 	#$diffeo_smoothing_sigmas = $defaults_Hf->get_value('diffeo_smoothing_sigmas_${diffeo_levels}');
 	 $diffeo_smoothing_sigmas = '0';
@@ -436,19 +439,18 @@ sub pairwise_reg_vbm_Init_check {
     } else {
 	
 	my $diffeo_smoothing_units ='';
-	if ($diffeo_smoothing_sigmas =~ s/[0-9\.]+(vox|mm)$//) {
-	    $diffeo_smoothing_units = $1;
-	} 
-	
-	
 	my @diffeo_smoothing_array;
 	my $diffeo_smoothing_levels;
-	if ($diffeo_smoothing_sigmas =~ /[0-9\.]+(\s)*$/) {
+	$diffeo_smoothing_sigmas =~ s/[\s]+//g;  #Strip any extraneous whitespace
+	if ($diffeo_smoothing_sigmas =~ s/([^0-9\.]*)$//) {
+	    $diffeo_smoothing_units = $1;
+	} 
+ 
+	if ($diffeo_smoothing_units =~ /^(mm|vox|)$/) {
 	    if ($diffeo_smoothing_sigmas =~ /(,[0-9\.]+)+/) {
 		@diffeo_smoothing_array = split(',',$diffeo_smoothing_sigmas);
-		my $input_diffeo_smoothing_sigmas=$diffeo_smoothing_sigmas;
 		$diffeo_smoothing_sigmas = join('x',@diffeo_smoothing_array);
-		$log_msg=$log_msg."\tConverting diffeo smoothing sigmas from \"${input_diffeo_smoothing_sigmas}\" to \"${diffeo_smoothing_sigmas}\".\n";
+		$log_msg=$log_msg."\tConverting diffeomorphic smoothing sigmas from \"${input_diffeo_smoothing_sigmas}\" to \"${diffeo_smoothing_sigmas}${diffeo_smoothing_units}\".\n";
 	    }
 	    if ($diffeo_smoothing_sigmas =~ /(x[0-9\.]+)+/) {
 		@diffeo_smoothing_array = split('x',$diffeo_smoothing_sigmas);
@@ -456,17 +458,17 @@ sub pairwise_reg_vbm_Init_check {
 	    } elsif ($diffeo_smoothing_sigmas =~ /^[0-9\.]+$/) {
 		$diffeo_smoothing_levels=1;
 	    } else {
-		$init_error_msg=$init_error_msg."Non-numeric diffeomorphic smoothing factor(s) specified: \"${diffeo_smoothing_sigmas}\". ".
+		$init_error_msg=$init_error_msg."Non-numeric diffeomorphic smoothing factor(s) specified: \"${input_diffeo_smoothing_sigmas}\". ".
 		    "Multiple smoothing factors may be \'x\'- or comma-separated.\n";
 	    }
 	    
 	    if ($diffeo_smoothing_levels != $diffeo_levels) {
-		$init_error_msg=$init_error_msg."Number of diffeomorphic levels (${diffeo_smoothing_levels}) implied by the specified diffeomorphic smoothing factors (\'${diffeo_smoothing_sigmas}\'\" ".
+		$init_error_msg=$init_error_msg."Number of diffeomorphic levels (${diffeo_smoothing_levels}) implied by the specified diffeomorphic smoothing factors \"${diffeo_smoothing_sigmas}\" ".
 		    "does not match the number of levels implied by the diffeomorphic iterations (${diffeo_levels})\n";
 	    } 
 	} else {
-	    $init_error_msg=$init_error_msg."Units specified for diffeomorphic smoothing sigmas \"${diffeo_smoothing_sigmas}\" are not valid. ".
-		"Acceptable units are either \'vox\' or \'mm\', or may be omitted (equivalent to \'mm\')./n";
+	    $init_error_msg=$init_error_msg."Units specified for diffeomorphic smoothing sigmas \"${input_diffeo_smoothing_sigmas}\" are not valid. ".
+		"Acceptable units are either \'vox\' or \'mm\', or may be omitted (equivalent to \'mm\').\n";
 	}
        
 	$diffeo_smoothing_sigmas = $diffeo_smoothing_sigmas.$diffeo_smoothing_units;
@@ -482,9 +484,9 @@ sub pairwise_reg_vbm_Init_check {
 	my ($sampling_strategy,$sampling_percentage) = split(',',$diffeo_sampling_options);
 	if ($sampling_strategy =~ /^Random$/i) {
 	    $sampling_strategy = 'Random';
-
 	} elsif ($sampling_strategy =~ /^None$/i) {
 	    $sampling_strategy = 'None';
+	    $sampling_percentage = '';
 	} elsif ($sampling_strategy =~ /^Regular$/i) {
 	    $sampling_strategy = 'Regular';
 	} else {
@@ -499,11 +501,15 @@ sub pairwise_reg_vbm_Init_check {
 		$log_msg = $log_msg."\tSpecified diffeomorphic sampling percentage \"${input_sampling_percentage}\" is greater than 1 and less than 100:".
 		    " assuming value is a percentage instead of fractional; converting to fractional value: \"${sampling_percentage}\". \n";
 	    }
-	    if (($sampling_percentage <= 0) || ($sampling_percentage >= 1)) {
+	    if (($sampling_percentage <= 0) || ($sampling_percentage > 1)) {
 		$init_error_msg=$init_error_msg."For diffeomorphic sampling strategy = \"${sampling_strategy}\", specified sampling percentage ".
 		    " of \"${sampling_percentage}\" is outside of the acceptable range [0,1], exclusive.\n";
 	    } else {
-		$diffeo_sampling_options = $sampling_strategy.','.$sampling_percentage;
+		if ($sampling_percentage ne ''){ 
+		    $diffeo_sampling_options = $sampling_strategy.','.$sampling_percentage;
+		} else {
+		    $diffeo_sampling_options = $sampling_strategy;
+		}
 	    }
 	}
     }
@@ -536,7 +542,7 @@ sub pairwise_reg_vbm_Runtime_check {
     $diffeo_smoothing_sigmas = $Hf->get_value('diffeo_smoothing_sigmas');
     $diffeo_sampling_options = $Hf->get_value('diffeo_sampling_options');
  
-
+    $dims=$Hf->get_value('image_dimensions');
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
     $mdt_contrast_string = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
     @mdt_contrasts = split('_',$mdt_contrast_string); 
