@@ -494,7 +494,7 @@ B03244);
 	$mdt_contrast = 'T1';
 	$skull_strip_contrast = 'T1';
 	$threshold_code = 3;
-	$do_mask = 1;
+	$do_mask = 0;
 	$port_atlas_mask = 0;
 	$port_atlas_mask_path = '/glusterspace/VBM_13colton01_DTI_invivo-work/preprocess/masks/approx_atl_mask.nii';
 	$pre_masked = 0;
@@ -878,14 +878,14 @@ elsif ($agoston)
 	@control_group = qw(S65456 S65459 S65466 S65521 S65530 S65533 S65537 S65541);
 	@compare_group = qw(S65453 S65461 S65464 S65467 S65524 S65528 S65535 S65539 S65544);
 
-	@channel_array = qw(dwi fa adc e1 e2 e3);
+	@channel_array = qw(dwi fa adc e1 e2 e3 rd);
     
 	$flip_x = 0;
 	$flip_z = 0;
 	
 	$optional_suffix = '';
-	$atlas_name = 'rat';#
-	$label_atlas_name = 'rat';#
+	$atlas_name = 'sham_rat';#
+	$label_atlas_name = 'sham_rat';#
 	
 	$rigid_contrast = 'dwi';
 	## $affine_contrast = 'dwi';
@@ -914,9 +914,9 @@ elsif ($agoston)
 
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
-	$do_mask = 0;
+	$do_mask = 1;
 	$port_atlas_mask = 0;    
-	$pre_masked = 1;	
+	$pre_masked = 0;	
  }
     
 

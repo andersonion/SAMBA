@@ -447,8 +447,8 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     mask_images_vbm();
     sleep($interval);
 
-    set_reference_space_vbm();
-    sleep($interval);
+#    set_reference_space_vbm();  ##TEMPORARILY DISABLED FOR AGOSTON FAKE-OUT--change back you jackass!
+#    sleep($interval);
    
 # Register all to atlas
     my $do_rigid = 1;   

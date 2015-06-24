@@ -611,7 +611,7 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 		$log_msg = $log_msg."\tSpecified affine sampling percentage \"${input_sampling_percentage}\" is greater than 1 and less than 100:".
 		    " assuming value is a percentage instead of fractional; converting to fractional value: \"${sampling_percentage}\". \n";
 	    }
-	    if (($sampling_percentage <= 0) || ($sampling_percentage >= 1)) {
+	    if (($sampling_percentage <= 0) || ($sampling_percentage > 1)) {
 		$init_error_msg=$init_error_msg."For affine sampling strategy = \"${sampling_strategy}\", specified sampling percentage ".
 		    " of \"${sampling_percentage}\" is outside of the acceptable range [0,1], exclusive.\n";
 	    } else {

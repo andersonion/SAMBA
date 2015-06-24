@@ -281,7 +281,7 @@ sub mask_one_image {
     if (cluster_check) {
 
     
-	my $cmd = $apply_cmd;#.$remove_cmd; TEMPORARY--used for tweaking Colton in vivo masks--re-add remove.cmd ASAP
+	my $cmd = $apply_cmd.$remove_cmd;
 	
 	my $home_path = $current_path;
 	my $Id= "${runno}_${ch}_apply_${template_contrast}_mask";
