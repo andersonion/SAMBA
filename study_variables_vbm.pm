@@ -13,14 +13,14 @@ my $NAME = "In lieu of commandline functionality, here is the place to define va
 my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
-my $colton_invivo = 0;
+my $colton_invivo = 1;
 my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
 my $bj = 0;
 my $bj_group = 0;
-my $agoston = 1;
+my $agoston = 0;
 use strict;
 use warnings;
 
@@ -447,8 +447,8 @@ sub study_variables_vbm {
 	$diffeo_transform_parameters = "0.5,3,0.5";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
-	$create_labels = 0;
-	$label_space = "pre_rigid";
+	$create_labels = 1;
+	$label_space = "pre_affine";
 
 
 # @control_group = qw(B02335
