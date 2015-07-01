@@ -8,7 +8,6 @@ my $PM = "set_reference_space_vbm.pm";
 my $VERSION = "2015/03/04";
 my $NAME = "Set the reference spaces to be used for VBM and label analysis.";
 my $DESC = "ants";
-my $ggo = 1;  # Needed for compatability with seg_pipe code
 
 use strict;
 use warnings;
@@ -226,7 +225,7 @@ sub prep_atlas_for_referencing_vbm {
     my ($rigid_atlas_mask_path,$rigid_mask_name,$rigid_mask_ext,$mask_ref,$copy_cmd,$future_rigid_path);
     
     $future_rigid_path = "${inputs_dir}/${rigid_name}${rigid_ext}";
-    $rigid_atlas_mask_path = get_nii_from_inputs($rigid_dir,".*(mask|Mask|MASK)","nii");
+    $rigid_atlas_mask_path = get_nii_from_inputs($rigid_dir,'',"mask");
     if ($rigid_atlas_mask_path =~ /[\n]+/) {
 	$mask_ref = 'NULL';
     } else {
@@ -524,10 +523,12 @@ sub set_reference_space_vbm_Init_check {
 	if ($rigid_contrast eq 'NO_KEY') {
 	    $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.\n";
 	} else {
-	    $rigid_atlas_path  = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/${rigid_atlas_name}_${rigid_contrast}.nii"; 
+	    my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
+	    my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
+	    $rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
 	    
 	    if (data_double_check($rigid_atlas_path))  {
-		$init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${rigid_atlas_path}\n";
+		$init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
 	    } else {
 		$Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
 	    }
@@ -586,7 +587,7 @@ sub set_reference_path_vbm {
     
     if (-d $atlas_dir_perhaps) {
 	$log_msg=$log_msg."\tThe ${which_space} reference space will be inherited from the ${ref_option} atlas.\n";
-	$ref_path = get_nii_from_inputs($atlas_dir_perhaps,$ref_option,"${rigid_contrast}.nii");
+	$ref_path = get_nii_from_inputs($atlas_dir_perhaps,$ref_option,$rigid_contrast);
 	if (($ref_path =~ /[\n]+/) || (data_double_check($ref_path))) {
 	    $error_message = $error_message.$ref_path;
 	}

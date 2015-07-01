@@ -431,9 +431,11 @@ sub pairwise_reg_vbm_Init_check {
     my $input_diffeo_smoothing_sigmas=$diffeo_smoothing_sigmas;
     if (  $diffeo_smoothing_sigmas eq ('' || 'NO_KEY')) {
 	#$diffeo_smoothing_sigmas = $defaults_Hf->get_value('diffeo_smoothing_sigmas_${diffeo_levels}');
-	 $diffeo_smoothing_sigmas = '0';
+	 $diffeo_smoothing_sigmas = '0vox';
+	 my $temp_sigma=0.5;	    
 	for (my $jj = 2; $jj <= $diffeo_levels; $jj++) {
-	     $diffeo_smoothing_sigmas = '0x'.$diffeo_smoothing_sigmas;
+	    $temp_sigma = 2*$temp_sigma;
+	     $diffeo_smoothing_sigmas = $temp_sigma.'x'.$diffeo_smoothing_sigmas;
 	}
 	$log_msg = $log_msg."\tNo diffeomorphic smoothing sigmas specified; using default values:  \"${diffeo_smoothing_sigmas}\".\n";
     } else {

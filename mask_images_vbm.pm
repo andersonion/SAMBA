@@ -338,7 +338,7 @@ sub mask_images_vbm_Init_check {
 	    my ($dummy1,$rigid_dir,$dummy2);
 	    if (! data_double_check($rigid_atlas_path)){
 		($dummy1,$rigid_dir,$dummy2) = fileparts($rigid_atlas_path);
-		$port_atlas_mask_path = get_nii_from_inputs($rigid_dir,"(mask|Mask|MASK)",'nii');
+		$port_atlas_mask_path = get_nii_from_inputs($rigid_dir,'','mask');
 		if ($port_atlas_mask_path =~ /[\n]+/) {
 		    $port_atlas_mask_path=$default_mask;  # Use default mask
 		    $log_msg=$log_msg."\tNo atlas mask specified; porting default atlas mask: ${port_atlas_mask_path}\n";

@@ -13,14 +13,14 @@ my $NAME = "In lieu of commandline functionality, here is the place to define va
 my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
-my $colton_invivo = 1;
+my $colton_invivo = 0;
 my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
 my $bj = 0;
 my $bj_group = 0;
-my $agoston = 0;
+my $agoston = 1;
 use strict;
 use warnings;
 
@@ -444,7 +444,7 @@ sub study_variables_vbm {
 	$project_name = "13.colton.01";
 	$custom_predictor_string = "nos2_vs_cvn";
 	$optional_suffix = 'invivo';
-	$diffeo_transform_parameters = "0.5,3,0.5";
+	$diffeo_transform_parameters = "0.5,3,1";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1;
@@ -880,12 +880,12 @@ elsif ($agoston)
 
 	@channel_array = qw(dwi fa adc e1 e2 e3 rd);
     
-	$flip_x = 0;
+	$flip_x = 1;
 	$flip_z = 0;
 	
 	$optional_suffix = '';
-	$atlas_name = 'sham_rat';#
-	$label_atlas_name = 'sham_rat';#
+	$atlas_name = 'rat';#
+	$label_atlas_name = 'rat';#
 	
 	$rigid_contrast = 'dwi';
 	## $affine_contrast = 'dwi';
@@ -914,9 +914,9 @@ elsif ($agoston)
 
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
-	$do_mask = 1;
+	$do_mask = 0;
 	$port_atlas_mask = 0;    
-	$pre_masked = 0;	
+	$pre_masked = 1;	
  }
     
 
