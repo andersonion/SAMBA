@@ -10,7 +10,7 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 0;
+my $obrien = 1;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
@@ -20,7 +20,7 @@ my $premont_ct = 0;
 my $dave = 0;
 my $bj = 0;
 my $bj_group = 0;
-my $agoston = 1;
+my $agoston = 0;
 use strict;
 use warnings;
 
@@ -82,7 +82,7 @@ $image_dimensions
 
 
 sub study_variables_vbm {
-
+    ## These defaults have been moved to the appropriate Init sections of the various modules ##
     #$diffeo_iterations = "4000,4000,4000,4000";  #Previous default; moved to pairwise_init_check
     #$diffeo_shrink_factors="8,4,2,1"; #Previous default; moved to pairwise_init_check
     #$affine_target = "NO_KEY"; # If not specified, will follow default behaviour of selecting first listed control runno.
@@ -99,11 +99,11 @@ sub study_variables_vbm {
 	
 	$project_name = "14.obrien.01";
 	$custom_predictor_string = "Control_vs_Reacher";
-	$diffeo_transform_parameters = "0.5,3,1";
+	$diffeo_transform_parameters = "0.5,3,0.5";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
-	$create_labels = 0;
-#	$label_space = "pre_affine";
+	$create_labels = 1;
+	$label_space = "pre_affine";
 
 	@control_group = qw(
         controlSpring2013_4
@@ -242,7 +242,7 @@ sub study_variables_vbm {
 	$flip_x = 0;
 	$flip_z = 0;
 
-	$optional_suffix = 'SyN3and1';
+	$optional_suffix = '';
 	$atlas_name = 'DTI101b';
 	$label_atlas_name = 'DTI101b';
 	$rigid_contrast = 'dwi';

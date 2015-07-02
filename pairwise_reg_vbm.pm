@@ -546,7 +546,7 @@ sub pairwise_reg_vbm_Runtime_check {
  
     $dims=$Hf->get_value('image_dimensions');
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
-    $mdt_contrast_string = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
+    $mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
     @mdt_contrasts = split('_',$mdt_contrast_string); 
     $mdt_contrast = $mdt_contrasts[0];
     if ($#mdt_contrasts > 0) {
@@ -578,6 +578,19 @@ sub pairwise_reg_vbm_Runtime_check {
     $runlist = $Hf->get_value('control_comma_list');
     @array_of_runnos = split(',',$runlist);
     @sorted_runnos=sort(@array_of_runnos);
+
+
+    ## Generate an identity warp for our general purposes ##
+
+    my $id_warp = "${mdt_path}/identity_warp.nii.gz";
+    my $first_runno = $array_of_runnos[0];
+    my $first_image = get_nii_from_inputs($inputs_dir,$first_runno,$mdt_contrast);
+    if (data_double_check($id_warp)) {
+	make_identity_warp($first_image,$Hf);
+    }
+    
+    ##
+
     my $case = 1;
     my ($dummy,$skip_message)=pairwise_reg_Output_check($case);
 

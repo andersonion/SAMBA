@@ -313,7 +313,7 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 
 	my $label_atlas = $Hf->get_value('label_atlas_name');
 	$atlas_dir   = $Hf->get_value ('label_atlas_dir');
-	my $expected_atlas_path = "${atlas_dir}/${label_atlas}_${mdt_contrast}.nii";
+	my $expected_atlas_path = "${atlas_dir}/${label_atlas}_${mdt_contrast}.nii"; 
 	$atlas_path  = get_nii_from_inputs($atlas_dir,$label_atlas,$mdt_contrast);
 
 	if (data_double_check($atlas_path))  {
