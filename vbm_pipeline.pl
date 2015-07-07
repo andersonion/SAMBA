@@ -29,13 +29,19 @@ $permissions = 0755;
 my $interval = 1;
 
 my $import_data = 1;
+my $broken;
+
 
 $intermediate_affine = 0;
 $test_mode = 0;
 
-($nodes) = @ARGV;
+$nodes = shift(@ARGV);
+$broken = shift(@ARGV);
 
 if (! defined $nodes) { $nodes = 2 ;} 
+
+if (! defined $broken) { $broken = 0 ;} 
+
 umask(022);
 
 use lib dirname(abs_path($0));
@@ -318,6 +324,13 @@ if (defined $thresh_ref) {
 
 
 
+if ($broken) {
+    $Hf->set_value('status_of_MDT_warp_calculations','broken');
+    $custom_predictor_string = $custom_predictor_string.'_broken_MDT';
+} else {
+    $Hf->set_value('status_of_MDT_warp_calculations','fixed');
+}
+
 $Hf->set_value('predictor_id',$custom_predictor_string);
 
 $Hf->set_value('pristine_input_dir',$pristine_input_dir);
@@ -447,7 +460,7 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     mask_images_vbm();
     sleep($interval);
 
-    set_reference_space_vbm();
+#    set_reference_space_vbm();
     sleep($interval);
    
 # Register all to atlas

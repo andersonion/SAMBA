@@ -315,9 +315,8 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 	$atlas_dir   = $Hf->get_value ('label_atlas_dir');
 	my $expected_atlas_path = "${atlas_dir}/${label_atlas}_${mdt_contrast}.nii"; 
 	$atlas_path  = get_nii_from_inputs($atlas_dir,$label_atlas,$mdt_contrast);
-
 	if (data_double_check($atlas_path))  {
-	    $init_error_msg = $init_error_msg."For affine contrast ${mdt_contrast}: missing atlas nifti file ${expected_atlas_path} (note optional \'.gz\')\n";
+	    $init_error_msg = $init_error_msg."For label affine contrast ${mdt_contrast}: missing atlas nifti file ${expected_atlas_path} (note optional \'.gz\')\n";
 	} else {
 	    $Hf->set_value('label_atlas_path',$atlas_path);
 	}

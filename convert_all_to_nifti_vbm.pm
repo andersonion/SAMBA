@@ -107,7 +107,6 @@ sub convert_all_to_nifti_Output_check {
     foreach my $runno (@array_of_runnos) {
 	my $sub_existing_files_message='';
 	my $sub_missing_files_message='';
-	
 	foreach my $ch (@channel_array) {
 	    $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
 	    if ($file_1 =~ /[\n]+/) {

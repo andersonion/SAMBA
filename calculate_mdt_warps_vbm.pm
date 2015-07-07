@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $forward_xform_hash $inverse_xform_hash $test_mode $intermediate_affine $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT $forward_xform_hash $inverse_xform_hash $test_mode $intermediate_affine $permissions $broken);
 require Headfile;
 require pipeline_utilities;
 
@@ -76,7 +76,7 @@ sub calculate_mdt_warps_vbm {  # Main code
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
 	
 	if ($done_waiting) {
-	    print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
+	    print STDOUT  "  All warps to MDT space calculation jobs have completed; moving on to next step.\n";
 	}
     }
     my $case = 2;
@@ -173,26 +173,21 @@ sub calculate_average_mdt_warp {
 	$out_file = "${current_path}/MDT_to_${runno}_warp.nii";
 	$dir_string = 'inverse';
     }
-    if ($number_of_controls == 1) {
-	error_out("$PM: Using only one image to create an MDT is currently not supported. However it is hoped to be in the near future.");
-    } else {
-	#if ($number_of_controls == 2) {
-	#    $cmd = " ImageMath 3 ${out_file} / ;"##  Not sure what the right answer is here!
-	#                                        ## Divide by 2? Average of forward and inverse? Etc. Will use $cmd=$cmd.[...] bit below I think
-	$cmd =" AverageImages 3 ${out_file} 0";
-	foreach my $other_runno (@sorted_runnos) {
-	    if ($direction eq 'f') {
-		$moving = $runno;
-		$fixed = $other_runno;
-	    } else {
-		$moving = $other_runno;
-		$fixed = $runno;
-	    }
-	    if ($fixed ne $moving) {
-		$cmd = $cmd." ${pairwise_path}/${moving}_to_${fixed}_warp.nii.gz";
-	    }
+
+    $cmd =" AverageImages 3 ${out_file} 0";
+    foreach my $other_runno (@sorted_runnos) {
+	if ($direction eq 'f') {
+	    $moving = $runno;
+	    $fixed = $other_runno;
+	} else {
+	    $moving = $other_runno;
+	    $fixed = $runno;
 	}
+#	if ($fixed ne $moving) {  # Fixing previous error of self/identity warp omission!
+	    $cmd = $cmd." ${pairwise_path}/${moving}_to_${fixed}_warp.nii.gz";
+#	}
     }
+ 
 
     my $jid = 0;
     if (cluster_check()) {

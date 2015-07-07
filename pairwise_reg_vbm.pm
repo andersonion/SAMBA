@@ -28,6 +28,7 @@ my (%go_hash);
 my $go = 1;
 my $job;
 my $dims;
+my $id_warp;
 my $log_msg;
 my ($expected_number_of_jobs,$hash_errors);
 my $mem_request;
@@ -67,7 +68,8 @@ sub pairwise_reg_vbm {  # Main code
     $mem_request = memory_estimator($expected_number_of_jobs,$nodes);
 
     my @remaining_runnos = @sorted_runnos;
-    for ((my $moving_runno = shift(@remaining_runnos)); ($remaining_runnos[0] ne ''); ($moving_runno = shift(@remaining_runnos)))  {
+    for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
+	$moving_runno = $remaining_runnos[0];
 	foreach my $fixed_runno (@remaining_runnos) {
 	    $go = $go_hash{$moving_runno}{$fixed_runno};
 	    if ($go) {
@@ -104,7 +106,7 @@ sub pairwise_reg_Output_check {
 # ------------------
      my ($case) = @_;
      my $message_prefix ='';
-     my ($file_1,$file_2);
+     my ($file_1,$file_2,@files);
      my @file_array=();
      if ($case == 1) {
   	$message_prefix = "  Pairwise diffeomorphic warps already exist for the following runno pairs and will not be recalculated:\n";
@@ -119,10 +121,12 @@ sub pairwise_reg_Output_check {
 
      $expected_number_of_jobs = 0;
 
-     for ((my $moving_runno = shift(@remaining_runnos)); ($remaining_runnos[0] ne ''); ($moving_runno = shift(@remaining_runnos)))  {
+     for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
+	 $moving_runno = $remaining_runnos[0];
 	 foreach my $fixed_runno (@remaining_runnos) {
 	     $file_1 = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz";
 	     $file_2 = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
+
 	     if (data_double_check($file_1, $file_2)) {
 		 $go_hash{$moving_runno}{$fixed_runno}=1;
 		 $expected_number_of_jobs++;
@@ -224,12 +228,21 @@ sub create_pairwise_warps {
     my $stop_message = "$PM: could not create warp between ${moving_runno} and ${fixed_runno}:\n${pairwise_cmd}\n";
 
 
+   
+    my $rename_cmd;
+    $rename_cmd = "".  #### Need to add a check to make sure the out files were created before linking!
+	"ln -s ${out_warp} ${new_warp};\n".
+	"ln -s ${out_inverse} ${new_inverse};\n".#.
+	"rm ${out_affine};\n";
+
+    if ($fixed_runno eq $moving_runno) {
+	$pairwise_cmd = "cp ${id_warp} ${new_warp}";
+	$rename_cmd = '';
+    }
+    
     my $jid = 0;
     if (cluster_check) {
-	my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
-	    "ln -s ${out_warp} ${new_warp};\n".
-	    "ln -s ${out_inverse} ${new_inverse};\n".#.
-	    "rm ${out_affine};\n";
+
     
 	my $cmd = $pairwise_cmd.$rename_cmd;
 	
@@ -582,11 +595,12 @@ sub pairwise_reg_vbm_Runtime_check {
 
     ## Generate an identity warp for our general purposes ##
 
-    my $id_warp = "${mdt_path}/identity_warp.nii.gz";
+    $id_warp = "${current_path}/identity_warp.nii.gz";
     my $first_runno = $array_of_runnos[0];
     my $first_image = get_nii_from_inputs($inputs_dir,$first_runno,$mdt_contrast);
+    print "current path = ${current_path}\n\n";
     if (data_double_check($id_warp)) {
-	make_identity_warp($first_image,$Hf);
+	make_identity_warp($first_image,$Hf,$current_path);
     }
     
     ##
