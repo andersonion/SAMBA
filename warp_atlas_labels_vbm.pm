@@ -259,7 +259,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
 # # Set up work
     $label_atlas = $Hf->get_value('label_atlas_name');
     $atlas_label_dir   = $Hf->get_value('label_atlas_dir');   
-    $atlas_label_path  = "${atlas_label_dir}/${label_atlas}_labels.nii";
+    $atlas_label_path  = get_nii_from_inputs($atlas_label_dir,$label_atlas,'labels');
     $label_reference_path = $Hf->get_value('label_reference_path');    
     $label_refname = $Hf->get_value('label_refname');
     $mdt_contrast = $Hf->get_value('mdt_contrast');

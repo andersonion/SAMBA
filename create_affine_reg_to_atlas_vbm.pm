@@ -40,6 +40,13 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
     $mem_request = memory_estimator($expected_number_of_jobs,$nodes);
 
+    my $rigid_or_affine;
+    if ($do_rigid) {
+	$rigid_or_affine = 'rigid';
+    } else {
+	$rigid_or_affine = 'affine';
+    }
+
     foreach my $runno (@array_of_runnos) {
 	my $to_xform_path;
 	my $result_path_base;
@@ -96,7 +103,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
 
 	if ($done_waiting) {
-	    print STDOUT  "  All rigid registration jobs have completed; moving on to next step.\n";
+	    print STDOUT  "  All ${rigid_or_affine} registration jobs have completed; moving on to next step.\n";
 	}
     }
     

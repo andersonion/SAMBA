@@ -19,8 +19,8 @@ my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
 my $bj = 0;
-my $bj_group = 0;
-my $agoston = 1;
+my $bj_group = 1;
+my $agoston = 0;
 use strict;
 use warnings;
 
@@ -665,8 +665,9 @@ GIT1_111024_5);
 	$vbm_reference_space = "native";
 	$diffeo_transform_parameters = '0.5,3,1';
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+	$create_labels = 0;
 
-	my $specimen = 1;
+	my $specimen = 6;
 	if ($specimen == 1) {
 	@control_group = qw(
 S65813
