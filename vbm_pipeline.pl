@@ -157,6 +157,10 @@ my $test_for_inputs = `ls ${pristine_input_dir}`;
 if ($test_for_inputs eq '') {
     $import_data = 1;
 } 
+
+
+$import_data = 0;
+
 #  Mini-kludge
 
 $Hf = new Headfile ('rw',$result_headfile );
@@ -460,7 +464,7 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     mask_images_vbm();
     sleep($interval);
 
-#    set_reference_space_vbm();
+    set_reference_space_vbm();
     sleep($interval);
    
 # Register all to atlas

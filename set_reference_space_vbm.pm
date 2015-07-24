@@ -103,9 +103,7 @@ sub set_reference_space_Output_check {
 
 	 my $existing_files_message = '';
 	 my $missing_files_message = '';
-	# print "$PM: Checking ${V_or_L} folder...";
-	# opendir(DIR, $preprocess_dir);
-	# my @input_files = grep(/(\.nii)+(\.gz)*$/ ,readdir(DIR));
+
 	 my @files_to_check;
 
 	 if ($case == 1) {
@@ -132,19 +130,19 @@ sub set_reference_space_Output_check {
 	     print ".";
 	     if (data_double_check($out_file)) {
 		 if ($case == 1) {
-		     print "\n${out_file} added to list of files to be re-referenced.\n";
+		    # print "\n${out_file} added to list of files to be re-referenced.\n";
 		 }
 		 push(@file_array,$out_file);	     
 		 $missing_files_message = $missing_files_message."   $file \n";
 	     } elsif (! compare_two_reference_spaces($out_file,$refspace)) {
-		 print "\n${out_file} added to list of files to be re-referenced.\n";
+		 #print "\n${out_file} added to list of files to be re-referenced.\n";
 		 push(@file_array,$out_file);	     
 		 $missing_files_message = $missing_files_message."   $file \n";
 	     } else {
 		 $existing_files_message = $existing_files_message."   $file \n";
 	     }
 	 }
-	 print "\n";
+	 #print "\n";
 	 if (($existing_files_message ne '') && ($case == 1)) {
 	     $existing_files_message = $existing_files_message."\n";
 	 } elsif (($missing_files_message ne '') && ($case == 2)) {
@@ -170,8 +168,8 @@ sub apply_new_reference_space_vbm {
 # ------------------
     my ($in_file,$ref_file,$out_file)=@_;
     my $interp = "Linear"; # Default    
-    my $in_spacing = `PrintHeader ${in_file} 1`;
-    my $ref_spacing = `PrintHeader ${ref_file} 1`;
+    my $in_spacing = get_spacing_from_header($in_file);
+    my $ref_spacing = get_spacing_from_header($ref_file);
     if ($in_spacing eq $ref_spacing) {
 	$interp = "NearestNeighbor";
     }
@@ -321,7 +319,7 @@ sub set_reference_space_vbm_Init_check {
 
     $refspace_folder_hash{'vbm'} = $inputs_dir;
 
-    
+    print "Inputs_dir = ${inputs_dir}\nrsfh =  ${refspace_folder_hash{'vbm'}}\n\n";
     ($refspace_hash{'existing_vbm'},$refname_hash{'existing_vbm'})=read_refspace_txt($inputs_dir,$split_string);
     
     $reference_space_hash{'vbm'}=$Hf->get_value('vbm_reference_space');
@@ -364,15 +362,14 @@ sub set_reference_space_vbm_Init_check {
 	} else {	
 	    $for_labels = 0;
 	}
-	
+
 	($reference_path_hash{$V_or_L},$refname_hash{$V_or_L},$ref_error) = set_reference_path_vbm($reference_space_hash{$V_or_L},$for_labels);
 	$Hf->set_value("${V_or_L}_reference_path",$reference_path_hash{$V_or_L});
-	my $bounding_box = get_bounding_box_from_header($reference_path_hash{$V_or_L});
-	my $spacing = `PrintHeader ${reference_path_hash{${V_or_L}}} 1`;
-	chomp ($spacing);
-	$refspace_hash{$V_or_L} = join(' ',($bounding_box,$spacing));
+	my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($reference_path_hash{$V_or_L});
+
+	$refspace_hash{$V_or_L} = $bounding_box_and_spacing;
 	$Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
-	
+
 	if ($ref_error ne '') {
 	    $init_error_msg=$init_error_msg.$ref_error;
 	}
@@ -682,7 +679,6 @@ sub set_reference_space_vbm_Runtime_check {
 	$reference_space_hash{$V_or_L} = $Hf->get_value("${V_or_L}_reference_space");
 	$reference_path_hash{$V_or_L} = $Hf->get_value("${V_or_L}_reference_path");
 	$refspace_hash{$V_or_L} = $Hf->get_value("${V_or_L}_refspace");
-
         # write refspace_temp.txt (for human purposes, in case this module fails)
 	write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp")
     }
