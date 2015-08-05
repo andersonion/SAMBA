@@ -10,11 +10,11 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 1;
+my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 0;
+my $mcnamara = 1;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
@@ -504,16 +504,16 @@ B03244);
 
     {
 	$project_name = "13.mcnamara.02";
-#	$custom_predictor_string = "Control_vs_Phantoms";
-	$custom_predictor_string = "Control_vs_KA";
+	$custom_predictor_string = "Control_vs_Phantoms";
+#	$custom_predictor_string = "Control_vs_KA";
 	$diffeo_transform_parameters = "0.5,3,0.5";
 	$vbm_reference_space = "DTI101";
 	$combined_rigid_and_affine = 0; # Was 1 for January runs.  We want to eventually have this set to zero and remove this variable from the code.
 	$label_space = "pre_rigid"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
 
 	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974);# S65394 S65408 S65411 S65414);
-#	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974);# S65394 S65408 S65411 S65414);
-	@compare_group = qw(S64781);
+	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974);# S65394 S65408 S65411 S65414);
+#	@compare_group = qw(S64781);
 #	@compare_group = qw(S64745 S64763 S64766 S64769 S64772 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 	
 

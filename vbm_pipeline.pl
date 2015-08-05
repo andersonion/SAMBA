@@ -578,6 +578,9 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     push(@channel_array,$new_contrast);
     sleep($interval);
 
+   # vbm_analysis_vbm($Hf);
+    sleep($interval);
+
    # smooth_images_vbm();
     sleep($interval);
 

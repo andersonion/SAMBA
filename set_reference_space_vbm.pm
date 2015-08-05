@@ -1,7 +1,7 @@
 #!/usr/local/pipeline-link/perl
 # set_reference_space_vbm.pm 
 
-
+#  2015/07/23  BJ Anderson, CIVM -- switched from PrintHeader to fslhd for getting header info, though most of this switch happened in pipeline utilites.
 #  2015/03/04  BJ Anderson, CIVM
 
 my $PM = "set_reference_space_vbm.pm";
@@ -319,7 +319,6 @@ sub set_reference_space_vbm_Init_check {
 
     $refspace_folder_hash{'vbm'} = $inputs_dir;
 
-    print "Inputs_dir = ${inputs_dir}\nrsfh =  ${refspace_folder_hash{'vbm'}}\n\n";
     ($refspace_hash{'existing_vbm'},$refname_hash{'existing_vbm'})=read_refspace_txt($inputs_dir,$split_string);
     
     $reference_space_hash{'vbm'}=$Hf->get_value('vbm_reference_space');
