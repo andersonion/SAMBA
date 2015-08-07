@@ -191,8 +191,8 @@ sub calculate_jacobian {
 #    $unzip_command = "gunzip -c ${out_file}logjacobian.nii.gz > ${out_file}.nii;\n";  
 
     $cmd=$jac_command.$unzip_command;
-    my $go_message =  "$PM: calculate jacobian images in ${space_string} for ${runno}";
-    my $stop_message = "$PM:  calculate jacobian images in ${space_string} for ${runno}:\n${cmd}\n";
+    my $go_message =  "$PM: Calculate jacobian images in ${space_string} for ${runno}";
+    my $stop_message = "$PM:  Unable to calculate jacobian images in ${space_string} for ${runno}:\n${cmd}\n";
 
     my $jid = 0;
     if (cluster_check) {

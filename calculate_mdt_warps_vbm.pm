@@ -248,7 +248,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
     }
     
     $write_path_for_Hf = "${current_path}/${predictor_id}_temp.headfile";
-print "Should run checkpoint here!\n\n";
+    print "Should run checkpoint here!\n\n";
     my $checkpoint = $Hf->get_value('last_headfile_checkpoint'); # For now, this is the first checkpoint, but that will probably evolve.
     my $previous_checkpoint = $current_checkpoint - 1;
     if (1) {  ####### if (0) is only a temporary measure!!!

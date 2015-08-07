@@ -6,19 +6,21 @@
 
 
 my $PM = "smooth_images_vbm.pm";
-my $VERSION = "2015/06/24";
-my $NAME = "Smooth all contrasts in preparation for VBM.";
+my $VERSION = "2015/08/06";
+my $NAME = "Smooth all images in a directory and/or list of files.";
 my $DESC = "ants";
 
 use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $permissions $valid_formats_string);
+use vars qw($Hf $BADEXIT $GOODEXIT  $permissions $valid_formats_string $dims);
 require Headfile;
 require pipeline_utilities;
 
 if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
+
+if (! defined $dims) {$dims = 3;}
 
 # my ($runlist,$work_path,$current_path,$write_path_for_Hf);
 my (@array_of_runnos,@jobs,@files_to_check,@files_to_process);
@@ -61,7 +63,7 @@ sub smooth_images_vbm {  # Main code
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
-	my $write_path_for_Hf = "${destination_directory}/${predictor_id}_temp.headfile";
+	my $write_path_for_Hf = "${destination_directory}/smoothing_temp.headfile";
  	return($write_path_for_Hf);
     }
  
@@ -142,57 +144,50 @@ sub smooth_images_Output_check {
 # # }
 
 
-# # ------------------
-# sub smooth_images {
-# # ------------------
-#     my ($runno,$direction) = @_;
-#     my ($cmd,$input_warp);
-#     my ($jac_command,$unzip_command);
-#     my $out_file = '';
-#     my $space_string = '';
+# ------------------
+sub smooth_image {
+# ------------------
+    my ($smoothing_param,$out_file,$in_file) = @_;
+    my $mm_not_voxels = 0;
+    my $units = 'voxels';
+    my ($file_name,$file_path,$file_ext) = fileparts($in_file);
 
-#     if ($direction eq 'f') {
-# 	$out_file = "${current_path}/${runno}_jac_to_MDT.nii"; # Need to settle on exact file name format...
-# 	$space_string = 'individual_image';
-# 	$input_warp = "${diffeo_path}/${runno}_to_MDT_warp.nii";
-#     } else {
-# 	$out_file = "${current_path}/${runno}_jac_from_MDT.nii"; # I don't think this will be the proper implementation of the "inverse" option.
-# 	$space_string = 'MDT';
-# 	$input_warp = "${diffeo_path}/MDT_to_${runno}_warp.nii";
-#     }
-#     $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 1 ;\n";
-#     $unzip_command = "ImageMath 3 ${out_file} m ${out_file} ${mask_path};\n";
+    # Strip off units and white space (if any).
+    if ($smoothing_param =~ s/[\s]*(vox|voxel|voxels|mm)$//) {
+	$units = $1;
+	if ($units eq 'mm') {	
+	    ${mm_not_voxels} = 1;
+	}
+    }
 
-# #    $jac_command = "ANTSJacobian 3 ${input_warp} ${out_file} 1 ${mask_path} 1;\n"; # Older ANTS command
-# #    $unzip_command = "gunzip -c ${out_file}logjacobian.nii.gz > ${out_file}.nii;\n";  
+    my $cmd = "SmoothImage ${dims} ${in_file} ${smoothing_param} ${out_file} ${mm_not_voxels} ;\n";
 
-#     $cmd=$jac_command.$unzip_command;
-#     my $go_message =  "$PM: calculate jacobian images in ${space_string} for ${runno}";
-#     my $stop_message = "$PM:  calculate jacobian images in ${space_string} for ${runno}:\n${cmd}\n";
+    my $go_message =  "$PM: Smooth image with sigma=${smoothing_param} ${units}: ${file_name}";
+    my $stop_message = "$PM:  Unable to smooth image with sigma=${smoothing_param} ${units}: ${file_name} :\n${cmd}\n";
 
-#     my $jid = 0;
-#     if (cluster_check) {
-# 	my $home_path = $current_path;
-# 	my $Id= "${runno}_calculate_jacobian_in_${space_string}_space";
-# 	my $verbose = 2; # Will print log only for work done.
-# 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose);     
-# 	if (! $jid) {
-# 	    error_out($stop_message);
-# 	}
-#     } else {
-# 	my @cmds = ($jac_command,$unzip_command);
-# 	if (! execute($go, $go_message, @cmds) ) {
-# 	    error_out($stop_message);
-# 	}
-#     }
+    my $jid = 0;
+    if (cluster_check) {
+	my $home_path = $current_path;
+	my $Id= "smooth_image_with_sigma_${smoothing_param}_${units}_${file_name}";
+	my $verbose = 2; # Will print log only for work done.
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose);     
+	if (! $jid) {
+	    error_out($stop_message);
+	}
+    } else {
+	my @cmds = ($cmd);
+	if (! execute($go, $go_message, @cmds) ) {
+	    error_out($stop_message);
+	}
+    }
 
-#     if ((!-e $out_file) && ($jid == 0)) {
-# 	error_out("$PM: missing jacobian image in ${space_string} space for ${runno}: ${out_file}");
-#     }
-#     print "** $PM created ${out_file}.nii\n";
+    if ((!-e $out_file) && ($jid == 0)) {
+	error_out("$PM: missing smoothed image: ${out_file}");
+    }
+    print "** $PM created ${out_file}\n";
   
-#     return($jid,$out_file);
-#  }
+    return($jid,$out_file);
+ }
 
 
 # ------------------
@@ -229,7 +224,7 @@ sub smooth_images_vbm_Runtime_check {
     }
 
     my $case = 1;
-    my ($dummy,$skip_message)=smooth_images_Output_check($case,$direction);
+    my ($dummy,$skip_message)=smooth_images_Output_check($case);
 
     if ($skip_message ne '') {
 	print "${skip_message}";

@@ -2,16 +2,11 @@
 
 # vbm_analysis_vbm.pm 
 
-# modified 2014/12/12 BJ Anderson for use in VBM pipeline.
-# Based on convert_all_to_nifti.pm, as implemented by seg_pipe_mc
-# modified 20130730 james cook, renamed flip_y to flip_x to be more accurate.
-# modified 2012/04/27 james cook. Tried to make this generic will special handling for dti from archive cases.
-# calls nifti code that can get dims from header
-# created 2010/11/02 Sally Gewalt CIVM
+#  2015/08/06  Added SurfStat support
 
 my $PM = "vbm_analysis_vbm.pm";
-my $VERSION = "2014/12/16";
-my $NAME = "Convert input data into the proper format, flipping x and/or z if need be.";
+my $VERSION = "2015/08/06";
+my $NAME = "Run vbm analysis with software of choice.";
 
 use strict;
 use warnings;
@@ -22,25 +17,29 @@ require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
 
+my $use_Hf = 1;
+if (! defined $Hf) { $use_Hf = 0;}
+
 
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$flip_x,$flip_z,$do_mask);
+
 my (@array_of_runnos,@channel_array);
+
 my (%go_hash,%go_mask,%mask_hash);
+
 my $skip=0;
 
-# # ------------------
-# sub vbm_analysis_vbm {
-# # ------------------
-# # convert the source image volumes used in this SOP to nifti format (.nii)
-# # could use image name (suffix) to figure out datatype
-
-#     vbm_analysis_vbm_Runtime_check();
-
-#     my @nii_cmds;
-#     my @nii_files;
 
 
-#     foreach my $runno (@array_of_runnos) {
+# ------------------
+sub vbm_analysis_vbm {
+# ------------------
+    my @args = @_;
+    vbm_analysis_vbm_Runtime_check(@args);
+
+
+ #    foreach my $smoothing (@smoothing_params) {
+
 # 	foreach my $ch (@channel_array) {
 # 	    my $go = $go_hash{$runno}{$ch};
 # 	    if ($go) {
@@ -80,7 +79,8 @@ my $skip=0;
 # 	`rm ${work_dir}/*.m`;
 # 	`rm ${work_dir}/*matlab*`;
 #     }
-# }
+
+}
 
 
 # # ------------------
@@ -137,6 +137,14 @@ my $skip=0;
 # }
 
 
+# ------------------
+sub surfstat_analysis_vbm {
+# ------------------
+
+
+
+}
+
 # # ------------------
 # sub vbm_analysis_vbm_Init_check {
 # # ------------------
@@ -144,24 +152,49 @@ my $skip=0;
 #     return('');
 # }
 
-# # ------------------
-# sub vbm_analysis_vbm_Runtime_check {
-# # ------------------
+# ------------------
+sub vbm_analysis_vbm_Runtime_check {
+# ------------------
+    my $directory_prefix='';
 
+    if ($use_Hf) {
+	$predictor_path = $Hf->get_value('predictor_work_dir');
+	$current_path = $Hf->get_value('vbm_analysis_path');
+	if ($current_path eq 'NO_KEY') {
+	    $current_path = "${predictor_path}/vbm_analysis";
+	    $Hf->set_value('vbm_analysis_path',$current_path);
+	}
+	if (! -e $current_path) {
+	    mkdir ($current_path,$permissions);
+	}
+
+	$directory_prefix = $current_path;
+	$directory_prefix =~ s/\/glusterspace//;
+
+	$software_list = $Hf->get_value('vbm_analysis_software');
+	if ($software_list eq 'NO_KEY') { ## Should this go in init_check?
+	    $software_list = "surfstat"; 
+	    $Hf->set_value('vbm_analysis_software',$software_list);
+	}
+
+	$channel_comma_list = $Hf->get_value('channel_comma_list');
+	$smoothing_comma_list = $Hf->get_value('smoothing_comma_list');
+
+	if ($smoothing_comma_list eq 'NO_KEY') { ## Should this go in init_check?
+	    $smoothing_comma_list = "3vox"; 
+	    $Hf->set_value('smoothing_comma_list',$smoothing_comma_list);
+	}
+
+
+    }
+
+    foreach my $smoothing (@smoothing_params) {
+$dire	
+	make_process_dirs(
 # # # Set up work
 #     $in_folder = $Hf->get_value('pristine_input_dir');
 #     $work_dir = $Hf->get_value('dir_work');
 #     $current_path = $Hf->get_value('inputs_dir');
-
-#     $flip_x = $Hf->get_value('flip_x'); 
-#     $flip_z = $Hf->get_value('flip_z'); 
-#     $do_mask = $Hf->get_value('do_mask');
-
-
-
-
-
-
 
 
 # #    opendir(DIR,$in_folder) or die ("$PM: could not open project inputs folder!";
@@ -189,7 +222,7 @@ my $skip=0;
 #     }
 
 
-# }
+}
 
 
 1;

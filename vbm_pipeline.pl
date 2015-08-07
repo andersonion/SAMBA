@@ -460,6 +460,8 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 
     if (create_rd_from_e2_and_e3_vbm()) {
 	push(@channel_array,'rd');
+	$channel_comma_list = $channel_comma_list.',rd';
+	$Hf->set_value('channel_comma_list',$channel_comma_list);
     }
     sleep($interval);
 
@@ -578,35 +580,18 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 
     my $new_contrast = calculate_jacobians_vbm('i','compare');
     push(@channel_array,$new_contrast);
+    $channel_comma_list = $channel_comma_list.','.$new_contrast;
+    $Hf->set_value('channel_comma_list',$channel_comma_list);
     sleep($interval);
 
-   # vbm_analysis_vbm($Hf);
+    vbm_analysis_vbm();
     sleep($interval);
 
    # smooth_images_vbm();
     sleep($interval);
 
 
-
     $Hf->write_headfile($result_headfile);
-# Not part of official code:
-    if (0) {
-	foreach my $runno (@control_group) {
-	    my @forward_array = split(',',$Hf->get_value("forward_xforms_${runno}"));
-	    my @inverse_array = split(',',$Hf->get_value("inverse_xforms_${runno}"));
-	    
-	    print " The forward transforms for control runno $runno are:\n";
-	    foreach my $f_xform (@forward_array) {
-		print "\t${f_xform}\n";
-	    }
-	    print "\n The inverse transforms for control runno $runno are:\n";
-	    foreach my $i_xform (@inverse_array) {
-		print "\t${i_xform}\n";
-	    }
-	    
-	    
-	}
-    }
 
     print "\n\nVBM Pipeline has completed successfully.  Great job, you.\n\n";
 } #end main
