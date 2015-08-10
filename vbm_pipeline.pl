@@ -584,7 +584,7 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     $Hf->set_value('channel_comma_list',$channel_comma_list);
     sleep($interval);
 
-    vbm_analysis_vbm();
+#    vbm_analysis_vbm();
     sleep($interval);
 
    # smooth_images_vbm();

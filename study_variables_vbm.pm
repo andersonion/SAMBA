@@ -10,11 +10,11 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 0;
+my $obrien = 1;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 1;
+my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
@@ -244,7 +244,7 @@ sub study_variables_vbm {
 
 	$optional_suffix = '';
 	$atlas_name = 'DTI101b';
-	$label_atlas_name = 'chass';#'dti148lr';
+	$label_atlas_name = 'chass_symmetric';#'dti148lr';
 	$rigid_contrast = 'dwi';
 	$mdt_contrast = 'fa'; #WAS fa
 	$skull_strip_contrast = 'dwi';

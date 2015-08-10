@@ -185,11 +185,12 @@ sub vbm_analysis_vbm_Runtime_check {
 	    $Hf->set_value('smoothing_comma_list',$smoothing_comma_list);
 	}
 
+	$mdt_name = 
 
     }
 
     foreach my $smoothing (@smoothing_params) {
-$dire	
+
 	make_process_dirs(
 # # # Set up work
 #     $in_folder = $Hf->get_value('pristine_input_dir');

@@ -24,13 +24,16 @@ use List::Util qw(max);
 my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my ($mdt_path,$pairwise_path,$predictor_id,$predictor_path,$work_done);
+my ($mdt_path,$pairwise_path,$predictor_id,$predictor_path,$template_match);
+
+my ($template_predictor,$template_path,$template_name);
+
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed);
 my (%go_hash);
 my $go = 1;
 my $job;
 my $current_checkpoint = 1; # Bound to change! Change here!
-my $number_of_controls;
+my $number_of_template_runnos;
 # my @parents = qw(pairwise_reg_vbm);
 # my @children = qw (apply_mdt_warps_vbm);
 
@@ -45,13 +48,8 @@ sub calculate_mdt_warps_vbm {  # Main code
     foreach my $runno (@array_of_runnos) {
 	$go = $go_hash{$runno};
 	if ($go) {
-	    if ($number_of_controls == 1) {
-
-	    } elsif ($number_of_controls == 2) {
-
-	    } else {
-		($job,$xform_path) = calculate_average_mdt_warp($runno,$direction);
-	    }
+	    ($job,$xform_path) = calculate_average_mdt_warp($runno,$direction);
+	   
 	    if ($job > 1) {
 		push(@jobs,$job);
 	    }
@@ -76,7 +74,7 @@ sub calculate_mdt_warps_vbm {  # Main code
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
 	
 	if ($done_waiting) {
-	    print STDOUT  "  All warps to MDT space calculation jobs have completed; moving on to next step.\n";
+	    print STDOUT  "  All warps-to-MDT-space calculation jobs have completed; moving on to next step.\n";
 	}
     }
     my $case = 2;
@@ -184,7 +182,12 @@ sub calculate_average_mdt_warp {
 	    $fixed = $runno;
 	}
 #	if ($fixed ne $moving) {  # Fixing previous error of self/identity warp omission!
+	if ($broken && ($fixed eq $moving)) {
+	    $cmd=$cmd;
+	} else {
 	    $cmd = $cmd." ${pairwise_path}/${moving}_to_${fixed}_warp.nii.gz";
+	}
+
 #	}
     }
  
@@ -233,29 +236,74 @@ sub calculate_mdt_warps_vbm_Runtime_check {
     $mdt_path = $Hf->get_value('mdt_work_dir');
     $pairwise_path = $Hf->get_value('mdt_pairwise_dir');
     $inputs_dir = $Hf->get_value('inputs_dir');
-    $predictor_id = $Hf->get_value('predictor_id');
-    $predictor_path = $Hf->get_value('predictor_work_dir');   
-    $current_path = $Hf->get_value('mdt_diffeo_path');
- 
-    if ($predictor_path eq 'NO_KEY') {
-	$predictor_path = "${mdt_path}/P_${predictor_id}"; 
- 	$Hf->set_value('predictor_work_dir',$predictor_path);
+   # $predictor_id = $Hf->get_value('predictor_id');
+   # $predictor_path = $Hf->get_value('predictor_work_dir');
+
+    $template_predictor = $Hf->get_value('template_predictor');
+    $template_path = $Hf->get_value('template_work_dir');
+   
+    $template_name = $Hf->get_value('template_name');
+
+#    $runlist = $Hf->get_value('control_comma_list');
+    $runlist = $Hf->get_value('template_comma_list');
+
+    if ($runlist eq 'NO_KEY') {
+	$runlist = $Hf->get_value('control_comma_list');
     }
 
-    if ($current_path eq 'NO_KEY') {
-	$current_path = "${predictor_path}/MDT_diffeo";
- 	$Hf->set_value('mdt_diffeo_path',$current_path);
+    @array_of_runnos = split(',',$runlist);
+    @sorted_runnos=sort(@array_of_runnos);
+    $number_of_template_runnos = $#sorted_runnos + 1;
+#
+
+    if ($template_predictor eq 'NO_KEY') {
+	my $predictor_id = $Hf->get_value('predictor_id');
+	if ($predictor_id ne 'NO_KEY') {
+	    if ($predictor_id =~ s/([_]+.*)//) {
+		$template_predictor = $predictor_id;
+	    } else {
+		$template_predictor = "NoNameYet";
+	    }
+	} else {
+	    $template_predictor = "NoNameYet";
+	}
     }
-    
-    $write_path_for_Hf = "${current_path}/${predictor_id}_temp.headfile";
-    print "Should run checkpoint here!\n\n";
+
+
+    if ($template_name eq 'NO_KEY') {
+	$template_name = "${mdt_contrast}MDT_${template_predictor}_n${number_of_template_runnos}";
+	$Hf->set_value('template_name',$template_name);
+    }
+
+    $current_path = $Hf->get_value('mdt_diffeo_path');
+ 
+#    if ($predictor_path eq 'NO_KEY') {
+#	$predictor_path = "${mdt_path}/P_${predictor_id}"; 
+# 	$Hf->set_value('predictor_work_dir',$predictor_path);
+#    }
+
+   if ($template_path eq 'NO_KEY') {
+	$template_path = "${mdt_path}/${template_name}"; 
+	$Hf->set_value('template_work_dir',$template_path);
+   }
+
+    if ($current_path eq 'NO_KEY') {
+#	$current_path = "${predictor_path}/MDT_diffeo";
+	$current_path = "${template_path}/MDT_diffeo";
+	$Hf->set_value('mdt_diffeo_path',$current_path);
+    }
+ 
+   print "Should run checkpoint here!\n\n";
     my $checkpoint = $Hf->get_value('last_headfile_checkpoint'); # For now, this is the first checkpoint, but that will probably evolve.
     my $previous_checkpoint = $current_checkpoint - 1;
-    if (1) {  ####### if (0) is only a temporary measure!!!
-    if (($checkpoint eq "NO_KEY") || ($checkpoint <= $previous_checkpoint)) {
-	my $current_tempHf = find_temp_headfile_pointer($current_path);
-	$work_done = 0;
-	my $Hf_comp = '';
+   
+    # if (($checkpoint eq "NO_KEY") || ($checkpoint <= $previous_checkpoint)) {
+    if (($checkpoint eq "NO_KEY") || ($checkpoint < $previous_checkpoint)) {
+	$template_match = 0;
+	my $temp_template_path;
+	my @alphabet = qw(a b c d e f g h j k m n p q r s t u v w x y z); # Don't want to use i,l,o (I,L,O)
+	@alphabet = ('',@alphabet);
+
 	my $include = 0; # We will exclude certain keys from headfile comparison. Exclude key list getting bloated...may need to switch to include.
 	my @excluded_keys =qw(affine_identity_matrix
                               compare_comma_list  
@@ -270,48 +318,108 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               inverse_xforms
                               last_headfile_checkpoint
                               threshold_hash_ref ); 
- 
-	if ($current_tempHf ne "0"){# numeric compare vs string?
-	    $Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);
 
-	    if ($Hf_comp eq '') {
-		$work_done = 1;
-	    }
-	}
-    
-	if (($Hf_comp ne '') && ($current_tempHf == 0)) { # Move most recent (different) work to backup folder.	
-	    my $new_backup;
-	    my $existence=1;
 
-	    for (my $i=1; $existence== 1; $i++) {
-		if (! -e "${predictor_path}_b$i") {
-		    $existence = 0;
+	for (my $i=0; $template_match== 0; $i++) {
+	    my $letter = $alphabet[$i];
+	    $temp_template_path = $template_path.$letter ;
+	    if ($current_path =~ s/(\/[A-Za-z_]+[\/]?)$/${letter}$1/) {
+		print "temp template path = ${temp_template_path}\n";
+		
+		my $current_tempHf = find_temp_headfile_pointer($current_path);
+		my $Hf_comp = '';
+		
+		if ($current_tempHf ne "0"){# numeric compare vs string?
+		    $Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);
+		    
+		    if ($Hf_comp eq '') {
+			$template_match = 1;
+		    } else {
+			print " $PM: ${Hf_comp}\n"; # Is this the right place for this?
+		    }
+		} else {
+		    $template_match = 1;
 		}
-		$new_backup = "${predictor_path}_b$i";
 	    }
-	
-	    print " $PM: ${Hf_comp}\n";
-	    print " Will move existing work to backup folder: ${new_backup}.\n";
-	    rename($predictor_path,$new_backup);
-	}
-	
-	if ((! -e $predictor_path) | ($current_tempHf eq "0")) {
-	    mkdir ($predictor_path,$permissions);
-	}
-	$Hf->set_value('last_headfile_checkpoint',$current_checkpoint);
+	    if ($template_match) {
+		$template_name = $template_name.$letter;
+	    }
+	    
+	    $template_path = $temp_template_path;
+	}    
+	print " At least one ambiguously different MDT detected, new MDT being generated: ${template_name}.\n";	
     }
-}    
+    
+    print "Current template_path = ${template_path}\n\n";
+    if (! -e $template_path) {
+	mkdir ($template_path,$permissions);
+    }
+    
+    $Hf->set_value('mdt_diffeo_path',$current_path);
+    $Hf->set_value('template_work_dir',$template_path);
+    $Hf->set_value('template_name',$template_name);
+    $Hf->set_value('last_headfile_checkpoint',$current_checkpoint);
+
+    $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
+    # $write_path_for_Hf = "${current_path}/${predictor_id}_temp.headfile";
+
+
+    # if (1) {  ####### if (0) is only a temporary measure!!!
+    # if (($checkpoint eq "NO_KEY") || ($checkpoint <= $previous_checkpoint)) {
+    # 	my $current_tempHf = find_temp_headfile_pointer($current_path);
+    # 	$work_done = 0;
+    # 	my $Hf_comp = '';
+    # 	my $include = 0; # We will exclude certain keys from headfile comparison. Exclude key list getting bloated...may need to switch to include.
+    # 	my @excluded_keys =qw(affine_identity_matrix
+    #                           compare_comma_list  
+    #                           complete_comma_list
+    #                           channel_comma_list
+    #                           create_labels
+    #                           label_atlas_dir
+    #                           label_atlas_name
+    #                           label_atlas_path
+    #                           label_space
+    #                           forward_xforms 
+    #                           inverse_xforms
+    #                           last_headfile_checkpoint
+    #                           threshold_hash_ref ); 
+ 
+    # 	if ($current_tempHf ne "0"){# numeric compare vs string?
+    # 	    $Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);
+
+    # 	    if ($Hf_comp eq '') {
+    # 		$work_done = 1;
+    # 	    }
+    # 	}
+    
+    # 	if (($Hf_comp ne '') && ($current_tempHf == 0)) { # Move most recent (different) work to backup folder.	
+    # 	    my $new_backup;
+    # 	    my $existence=1;
+
+    # 	    for (my $i=1; $existence== 1; $i++) {
+    # 		if (! -e "${predictor_path}_b$i") {
+    # 		    $existence = 0;
+    # 		}
+    # 		$new_backup = "${predictor_path}_b$i";
+    # 	    }
+	
+    # 	    print " $PM: ${Hf_comp}\n";
+    # 	    print " Will move existing work to backup folder: ${new_backup}.\n";
+    # 	    rename($predictor_path,$new_backup);
+    # 	}
+	
+    # 	if ((! -e $predictor_path) | ($current_tempHf eq "0")) {
+    # 	    mkdir ($predictor_path,$permissions);
+    # 	}
+    # 	$Hf->set_value('last_headfile_checkpoint',$current_checkpoint);
+    # }
+    
     if (! -e $current_path) {
 	mkdir ($current_path,$permissions);
     }
-    
 
-#   Functionize?
-    $runlist = $Hf->get_value('control_comma_list');
-    @array_of_runnos = split(',',$runlist);
-    @sorted_runnos=sort(@array_of_runnos);
-    $number_of_controls = $#sorted_runnos + 1;
-#
+
+
 
     my $case = 1;
     my ($dummy,$skip_message)=calculate_mdt_warps_Output_check($case,$direction);
