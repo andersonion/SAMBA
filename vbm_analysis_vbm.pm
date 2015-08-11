@@ -10,20 +10,17 @@ my $NAME = "Run vbm analysis with software of choice.";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
+no warnings qw(bareword);
 
 use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions);
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
 
-my $use_Hf = 1;
-if (! defined $Hf) { $use_Hf = 0;}
-
-
+my $use_Hf;
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$flip_x,$flip_z,$do_mask);
-
-my (@array_of_runnos,@channel_array);
+my ($smoothing_comma_list,$software_list,$channel_comma_list,$template_path,$template_name);
+my (@array_of_runnos,@channel_array,@smoothing_params);
 
 my (%go_hash,%go_mask,%mask_hash);
 
@@ -34,6 +31,7 @@ my $skip=0;
 # ------------------
 sub vbm_analysis_vbm {
 # ------------------
+    print "$PM: use_Hf = ${use_Hf}\n\n";
     my @args = @_;
     vbm_analysis_vbm_Runtime_check(@args);
 
@@ -155,13 +153,25 @@ sub surfstat_analysis_vbm {
 # ------------------
 sub vbm_analysis_vbm_Runtime_check {
 # ------------------
+    if (defined $Hf) { 
+	$use_Hf = 1;
+	print "Fuck one\n";
+    } elsif (! defined $Hf) {
+	$use_Hf = 0;
+	print "Fuck two\n";
+    } else {
+	print "\$Hf is a confusing hooch.  This shouldn't be happening.\n";
+    }
+
+
+
     my $directory_prefix='';
 
     if ($use_Hf) {
-	$predictor_path = $Hf->get_value('predictor_work_dir');
+	$template_path = $Hf->get_value('template_work_dir');
 	$current_path = $Hf->get_value('vbm_analysis_path');
 	if ($current_path eq 'NO_KEY') {
-	    $current_path = "${predictor_path}/vbm_analysis";
+	    $current_path = "${template_path}/vbm_analysis";
 	    $Hf->set_value('vbm_analysis_path',$current_path);
 	}
 	if (! -e $current_path) {
@@ -169,7 +179,7 @@ sub vbm_analysis_vbm_Runtime_check {
 	}
 
 	$directory_prefix = $current_path;
-	$directory_prefix =~ s/\/glusterspace//;
+	if ($directory_prefix =~ s/\/glusterspace//) { }
 
 	$software_list = $Hf->get_value('vbm_analysis_software');
 	if ($software_list eq 'NO_KEY') { ## Should this go in init_check?
@@ -180,18 +190,22 @@ sub vbm_analysis_vbm_Runtime_check {
 	$channel_comma_list = $Hf->get_value('channel_comma_list');
 	$smoothing_comma_list = $Hf->get_value('smoothing_comma_list');
 
+
 	if ($smoothing_comma_list eq 'NO_KEY') { ## Should this go in init_check?
 	    $smoothing_comma_list = "3vox"; 
 	    $Hf->set_value('smoothing_comma_list',$smoothing_comma_list);
 	}
 
-	$mdt_name = 
+	@smoothing_params = split(',',$smoothing_comma_list);
+
+	$template_name = $Hf->get_value('template_name');
 
     }
 
     foreach my $smoothing (@smoothing_params) {
-
-	make_process_dirs(
+	my $local_folder_name  = $directory_prefix.'/'.$template_name.'_'.$smoothing.'_smoothing';
+	make_process_dirs($local_folder_name);
+    }
 # # # Set up work
 #     $in_folder = $Hf->get_value('pristine_input_dir');
 #     $work_dir = $Hf->get_value('dir_work');

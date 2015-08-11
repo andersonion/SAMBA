@@ -22,11 +22,12 @@ if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
 if (! defined $dims) {$dims = 3;}
 
-# my ($runlist,$work_path,$current_path,$write_path_for_Hf);
+my ($runlist,$work_path,$current_path,$write_path_for_Hf);
 my (@array_of_runnos,@jobs,@files_to_check,@files_to_process);
-my ($smoothing_parameter,$destination_directory,$suffix,@input_files_or_directories);
+my ($smoothing_parameter,$smoothing_radius,$destination_directory,$suffix,@input_files_or_directories);
 my $job;
-
+my $go = 1;
+my ($log_msg);
 my ($current_contrast,$group,$gid);
 
 
@@ -39,7 +40,7 @@ sub smooth_images_vbm {  # Main code
 
     foreach my $in_file (@files_to_process) {
 	my ($file_name,$file_path,$file_ext) = fileparts($in_file);
-	$out_file = "${destination_directory}/${file_name}_${suffix}.${file_ext}";
+	my $out_file = "${destination_directory}/${file_name}_${suffix}.${file_ext}";
 	($job) = smooth_image($smoothing_parameter,$out_file,$in_file);
 	
 	if ($job > 1) {
@@ -56,9 +57,9 @@ sub smooth_images_vbm {  # Main code
     if ($done_waiting) {
 	print STDOUT  "  Smoothing specified images complete; moving on to next step.\n";
     }
-}
+
     my $case = 2;
-    my ($dummy,$error_message)=smooth_images_Output_check($case,$direction);
+    my ($dummy,$error_message)=smooth_images_Output_check($case);
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);
@@ -106,27 +107,27 @@ sub smooth_images_Output_check {
     foreach my $input_file (@files_to_check) {
 	my ($file_name,$file_path,$file_ext) = fileparts($input_file);
 	$out_file = "${destination_directory}/${file_name}_${suffix}.${file_ext}";
-
-	if ($case == 1) && (data_double_check($out_file.'.gz')) {
+	
+	if (($case == 1) && (data_double_check($out_file.'.gz'))) {
 	    `gunzip ${out_file}.gz`;  # We expect that smoothed files will need to be decompressed for VBM analysis (our primary use).
 	}
-
-	 if (data_double_check($out_file)) {
-	     push(@files_to_process,$input_file);
-	     push(@file_array,$out_file);
-	     $missing_files_message = $missing_files_message."\t${output_file}\n";
-	 } else {
-	     $existing_files_message = $existing_files_message."\t${output_file}\n";
-	 }
-     }
-     if (($existing_files_message ne '') && ($case == 1)) {
-	 $existing_files_message = $existing_files_message."\n";
-     } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $missing_files_message = $missing_files_message."\n";
-     }
+	
+	if (data_double_check($out_file)) {
+	    push(@files_to_process,$input_file);
+	    push(@file_array,$out_file);
+	    $missing_files_message = $missing_files_message."\t${out_file}\n";
+	} else {
+	    $existing_files_message = $existing_files_message."\t${out_file}\n";
+	}
+    }
+    if (($existing_files_message ne '') && ($case == 1)) {
+	$existing_files_message = $existing_files_message."\n";
+    } elsif (($missing_files_message ne '') && ($case == 2)) {
+	$missing_files_message = $missing_files_message."\n";
+    }
      
-     my $error_msg='';
-
+    my $error_msg='';
+    
     if (($existing_files_message ne '') && ($case == 1)) {
 	$error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
     } elsif (($missing_files_message ne '') && ($case == 2)) {

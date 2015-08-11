@@ -26,7 +26,7 @@ $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
 $permissions = 0755;
-my $interval = 1;
+my $interval = 0.1; ##Normally 1
 $valid_formats_string = 'hdr|img|nii';
 
 
@@ -74,7 +74,8 @@ require mdt_reg_to_atlas_vbm;
 require warp_atlas_labels_vbm;
 require mask_for_mdt_vbm;
 require calculate_jacobians_vbm;
-#require smooth_images_vbm;
+require smooth_images_vbm;
+require vbm_analysis_vbm;
 
 # Temporary hardcoded variables
 
@@ -407,6 +408,7 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
      vbm_with_surfstat_vbm
      warp_atlas_labels_vbm
      calculate_jacobians_vbm
+     vbm_analysis_vbm
       );
 #     smooth_images_vbm
 #     );
@@ -584,7 +586,7 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     $Hf->set_value('channel_comma_list',$channel_comma_list);
     sleep($interval);
 
-#    vbm_analysis_vbm();
+    vbm_analysis_vbm();
     sleep($interval);
 
    # smooth_images_vbm();
