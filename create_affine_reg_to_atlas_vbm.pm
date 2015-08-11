@@ -688,8 +688,9 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 	$label_path = $Hf->get_value('labels_dir');
 	$current_path = $Hf->get_value('label_transform_dir');
 	if ($work_path eq 'NO_KEY') {
-	    my $predictor_path = $Hf->get_value('predictor_work_dir'); 
-	    $work_path = "${predictor_path}/stats_by_region";
+	   # my $predictor_path = $Hf->get_value('predictor_work_dir'); 
+	    my $template_path = $Hf->get_value('template_work_dir');
+	    $work_path = "${template_path}/stats_by_region";
 	    $Hf->set_value('regional_stats_dir',$work_path);
 	    if (! -e $work_path) {
 		mkdir ($work_path,$permissions);

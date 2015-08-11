@@ -24,7 +24,7 @@ use List::Util qw(max);
 my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my ($mdt_path,$pairwise_path,$predictor_id,$predictor_path,$template_match);
+my ($mdt_path,$pairwise_path,$template_match);
 
 my ($template_predictor,$template_path,$template_name);
 
@@ -181,6 +181,7 @@ sub calculate_average_mdt_warp {
 	    $moving = $other_runno;
 	    $fixed = $runno;
 	}
+
 #	if ($fixed ne $moving) {  # Fixing previous error of self/identity warp omission!
 	if ($broken && ($fixed eq $moving)) {
 	    $cmd=$cmd;
@@ -268,7 +269,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 	    $template_predictor = "NoNameYet";
 	}
     }
-
+    $Hf->set_value('template_predictor',$template_predictor);
 
     if ($template_name eq 'NO_KEY') {
 	$template_name = "${mdt_contrast}MDT_${template_predictor}_n${number_of_template_runnos}";
@@ -283,7 +284,9 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 #    }
 
    if ($template_path eq 'NO_KEY') {
-	$template_path = "${mdt_path}/${template_name}"; 
+       my $broken_string = '';
+       if ($broken) { $broken_string = "Broken_";}
+	$template_path = "${mdt_path}/${broken_string}${template_name}"; 
 	$Hf->set_value('template_work_dir',$template_path);
    }
 
@@ -301,11 +304,13 @@ sub calculate_mdt_warps_vbm_Runtime_check {
     if (($checkpoint eq "NO_KEY") || ($checkpoint < $previous_checkpoint)) {
 	$template_match = 0;
 	my $temp_template_path;
+	my $temp_current_path;
 	my @alphabet = qw(a b c d e f g h j k m n p q r s t u v w x y z); # Don't want to use i,l,o (I,L,O)
 	@alphabet = ('',@alphabet);
 
 	my $include = 0; # We will exclude certain keys from headfile comparison. Exclude key list getting bloated...may need to switch to include.
 	my @excluded_keys =qw(affine_identity_matrix
+                              affine_target_image
                               compare_comma_list  
                               complete_comma_list
                               channel_comma_list
@@ -317,16 +322,20 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               forward_xforms 
                               inverse_xforms
                               last_headfile_checkpoint
-                              threshold_hash_ref ); 
+                              mdt_diffeo_path
+                              template_name
+                              template_work_dir
+                              threshold_hash_ref ); # affine_target_image will need to be removed from this list once we fully support it.
 
 
 	for (my $i=0; $template_match== 0; $i++) {
 	    my $letter = $alphabet[$i];
 	    $temp_template_path = $template_path.$letter ;
-	    if ($current_path =~ s/(\/[A-Za-z_]+[\/]?)$/${letter}$1/) {
-		print "temp template path = ${temp_template_path}\n";
+	    $temp_current_path = $current_path;
+	    if ($temp_current_path =~ s/(\/[A-Za-z_]+[\/]?)$/${letter}$1/) {
 		
-		my $current_tempHf = find_temp_headfile_pointer($current_path);
+		
+		my $current_tempHf = find_temp_headfile_pointer($temp_current_path);
 		my $Hf_comp = '';
 		
 		if ($current_tempHf ne "0"){# numeric compare vs string?
@@ -342,12 +351,12 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 		}
 	    }
 	    if ($template_match) {
-		$template_name = $template_name.$letter;
+		$template_name = $template_name.$letter; 
+		$template_path = $temp_template_path;
+		$current_path = $temp_current_path;   
+		print " At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n";
 	    }
-	    
-	    $template_path = $temp_template_path;
-	}    
-	print " At least one ambiguously different MDT detected, new MDT being generated: ${template_name}.\n";	
+	}
     }
     
     print "Current template_path = ${template_path}\n\n";

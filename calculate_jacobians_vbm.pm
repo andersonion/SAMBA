@@ -24,7 +24,7 @@ use List::Util qw(max);
 my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path);
-my ($mask_path,$predictor_id,$predictor_path, $diffeo_path,$space_string);
+my ($mask_path,$template_name,$template_path, $diffeo_path,$space_string);
 my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
 my (%go_hash);
 my $go = 1;
@@ -234,15 +234,19 @@ sub calculate_jacobians_vbm_Runtime_check {
  
 # # Set up work
     
-    $predictor_id = $Hf->get_value('predictor_id');
-    $predictor_path = $Hf->get_value('predictor_work_dir');
+   # $predictor_id = $Hf->get_value('predictor_id');
+   # $predictor_path = $Hf->get_value('predictor_work_dir');
+    $template_name = $Hf->get_value('template_name');
+    $template_path = $Hf->get_value('template_work_dir');
+
     $mask_path = $Hf->get_value('MDT_eroded_mask');
 
     if ($gid) {
 	$diffeo_path = $Hf->get_value('mdt_diffeo_path');   
 	$current_path = $Hf->get_value('mdt_images_path');
 	if ($current_path eq 'NO_KEY') {
-	    $current_path = "${predictor_path}/MDT_images";
+	    # $current_path = "${predictor_path}/MDT_images";
+	    $current_path = "${template_path}/MDT_images";
 	    $Hf->set_value('mdt_images_path',$current_path);
 	}
 	$runlist = $Hf->get_value('control_comma_list');
@@ -251,7 +255,8 @@ sub calculate_jacobians_vbm_Runtime_check {
 	$diffeo_path = $Hf->get_value('reg_diffeo_path');   
 	$current_path = $Hf->get_value('reg_images_path');
 	if ($current_path eq 'NO_KEY') {
-	    $current_path = "${predictor_path}/reg_images";
+	    # $current_path = "${predictor_path}/reg_images";
+	    $current_path = "${template_path}/reg_images";
 	    $Hf->set_value('reg_images_path',$current_path);
 	}
 	$runlist = $Hf->get_value('compare_comma_list');
@@ -261,7 +266,7 @@ sub calculate_jacobians_vbm_Runtime_check {
  	mkdir ($current_path,$permissions);
     }
     
-    $write_path_for_Hf = "${current_path}/${predictor_id}_temp.headfile";
+    $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
         
     @array_of_runnos = split(',',$runlist);
 

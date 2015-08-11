@@ -17,7 +17,7 @@ no warnings qw(uninitialized bareword);
 
 use Cwd qw(abs_path);
 use File::Basename;
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $valid_formats_string $nodes);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $valid_formats_string $nodes $broken);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
@@ -31,7 +31,7 @@ $valid_formats_string = 'hdr|img|nii';
 
 
 my $import_data = 1;
-my $broken;
+$broken = 0;
 
 
 $intermediate_affine = 0;

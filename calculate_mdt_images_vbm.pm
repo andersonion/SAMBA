@@ -24,7 +24,7 @@ use List::Util qw(max);
 my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my ($mdt_path,$pairwise_path,$template_predictor,$template_path,$mdt_images_path,$work_done);
+my ($mdt_path,$pairwise_path,$template_predictor,$template_path,$template_name,$mdt_images_path,$work_done);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed);
 my (%go_hash);
 my $go = 1;
@@ -207,6 +207,7 @@ sub calculate_mdt_images_vbm_Runtime_check {
    
     $template_predictor = $Hf->get_value('template_predictor');
     $template_path = $Hf->get_value('template_work_dir');  
+    $template_name = $Hf->get_value('template_name'); 
 #
     $mdt_images_path = $Hf->get_value('mdt_images_path');
     $current_path = $Hf->get_value('median_images_path');
@@ -217,11 +218,14 @@ sub calculate_mdt_images_vbm_Runtime_check {
  	$Hf->set_value('median_images_path',$current_path);
     }
     
-    $write_path_for_Hf = "${current_path}/${template_predictor}_temp.headfile";
+    $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
 
+#    $runlist = $Hf->get_value('control_comma_list');
+    $runlist = $Hf->get_value('template_comma_list');
 
-#   Functionize?
-    $runlist = $Hf->get_value('control_comma_list');
+    if ($runlist eq 'NO_KEY') {
+	$runlist = $Hf->get_value('control_comma_list');
+    }
     @array_of_runnos = split(',',$runlist);
 #
 

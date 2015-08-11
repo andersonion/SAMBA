@@ -24,7 +24,7 @@ use List::Util qw(max);
 my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my ($interp,$mdt_path,$predictor_id,$predictor_path, $diffeo_path,$work_done,$vbm_reference_path,$label_reference_path,$label_refname,$label_results_path,$label_path);
+my ($interp,$mdt_path,$template_predictor,$template_path, $template_name, $diffeo_path,$work_done,$vbm_reference_path,$label_reference_path,$label_refname,$label_results_path,$label_path);
 my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
 my (%go_hash);
 my $go = 1;
@@ -299,8 +299,14 @@ sub apply_mdt_warps_vbm_Runtime_check {
     $mdt_path = $Hf->get_value('mdt_work_dir');
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');
-    $predictor_id = $Hf->get_value('predictor_id');
-    $predictor_path = $Hf->get_value('predictor_work_dir');
+
+ #   $predictor_id = $Hf->get_value('predictor_id');
+ #   $predictor_path = $Hf->get_value('predictor_work_dir');
+
+    my $template_predictor = $Hf->get_value('template_predictor');
+    $template_path = $Hf->get_value('template_work_dir');
+    $template_name = $Hf->get_value('template_name');
+
     $affine_target = $Hf->get_value('affine_target_image');
     $vbm_reference_path = $Hf->get_value('vbm_reference_path');
 
@@ -308,19 +314,33 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	$diffeo_path = $Hf->get_value('mdt_diffeo_path');   
 	$current_path = $Hf->get_value('mdt_images_path');
 	if ($current_path eq 'NO_KEY') {
-	    $current_path = "${predictor_path}/MDT_images";
+	   # $current_path = "${predictor_path}/MDT_images";
+	    $current_path = "${template_path}/MDT_images";
 	    $Hf->set_value('mdt_images_path',$current_path);
 	}
-	$runlist = $Hf->get_value('control_comma_list');
+#	$runlist = $Hf->get_value('control_comma_list');
+	$runlist = $Hf->get_value('template_comma_list');
+
+	if ($runlist eq 'NO_KEY') {
+	    $runlist = $Hf->get_value('control_comma_list');
+	}
 	
     } elsif ($gid == 0) {
 	$diffeo_path = $Hf->get_value('reg_diffeo_path');   
 	$current_path = $Hf->get_value('reg_images_path');
 	if ($current_path eq 'NO_KEY') {
-	    $current_path = "${predictor_path}/reg_images";
+	 #  $current_path = "${predictor_path}/reg_images";
+	    $current_path = "${template_path}/reg_images";
 	    $Hf->set_value('reg_images_path',$current_path);
 	}
-	$runlist = $Hf->get_value('compare_comma_list');
+	# $runlist = $Hf->get_value('compare_comma_list');
+	$runlist = $Hf->get_value('nontemplate_comma_list');
+
+	if ($runlist eq 'NO_KEY') {
+	    $runlist = $Hf->get_value('compare_comma_list');
+	}
+
+
     } elsif ($gid == 2) {
 	$inputs_dir = $Hf->get_value('label_refspace_folder');
 	$label_reference = $Hf->get_value('label_reference');
@@ -360,7 +380,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	mkdir ($current_path,$permissions);
     }
     
-    $write_path_for_Hf = "${current_path}/${predictor_id}_temp.headfile";
+    $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
 
 #   Functionize?
     

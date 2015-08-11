@@ -24,8 +24,8 @@ use List::Util qw(max);
 my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir,$median_images_path);
-my ($mdt_path,$predictor_id,$predictor_path, $diffeo_path,$work_done);
-my ($label_path,$label_reference_path,$label_refname);
+my ($mdt_path,$template_name, $diffeo_path,$work_done);
+my ($label_path,$label_reference_path,$label_refname,$do_byte);
 my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
 my (%go_hash);
 my $go = 1;
@@ -62,7 +62,7 @@ sub warp_atlas_labels_vbm {  # Main code
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
 	
 	if ($done_waiting) {
-	    print STDOUT  " Label sets have been created from the ${atlas_name} atlas labels for all runnos; moving on to next step.\n";
+	    print STDOUT  " Label sets have been created from the ${label_atlas_name} atlas labels for all runnos; moving on to next step.\n";
 	}
     }
     my $case = 2;
@@ -88,9 +88,9 @@ sub warp_atlas_labels_Output_check {
      my ($out_file);
      my @file_array=();
      if ($case == 1) {
-  	$message_prefix = "  ${atlas_name} label sets have already been created for the following runno(s) and will not be recalculated:\n";
+  	$message_prefix = "  ${label_atlas_name} label sets have already been created for the following runno(s) and will not be recalculated:\n";
      } elsif ($case == 2) {
- 	$message_prefix = "  Unable to create ${atlas_name} label sets for the following runno(s):\n";
+ 	$message_prefix = "  Unable to create ${label_atlas_name} label sets for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
 
      
@@ -99,7 +99,7 @@ sub warp_atlas_labels_Output_check {
      #my $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
      foreach my $runno (@array_of_runnos) {
 	 if ($group eq 'MDT') {
-	     $out_file = "${median_images_path}/MDT_labels_${atlas_name}.nii.gz";
+	     $out_file = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
 	 }else {
 	     $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
 	 }
@@ -148,7 +148,7 @@ sub apply_mdt_warp_to_labels {
     my ($cmd);
     my $out_file;
     if ($group eq 'MDT') {
-	$out_file = "${median_images_path}/MDT_labels_${atlas_name}.nii.gz";
+	$out_file = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
     }else {
 	$out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
     }
@@ -209,16 +209,22 @@ sub apply_mdt_warp_to_labels {
     $warp_train=$additional_warp.' '.$warp_train.' '.$mdt_warp_train;
     
     $create_cmd = "antsApplyTransforms --float -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n NearestNeighbor ${warp_train};\n";
-    
+ 
     my $byte_cmd = "ImageMath 3 ${out_file} Byte ${out_file};\n";
-    $cmd =$create_cmd.$byte_cmd;
-    my $go_message =  "$PM: create ${atlas_name} label set for ${runno}";
-    my $stop_message = "$PM: could not create ${atlas_name} label set for ${runno}:\n${cmd}\n";
+
+    if ($do_byte) {
+	$cmd =$create_cmd.$byte_cmd;
+    } else {
+	$cmd = $create_cmd;
+    }
+
+    my $go_message =  "$PM: create ${label_atlas_name} label set for ${runno}";
+    my $stop_message = "$PM: could not create ${label_atlas_name} label set for ${runno}:\n${cmd}\n";
 
     my $jid = 0;
     if (cluster_check) {
 	my $home_path = $current_path;
-	my $Id= "create_${atlas_name}_labels_for_${runno}";
+	my $Id= "create_${label_atlas_name}_labels_for_${runno}";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose);     
 	if (! $jid) {
@@ -232,7 +238,7 @@ sub apply_mdt_warp_to_labels {
     }
 
     if ((!-e $out_file) && ($jid == 0)) {
-	error_out("$PM: missing ${atlas_name} label set for ${runno}: ${out_file}");
+	error_out("$PM: missing ${label_atlas_name} label set for ${runno}: ${out_file}");
     }
     print "** $PM created ${out_file}\n";
   
@@ -264,9 +270,25 @@ sub warp_atlas_labels_vbm_Runtime_check {
     $label_refname = $Hf->get_value('label_refname');
     $mdt_contrast = $Hf->get_value('mdt_contrast');
     $inputs_dir = $Hf->get_value('inputs_dir');
-    $predictor_id = $Hf->get_value('predictor_id');
+   
+    # $predictor_id = $Hf->get_value('predictor_id');
+    $template_name = $Hf->get_value('template_name');
+
     $affine_target = $Hf->get_value('affine_target_image');
 
+    my $header_output = `PrintHeader ${atlas_label_path}`;
+    my $max_label_number;
+    if ($header_output =~ /Range[\s]*\:[\s]*\[[^,]+,[\s]*([0-9\-\.e\+]+)/) {
+	$max_label_number = $1;
+	print "Max_label_number = ${max_label_number}\n"; 
+    }
+    $do_byte = 0;
+    if ($max_label_number <= 255) {
+	$do_byte = 1;
+    }
+
+    print "Convert labels to Byte = ${do_byte}\n";
+    
     $label_path = $Hf->get_value('labels_dir');
     if ($label_path eq 'NO_KEY') {
 	$label_path = "${work_path}/labels";
@@ -293,7 +315,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
     
     print " $PM: current path is ${current_path}\n";
 
-    $write_path_for_Hf = "${current_path}/${predictor_id}_temp.headfile";
+    $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
     if ($group ne 'MDT') {
 	$runlist = $Hf->get_value('complete_comma_list');
     } else {

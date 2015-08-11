@@ -15,7 +15,7 @@ require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
-my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
+my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$template_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
 my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_transform_parameters);
 my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options);
@@ -335,14 +335,17 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');
     $mdt_path = $Hf->get_value('mdt_work_dir');
-    
-    $predictor_path = $Hf->get_value('predictor_work_dir');  
+   
+
+#    $predictor_path = $Hf->get_value('predictor_work_dir');  
+    $template_path = $Hf->get_value('template_work_dir');  
     $median_images_path = $Hf->get_value('median_images_path');    
     $current_path = $Hf->get_value('reg_diffeo_dir');
 
 
     if ($current_path eq 'NO_KEY') {
-	$current_path = "${predictor_path}/reg_diffeo";
+	# $current_path = "${predictor_path}/reg_diffeo";
+	$current_path = "${template_path}/reg_diffeo";
  	$Hf->set_value('reg_diffeo_path',$current_path);
  	if (! -e $current_path) {
  	    mkdir ($current_path,$permissions);

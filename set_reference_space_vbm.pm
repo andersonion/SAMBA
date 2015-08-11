@@ -128,6 +128,7 @@ sub set_reference_space_Output_check {
 		 $out_file = $file;
 	     }
 	     print ".";
+	     
 	     if (data_double_check($out_file)) {
 		 if ($case == 1) {
 		    # print "\n${out_file} added to list of files to be re-referenced.\n";

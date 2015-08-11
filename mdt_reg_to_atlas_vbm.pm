@@ -19,7 +19,7 @@ require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
-my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$mdt_path,$predictor_path,$median_images_path,$current_path);
+my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$mdt_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path);
 my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_transform_parameters);
 my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options);
@@ -307,8 +307,9 @@ sub mdt_reg_to_atlas_vbm_Runtime_check {
     $label_path=$Hf->get_value('labels_dir');
     $current_path = $Hf->get_value('label_transform_dir');
     if ($work_path eq 'NO_KEY') {
-	my $predictor_path = $Hf->get_value('predictor_work_dir'); 
-	$work_path = "${predictor_path}/stats_by_region";
+	# my $predictor_path = $Hf->get_value('predictor_work_dir'); 
+	my $template_path = $Hf->get_value('template_work_dir'); 
+	$work_path = "${template_path}/stats_by_region";
 	$Hf->set_value('regional_stats_dir',$work_path);
 	if (! -e $work_path) {
 	    mkdir ($work_path,$permissions);
