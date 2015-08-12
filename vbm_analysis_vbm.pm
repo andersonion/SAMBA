@@ -204,7 +204,11 @@ sub vbm_analysis_vbm_Runtime_check {
 
     foreach my $smoothing (@smoothing_params) {
 	my $local_folder_name  = $directory_prefix.'/'.$template_name.'_'.$smoothing.'_smoothing';
-	make_process_dirs($local_folder_name);
+	my ($local_inputs,$local_work,$local_results,$local_Hf)=make_process_dirs($local_folder_name);
+
+
+
+
     }
 # # # Set up work
 #     $in_folder = $Hf->get_value('pristine_input_dir');
