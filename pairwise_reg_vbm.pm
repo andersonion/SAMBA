@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $intermediate_affine $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $intermediate_affine $nodes $permissions);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;

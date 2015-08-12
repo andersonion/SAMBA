@@ -12,7 +12,7 @@ use strict;
 use warnings;
 no warnings qw(bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $valid_formats_string $permissions);
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
@@ -26,12 +26,14 @@ my (%go_hash,%go_mask,%mask_hash);
 
 my $skip=0;
 
+if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
+if (! defined $dims) {$dims = 3;}
 
 # ------------------
 sub vbm_analysis_vbm {
 # ------------------
-    print "$PM: use_Hf = ${use_Hf}\n\n";
+ 
     my @args = @_;
     vbm_analysis_vbm_Runtime_check(@args);
 
@@ -143,24 +145,22 @@ sub surfstat_analysis_vbm {
 
 }
 
-# # ------------------
-# sub vbm_analysis_vbm_Init_check {
-# # ------------------
+# ------------------
+sub vbm_analysis_vbm_Init_check {
+# ------------------
 
-#     return('');
-# }
+    return('');
+}
 
 # ------------------
 sub vbm_analysis_vbm_Runtime_check {
 # ------------------
     if (defined $Hf) { 
 	$use_Hf = 1;
-	print "Fuck one\n";
     } elsif (! defined $Hf) {
 	$use_Hf = 0;
-	print "Fuck two\n";
     } else {
-	print "\$Hf is a confusing hooch.  This shouldn't be happening.\n";
+	print "\$Hf is confusing.  This shouldn't be happening.\n";
     }
 
 
@@ -192,7 +192,7 @@ sub vbm_analysis_vbm_Runtime_check {
 
 
 	if ($smoothing_comma_list eq 'NO_KEY') { ## Should this go in init_check?
-	    $smoothing_comma_list = "3vox"; 
+	    $smoothing_comma_list = "3vox,0.5mm,3"; 
 	    $Hf->set_value('smoothing_comma_list',$smoothing_comma_list);
 	}
 
@@ -202,30 +202,74 @@ sub vbm_analysis_vbm_Runtime_check {
 
     }
 
-    foreach my $smoothing (@smoothing_params) {
-	my $local_folder_name  = $directory_prefix.'/'.$template_name.'_'.$smoothing.'_smoothing';
-	my ($local_inputs,$local_work,$local_results,$local_Hf)=make_process_dirs($local_folder_name);
+    my $template_images_path = $Hf->get_value('mdt_images_path');
+    my $registered_images_path = $Hf->get_value('reg_images_path');
 
+    my $runlist = $Hf->get_value('complete_comma_list');
+    my @array_of_runnos = split(',',$runlist);
+    my $runno_OR_list = join("|",@array_of_runnos);
 
+    my @all_input_dirs = ($template_images_path,$registered_images_path);
+    my @files_to_link; 
 
-
+    foreach my $directory (@all_input_dirs) {
+	if (-d $directory) {
+	    opendir(DIR, $directory);
+	    my @files_in_dir = grep(/(${runno_OR_list}).*(\.${valid_formats_string})+(\.gz)*$/ ,readdir(DIR));# @input_files;
+	    foreach my $current_file (@files_in_dir) {
+		my $full_file = $directory.'/'.$current_file;
+		push (@files_to_link,$full_file);		
+	    }
+	}
     }
-# # # Set up work
-#     $in_folder = $Hf->get_value('pristine_input_dir');
-#     $work_dir = $Hf->get_value('dir_work');
-#     $current_path = $Hf->get_value('inputs_dir');
 
+    my @already_processed;
+    foreach my $smoothing (@smoothing_params) {
+	my $input_smoothing = $smoothing;
+	my $mm_not_voxels = 0;
+	my $units = 'vox';
+	
+	# Strip off units and white space (if any).
+	if ($smoothing =~ s/[\s]*(vox|voxel|voxels|mm)$//) {
+	    $units = $1;
+	    if ($units eq 'mm') {	
+		${mm_not_voxels} = 1;
+	    } else {
+		$units = 'vox';
+	    }
+	}
+	my $smoothing_string = $smoothing;
+	if ($smoothing_string =~ s/(\.){1}/p/) {}
 
-# #    opendir(DIR,$in_folder) or die ("$PM: could not open project inputs folder!";
-# #    my @nii_files = grep(/\.nii$/,readdir(DIR));
+	my $smoothing_with_units_string = $smoothing_string.$units;
+	my $smoothing_with_units = $smoothing.$units;
+	my $already_smoothed = join('|',@already_processed);
 
-#     if ($current_path eq 'NO_KEY') {
-# 	$current_path = "${work_dir}/base_images";
-#  	$Hf->set_value('input_dir',$current_path); 	
-#     }
-#     if (! -e $current_path) {
-# 	mkdir ($current_path,$permissions);
-#     }
+	if ($smoothing_with_units =~ /^(${already_smoothed})$/) { 
+	    print "$PM: Work for specified smoothing \"${input_smoothing}\" has already been completed as \"$1\".\n";
+	} else {
+	    print "$PM: Specified smoothing \"${input_smoothing}\" being processed as \"${smoothing_with_units}\".\n";
+	    my $folder_suffix = "${smoothing_with_units_string}_smoothing"; 
+	    my $file_suffix = "s${smoothing_with_units_string}";
+	    
+	    my $local_folder_name  = $directory_prefix.'/'.$template_name.'_'.$folder_suffix;
+	    my ($local_inputs,$local_work,$local_results,$local_Hf)=make_process_dirs($local_folder_name);
+	    foreach my $file (@files_to_link) {
+		my ($file_name,$file_path,$file_ext) = fileparts($file);
+		my $linked_file = $local_inputs."/".$file_name.$file_ext;
+		#`ln -f $file ${linked_file}`;  # Using -f will "force" the link to refresh with the most recent data.
+		link($file,$linked_file);
+	    }
+	    my $pool_path = $local_work.'/smoothed_image_pool/';
+	    if (! -e $pool_path) {
+		mkdir ($pool_path,$permissions);
+	    }
+	    
+	    smooth_images_vbm($smoothing_with_units,$pool_path,$file_suffix,$local_inputs);
+	    push (@already_processed,$smoothing_with_units);
+	}
+    }
+    @smoothing_params = @already_processed;
 
 #     $runlist = $Hf->get_value('complete_comma_list');
 #     @array_of_runnos = split(',',$runlist);

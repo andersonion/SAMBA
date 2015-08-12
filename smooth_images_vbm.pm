@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $permissions $valid_formats_string $dims);
+use vars qw($Hf $BADEXIT $GOODEXIT  $permissions $valid_formats_string $dims $nodes);
 require Headfile;
 require pipeline_utilities;
 
@@ -28,8 +28,7 @@ my ($smoothing_parameter,$smoothing_radius,$destination_directory,$suffix,@input
 my $job;
 my $go = 1;
 my ($log_msg);
-my ($current_contrast,$group,$gid);
-
+my $mem_request;
 
 # ------------------
 sub smooth_images_vbm {  # Main code
@@ -38,14 +37,44 @@ sub smooth_images_vbm {  # Main code
 
     smooth_images_vbm_Runtime_check();
 
+    if (! defined $nodes) {$nodes = 2;}
+
+    my $coeff = 2;
+    my $total_files = $#files_to_process + 1;  
+
+    my $batch_size = int(int($total_files/$nodes + 0.99999)/$coeff + 0.999999);
+
+    my $num_batches;
+    if ($total_files) {
+	$num_batches = int($total_files/$batch_size+0.999999);
+	$mem_request = memory_estimator($num_batches,$nodes); 
+    } else {
+	$num_batches = 0;
+    }
+
+    print "Total files = ${total_files}\nNodes = $nodes\nBatch size = ${batch_size}\n";
+
+    my $count_up = 0;
+    my $count_down = $total_files;
+
+    my $batch_number = 1;
+    my @current_file_list;
+
     foreach my $in_file (@files_to_process) {
-	my ($file_name,$file_path,$file_ext) = fileparts($in_file);
-	my $out_file = "${destination_directory}/${file_name}_${suffix}.${file_ext}";
-	($job) = smooth_image($smoothing_parameter,$out_file,$in_file);
+	$count_up++;
+	$count_down--;
+	push(@current_file_list,$in_file);
 	
-	if ($job > 1) {
-	    push(@jobs,$job);
-	} 
+	if (($count_up == $batch_size) || (! $count_down)) {
+	    ($job) = smooth_images($smoothing_parameter,$suffix,$destination_directory,$batch_number,@current_file_list);
+	    
+	    if ($job > 1) {
+		    push(@jobs,$job);
+	    } 
+	    $count_up = 0;
+	    @current_file_list = ();
+	    $batch_number++;
+	}
     }
     
     my $done_waiting = 1;
@@ -85,7 +114,10 @@ sub smooth_images_Output_check {
 	    if (-d $file_or_directory) {
 		opendir(DIR, $file_or_directory);
 		my @files_in_dir = grep(/(\.${valid_formats_string})+(\.gz)*$/ ,readdir(DIR));# @input_files;
-		push (@files_to_check,@files_in_dir);		
+		foreach my $current_file (@files_in_dir) {
+		    my $full_file = $file_or_directory.'/'.$current_file;
+			push (@files_to_check,$full_file);
+		}		
 	    } elsif (-e $file_or_directory) {
 		push(@files_to_check,$file_or_directory);
 	    } else {
@@ -106,9 +138,9 @@ sub smooth_images_Output_check {
     
     foreach my $input_file (@files_to_check) {
 	my ($file_name,$file_path,$file_ext) = fileparts($input_file);
-	$out_file = "${destination_directory}/${file_name}_${suffix}.${file_ext}";
+	$out_file = "${destination_directory}/${file_name}_${suffix}${file_ext}";
 	
-	if (($case == 1) && (data_double_check($out_file.'.gz'))) {
+	if (($case == 2) && (! data_double_check($out_file.'.gz'))) {
 	    `gunzip ${out_file}.gz`;  # We expect that smoothed files will need to be decompressed for VBM analysis (our primary use).
 	}
 	
@@ -146,12 +178,14 @@ sub smooth_images_Output_check {
 
 
 # ------------------
-sub smooth_image {
+sub smooth_images {
 # ------------------
-    my ($smoothing_param,$out_file,$in_file) = @_;
+    my ($smoothing_param,$suffix,$out_directory,$batch_number,@in_files) = @_;
+
+    my $cmd;
+    
     my $mm_not_voxels = 0;
-    my $units = 'voxels';
-    my ($file_name,$file_path,$file_ext) = fileparts($in_file);
+    my $units = 'vox';
 
     # Strip off units and white space (if any).
     if ($smoothing_param =~ s/[\s]*(vox|voxel|voxels|mm)$//) {
@@ -161,33 +195,40 @@ sub smooth_image {
 	}
     }
 
-    my $cmd = "SmoothImage ${dims} ${in_file} ${smoothing_param} ${out_file} ${mm_not_voxels} ;\n";
+    my $last_in_file;
+    foreach my $in_file (@in_files) {
+	my ($file_name,$file_path,$file_ext) = fileparts($in_file);
+	my $out_file = "${destination_directory}/${file_name}_${suffix}${file_ext}";
 
-    my $go_message =  "$PM: Smooth image with sigma=${smoothing_param} ${units}: ${file_name}";
-    my $stop_message = "$PM:  Unable to smooth image with sigma=${smoothing_param} ${units}: ${file_name} :\n${cmd}\n";
+	$cmd = $cmd."SmoothImage ${dims} ${in_file} ${smoothing_param} ${out_file} ${mm_not_voxels} ;\n";
+	$last_in_file = $in_file;
+    }
+
+    my $go_message =  "$PM: Smoothing images with sigma=${smoothing_param} ${units}: ${out_directory}";
+    my $stop_message = "$PM:  Unable to smooth image with sigma=${smoothing_param} ${units} :\n${cmd}\n";
 
     my $jid = 0;
     if (cluster_check) {
-	my $home_path = $current_path;
-	my $Id= "smooth_image_with_sigma_${smoothing_param}_${units}_${file_name}";
+	my $home_path = $out_directory;
+	my $Id= "smooth_image_with_sigma_${smoothing_param}${units}_${batch_number}";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}
     } else {
-	my @cmds = ($cmd);
+	my @cmds = split("\n",$cmd);
 	if (! execute($go, $go_message, @cmds) ) {
 	    error_out($stop_message);
 	}
     }
 
-    if ((!-e $out_file) && ($jid == 0)) {
-	error_out("$PM: missing smoothed image: ${out_file}");
+    if ((!-e $last_in_file) && ($jid == 0)) {
+	error_out("$PM: missing smoothed image: ${last_in_file} (and probably others from the same batch)");
     }
-    print "** $PM created ${out_file}\n";
+    print "** $PM created ${last_in_file}\n";
   
-    return($jid,$out_file);
+    return($jid);
  }
 
 

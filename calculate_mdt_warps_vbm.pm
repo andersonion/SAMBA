@@ -323,6 +323,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               inverse_xforms
                               last_headfile_checkpoint
                               mdt_diffeo_path
+                              number_of_nodes_used
                               template_name
                               template_work_dir
                               threshold_hash_ref ); # affine_target_image will need to be removed from this list once we fully support it.

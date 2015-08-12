@@ -288,7 +288,7 @@ $Hf->set_value('rigid_atlas_name',$atlas_name);
 $Hf->set_value('rigid_contrast',$rigid_contrast);
 $Hf->set_value('mdt_contrast',$mdt_contrast);
 
-
+$Hf->set_value('number_of_nodes_used',$nodes);
 
 if ($create_labels) {
     my $label_atlas_dir = "${WORKSTATION_DATA}/atlas/${label_atlas_name}";
