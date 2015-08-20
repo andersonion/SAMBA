@@ -19,12 +19,17 @@ require pipeline_utilities;
 
 my $use_Hf;
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$flip_x,$flip_z,$do_mask);
-my ($smoothing_comma_list,$software_list,$channel_comma_list,$template_path,$template_name);
-my (@array_of_runnos,@channel_array,@smoothing_params);
-
-my (%go_hash,%go_mask,%mask_hash);
+my ($smoothing_comma_list,$software_list,$channel_comma_list,$template_path,$template_name,$average_mask);
+my (@array_of_runnos,@channel_array,@smoothing_params,@software_array);
+my ($predictor_id);
+my (@group_1_runnos,@group_2_runnos);
+my (%go_hash,%go_mask,%smooth_pool_hash,%results_dir_hash,%work_dir_hash);
 
 my $skip=0;
+
+my ($group_1_name,$group_2_name,$group_1_files,$group_2_files);
+
+
 
 if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
@@ -38,7 +43,49 @@ sub vbm_analysis_vbm {
     vbm_analysis_vbm_Runtime_check(@args);
 
 
- #    foreach my $smoothing (@smoothing_params) {
+    foreach my $smoothing (@smoothing_params) {
+	print "Running smoothing for ${smoothing}\n";
+	my $smooth_work = $work_dir_hash{$smoothing};
+	my $smooth_results = $results_dir_hash{$smoothing};
+	my $smooth_inputs = $smooth_pool_hash{$smoothing};
+
+	foreach my $software (@software_array) {
+	    print "Running vbm software: ${software}\n";
+	    my $software_results_path = "${smooth_results}/${software}/";
+	    if (! -e $software_results_path) {
+		mkdir ($software_results_path,$permissions);
+	    }
+
+	    foreach my $contrast (@channel_array) {
+		print "Running vbm with contrast: ${contrast}\n";
+		my (@group_1_files,@group_2_files); 
+		foreach my $runno (@group_1_runnos) {
+		    my $file = get_nii_from_inputs($smooth_inputs,$runno,$contrast);
+		    my ($name,$in_path,$ext) = fileparts($file);
+		    my $file_no_path = $name.$ext;
+		    push(@group_1_files,$file_no_path);
+		}
+		
+		foreach my $runno (@group_2_runnos) {
+		    my $file = get_nii_from_inputs($smooth_inputs,$runno,$contrast);
+		    my ($name,$in_path,$ext) = fileparts($file);
+		    my $file_no_path = $name.$ext;
+		    push(@group_2_files,$file_no_path);
+		}
+		
+		$group_1_files = join(',',@group_1_files);
+		$group_2_files = join(',',@group_2_files);
+		
+		if ($software eq 'surfstat') {
+		    surfstat_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+		} else {
+		    print "I'm sorry, but VBM software \"$software\" is currently not supported :( \n";
+		}
+	    }
+	}
+    }
+
+
 
 # 	foreach my $ch (@channel_array) {
 # 	    my $go = $go_hash{$runno}{$ch};
@@ -140,11 +187,20 @@ sub vbm_analysis_vbm {
 # ------------------
 sub surfstat_analysis_vbm {
 # ------------------
+    my ($contrast,$input_path,$results_master_path) = @_;
+    my $contrast_path = "${results_master_path}/${contrast}/";
+    if (! -e $contrast_path) {
+	mkdir ($contrast_path,$permissions);
+    }
 
+    my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
 
-
+    my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
+    print "surfstat command = ${surfstat_command}\n";
+    my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
+    print "Current state = $state\n";
+    return();
 }
-
 # ------------------
 sub vbm_analysis_vbm_Init_check {
 # ------------------
@@ -186,8 +242,11 @@ sub vbm_analysis_vbm_Runtime_check {
 	    $software_list = "surfstat"; 
 	    $Hf->set_value('vbm_analysis_software',$software_list);
 	}
+	@software_array = split(',',$software_list);
 
 	$channel_comma_list = $Hf->get_value('channel_comma_list');
+	@channel_array = split(',',$channel_comma_list);
+
 	$smoothing_comma_list = $Hf->get_value('smoothing_comma_list');
 
 
@@ -264,12 +323,38 @@ sub vbm_analysis_vbm_Runtime_check {
 	    if (! -e $pool_path) {
 		mkdir ($pool_path,$permissions);
 	    }
-	    
+	    $results_dir_hash{$smoothing_with_units} = $local_results;
+	    $work_dir_hash{$smoothing_with_units} = $local_work;
+	    $smooth_pool_hash{$smoothing_with_units} = $pool_path;
 	    smooth_images_vbm($smoothing_with_units,$pool_path,$file_suffix,$local_inputs);
 	    push (@already_processed,$smoothing_with_units);
 	}
     }
     @smoothing_params = @already_processed;
+
+    $predictor_id = $Hf->get_value('predictor_id');
+    if ($predictor_id eq 'NO_KEY') {
+	$group_1_name = 'control';
+	$group_2_name = 'treated';
+	
+    } else {	
+	if ($predictor_id =~ /([^_]+)_(|vs_|VS_|Vs_){1}([^_]+)/) {
+	    $group_1_name = $1;
+	    if (($3 ne '') || (defined $3)) {
+		$group_2_name = $3;
+	    } else {
+		$group_2_name = 'others';
+	    }
+	}
+    }
+
+    my $group_1_runnos = $Hf->get_value('control_comma_list');
+    @group_1_runnos = split(',',$group_1_runnos);
+    my $group_2_runnos = $Hf->get_value('compare_comma_list');
+    @group_2_runnos = split(',',$group_2_runnos);
+
+    $average_mask = $Hf->get_value('MDT_eroded_mask');
+
 
 #     $runlist = $Hf->get_value('complete_comma_list');
 #     @array_of_runnos = split(',',$runlist);

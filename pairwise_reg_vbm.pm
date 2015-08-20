@@ -129,7 +129,9 @@ sub pairwise_reg_Output_check {
 
 	     if (data_double_check($file_1, $file_2)) {
 		 $go_hash{$moving_runno}{$fixed_runno}=1;
-		 $expected_number_of_jobs++;
+		 if ($file_1 ne $file_2) {
+		     $expected_number_of_jobs++;
+		 }
 		 push(@file_array,$file_1,$file_2);
 		 $missing_files_message = $missing_files_message."\t${moving_runno}<-->${fixed_runno}";
 	     } else {
@@ -234,10 +236,14 @@ sub create_pairwise_warps {
 	"ln -s ${out_warp} ${new_warp};\n".
 	"ln -s ${out_inverse} ${new_inverse};\n".#.
 	"rm ${out_affine};\n";
+    my $test = 0;
+    my $node = '';
 
     if ($fixed_runno eq $moving_runno) {
 	$pairwise_cmd = "cp ${id_warp} ${new_warp}";
 	$rename_cmd = '';
+	$test = 1;
+	$node = "civmcluster1";
     }
     
     my $jid = 0;
@@ -249,7 +255,7 @@ sub create_pairwise_warps {
 	my $home_path = $current_path;
 	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request);     
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,$test,$node);     
 	if (! $jid) {
 	    error_out();
 	}

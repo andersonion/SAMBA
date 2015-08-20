@@ -10,11 +10,11 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 1;
+my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 0;
+my $mcnamara = 1;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
@@ -523,7 +523,7 @@ B03244);
 	$flip_x = 0;
 	$flip_z = 0;
 	
-	$optional_suffix = 'fa';
+	$optional_suffix = 'test';
 	$atlas_name = 'DTI101';
 	$label_atlas_name = 'DTI101';
 	$rigid_contrast = 'dwi';
