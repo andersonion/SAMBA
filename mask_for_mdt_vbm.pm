@@ -78,7 +78,12 @@ sub mask_for_mdt_vbm {
     my $case = 2;
     my ($dummy,$error_message)=mask_for_mdt_Output_check($case);
 
-    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,$job);
+    my $real_time;
+    if ($job > 0) {
+	$real_time = write_stats_for_pm($PM,$Hf,$start_time,$job);
+    } else {
+	$real_time = write_stats_for_pm($PM,$Hf,$start_time);
+    }
     print "$PM took ${real_time} seconds to complete.\n";
 
 
