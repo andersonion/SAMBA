@@ -39,6 +39,8 @@ sub calculate_mdt_images_vbm {  # Main code
 # ------------------
 
     (@contrast_list) = @_;
+    my $start_time = time;
+
     calculate_mdt_images_vbm_Runtime_check();
 
     foreach my $contrast (@contrast_list) {
@@ -78,6 +80,10 @@ sub calculate_mdt_images_vbm {  # Main code
 	    $error_message=$error_message.$temp_message;
 	}
     }
+
+    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
+    print "$PM took ${real_time} seconds to complete.\n";
+
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {

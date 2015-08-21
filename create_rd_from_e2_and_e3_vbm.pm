@@ -29,7 +29,7 @@ my $job;
 # ------------------
 sub create_rd_from_e2_and_e3_vbm {  # Main code
 # ------------------
-
+    my $start_time = time;
     create_rd_from_e2_and_e3_vbm_Runtime_check();
     if ($create_rd) {
 	foreach my $runno (@array_of_runnos) {
@@ -53,6 +53,10 @@ sub create_rd_from_e2_and_e3_vbm {  # Main code
 	}
 	my $case = 2;
 	my ($dummy,$error_message)=create_rd_from_e2_and_e3_Output_check($case);
+
+
+	my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
+	print "$PM took ${real_time} seconds to complete.\n";
 	
 	if ($error_message ne '') {
 	    error_out("${error_message}",0);

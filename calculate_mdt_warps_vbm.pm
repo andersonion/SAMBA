@@ -42,6 +42,7 @@ my $number_of_template_runnos;
 sub calculate_mdt_warps_vbm {  # Main code
 # ------------------
     my ($direction) = @_;
+    my $start_time = time;
 
     calculate_mdt_warps_vbm_Runtime_check($direction);
 
@@ -82,6 +83,10 @@ sub calculate_mdt_warps_vbm {  # Main code
     $Hf->write_headfile($write_path_for_Hf);
     `chmod 777 ${write_path_for_Hf}`;
     
+
+    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
+    print "$PM took ${real_time} seconds to complete.\n";
+
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
@@ -324,6 +329,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               last_headfile_checkpoint
                               mdt_diffeo_path
                               number_of_nodes_used
+                              stats_file
                               template_name
                               template_work_dir
                               threshold_hash_ref ); # affine_target_image will need to be removed from this list once we fully support it.

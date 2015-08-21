@@ -52,6 +52,7 @@ sub compare_reg_to_mdt_vbm {  # Main code
     if ($type eq "a") {
 	$affine = 1;
     }
+    my $start_time = time;
 
     compare_reg_to_mdt_vbm_Runtime_check();
 
@@ -87,6 +88,9 @@ sub compare_reg_to_mdt_vbm {  # Main code
     }
     my $case = 2;
     my ($dummy,$error_message)=compare_reg_to_mdt_Output_check($case);
+
+    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
+    print "$PM took ${real_time} seconds to complete.\n";
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);

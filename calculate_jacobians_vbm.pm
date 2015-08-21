@@ -38,7 +38,7 @@ sub calculate_jacobians_vbm {  # Main code
 # ------------------
     my ($direction);
     ($direction,$group) = @_;
-
+    my $start_time = time;
 
     if ($direction eq 'f' ) {
 	$space_string = 'individual image';
@@ -48,11 +48,13 @@ sub calculate_jacobians_vbm {  # Main code
 	$new_contrast = "jac_from_MDT";
     }
 
-
+    my $PM_code;
     if ($group eq "control") {
 	$gid = 1;
+	$PM_code = 47;
     } elsif ($group eq "compare") {
 	$gid = 0;
+	$PM_code = 53;
     } else {
 	error_out("$PM: invalid group of runnos specified.  Please consult your local coder and have them fix their problem.");
     }
@@ -81,6 +83,9 @@ sub calculate_jacobians_vbm {  # Main code
     }
     my $case = 2;
     my ($dummy,$error_message)=calculate_jacobians_Output_check($case,$direction);
+
+    my $real_time = write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
+    print "$PM took ${real_time} seconds to complete.\n";
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);

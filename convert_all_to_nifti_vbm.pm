@@ -35,6 +35,8 @@ sub convert_all_to_nifti_vbm {
 # could use image name (suffix) to figure out datatype
     ($skip) = @_;
     if ($skip eq '') {$skip = 0;}
+    my $start_time = time;
+    
     convert_all_to_nifti_vbm_Runtime_check();
 
     my @nii_cmds;
@@ -69,6 +71,11 @@ sub convert_all_to_nifti_vbm {
 
     my $case = 2;
     my ($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
+
+ 
+    my $real_time = write_stats_for_pm($PM,$Hf,$start_time);
+    print "$PM took ${real_time} seconds to complete.\n";
+
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);

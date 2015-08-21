@@ -33,7 +33,7 @@ my ($job);
 # ------------------
 sub mask_images_vbm {
 # ------------------
-
+    my $start_time = time;
     mask_images_vbm_Runtime_check();
 
     my @nii_cmds;
@@ -118,6 +118,11 @@ sub mask_images_vbm {
     }
     my $case = 2;
     my ($dummy,$error_message)=mask_images_Output_check($case);
+
+
+    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
+    print "$PM took ${real_time} seconds to complete.\n";
+
 
     if (($error_message ne '') && ($do_mask)) {
 	error_out("${error_message}",0);

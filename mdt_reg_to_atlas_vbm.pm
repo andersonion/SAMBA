@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions $mdt_to_reg_start_time);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -57,7 +57,7 @@ sub mdt_reg_to_atlas_vbm {  # Main code
     if ($type eq "a") {
 	$affine = 1;
     }
-
+    $mdt_to_reg_start_time = time;
     mdt_reg_to_atlas_vbm_Runtime_check();
     
  

@@ -36,6 +36,7 @@ my $log_msg;
 sub create_affine_reg_to_atlas_vbm {  # Main code
 # ------------------
     ($do_rigid,$mdt_to_atlas) = @_;
+    my $start_time = time;
     create_affine_reg_to_atlas_vbm_Runtime_check();
     my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
     $mem_request = memory_estimator($expected_number_of_jobs,$nodes);
@@ -115,11 +116,24 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     $Hf->write_headfile($write_path_for_Hf);
     `chmod 777 ${write_path_for_Hf}`;
 
+    my $PM_code;
+    if ($do_rigid) {
+	$PM_code = 21;
+    } elsif (! $mdt_to_atlas) {
+	$PM_code = 31;
+    } else {
+	$PM_code = 61;
+    }
+    
+    #@jobs = (53901,53902,53904); ## TEST
+    
+    my $real_time = write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
+    print "$PM took ${real_time} seconds to complete.\n";
+    
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     }
-
-
+    
 }
 
 

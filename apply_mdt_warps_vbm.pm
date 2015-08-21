@@ -38,6 +38,7 @@ sub apply_mdt_warps_vbm {  # Main code
 # ------------------
     my $direction;
     ($current_contrast,$direction,$group) = @_;
+    my $start_time = time;
 
     $interp = "Linear"; # Hardcode this here for now...may need to make it a soft variable.
 
@@ -45,12 +46,17 @@ sub apply_mdt_warps_vbm {  # Main code
 	return();
     }
 
+    my $PM_code;
+
     if ($group eq "control") {
 	$gid = 1;
+	$PM_code = 43;
     } elsif ($group eq "compare") {
 	$gid = 0;
+	$PM_code = 52;
     } elsif ($group eq "all"){
 	$gid = 2;
+	$PM_code = 64;
     }else {
 	error_out("$PM: invalid group of runnos specified.  Please consult your local coder and have them fix their problem.");
     }
@@ -79,6 +85,9 @@ sub apply_mdt_warps_vbm {  # Main code
     }
     my $case = 2;
     my ($dummy,$error_message)=apply_mdt_warps_Output_check($case,$direction);
+
+    my $real_time = write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
+    print "$PM took ${real_time} seconds to complete.\n";
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);

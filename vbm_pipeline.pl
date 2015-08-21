@@ -17,7 +17,7 @@ no warnings qw(uninitialized bareword);
 
 use Cwd qw(abs_path);
 use File::Basename;
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $valid_formats_string $nodes $broken);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $valid_formats_string $nodes $broken  $mdt_to_reg_start_time);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
@@ -167,7 +167,12 @@ $import_data = 0;
 #  Mini-kludge
 
 $Hf = new Headfile ('rw',$result_headfile );
-open_log($result_dir);
+my $log_file = open_log($result_dir);
+my $stats_file = $log_file;
+if ($stats_file =~ s/pipeline_info/job_stats/) {
+    $Hf->set_value('stats_file',$stats_file);
+}
+
 
 my $preprocess_dir = $work_dir.'/preprocess';
 my $inputs_dir = $preprocess_dir.'/base_images';
@@ -561,6 +566,9 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 	    }
 	    my $case = 2;
 	    my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
+
+	    my $real_time = write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time,$MDT_to_atlas_JobID);
+	    print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
 	    
 	    if ($error_message ne '') {
 		error_out("${error_message}",0);
