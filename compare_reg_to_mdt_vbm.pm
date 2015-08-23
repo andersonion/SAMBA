@@ -39,7 +39,7 @@ if (! $intermediate_affine) {
 }
 
 my $affine = 0;
-
+my $expected_number_of_jobs=0;
 
 #$test_mode=0;
 
@@ -56,7 +56,13 @@ sub compare_reg_to_mdt_vbm {  # Main code
 
     compare_reg_to_mdt_vbm_Runtime_check();
 
-    my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
+   # my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
+
+    my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
+    if (($MDT_to_atlas_JobID ne 'NO_KEY') && ($MDT_to_atlas_JobID ne 'UNDEFINED_VALUE' )) {
+	$expected_number_of_jobs++;
+    }
+ 
     $mem_request = memory_estimator($expected_number_of_jobs,$nodes);    
  
     foreach my $runno (@array_of_runnos) {
@@ -121,6 +127,7 @@ sub compare_reg_to_mdt_Output_check {
 	 $file_2 = "${current_path}/MDT_to_${runno}_warp.nii.gz";
 	 if (data_double_check($file_1,$file_2)) {
 	     $go_hash{$runno}=1;
+	     $expected_number_of_jobs++;
 	     push(@file_array,$file_1,$file_2);
 	     $missing_files_message = $missing_files_message."${runno}\n";
 	 } else {

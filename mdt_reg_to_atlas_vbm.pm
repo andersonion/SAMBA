@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions $mdt_to_reg_start_time);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions $nodes $mdt_to_reg_start_time);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -30,7 +30,7 @@ my $go = 1;
 my $job;
 my $dims;
 my ($log_msg);
-
+my ($mem_request,$nodes);
 
 my($warp_suffix,$inverse_suffix,$affine_suffix,$label_atlas);
 if (! $intermediate_affine) {
@@ -60,7 +60,11 @@ sub mdt_reg_to_atlas_vbm {  # Main code
     $mdt_to_reg_start_time = time;
     mdt_reg_to_atlas_vbm_Runtime_check();
     
- 
+    my $compare_runlist = $Hf->get_value('compare_comma_list');
+    my @array_of_compare_runnos = split(',',$compare_runlist);
+    my $expected_number_of_jobs = $#array_of_compare_runnos + 2;
+    $mem_request = memory_estimator($expected_number_of_jobs,$nodes); 
+
     foreach my $runno (@array_of_runnos) {
 	my ($f_xform_path,$i_xform_path);
 	$go = $go_hash{$runno};
@@ -225,7 +229,7 @@ sub mdt_reg_to_atlas {
 	my $home_path = $current_path;
 	my $Id= "MDT_to_${label_atlas}_create_warp";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}
