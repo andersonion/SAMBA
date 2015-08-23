@@ -33,7 +33,7 @@ my $job;
 # ------------------
 sub set_reference_space_vbm {  # Main code
 # ------------------
-
+    my $start_time = time;
      set_reference_space_vbm_Runtime_check();
      my $ref_file;
      foreach my $V_or_L (@spaces) {
@@ -59,18 +59,21 @@ sub set_reference_space_vbm {  # Main code
 	     print STDOUT  "  All referencing jobs have completed; moving on to next step.\n";
 	 }
      }
-     
-	 
-     my $case = 2;
-     my ($dummy,$error_message)=set_reference_space_Output_check($case);
-     
-     if ($error_message ne '') {
-	 error_out("${error_message}",0);
-     } else {
-	 foreach my $space (@spaces) {
-	     `mv ${refspace_folder_hash{$space}}/refspace.txt.tmp ${refspace_folder_hash{$space}}/refspace.txt`;
-	 }
-     }
+    
+    
+    my $case = 2;
+    my ($dummy,$error_message)=set_reference_space_Output_check($case);
+    
+    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
+    print "$PM took ${real_time} seconds to complete.\n";
+    
+    if ($error_message ne '') {
+	error_out("${error_message}",0);
+    } else {
+	foreach my $space (@spaces) {
+	    `mv ${refspace_folder_hash{$space}}/refspace.txt.tmp ${refspace_folder_hash{$space}}/refspace.txt`;
+	}
+    }
 }
 
 

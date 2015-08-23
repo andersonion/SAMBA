@@ -120,7 +120,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     if ($do_rigid) {
 	$PM_code = 21;
     } elsif (! $mdt_to_atlas) {
-	$PM_code = 31;
+	$PM_code = 39;
     } else {
 	$PM_code = 61;
     }

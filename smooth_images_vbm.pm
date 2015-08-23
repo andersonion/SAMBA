@@ -34,7 +34,7 @@ my $mem_request;
 sub smooth_images_vbm {  # Main code
 # ------------------
     ($smoothing_parameter,$destination_directory,$suffix,@input_files_or_directories) = @_;
-
+    my $start_time = time;
     smooth_images_vbm_Runtime_check();
 
     if (! defined $nodes) {$nodes = 2;}
@@ -90,6 +90,9 @@ sub smooth_images_vbm {  # Main code
     my $case = 2;
     my ($dummy,$error_message)=smooth_images_Output_check($case);
 
+    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
+    print "$PM took ${real_time} seconds to complete.\n";
+    
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {

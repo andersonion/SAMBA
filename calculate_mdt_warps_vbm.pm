@@ -5,7 +5,7 @@
 
 
 
-my $PM = "calculate_mdt_warp_vbm.pm";
+my $PM = "calculate_mdt_warps_vbm.pm";
 my $VERSION = "2014/12/02";
 my $NAME = "Calculation of warps to/from the Minimum Deformation Template.";
 my $DESC = "ants";

@@ -459,36 +459,36 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 	mkdir($inputs_dir,0777);
     }
     if ($import_data) { 
-	load_study_data_vbm();
+	load_study_data_vbm(); #$PM_code = 11
     }
 # Gather all needed data and put in inputs directory
-    convert_all_to_nifti_vbm();
+    convert_all_to_nifti_vbm(); #$PM_code = 12
     sleep($interval);
 
-    if (create_rd_from_e2_and_e3_vbm()) {
+    if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
 	push(@channel_array,'rd');
 	$channel_comma_list = $channel_comma_list.',rd';
 	$Hf->set_value('channel_comma_list',$channel_comma_list);
     }
     sleep($interval);
 
-    mask_images_vbm();
+    mask_images_vbm(); #$PM_code = 14
     sleep($interval);
 
-    set_reference_space_vbm();
+    set_reference_space_vbm(); #$PM_code = 15
     sleep($interval);
    
 # Register all to atlas
     my $do_rigid = 1;   
-    create_affine_reg_to_atlas_vbm($do_rigid);
+    create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 21
     sleep($interval);
 
-    apply_affine_reg_to_atlas_vbm();
+    apply_affine_reg_to_atlas_vbm(); #UNUSED
     sleep($interval);
 
     if (1) { #  Need to take out this hardcoded bit!
 	$do_rigid = 0;
-	create_affine_reg_to_atlas_vbm($do_rigid);
+	create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 39
 	sleep($interval);
     }
 
@@ -498,28 +498,28 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
    # calculate_mdt_warps_vbm("f","affine");
    # sleep($interval);
 
-    pairwise_reg_vbm("d");
+    pairwise_reg_vbm("d"); #$PM_code = 41
     sleep($interval);
    
     #die;####
  
-    calculate_mdt_warps_vbm("f","diffeo");
+    calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
     sleep($interval);
 
-    calculate_mdt_warps_vbm("i","diffeo");
+    calculate_mdt_warps_vbm("i","diffeo"); #$PM_code = 42
     sleep($interval);
 
     my $group_name = "control";
     foreach my $a_contrast (@channel_array) {
-	apply_mdt_warps_vbm($a_contrast,"f",$group_name);
+	apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 43
     }
-    calculate_mdt_images_vbm(@channel_array);
+    calculate_mdt_images_vbm(@channel_array); #$PM_code = 44
     sleep($interval);
 
-    mask_for_mdt_vbm();
+    mask_for_mdt_vbm(); #$PM_code = 45
     sleep($interval);
  
-    calculate_jacobians_vbm('i','control');
+    calculate_jacobians_vbm('i','control'); #$PM_code = 47 (or 46)
     sleep($interval);
 
 
@@ -530,21 +530,21 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
    if ($create_labels) {
 	$do_rigid = 0;
 	my $mdt_to_atlas = 1;
-	create_affine_reg_to_atlas_vbm($do_rigid,$mdt_to_atlas);
+	create_affine_reg_to_atlas_vbm($do_rigid,$mdt_to_atlas);  #$PM_code = 61
 	sleep($interval);
 
-	mdt_reg_to_atlas_vbm();
+	mdt_reg_to_atlas_vbm(); #$PM_code = 62
 	sleep($interval);
     }
 
 # Branch two:
-    compare_reg_to_mdt_vbm("d");
+    compare_reg_to_mdt_vbm("d"); #$PM_code = 51
     sleep($interval);
     #create_average_mdt_image_vbm(); ### What the heck was this?
 
     $group_name = "compare";    
     foreach my $a_contrast (@channel_array) {
-	apply_mdt_warps_vbm($a_contrast,"f",$group_name);
+	apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 52 
     }
     sleep($interval);
 
@@ -556,7 +556,10 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     
     if ($create_labels) {
 	my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
-	if (cluster_check() && ($MDT_to_atlas_JobID ne ('NO_KEY' ||'UNDEFINED_VALUE' ))) {
+	my $real_time;
+	if (cluster_check() && ($MDT_to_atlas_JobID ne 'NO_KEY') && ($MDT_to_atlas_JobID ne 'UNDEFINED_VALUE' )) {
+
+	    print "\n\n\nFUCK NOOOOOO...!\n\n\n";
 	    my $interval = 15;
 	    my $verbose = 1;
 	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$MDT_to_atlas_JobID);
@@ -567,37 +570,44 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 	    my $case = 2;
 	    my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
 
-	    my $real_time = write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time,$MDT_to_atlas_JobID);
-	    print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
+	    $real_time = write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time,$MDT_to_atlas_JobID);
 	    
 	    if ($error_message ne '') {
 		error_out("${error_message}",0);
 	    }
 	}
     
-	warp_atlas_labels_vbm('MDT');
+	if (($MDT_to_atlas_JobID eq 'NO_KEY') || ($MDT_to_atlas_JobID eq 'UNDEFINED_VALUE')) {
+	    $real_time = write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time);
+	}
+	print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
+
+	warp_atlas_labels_vbm('MDT'); #$PM_code = 63
 	sleep($interval);
 
-	warp_atlas_labels_vbm();
+	warp_atlas_labels_vbm(); #$PM_code = 63
 	sleep($interval);
 
 	$group_name = "all";    
 	foreach my $a_contrast (@channel_array) {
-	    apply_mdt_warps_vbm($a_contrast,"f",$group_name);
+	    apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 64
 	}
 	sleep($interval);
+
+	# label_statistics_vbm();#$PM_code = 65
+	#sleep($interval);
     }   
 
-    my $new_contrast = calculate_jacobians_vbm('i','compare');
+    my $new_contrast = calculate_jacobians_vbm('i','compare'); #$PM_code = 53
     push(@channel_array,$new_contrast);
     $channel_comma_list = $channel_comma_list.','.$new_contrast;
     $Hf->set_value('channel_comma_list',$channel_comma_list);
     sleep($interval);
 
-    vbm_analysis_vbm();
+    vbm_analysis_vbm(); #$PM_code = 72
     sleep($interval);
 
-   # smooth_images_vbm();
+   # smooth_images_vbm(); #$PM_code = 71 (now called from vbm_analysis_vbm
     sleep($interval);
 
 

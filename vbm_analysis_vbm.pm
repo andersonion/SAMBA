@@ -40,6 +40,7 @@ sub vbm_analysis_vbm {
 # ------------------
  
     my @args = @_;
+    my $start_time = time;
     vbm_analysis_vbm_Runtime_check(@args);
 
 
@@ -85,6 +86,9 @@ sub vbm_analysis_vbm {
 	}
     }
 
+
+    my $real_time = write_stats_for_pm($PM,$Hf,$start_time);#,@jobs);
+    print "$PM took ${real_time} seconds to complete.\n";
 
 
 # 	foreach my $ch (@channel_array) {
