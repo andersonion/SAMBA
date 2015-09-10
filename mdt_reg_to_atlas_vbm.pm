@@ -32,6 +32,7 @@ my $dims;
 my ($log_msg);
 my ($mem_request,$nodes);
 
+
 my($warp_suffix,$inverse_suffix,$affine_suffix,$label_atlas);
 if (! $intermediate_affine) {
    $warp_suffix = "1Warp.nii.gz";
@@ -133,6 +134,7 @@ sub mdt_reg_to_atlas_Output_check {
      $file_2 = "${current_path}/${label_atlas}_to_MDT_warp.nii.gz";
 
      if (data_double_check($file_1,$file_2)) {
+
 	 $go_hash{$runno}=1;
 	 push(@file_array,$file_1,$file_2);
 	 $missing_files_message = $missing_files_message."$file_1\n$file_2\n";
@@ -330,7 +332,7 @@ sub mdt_reg_to_atlas_vbm_Runtime_check {
 
 	if ($current_path eq 'NO_KEY') {
 	    $current_path = "${label_path}/transforms";
-	    $Hf->set_value('label_tranform_dir',$current_path);
+	    $Hf->set_value('label_transform_dir',$current_path);
 	    if (! -e $current_path) {
 		mkdir ($current_path,$permissions);
 	    }

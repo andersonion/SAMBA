@@ -32,6 +32,8 @@ my $id_warp;
 my $log_msg;
 my ($expected_number_of_jobs,$hash_errors);
 my $mem_request;
+my $batch_folder;
+my $counter=0;
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
 # if (! $intermediate_affine) {
@@ -85,7 +87,7 @@ sub pairwise_reg_vbm {  # Main code
     if (cluster_check() && ($jobs[0] ne '')) {
 	my $interval = 15;
 	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
 
 	if ($done_waiting) {
 	    print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
@@ -239,16 +241,35 @@ sub create_pairwise_warps {
 	"ln -s ${out_warp} ${new_warp};\n".
 	"ln -s ${out_inverse} ${new_inverse};\n".#.
 	"rm ${out_affine};\n";
-    my $test = 0;
+    my @test = (0);
     my $node = '';
+   # print "t1 = $test[0]\n\nt2=$test[1]\n\n";
 
     if ($fixed_runno eq $moving_runno) {
 	$pairwise_cmd = "cp ${id_warp} ${new_warp}";
 	$rename_cmd = '';
-	$test = 1;
 	$node = "civmcluster1";
+	@test=(1,$node);
+    } else {
+
+##
+	$counter=$counter+1;
+	if ($counter=~ /^(19|32|35|9|29|21|31|22|10|37|18|45|24)$/) {
+	    $node = "civmcluster1-01";
+	    $mem_request = memory_estimator(13,1);
+	} elsif ($counter =~ /^(4|33|28|43|1|2|5|38|27|12|25|6|13)$/) {
+	    $node = "civmcluster1-02";
+	    $mem_request = memory_estimator(13,1);
+	} elsif ($counter =~ /^(26|20|40|8|23|14|3|16|7|41|36|34)$/) {
+	    $node = "civmcluster1-03";
+	    $mem_request = memory_estimator(12,1);
+	} elsif ($counter =~ /^(30|17|39|15|11|42|44)$/){
+	    $node = "civmcluster1-04";
+	    $mem_request = memory_estimator(7,1);
+	}
+	@test=(0,$node);
     }
-    
+##
     my $jid = 0;
     if (cluster_check) {
 
@@ -256,9 +277,10 @@ sub create_pairwise_warps {
 	my $cmd = $pairwise_cmd.$rename_cmd;
 	
 	my $home_path = $current_path;
+	$batch_folder = $home_path.'/sbatch/';
 	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,$test,$node);     
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out();
 	}
@@ -574,6 +596,11 @@ sub pairwise_reg_vbm_Runtime_check {
     if ($#mdt_contrasts > 0) {
 	$mdt_contrast_2 = $mdt_contrasts[1];
     }  #The working assumption is that we will not expand beyond using two contrasts for registration...
+
+
+# ONE OFF BAD CODE!!!!
+#    $mdt_contrast_string = "SyN_1_3_1_fa";
+#
 
 
     $inputs_dir = $Hf->get_value('inputs_dir');

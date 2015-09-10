@@ -130,19 +130,27 @@ sub apply_mdt_warps_Output_check {
      foreach my $runno (@array_of_runnos) {
 	 if ($direction eq 'f' ) {
 	     if ($gid == 2) {
-		 $out_file = "${current_path}/${runno}_${current_contrast}.nii";
+		 $out_file = "${current_path}/${runno}_${current_contrast}.nii.gz";  #Added '.gz', 2 September 2015
 	     } else {
-		 $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii";
+		 $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii.gz";  #Added '.gz', 2 September 2015
 	     }
 	 } elsif ($direction eq 'i') {
-	     $out_file =  "${current_path}/MDT_to_${runno}_${current_contrast}.nii";
+	     $out_file =  "${current_path}/MDT_to_${runno}_${current_contrast}.nii.gz";  #Added '.gz', 2 September 2015
 	 }
 
 	 if (data_double_check($out_file)) {
-	     $go_hash{$runno}=1;
-	     push(@file_array,$out_file);
-	     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-	     $missing_files_message = $missing_files_message."\t$runno\n";
+	     if ($out_file =~ s/\.gz$//) {
+		 if (data_double_check($out_file)) {
+		     $go_hash{$runno}=1;
+		     push(@file_array,$out_file);
+		     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+		     $missing_files_message = $missing_files_message."\t$runno\n";
+		 } else {
+		     `gzip -f ${out_file}`; #Is -f safe to use?
+		     $go_hash{$runno}=0;
+		     $existing_files_message = $existing_files_message."\t$runno\n";
+		 }
+	     }
 	 } else {
 	     $go_hash{$runno}=0;
 	     $existing_files_message = $existing_files_message."\t$runno\n";
@@ -185,7 +193,7 @@ sub apply_mdt_warp {
     my $option_letter = "t";
 
     if ($gid == 2 ) {
-	$out_file = "${current_path}/${runno}_${current_contrast}.nii";
+	$out_file = "${current_path}/${runno}_${current_contrast}.nii.gz"; # Added '.gz', 2 September 2015
 	$reference_image = $label_reference_path;
 	if ($direction eq 'f') {
 	    $direction_string = 'forward';
@@ -212,7 +220,7 @@ sub apply_mdt_warp {
     } else {
 	$reference_image=$vbm_reference_path;
 	if ($direction eq 'f') {
-	    $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii"; # Need to settle on exact file name format...
+	    $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii.gz"; # Need to settle on exact file name format...  Added '.gz', 2 September 2015
 	    $direction_string = 'forward';
 	    if ($combined_rigid_and_affine) {
 		$start= 1;
@@ -222,7 +230,7 @@ sub apply_mdt_warp {
 		$stop=3;
 	    }
 	} else {
-	    $out_file = "${current_path}/MDT_to_${runno}_${current_contrast}.nii"; # I don't think this will be the proper implementation of the "inverse" option.
+	    $out_file = "${current_path}/MDT_to_${runno}_${current_contrast}.nii.gz"; # I don't think this will be the proper implementation of the "inverse" option.  Added '.gz', 2 September 2015
 	    $direction_string = 'inverse';
 	    if ($combined_rigid_and_affine) {
 		$start= 2;

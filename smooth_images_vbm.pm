@@ -119,7 +119,7 @@ sub smooth_images_Output_check {
 		my @files_in_dir = grep(/(\.${valid_formats_string})+(\.gz)*$/ ,readdir(DIR));# @input_files;
 		foreach my $current_file (@files_in_dir) {
 		    my $full_file = $file_or_directory.'/'.$current_file;
-			push (@files_to_check,$full_file);
+		    push (@files_to_check,$full_file);
 		}		
 	    } elsif (-e $file_or_directory) {
 		push(@files_to_check,$file_or_directory);
@@ -128,19 +128,24 @@ sub smooth_images_Output_check {
 	    }
 	}
     }
-
-     my @file_array=();
-     if ($case == 1) {
+    
+    my @file_array=();
+    if ($case == 1) {
   	$message_prefix = "  The following files have already been smoothed and will not be resmoothed:\n";
-     } elsif ($case == 2) {
+    } elsif ($case == 2) {
  	$message_prefix = "  Unable to smooth the following files:\n";
-     }  
+    }  
     
     my $existing_files_message = '';
     my $missing_files_message = '';
     
     foreach my $input_file (@files_to_check) {
 	my ($file_name,$file_path,$file_ext) = fileparts($input_file);
+#	if ($file_path =~ s/(\.[A-Za-z0-9]*)$//) {
+#	    $file_ext = $1.$file_ext;
+#	}
+	if ($file_ext =~ s/\.gz//) {}#Do Nothing More
+	
 	$out_file = "${destination_directory}/${file_name}_${suffix}${file_ext}";
 	
 	if (($case == 2) && (! data_double_check($out_file.'.gz'))) {
@@ -189,7 +194,7 @@ sub smooth_images {
     
     my $mm_not_voxels = 0;
     my $units = 'vox';
-
+    
     # Strip off units and white space (if any).
     if ($smoothing_param =~ s/[\s]*(vox|voxel|voxels|mm)$//) {
 	$units = $1;
@@ -197,16 +202,19 @@ sub smooth_images {
 	    ${mm_not_voxels} = 1;
 	}
     }
-
+    
     my $last_in_file;
     foreach my $in_file (@in_files) {
 	my ($file_name,$file_path,$file_ext) = fileparts($in_file);
+#	if ($file_path =~ s/(\.[A-Za-z0-9]*)$//) {
+#	    $file_ext = $1.$file_ext;
+#	}
 	my $out_file = "${destination_directory}/${file_name}_${suffix}${file_ext}";
-
+	
 	$cmd = $cmd."SmoothImage ${dims} ${in_file} ${smoothing_param} ${out_file} ${mm_not_voxels} ;\n";
 	$last_in_file = $in_file;
     }
-
+    
     my $go_message =  "$PM: Smoothing images with sigma=${smoothing_param} ${units}: ${out_directory}";
     my $stop_message = "$PM:  Unable to smooth image with sigma=${smoothing_param} ${units} :\n${cmd}\n";
 

@@ -217,7 +217,7 @@ sub apply_mdt_warp_to_labels {
     
     $create_cmd = "antsApplyTransforms --float -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n NearestNeighbor ${warp_train};\n";
  
-    my $byte_cmd = "ImageMath 3 ${out_file} Byte ${out_file};\n";
+    my $byte_cmd = "fslmaths ${out_file} -add 0 ${out_file} -odt char;\n"; # Formerly..."ImageMath 3 ${out_file} Byte ${out_file};\n";...but this would renormalize our labelsets and confound the matter
 
     if ($do_byte) {
 	$cmd =$create_cmd.$byte_cmd;

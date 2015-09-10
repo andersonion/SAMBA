@@ -255,7 +255,7 @@ sub vbm_analysis_vbm_Runtime_check {
 
 
 	if ($smoothing_comma_list eq 'NO_KEY') { ## Should this go in init_check?
-	    $smoothing_comma_list = "3vox,0.5mm,3"; 
+	    $smoothing_comma_list = "3vox"; 
 	    $Hf->set_value('smoothing_comma_list',$smoothing_comma_list);
 	}
 

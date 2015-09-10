@@ -26,6 +26,7 @@ my $job;
 my $mem_request;
 my $dims;
 my $log_msg;
+my $batch_folder;
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
 if (! $intermediate_affine) {
@@ -82,11 +83,11 @@ sub compare_reg_to_mdt_vbm {  # Main code
 	headfile_list_handler($Hf,"inverse_xforms_${runno}",$i_xform_path,1);
     }
     
-    
+    print "batch folder = ${batch_folder}\n\n";    
     if (cluster_check() && ($jobs[0] ne '')) {
 	my $interval = 15;
 	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
 
 	if ($done_waiting) {
 	    print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
@@ -255,9 +256,9 @@ sub reg_to_mdt {
 	    "ln -s ${out_inverse} ${new_inverse};\n".
 	    "rm ${out_affine};\n";
     
-	my $cmd = $pairwise_cmd.$rename_cmd;
-	
+	my $cmd = $pairwise_cmd.$rename_cmd;	
 	my $home_path = $current_path;
+	$batch_folder = $home_path.'/sbatch/';
 	my $Id= "${runno}_to_MDT_create_warp";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request);#,$node_name);     

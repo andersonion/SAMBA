@@ -477,7 +477,7 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 
     set_reference_space_vbm(); #$PM_code = 15
     sleep($interval);
-   
+ 
 # Register all to atlas
     my $do_rigid = 1;   
     create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 21
@@ -558,11 +558,11 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 	my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
 	my $real_time;
 	if (cluster_check() && ($MDT_to_atlas_JobID ne 'NO_KEY') && ($MDT_to_atlas_JobID ne 'UNDEFINED_VALUE' )) {
-
-	    print "\n\n\nFUCK NOOOOOO...!\n\n\n";
 	    my $interval = 15;
 	    my $verbose = 1;
-	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$MDT_to_atlas_JobID);
+	    my $label_xform_dir=$Hf->get_value('label_transform_dir');
+	    my $batch_folder = $label_xform_dir.'/sbatch/';
+	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,$MDT_to_atlas_JobID);
 	    print " Waiting for Job ${MDT_to_atlas_JobID}\n";
 	    if ($done_waiting) {
 		print STDOUT  " Diffeomorphic registration from MDT to label atlas ${label_atlas_name} job has completed; moving on to next serial step.\n";

@@ -91,9 +91,9 @@ sub create_rd_from_e2_and_e3_Output_check {
  
      foreach my $runno (@array_of_runnos) {  
 	my  $out_file =  get_nii_from_inputs($current_path,$runno,'e2'); 
-	print "First out_file = ${out_file}\n";
+	#print "First out_file = ${out_file}\n";
 	$out_file =~ s/_e2/_rd/;
-	print "Second out file = ${out_file}\n";
+	#print "Second out file = ${out_file}\n";
 	 if (data_double_check($out_file)) {
 	     $go_hash{$runno}=1;
 	     push(@file_array,$out_file);

@@ -30,6 +30,7 @@ my ($template_predictor,$template_path,$template_name);
 
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed);
 my (%go_hash);
+#my (%convert_hash);
 my $go = 1;
 my $job;
 my $current_checkpoint = 1; # Bound to change! Change here!
@@ -56,9 +57,9 @@ sub calculate_mdt_warps_vbm {  # Main code
 	    }
 	} else {
 	    if ($direction eq 'f') {
-		$xform_path = "${current_path}/${runno}_to_MDT_warp.nii";
+		$xform_path = "${current_path}/${runno}_to_MDT_warp.nii.gz"; #added '.gz' 2 September 2015
 	    } else {
-		$xform_path = "${current_path}/MDT_to_${runno}_warp.nii";
+		$xform_path = "${current_path}/MDT_to_${runno}_warp.nii.gz"; #added '.gz' 2 September 2015
 	    }
 	}
 	if ($direction eq 'f') {
@@ -123,17 +124,28 @@ sub calculate_mdt_warps_Output_check {
      
      foreach my $runno (@sorted_runnos) {
 	 if ($direction eq 'f' ) {
-	     $out_file = "${current_path}/${runno}_to_MDT_warp.nii";
+	     $out_file = "${current_path}/${runno}_to_MDT_warp.nii.gz"; #Added asterisk in hopes of catching .gz 
 	 } elsif ($direction eq 'i') {
-	     $out_file = "${current_path}/MDT_to_${runno}_warp.nii";
+	     $out_file = "${current_path}/MDT_to_${runno}_warp.nii.gz"; #Added asterisk in hopes of catching .gz 
 	 }
 	 if (data_double_check($out_file)) {
-	     $go_hash{$runno}=1;
-	     push(@file_array,$out_file);
-	     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-	     $missing_files_message = $missing_files_message."\t$runno\n";
+	     if ($out_file =~ s/\.gz$//) {
+		 if (data_double_check($out_file)) {
+		     $go_hash{$runno}=1;
+		     #$convert_hash{$runno}=0;
+		     push(@file_array,$out_file);
+		     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+		     $missing_files_message = $missing_files_message."\t$runno\n";
+		 } else {
+		     `gzip ${out_file}`;
+		     $go_hash{$runno}=0;
+		     #$convert_hash{$runno}=1;
+		     $existing_files_message = $existing_files_message."\t$runno\n";
+		 }
+	     }
 	 } else {
 	     $go_hash{$runno}=0;
+	     #$convert_hash{$runno}=0;
 	     $existing_files_message = $existing_files_message."\t$runno\n";
 	 }
      }
@@ -170,10 +182,10 @@ sub calculate_average_mdt_warp {
     my $out_file = '';
     my $dir_string = '';
     if ($direction eq 'f') {
-	$out_file = "${current_path}/${runno}_to_MDT_warp.nii";
+	$out_file = "${current_path}/${runno}_to_MDT_warp.nii.gz"; #Added ".gz" 2 September 2015
 	$dir_string = 'forward';
     } else {
-	$out_file = "${current_path}/MDT_to_${runno}_warp.nii";
+	$out_file = "${current_path}/MDT_to_${runno}_warp.nii.gz";  #Added ".gz" 2 September 2015
 	$dir_string = 'inverse';
     }
 
@@ -365,7 +377,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 	    }
 	}
     }
-    
+
     print "Current template_path = ${template_path}\n\n";
     if (! -e $template_path) {
 	mkdir ($template_path,$permissions);
@@ -433,8 +445,6 @@ sub calculate_mdt_warps_vbm_Runtime_check {
     if (! -e $current_path) {
 	mkdir ($current_path,$permissions);
     }
-
-
 
 
     my $case = 1;

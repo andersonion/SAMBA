@@ -99,10 +99,10 @@ sub study_variables_vbm {
 	
 	$project_name = "14.obrien.01";
 	$custom_predictor_string = "Control_vs_Reacher";
-	$diffeo_transform_parameters = "0.5,3,0.5";
+	$diffeo_transform_parameters = "0.5,3,1";#0.5";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
-	$create_labels = 1;
+	$create_labels = 0; #1
 	$label_space = "pre_affine";
 
 	@control_group = qw(
@@ -242,7 +242,7 @@ sub study_variables_vbm {
 	$flip_x = 0;
 	$flip_z = 0;
 
-	$optional_suffix = '';
+	$optional_suffix = 'SyN3and1';
 	$atlas_name = 'DTI101b';
 	$label_atlas_name = 'chass_symmetric';#'dti148lr';
 	$rigid_contrast = 'dwi';
@@ -475,7 +475,9 @@ B03236
 B03238
 B03240
 B03242
-B03244); 
+B03244
+B03246
+B03248); 
 	    @compare_group = qw(dummy); # Just so it doesn't bust...
 	    @channel_array = qw(T1);
 	   # $affine_target = 'N51383';
@@ -504,35 +506,57 @@ B03244);
 
     {
 	$project_name = "13.mcnamara.02";
-	$custom_predictor_string = "Control_vs_Phantoms";
-#	$custom_predictor_string = "Control_vs_KA";
-	$diffeo_transform_parameters = "0.5,3,0.5";
-	$vbm_reference_space = "DTI101";
-	$combined_rigid_and_affine = 0; # Was 1 for January runs.  We want to eventually have this set to zero and remove this variable from the code.
-	$label_space = "pre_rigid"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
+#	$custom_predictor_string = "Control_vs_Phantoms";
+	$custom_predictor_string = "Control_vs_KA";
+##	$diffeo_transform_parameters = "0.5,3,0.5"; Not used for paper
 
-	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974);# S65394 S65408 S65411 S65414);
-	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974);# S65394 S65408 S65411 S65414);
+#	$diffeo_transform_parameters = "1,3,1"; # COMPLETED
+#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED
+#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15
+
+	$diffeo_transform_parameters = "1,3,3"; # current
+#	$diffeo_transform_parameters = "5,3,3";
+#	$diffeo_transform_parameters = "0.5,3,3";
+
+#	$diffeo_transform_parameters = "1,1,0";
+#	$diffeo_transform_parameters = "5,1,0";
+#	$diffeo_transform_parameters = "0.5,1,0";
+
+
+	$vbm_reference_space = "DTI101b";
+	$combined_rigid_and_affine = 0; # Was 1 for January runs.  We want to eventually have this set to zero and remove this variable from the code.
+	$label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
+
+	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
+	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+
+#	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974);# S65394 S65408 S65411 S65414);
+#	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
 #	@compare_group = qw(S64781);
 #	@compare_group = qw(S64745 S64763 S64766 S64769 S64772 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 	
 
-#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
-    	@channel_array = qw(dwi fa);
+	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+#    	@channel_array = qw(dwi fa);
 
-	$flip_x = 0;
+	$flip_x = 1;
+#	$flip_x = 0;
 	$flip_z = 0;
 	
-	$optional_suffix = 'test';
-	$atlas_name = 'DTI101';
-	$label_atlas_name = 'DTI101';
+        $optional_suffix='SyN_1_3_1';
+	$atlas_name = 'DTI101b';
+	$label_atlas_name = 'DTI101b';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
 	$mdt_contrast = 'fa';
 	$skull_strip_contrast = 'dwi';
-	$threshold_code = 4;
-	$do_mask = 0;    
-	$pre_masked = 1;
+	$threshold_code = 2200; #4 didn't seem to work...
+	$do_mask = 1;
+#	$do_mask = 0;
+    
+	$pre_masked = 0;
+#	$pre_masked = 1;
+	$port_atlas_mask = 0;
 
         # Load McNamara Data
 	

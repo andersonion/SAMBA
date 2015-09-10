@@ -131,16 +131,24 @@ sub calculate_jacobians_Output_check {
      
      foreach my $runno (@array_of_runnos) {
 	 if ($direction eq 'f' ) {
-	     $out_file = "${current_path}/${runno}_jac_to_MDT.nii";
+	     $out_file = "${current_path}/${runno}_jac_to_MDT.nii.gz"; #added '.gz' 2 September 2015
 	 } elsif ($direction eq 'i') {
-	     $out_file =  "${current_path}/${runno}_jac_from_MDT.nii";
+	     $out_file =  "${current_path}/${runno}_jac_from_MDT.nii.gz"; #added '.gz' 2 September 2015
 	 }
 
 	 if (data_double_check($out_file)) {
-	     $go_hash{$runno}=1;
-	     push(@file_array,$out_file);
-	     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-	     $missing_files_message = $missing_files_message."\t$runno\n";
+	     if ($out_file =~ s/\.gz$//) {
+		 if (data_double_check($out_file)) {
+		     $go_hash{$runno}=1;
+		     push(@file_array,$out_file);
+		     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+		     $missing_files_message = $missing_files_message."\t$runno\n";
+		 } else {
+		     `gzip -f ${out_file}`; #Is -f safe to use?
+		     $go_hash{$runno}=0;
+		     $existing_files_message = $existing_files_message."\t$runno\n";
+		 }
+	     }
 	 } else {
 	     $go_hash{$runno}=0;
 	     $existing_files_message = $existing_files_message."\t$runno\n";
@@ -181,13 +189,13 @@ sub calculate_jacobian {
     my $space_string = '';
 
     if ($direction eq 'f') {
-	$out_file = "${current_path}/${runno}_jac_to_MDT.nii"; # Need to settle on exact file name format...
+	$out_file = "${current_path}/${runno}_jac_to_MDT.nii.gz"; # Need to settle on exact file name format... #Added '.gz' 2 September 2015
 	$space_string = 'individual_image';
-	$input_warp = "${diffeo_path}/${runno}_to_MDT_warp.nii";
+	$input_warp = "${diffeo_path}/${runno}_to_MDT_warp.nii.gz"; #Added '.gz' 2 September 2015
     } else {
-	$out_file = "${current_path}/${runno}_jac_from_MDT.nii"; # I don't think this will be the proper implementation of the "inverse" option.
+	$out_file = "${current_path}/${runno}_jac_from_MDT.nii.gz"; # I don't think this will be the proper implementation of the "inverse" option. #Added '.gz' 2 September 2015
 	$space_string = 'MDT';
-	$input_warp = "${diffeo_path}/MDT_to_${runno}_warp.nii";
+	$input_warp = "${diffeo_path}/MDT_to_${runno}_warp.nii.gz"; #Added '.gz' 2 September 2015
     }
     $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 1 ;\n";
     $unzip_command = "ImageMath 3 ${out_file} m ${out_file} ${mask_path};\n";
@@ -218,7 +226,7 @@ sub calculate_jacobian {
     if ((!-e $out_file) && ($jid == 0)) {
 	error_out("$PM: missing jacobian image in ${space_string} space for ${runno}: ${out_file}");
     }
-    print "** $PM created ${out_file}.nii\n";
+    print "** $PM created ${out_file}.nii.gz\n"; #Added '.gz' 2 September 2015
   
     return($jid,$out_file);
  }
