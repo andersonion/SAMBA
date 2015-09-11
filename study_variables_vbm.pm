@@ -514,8 +514,8 @@ B03248);
 #	$diffeo_transform_parameters = "5,3,1"; # COMPLETED
 #	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15
 
-	$diffeo_transform_parameters = "1,3,3"; # current
-#	$diffeo_transform_parameters = "5,3,3";
+#	$diffeo_transform_parameters = "1,3,3"; # current
+	$diffeo_transform_parameters = "5,3,3";
 #	$diffeo_transform_parameters = "0.5,3,3";
 
 #	$diffeo_transform_parameters = "1,1,0";
