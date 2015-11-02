@@ -91,46 +91,6 @@ sub vbm_analysis_vbm {
     print "$PM took ${real_time} seconds to complete.\n";
 
 
-# 	foreach my $ch (@channel_array) {
-# 	    my $go = $go_hash{$runno}{$ch};
-# 	    if ($go) {
-# 		my $current_file=get_nii_from_inputs($in_folder,$runno,$ch);
-# 		push(@nii_files,$current_file);
-# 	    }
-# 	}
-#     }
-#     if ($nii_files[0] ne '') {
-# 	my $message="\n$PM:\nThe following files will be prepared by Matlab for the VBM pipeline:\n".
-# 	    join("\n",@nii_files)."\n\n";
-# 	print "$message";
-#     }
-
-
-#     foreach my $file (@nii_files) {
-
-# 	my ($name,$in_path,$ext) = fileparts($file);	
-
-# 	my $nifti_args = "\'${in_path}\', \'$name\', \'nii\', \'${current_path}/$name$ext\', 0, 0, ".
-#       " 0, 0, 0,0,0, ${flip_x}, ${flip_z},0,0";
-# 	if (! $skip) {
-# 	my $nifti_command = make_matlab_command('civm_to_nii',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
-# 	execute(1, "Recentering nifti images from tensor inputs", $nifti_command);	
-# 	}
-# 	#push(@nii_cmds,$nifti_command);           
-#     }
-#    # execute_indep_forks(1,"Recentering nifti images from tensor inputs", @nii_cmds);
-
-#     my $case = 2;
-#     my ($dummy,$error_message)=vbm_analysis_Output_check($case);
-
-#     if ($error_message ne '') {
-# 	error_out("${error_message}",0);
-#     } else {
-#     # Clean up matlab junk
-# 	`rm ${work_dir}/*.m`;
-# 	`rm ${work_dir}/*matlab*`;
-#     }
-
 }
 
 
@@ -342,7 +302,7 @@ sub vbm_analysis_vbm_Runtime_check {
 	$group_2_name = 'treated';
 	
     } else {	
-	if ($predictor_id =~ /([^_]+)_(|vs_|VS_|Vs_){1}([^_]+)/) {
+	if ($predictor_id =~ /([^_]+)_(''|vs_|VS_|Vs_){1}([^_]+)/) {
 	    $group_1_name = $1;
 	    if (($3 ne '') || (defined $3)) {
 		$group_2_name = $3;

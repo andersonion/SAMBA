@@ -605,7 +605,10 @@ sub set_reference_path_vbm {
 	print " Ref_runno = ${ref_runno}\n";
 	$ref_path = get_nii_from_inputs($preprocess_dir,"native_reference",$ref_runno);
 	$ref_string="native";
-	$native_ref_name = "native_reference_${ref_runno}.nii";	
+	$native_ref_name = "native_reference_${ref_runno}.nii";
+	if ($ref_path =~ /\.gz$/) {
+	    $native_ref_name = $native_ref_name.'.gz';
+	}	
 	# print "\$ref path = ${ref_path}\n";
 	if ($ref_path =~ /[\n]+/) {
 	   # print "Apparently ref path does not exist : ${ref_path}\n";
@@ -689,7 +692,8 @@ sub set_reference_space_vbm_Runtime_check {
     $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
     if (! data_double_check($rigid_atlas_path)) {
 	($rigid_name,$rigid_dir,$rigid_ext) = fileparts($rigid_atlas_path);
-	$new_rigid_path="${preprocess_dir}/${rigid_name}${rigid_ext}";
+#	$new_rigid_path="${preprocess_dir}/${rigid_name}${rigid_ext}";
+	$new_rigid_path="${inputs_dir}/${rigid_name}${rigid_ext}";
 	if (data_double_check($new_rigid_path)) {
 	    prep_atlas_for_referencing_vbm();
 	} else {

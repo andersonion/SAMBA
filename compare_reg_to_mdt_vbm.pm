@@ -199,7 +199,7 @@ sub reg_to_mdt {
     my $out_affine = "${out_file}${affine_suffix}";
     my $second_contrast_string='';
     
-    $fixed = $median_images_path."/MDT_${mdt_contrast}.nii";
+    $fixed = $median_images_path."/MDT_${mdt_contrast}.nii.gz"; # added .gz 23 October 2015
     
     my ($r_string);
     my ($moving_string,$moving_affine);
@@ -243,10 +243,17 @@ sub reg_to_mdt {
 	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n"
     }
 
- my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
- my $stop_message = "$PM: could not create diffeomorphic warp to MDT for ${runno}:\n${pairwise_cmd}\n" ;
- my $node_name = $node_ref{$runno};
- #print "Node name = ${node_name}\n";
+    my @test = (0);
+
+    my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
+    my $stop_message = "$PM: could not create diffeomorphic warp to MDT for ${runno}:\n${pairwise_cmd}\n" ;
+    my $node_name = $node_ref{$runno};
+    #print "Node name = ${node_name}\n";
+#    $node_name='civmcluster1-03';
+
+#    push(@test,$node_name);
+
+    
 
     my $jid = 0;
     if (cluster_check) {
@@ -261,7 +268,7 @@ sub reg_to_mdt {
 	$batch_folder = $home_path.'/sbatch/';
 	my $Id= "${runno}_to_MDT_create_warp";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request);#,$node_name);     
+	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}

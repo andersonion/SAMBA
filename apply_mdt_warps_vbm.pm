@@ -195,6 +195,7 @@ sub apply_mdt_warp {
     if ($gid == 2 ) {
 	$out_file = "${current_path}/${runno}_${current_contrast}.nii.gz"; # Added '.gz', 2 September 2015
 	$reference_image = $label_reference_path;
+
 	if ($direction eq 'f') {
 	    $direction_string = 'forward';
 	    if ($label_space eq 'pre_rigid') {
@@ -246,6 +247,10 @@ sub apply_mdt_warp {
     
     my $warp_string = $Hf->get_value("${direction_string}_xforms_${runno}");
     my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
+
+    if (data_double_check($reference_image)) {
+	$reference_image=$reference_image.'.gz';
+    }
 
     $cmd = "antsApplyTransforms --float -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";  
  

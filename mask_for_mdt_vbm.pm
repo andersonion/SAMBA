@@ -44,8 +44,8 @@ sub mask_for_mdt_vbm {
     my $job=0;
     my $eroded_mask_path;
     if ($go) {
-	my $mask_source="${current_path}/MDT_${template_contrast}\.nii";	    
-	my $raw_mask_path = "${current_path}/MDT_mask\.nii";
+	my $mask_source="${current_path}/MDT_${template_contrast}\.nii.gz";    #.gz added 22 October 2015   
+	my $raw_mask_path = "${current_path}/MDT_mask\.nii.gz";
 	
 	if ($mdt_skull_strip) {         
 	    my $mask_threshold = $default_mask_threshold;
@@ -114,7 +114,7 @@ sub mask_for_mdt_Output_check {
     if ($incumbent_eroded_mask ne 'NO_KEY'){
 	$file_1 = $incumbent_eroded_mask;
     } else {
-	$file_1 = "${current_path}/MDT_mask_e${erode_radius}.nii";
+	$file_1 = "${current_path}/MDT_mask_e${erode_radius}.nii.gz"; # Need this file to be uncompressed for later use; removed .gz 26 Oct 2015.
     }
 
     my $existing_files_message = '';
@@ -129,10 +129,19 @@ sub mask_for_mdt_Output_check {
     
 #    print " File_1 = ${file_1}\n";
     if (data_double_check($file_1)) {
-	$go = 1;
-	push(@file_array,$file_1);
-	$missing_files_message = $missing_files_message."\n";
+	if ($file_1 =~ s/\.gz$//) {
+	    if (data_double_check($file_1)) {
+		$go = 1;
+		push(@file_array,$file_1);
+		$missing_files_message = $missing_files_message."\n";
+	    } else {
+		$go = 0; #Formerly has a gzip line above this line, but realized we needed this to be decompressed for MatLab during VBA.
+		$Hf->set_value('MDT_eroded_mask',$file_1);
+		$existing_files_message = $existing_files_message."\n";
+	    } 
+	}
     } else {
+	`gunzip -f ${file_1}`; #Is -f safe to use? # Need this file to be uncompressed for later use; changed gzip to gunzip and moved here from a few lines above on 26 Oct 2015.
 	$go = 0;
 	$Hf->set_value('MDT_eroded_mask',$file_1);
 	$existing_files_message = $existing_files_message."\n";

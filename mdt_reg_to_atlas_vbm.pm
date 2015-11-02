@@ -30,7 +30,7 @@ my $go = 1;
 my $job;
 my $dims;
 my ($log_msg);
-my ($mem_request,$nodes);
+my ($mem_request);
 
 
 my($warp_suffix,$inverse_suffix,$affine_suffix,$label_atlas);
@@ -64,7 +64,9 @@ sub mdt_reg_to_atlas_vbm {  # Main code
     my $compare_runlist = $Hf->get_value('compare_comma_list');
     my @array_of_compare_runnos = split(',',$compare_runlist);
     my $expected_number_of_jobs = $#array_of_compare_runnos + 2;
+
     $mem_request = memory_estimator($expected_number_of_jobs,$nodes); 
+    print "Expected number of jobs = ${expected_number_of_jobs}\n\nMem_request = ${mem_request}\n\n";
 
     foreach my $runno (@array_of_runnos) {
 	my ($f_xform_path,$i_xform_path);
@@ -189,11 +191,11 @@ sub mdt_reg_to_atlas {
     my $second_contrast_string='';
 
     $fixed = $Hf->get_value ('label_atlas_path');  
-    $moving = $median_images_path."/MDT_${mdt_contrast}.nii";
+    $moving = $median_images_path."/MDT_${mdt_contrast}.nii.gz"; #added .gz 22 October 2015
 
     if ($mdt_contrast_2 ne '') {
 	$fixed_2 = $Hf->get_value('label_atlas_path_2'); 
-	$moving_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii";
+	$moving_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii.gz";
 	$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
     }
     my ($r_string);
@@ -217,6 +219,7 @@ sub mdt_reg_to_atlas {
     my $go_message = "$PM: create diffeomorphic warp from MDT to label atlas ${label_atlas}" ;
     my $stop_message = "$PM: could not create diffeomorphic warp from MDT for label atlas ${label_atlas}:\n${pairwise_cmd}\n" ;
 
+    my @test=(0);
 
     my $jid = 0;
     if (cluster_check) {
@@ -231,7 +234,7 @@ sub mdt_reg_to_atlas {
 	my $home_path = $current_path;
 	my $Id= "MDT_to_${label_atlas}_create_warp";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request);     
+	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}
@@ -346,7 +349,7 @@ sub mdt_reg_to_atlas_vbm_Runtime_check {
 	$mdt_contrast_2 = $mdt_contrasts[1];
 	
 	$domain_dir   = $Hf->get_value ('label_atlas_dir');   
-	$domain_path  = "$domain_dir/${label_atlas}_${mdt_contrast_2}.nii";
+	$domain_path  = "$domain_dir/${label_atlas}_${mdt_contrast_2}.nii"; # potential error by not converting to .gz
 
     }  #The working assumption is that we will not expand beyond using two contrasts for registration...
 

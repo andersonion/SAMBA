@@ -190,6 +190,11 @@ sub apply_mdt_warp_to_labels {
     }
  
     $reference_image = $label_reference_path;
+
+    if (data_double_check($reference_image)) {
+	$reference_image=$reference_image.'.gz';
+    }
+
     $mdt_warp_train=format_transforms_for_command_line($mdt_warp_string);
     if ($runno ne 'MDT') {
 	$warp_string = $Hf->get_value("inverse_xforms_${runno}");

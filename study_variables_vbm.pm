@@ -14,13 +14,14 @@ my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 1;
+my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
 my $bj = 0;
 my $bj_group = 0;
-my $agoston = 0;
+my $agoston = 1;
+my $apoe = 0;
 use strict;
 use warnings;
 
@@ -510,17 +511,17 @@ B03248);
 	$custom_predictor_string = "Control_vs_KA";
 ##	$diffeo_transform_parameters = "0.5,3,0.5"; Not used for paper
 
-#	$diffeo_transform_parameters = "1,3,1"; # COMPLETED
-#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED
-#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15
+#	$diffeo_transform_parameters = "1,3,1"; # COMPLETED -- Have LR labelset
+#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED -- Have LR labelset
+#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15 -- Have LR labelset
 
-#	$diffeo_transform_parameters = "1,3,3"; # current
-	$diffeo_transform_parameters = "5,3,3";
-#	$diffeo_transform_parameters = "0.5,3,3";
+#	$diffeo_transform_parameters = "1,3,3"; # COMPLETED -- Have LR labelset
+#	$diffeo_transform_parameters = "5,3,3"; # COMPLETED -- Have LR labelset
+#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED 16 Sept 15 ~ 12 am -- Have LR labelset
 
-#	$diffeo_transform_parameters = "1,1,0";
-#	$diffeo_transform_parameters = "5,1,0";
-#	$diffeo_transform_parameters = "0.5,1,0";
+#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED 19 Sept 15 ~ 12:30 pm , didn't start next one until 9 pm -- Have LR labelset
+#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED 20 Sept 15 ~ 8:45 pm -- Have LR labelset
+	$diffeo_transform_parameters = "0.5,1,0"; # NEED TO RUN!!!
 
 
 	$vbm_reference_space = "DTI101b";
@@ -898,19 +899,20 @@ elsif ($agoston)
 	$custom_predictor_string = "sham_vs_injured";
 	$vbm_reference_space = "native";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
-	$create_labels = 0;
+	$create_labels = 1;
 
 	@control_group = qw(S65456 S65459 S65466 S65521 S65530 S65533 S65537 S65541);
-	@compare_group = qw(S65453 S65461 S65464 S65467 S65524 S65528 S65535 S65539 S65544);
+	#@compare_group = qw(S65453 S65461 S65464 S65467 S65524 S65528 S65535 S65539 S65544);
+	@compare_group = qw(S66782 S66784 S66787 S66789 S66791 S66831 S66833 S66835 S66837  S66853 S66855 S66857 S66859 S66861 S66863 S66865 S66867 S66869);
 
-	@channel_array = qw(dwi fa adc e1 e2 e3 rd);
+	@channel_array = qw(dwi fa adc e1 e2 e3);
     
 	$flip_x = 1;
 	$flip_z = 0;
 	
 	$optional_suffix = '';
 	$atlas_name = 'rat';#
-	$label_atlas_name = 'rat';#
+	$label_atlas_name = 'rat2';#
 	
 	$rigid_contrast = 'dwi';
 	## $affine_contrast = 'dwi';
@@ -942,10 +944,38 @@ elsif ($agoston)
 	$do_mask = 0;
 	$port_atlas_mask = 0;    
 	$pre_masked = 1;	
+ } elsif ($apoe)
+    
+    {
+	$project_name = "10.sullivan.01";
+	$custom_predictor_string = "control_vs_ApoE";
+	$vbm_reference_space = "native";
+	$combined_rigid_and_affine = 0;
+
+	@control_group = qw(N33818 N33819 N33820 N33821 N33965 N33968);
+	@compare_group = qw(N33823 N33824 N33825 N33964 N33966 N33967);
+	
+
+	@channel_array = qw(dwi); # This is actually T2star, but pretending to be dwi
+    
+	$flip_x = 0;
+	$flip_z = 0;
+	
+	$optional_suffix = '';
+	$atlas_name = 'DTI101';
+	$label_atlas_name = 'DTI101';
+	$rigid_contrast = 'dwi';
+	$affine_contrast = 'dwi';
+	$mdt_contrast = 'dwi';
+
+	$diffeo_transform_parameters = '1,3,3';
+
+	$skull_strip_contrast = 'dwi';
+	$threshold_code = 4;
+	$do_mask = 0;    
+	$pre_masked = 1;	
  }
     
-
-
 
     
 }
@@ -957,9 +987,9 @@ sub  load_study_data_vbm {
 	my @all_runnos =  split(',',$Hf->get_value('complete_comma_list'));
 
     if ($obrien) {
-	`cp /glusterspace/VBM_14obrien01_DTI101b-work/base_images/* ${preprocess_path}`
+	`cp /glusterspace/VBM_14obrien01_DTI101b-work/base_images/* ${preprocess_path}`;
     } elsif ($obrien_invivo) {
-	`cp /glusterspace/VBM_14obrien02_DTI101b-work/base_images/* ${preprocess_path}`
+	`cp /glusterspace/VBM_14obrien02_DTI101b-work/base_images/* ${preprocess_path}`;
     } elsif ($colton) {
 	my $dr =$Hf->get_value('pristine_input_dir');
 	foreach my $runno (@all_runnos) {
@@ -967,7 +997,7 @@ sub  load_study_data_vbm {
 	    `cp ${path_string}/* $dr/`;
 	}
     } elsif ($mcnamara) {
-	`cp /glusterspace/VBM_13mcnamara02_DTI101-work/base_images/* ${preprocess_path}`
+	`cp /glusterspace/VBM_13mcnamara02_DTI101-work/base_images/* ${preprocess_path}`;
 #	foreach my $runno (@all_runnos) {
 #	    my $path_string = "${bd}/${runno}_m0Labels-results/";
 #	    foreach my $contrast (@channel_array){
@@ -977,7 +1007,9 @@ sub  load_study_data_vbm {
 #	}
 
     } elsif ($premont) {
-	`cp /glusterspace/VBM_11premont01_whs-work/base_images/* ${preprocess_path}`
+	`cp /glusterspace/VBM_11premont01_whs-work/base_images/* ${preprocess_path}`;
+   } elsif ($premont) {
+       `cp /glusterspace/VBM_10sullivan01_DTI101-work/preprocess/base_images/* ${preprocess_path}`;
     }
 
 }

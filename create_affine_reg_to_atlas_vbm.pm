@@ -53,7 +53,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 	my $result_path_base;
 	if ($mdt_to_atlas){
 	    $mdt_path = $Hf->get_value('median_images_path');
-	    $to_xform_path = $mdt_path.'/'.$runno.'.nii';
+	    $to_xform_path = $mdt_path.'/'.$runno.'.nii.gz'; #added .gz 22 October 2015
 	    $result_path_base = "${current_path}/${runno}_to_${label_atlas}_";
 	} else {
 	    $to_xform_path=get_nii_from_inputs($inputs_dir,$runno,$contrast);
@@ -229,7 +229,7 @@ sub create_affine_transform_vbm {
     
     if (($mdt_to_atlas) && ($mdt_contrast_2 ne '')) {
 	my $fixed_2 = $Hf->get_value ('label_atlas_path_2');; 
-	my $moving_2 =  $mdt_path."/MDT_${mdt_contrast_2}.nii";
+	my $moving_2 =  $mdt_path."/MDT_${mdt_contrast_2}.nii.gz"; # added .gz 22 October 2015
 	$metric_2 = " -m ${affine_metric}[ ${fixed_2},${moving_2},1,{$affine_radius},${affine_sampling_options}]"; #random,0.3
     }
     
@@ -334,7 +334,7 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 
 	my $label_atlas = $Hf->get_value('label_atlas_name');
 	$atlas_dir   = $Hf->get_value ('label_atlas_dir');
-	my $expected_atlas_path = "${atlas_dir}/${label_atlas}_${mdt_contrast}.nii"; 
+	my $expected_atlas_path = "${atlas_dir}/${label_atlas}_${mdt_contrast}.nii.gz"; # added .gz 22 October 2015 
 	$atlas_path  = get_nii_from_inputs($atlas_dir,$label_atlas,$mdt_contrast);
 	if (data_double_check($atlas_path))  {
 	    $init_error_msg = $init_error_msg."For label affine contrast ${mdt_contrast}: missing atlas nifti file ${expected_atlas_path} (note optional \'.gz\')\n";
@@ -344,7 +344,7 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 
 	if ($#mdt_contrasts > 0) {
 	    $mdt_contrast_2 = $mdt_contrasts[1];	    
-	    $atlas_path  = "$atlas_dir/${label_atlas}_${mdt_contrast_2}.nii";   
+	    $atlas_path  = "$atlas_dir/${label_atlas}_${mdt_contrast_2}.nii.gz";   
 	    if (data_double_check($atlas_path))  {
 		$init_error_msg = $init_error_msg."For secondary affine contrast ${mdt_contrast_2}: missing atlas nifti file ${atlas_path}\n";
 	    } else {
@@ -763,6 +763,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 		    log_info("$PM: Rigid target was specified but did not conform to runno format; assuming it is an arbitrary image specified by the user.");
 		} else {
 		    $Hf->set_value('rigid_atlas_path',$updated_rigid_target);
+		    print "Rigid atlas path = ${updated_rigid_target}\n";
 		}
 	    }
 

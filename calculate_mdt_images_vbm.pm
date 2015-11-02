@@ -112,18 +112,26 @@ sub calculate_mdt_images_Output_check {
      my $existing_files_message = '';
      my $missing_files_message = '';
      
-     $out_file = "${current_path}/MDT_${contrast}.nii";
+     $out_file = "${current_path}/MDT_${contrast}.nii.gz";
 
      if (data_double_check($out_file)) {
-	 $go_hash{$contrast}=1;
-	 push(@file_array,$out_file);
-	 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-	 $missing_files_message = $missing_files_message."\t$contrast\n";
+	 if ($out_file =~ s/\.gz$//) {
+	     if (data_double_check($out_file)) {
+		 $go_hash{$contrast}=1;
+		 push(@file_array,$out_file);
+		 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+		 $missing_files_message = $missing_files_message."\t$contrast\n";
+	     } else {
+		 `gzip -f ${out_file}`; #Is -f safe to use?
+		 $go_hash{$contrast}=0;
+		 $existing_files_message = $existing_files_message."\t$contrast\n";
+	     }
+	 }  
      } else {
 	 $go_hash{$contrast}=0;
 	 $existing_files_message = $existing_files_message."\t$contrast\n";
      }
-     
+
      if (($existing_files_message ne '') && ($case == 1)) {
 	 $existing_files_message = $existing_files_message."\n";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
@@ -154,12 +162,12 @@ sub calculate_average_mdt_image {
 # ------------------
     my ($contrast) = @_;
     my ($cmd);
-    my $out_file = "${current_path}/MDT_${contrast}.nii";
+    my $out_file = "${current_path}/MDT_${contrast}.nii.gz";
 
  
     $cmd =" AverageImages 3 ${out_file} 0";
     foreach my $runno (@array_of_runnos) {
-	$cmd = $cmd." ${mdt_images_path}/${runno}_${contrast}_to_MDT.nii";
+	$cmd = $cmd." ${mdt_images_path}/${runno}_${contrast}_to_MDT.nii.gz";
     }
     my $go_message =  "$PM: created average MDT image(s) for contrast:  ${contrast}";
     my $stop_message = "$PM: could not create an average MDT image for contrast: ${contrast}:\n${cmd}\n";

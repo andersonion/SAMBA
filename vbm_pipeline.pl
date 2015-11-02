@@ -549,9 +549,6 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     sleep($interval);
 
 
-#    vbm_with_surfstat_vbm();
-#    sleep($interval);
-
 # Remerge before ending pipeline
     
     if ($create_labels) {
@@ -603,7 +600,7 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     $channel_comma_list = $channel_comma_list.','.$new_contrast;
     $Hf->set_value('channel_comma_list',$channel_comma_list);
     sleep($interval);
-
+    
     vbm_analysis_vbm(); #$PM_code = 72
     sleep($interval);
 
@@ -614,6 +611,31 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     $Hf->write_headfile($result_headfile);
 
     print "\n\nVBM Pipeline has completed successfully.  Great job, you.\n\n";
+
+	
+#    use civm_simple_util qw(whowasi whoami);	
+#    my $process = whowasi();
+#    my @split = split('::',$process);
+#    $process = pop(@split);
+    my $process = "vbm_pipeline";
+    
+    my $completion_message ="Congratulations, master scientist. Your VBM pipeline process has completed.  Hope you find something interesting.";
+    my $time = time;
+    my $email_folder = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/email/';			
+    my $email_file="${email_folder}/VBM_pipeline_completion_email_for_${time}.txt";
+    
+    my $time_stamp = "Completion time stamp = ${time} seconds since January 1, 1970 (or some equally asinine date).\n";
+    my $subject_line = "Subject: VBM Pipeline has finished!!!\n";
+
+			
+    my $email_content = $subject_line.$completion_message.$time_stamp;
+    `echo "${email_content}" > ${email_file}`;
+    `sendmail -f $process.civmcluster1\@dhe.duke.edu rja20\@duke.edu < ${email_file}`;
+    `sendmail -f $process.civmcluster1\@dhe.duke.edu 9196128939\@vtext.com < ${email_file}`;
+
+
+
+
 } #end main
 
 #---------------------

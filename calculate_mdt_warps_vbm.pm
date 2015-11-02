@@ -341,6 +341,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               last_headfile_checkpoint
                               mdt_diffeo_path
                               number_of_nodes_used
+                              rd_channel_added
                               stats_file
                               template_name
                               template_work_dir

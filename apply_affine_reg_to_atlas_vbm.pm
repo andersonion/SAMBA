@@ -44,7 +44,7 @@ sub apply_affine_reg_to_atlas_vbm {  # Main code
 
     foreach my $runno (@array_of_runnos) {
 	my $to_xform_path=get_nii_from_inputs($inputs_dir,$runno,$moving_contrast);
-	my $result_path = "${current_path}/${runno}_${moving_contrast}.nii";
+	my $result_path = "${current_path}/${runno}_${moving_contrast}.nii.gz";
 	$go = $go_hash{$runno};
 	$xform_path = "${current_path}/${runno}_${xform_suffix}";
 	#get_target_path($runno,$rigid_contrast);
@@ -89,12 +89,20 @@ sub apply_affine_Output_check {
     my $missing_files_message = '';
 
     foreach my $runno (@array_of_runnos) {
-	$full_file = "${current_path}/${runno}_${moving_contrast}.nii";
+	$full_file = "${current_path}/${runno}_${moving_contrast}.nii.gz"; #added .gz 22 October 2015
 	if (data_double_check($full_file)) {
-	   $go_hash{$runno}=1;
-	   # push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-	    push(@file_array,$full_file);
-	    $missing_files_message = $missing_files_message."   $runno \n";
+	    if ($full_file =~ s/\.gz$//) {
+		if (data_double_check($full_file)) {
+		    $go_hash{$runno}=1;
+		    # push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+		    push(@file_array,$full_file);
+		$missing_files_message = $missing_files_message."   $runno \n";
+		} else {
+		    `gzip -f ${full_file}`; #Is -f safe to use?
+		    $go_hash{$runno}=0;
+		    $existing_files_message = $existing_files_message."   $runno \n";
+		}
+	    }
 	} else {
 	    $go_hash{$runno}=0;
 	    $existing_files_message = $existing_files_message."   $runno \n";
