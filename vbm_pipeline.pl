@@ -29,7 +29,7 @@ $permissions = 0755;
 my $interval = 0.1; ##Normally 1
 $valid_formats_string = 'hdr|img|nii';
 
-
+# a do it again variable, will allow you to pull data from another vbm_run
 my $import_data = 1;
 $broken = 0;
 
@@ -44,7 +44,7 @@ if (! defined $nodes) { $nodes = 2 ;}
 
 if (! defined $broken) { $broken = 0 ;} 
 
-umask(022);
+umask(002);
 
 use lib dirname(abs_path($0));
 use Env qw(RADISH_PERL_LIB);
@@ -79,12 +79,19 @@ require vbm_analysis_vbm;
 
 # Temporary hardcoded variables
 
+# variables, set up by the study vars script(study_variables_vbm.pm)
 use vars qw(
 $project_name 
 @control_group
 @compare_group
+
+@group_1
+@group_2
+
 @channel_array
 $custom_predictor_string
+$template_predictor
+
 $flip_x
 $flip_z 
 $optional_suffix
@@ -124,7 +131,6 @@ $diffeo_convergence_window
 $diffeo_smoothing_sigmas
 $diffeo_sampling_options
 
-$native_reference_space
 $vbm_reference_space
 $reference_path
 $create_labels
@@ -180,6 +186,24 @@ my $inputs_dir = $preprocess_dir.'/base_images';
 my $control_comma_list = join(',',@control_group);
 my $compare_comma_list = join(',',@compare_group);
 my $complete_comma_list = $control_comma_list.','.$compare_comma_list;
+
+
+my $group_1_runnos;
+my $group_2_runnos;
+if (defined @group_1) {
+    $group_1_runnos = join(',',@group_1);
+    $Hf->set_value('group_1_runnos',$group_1_runnos);
+}
+
+if (defined @group_2) {
+    $group_2_runnos = join(',',@group_2);
+    $Hf->set_value('group_2_runnos',$group_2_runnos);
+}
+
+if ((defined @group_1)&&(defined @group_2)) { 
+    my $all_groups_comma_list = $group_1_runnos.','.$group_2_runnos;
+    $Hf->set_value('all_groups_comma_list',$all_groups_comma_list);
+}
 
 my $channel_comma_list = join(',',@channel_array);
 
@@ -345,6 +369,10 @@ if ($broken) {
 
 $Hf->set_value('predictor_id',$custom_predictor_string);
 
+if (defined $template_predictor) {
+    $Hf->set_value('template_predictor',$template_predictor);
+}
+
 $Hf->set_value('pristine_input_dir',$pristine_input_dir);
 $Hf->set_value('preprocess_dir',$preprocess_dir);
 $Hf->set_value('inputs_dir',$inputs_dir);
@@ -483,8 +511,8 @@ $Hf->set_value('vbm_reference_space',$vbm_reference_space);
     create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 21
     sleep($interval);
 
-    apply_affine_reg_to_atlas_vbm(); #UNUSED
-    sleep($interval);
+#    apply_affine_reg_to_atlas_vbm(); #UNUSED
+#   sleep($interval);
 
     if (1) { #  Need to take out this hardcoded bit!
 	$do_rigid = 0;

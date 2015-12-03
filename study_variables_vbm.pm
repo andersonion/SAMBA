@@ -31,8 +31,14 @@ use vars qw(
 $project_name 
 @control_group
 @compare_group
+
+@group_1
+@group_2
+
 @channel_array
 $custom_predictor_string
+$template_predictor
+
 $flip_x
 $flip_z 
 $optional_suffix
@@ -691,7 +697,7 @@ GIT1_111024_5);
 	$diffeo_transform_parameters = '0.5,3,1';
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 0;
-
+ 
 	my $specimen = 6;
 	if ($specimen == 1) {
 	@control_group = qw(
@@ -896,7 +902,10 @@ elsif ($agoston)
     
     {
 	$project_name = "14.agoston.01";
-	$custom_predictor_string = "sham_vs_injured";
+	#$custom_predictor_string = "sham_vs_injured";
+	$custom_predictor_string = "sham2_vs_delayed";
+	$template_predictor = "sham";
+
 	$vbm_reference_space = "native";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 1;
@@ -904,6 +913,9 @@ elsif ($agoston)
 	@control_group = qw(S65456 S65459 S65466 S65521 S65530 S65533 S65537 S65541);
 	#@compare_group = qw(S65453 S65461 S65464 S65467 S65524 S65528 S65535 S65539 S65544);
 	@compare_group = qw(S66782 S66784 S66787 S66789 S66791 S66831 S66833 S66835 S66837  S66853 S66855 S66857 S66859 S66861 S66863 S66865 S66867 S66869);
+
+	@group_1 = qw(S66782 S66784 S66787 S66789 S66791 S66831 S66833 S66835 S66837) ;
+	@group_2 = qw(S66853 S66855 S66857 S66859 S66861 S66863 S66865 S66867 S66869) ;
 
 	@channel_array = qw(dwi fa adc e1 e2 e3);
     

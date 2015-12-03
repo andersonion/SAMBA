@@ -328,10 +328,13 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 	my $include = 0; # We will exclude certain keys from headfile comparison. Exclude key list getting bloated...may need to switch to include.
 	my @excluded_keys =qw(affine_identity_matrix
                               affine_target_image
+                              all_groups_comma_list
                               compare_comma_list  
                               complete_comma_list
                               channel_comma_list
                               create_labels
+                              group_1_runnos
+                              group_2_runnos
                               label_atlas_dir
                               label_atlas_name
                               label_atlas_path
@@ -341,6 +344,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               last_headfile_checkpoint
                               mdt_diffeo_path
                               number_of_nodes_used
+                              predictor_id
                               rd_channel_added
                               stats_file
                               template_name

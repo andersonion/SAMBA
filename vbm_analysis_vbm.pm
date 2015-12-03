@@ -228,7 +228,11 @@ sub vbm_analysis_vbm_Runtime_check {
     my $template_images_path = $Hf->get_value('mdt_images_path');
     my $registered_images_path = $Hf->get_value('reg_images_path');
 
-    my $runlist = $Hf->get_value('complete_comma_list');
+    my $runlist = $Hf->get_value('all_groups_comma_list');
+    if ($runlist eq 'NO_KEY') {
+	$runlist = $Hf->get_value('complete_comma_list');
+    }
+
     my @array_of_runnos = split(',',$runlist);
     my $runno_OR_list = join("|",@array_of_runnos);
 
@@ -312,9 +316,16 @@ sub vbm_analysis_vbm_Runtime_check {
 	}
     }
 
-    my $group_1_runnos = $Hf->get_value('control_comma_list');
+    my $group_1_runnos = $Hf->get_value('group_1_runnos');
+    if ($group_1_runnos eq 'NO_KEY') {
+	$group_1_runnos = $Hf->get_value('control_comma_list');
+    }
     @group_1_runnos = split(',',$group_1_runnos);
-    my $group_2_runnos = $Hf->get_value('compare_comma_list');
+
+    my $group_2_runnos = $Hf->get_value('group_2_runnos');
+    if ($group_2_runnos eq 'NO_KEY'){ 
+	$group_2_runnos = $Hf->get_value('compare_comma_list');
+    }
     @group_2_runnos = split(',',$group_2_runnos);
 
     $average_mask = $Hf->get_value('MDT_eroded_mask');
