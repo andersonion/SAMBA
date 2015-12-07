@@ -197,7 +197,17 @@ sub calculate_jacobian {
 	$space_string = 'MDT';
 	$input_warp = "${diffeo_path}/MDT_to_${runno}_warp.nii.gz"; #Added '.gz' 2 September 2015
     }
-    $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 1 ;\n";
+    $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 0 ;\n"; # Changed last binary flag from 1 to 0 (use GeometricJacobian)
+
+## NOTE!!! All jacobian images created before 04 December 2015 are BAD!  They used a version of CreateJacobianDeterminantImage that did not account for any
+#          rotation matrices in the header when using the GeometricJacobian option.  This caused the effects of the warp to be inverted in the x and y direction
+#         (because of the "standard" [-1 -1 1] diagonals of our cosine matrix), but not the z.  The net result for logJacobian images was roughly -2/3 modulation,
+#         though that is only approximate and any images and VBM calculated this way is unreliable.
+##         While the ANTs guys found the bug and fixed it, James was unable to rebuild the latest version of ANTs on the cluster, so our best option to moved forward
+#         is to just turn off the GeometricJacobian option.  The alternative, the Finite Differences method, is pretty comparable.
+
+
+
     $unzip_command = "ImageMath 3 ${out_file} m ${out_file} ${mask_path};\n";
 
 #    $jac_command = "ANTSJacobian 3 ${input_warp} ${out_file} 1 ${mask_path} 1;\n"; # Older ANTS command
