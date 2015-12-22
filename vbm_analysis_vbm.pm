@@ -26,7 +26,6 @@ my ($predictor_id);
 my (@group_1_runnos,@group_2_runnos);
 my (%go_hash,%go_mask,%smooth_pool_hash,%results_dir_hash,%work_dir_hash);
 my $log_msg;
-
 my $supported_vbm_software = '(surfstat|spm|ANTsR)';
 my $skip=0;
 
@@ -54,12 +53,20 @@ sub vbm_analysis_vbm {
 	my $smooth_inputs = $smooth_pool_hash{$smoothing};
 
 	foreach my $software (@software_array) {
-	    print "Running vbm software: ${software}\n";
-	    my $software_results_path = "${smooth_results}/${software}/";
-	    if (! -e $software_results_path) {
-		mkdir ($software_results_path,$permissions);
+	    my $software_results_path;
+	    my $software_work_path;
+	    print "Running vba software: ${software}\n";
+	    if ($software eq 'spm') {
+		$software_work_path = "${smooth_work}/${software}/";
+		if (! -e $software_work_path) {
+		    mkdir ($software_work_path,$permissions);
+		}
+	    } else {
+		$software_results_path = "${smooth_results}/${software}/";
+		if (! -e $software_results_path) {
+		    mkdir ($software_results_path,$permissions);
+		}
 	    }
-
 	    foreach my $contrast (@channel_array) {
 		print "Running vbm with contrast: ${contrast}\n";
 		my (@group_1_files,@group_2_files); 
@@ -83,8 +90,8 @@ sub vbm_analysis_vbm {
 		if ($software eq 'surfstat') {
 		    surfstat_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
 		    `gzip ${software_results_path}/*.nii`;
-		} elsif ($software eq ('SPM' | 'spm' | 'Spm')) {
-		    spm_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+		} elsif ($software eq 'spm') {
+		    spm_analysis_vbm($contrast,$smooth_inputs,$software_work_path);
 		} else {
 		    print "I'm sorry, but VBM software \"$software\" is currently not supported :( \n";
 		}
@@ -156,18 +163,41 @@ sub vbm_analysis_vbm {
 # ------------------
 sub spm_analysis_vbm {
 # ------------------
-    my ($contrast,$input_path,$results_master_path) = @_;
-    my $contrast_path = "${results_master_path}/${contrast}/";
+    my ($contrast,$input_path,$work_master_path) = @_;
+    my $contrast_path = "${work_master_path}/${contrast}/";
+
+#make work directories
     if (! -e $contrast_path) {
 	mkdir ($contrast_path,$permissions);
     }
 
-    my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
+    my $group_1_path = $contrast_path.'/'.$group_1_name;
+    my $group_2_path = $contrast_path.'/'.$group_2_name;
+    if (! -e $group_1_path) {
+	mkdir ($group_1_path,$permissions);
+    }
+    if (! -e $group_2_path) {
+	mkdir ($group_2_path,$permissions);
+    }
 
-    my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
-    print "surfstat command = ${surfstat_command}\n";
-    my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
-    print "Current state = $state\n";
+
+# relative link to smoothed pool
+
+    my @group_1_array = split(',',$group_1_files);
+    my @group_2_array = split(',',$group_2_files);
+
+    foreach my $file (@group_1_array){
+	my $old_file = "../../../smoothed_image_pool/${file}";
+	my $linked_file = "${group_1_path}/${file}";
+	`ln -s ${old_file} ${linked_file}`;
+    }
+
+   foreach my $file (@group_2_array){
+	my $old_file = "../../../smoothed_image_pool/${file}";
+	my $linked_file = "${group_2_path}/${file}";
+	`ln -s ${old_file} ${linked_file}`;
+    }
+    
     return();
 }
 
@@ -202,6 +232,7 @@ sub vbm_analysis_vbm_Init_check {
    @software_array = split(',',$software_list);
 
    $software_list = '';
+   my @temp_software_array;
 
    foreach my $software (@software_array) {
        if ($software =~ /^${supported_vbm_software}$/i) {
@@ -212,7 +243,8 @@ sub vbm_analysis_vbm_Init_check {
 	   } elsif ($software =~ /^antsr$/i) {
 	       $software = 'antsr';
 	   }
-	   $software_list=$software_list.','.$software;
+	   push(@temp_software_array,$software);
+
 	   $log_msg = $log_msg."\tVBA will be performed with software: ${software} \n";
 	   
        } else {
@@ -220,6 +252,7 @@ sub vbm_analysis_vbm_Init_check {
        }
        
    }
+   $software_list = join(',',@temp_software_array);
    $Hf->set_value('vba_analysis_software',$software_list);
 
    if ($log_msg ne '') {

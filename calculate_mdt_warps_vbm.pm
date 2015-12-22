@@ -355,6 +355,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               template_name
                               template_work_dir
                               threshold_hash_ref
+                              vba_analysis_software
                               vba_contrast_comma_list ); # affine_target_image will need to be removed from this list once we fully support it.
 
 

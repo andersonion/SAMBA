@@ -516,6 +516,9 @@ B03248);
     } elsif ($mcnamara) 
 
     {
+
+	$vba_analysis_software = 'SpM'; # FOR TESTING PURPOSES
+
 	$project_name = "13.mcnamara.02";
 	$create_labels = 0; # Only turned off for reprocessing of jac VBM
 	$custom_predictor_string = "Control_vs_Phantoms";
@@ -554,7 +557,7 @@ B03248);
 #	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
     	@channel_array = qw(dwi fa);
 
-	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+	$vba_contrast_comma_list = 'jac,dwi,fa'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 
 
 #	$flip_x = 1;

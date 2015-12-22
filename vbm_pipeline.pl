@@ -395,8 +395,7 @@ $Hf->set_value('nifti_matlab_converter','civm_to_nii'); # This should stay hardc
 if ($test_mode) {
     $Hf->set_value('test_mode','on');
 } else {
-    $Hf->set_value('test_mode','off');
-    
+    $Hf->set_value('test_mode','off');    
 }
 
 $Hf->set_value('vbm_reference_space',$vbm_reference_space);
@@ -407,7 +406,7 @@ if (defined $vba_contrast_comma_list) {
 
 if (defined $vba_contrast_comma_list) {
     $Hf->set_value('vba_analysis_software',$vba_analysis_software);
-
+}
 
 #maincode
 {
