@@ -338,6 +338,11 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               label_atlas_dir
                               label_atlas_name
                               label_atlas_path
+                              label_reference_path
+                              label_reference_space
+                              label_refname
+                              label_refspace
+                              label_refspace_folder
                               label_space
                               forward_xforms 
                               inverse_xforms
@@ -349,7 +354,8 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               stats_file
                               template_name
                               template_work_dir
-                              threshold_hash_ref ); # affine_target_image will need to be removed from this list once we fully support it.
+                              threshold_hash_ref
+                              vba_contrast_comma_list ); # affine_target_image will need to be removed from this list once we fully support it.
 
 
 	for (my $i=0; $template_match== 0; $i++) {

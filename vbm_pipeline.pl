@@ -91,6 +91,7 @@ $project_name
 @channel_array
 $custom_predictor_string
 $template_predictor
+$template_name
 
 $flip_x
 $flip_z 
@@ -136,6 +137,9 @@ $reference_path
 $create_labels
 $label_space
 $label_reference
+
+$vba_contrast_comma_list
+$vba_analysis_software
 
 $image_dimensions
  );
@@ -373,6 +377,10 @@ if (defined $template_predictor) {
     $Hf->set_value('template_predictor',$template_predictor);
 }
 
+if (defined $template_name) {
+    $Hf->set_value('template_name',$template_name);
+}
+
 $Hf->set_value('pristine_input_dir',$pristine_input_dir);
 $Hf->set_value('preprocess_dir',$preprocess_dir);
 $Hf->set_value('inputs_dir',$inputs_dir);
@@ -392,6 +400,14 @@ if ($test_mode) {
 }
 
 $Hf->set_value('vbm_reference_space',$vbm_reference_space);
+
+if (defined $vba_contrast_comma_list) {
+    $Hf->set_value('vba_contrast_comma_list',$vba_contrast_comma_list);
+}
+
+if (defined $vba_contrast_comma_list) {
+    $Hf->set_value('vba_analysis_software',$vba_analysis_software);
+
 
 #maincode
 {

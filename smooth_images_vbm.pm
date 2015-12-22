@@ -29,7 +29,7 @@ my $job;
 my $go = 1;
 my ($log_msg);
 my $mem_request;
-
+my @channel_array;  ##IN PROGRESS--ONLY SMOOTH CONTRASTS IN CHANNEL ARRAY
 # ------------------
 sub smooth_images_vbm {  # Main code
 # ------------------
@@ -147,7 +147,7 @@ sub smooth_images_Output_check {
 	if ($file_ext =~ s/\.gz//) {}#Do Nothing More
 	
 	$out_file = "${destination_directory}/${file_name}_${suffix}${file_ext}";
-	
+
 	if (($case == 2) && (! data_double_check($out_file.'.gz'))) {
 	    `gunzip ${out_file}.gz`;  # We expect that smoothed files will need to be decompressed for VBM analysis (our primary use).
 	}
@@ -209,6 +209,9 @@ sub smooth_images {
 #	if ($file_path =~ s/(\.[A-Za-z0-9]*)$//) {
 #	    $file_ext = $1.$file_ext;
 #	}
+
+	if ($file_ext =~ s/\.gz$//) {}
+
 	my $out_file = "${destination_directory}/${file_name}_${suffix}${file_ext}";
 	
 	$cmd = $cmd."SmoothImage ${dims} ${in_file} ${smoothing_param} ${out_file} ${mm_not_voxels} ;\n";
@@ -248,6 +251,13 @@ sub smooth_images_vbm_Init_check {
 # ------------------
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
+
+    my $vba_contrast_comma_list = $Hf->get_value('vba_contrast_comma_list');
+	if ($vba_contrast_comma_list eq 'NO_KEY') { ## Should this go in init_check? # New feature to allow limited VBA/VBM analysis, 
+	    # used for reproccessing corrected Jacobians (07 Dec 2015);
+	    $vba_contrast_comma_list = $Hf->get_value('channel_comma_list');
+	}
+   @channel_array = split(',',$vba_contrast_comma_list);
    
     $smoothing_radius=$Hf->get_value('preVBM_smoothing_radius');
     if (($smoothing_radius eq 'NO_KEY') || (! defined $smoothing_radius))  {

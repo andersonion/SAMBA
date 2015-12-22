@@ -3,9 +3,10 @@
 # vbm_analysis_vbm.pm 
 
 #  2015/08/06  Added SurfStat support
+#  2015/12/23  Added basic SPM support
 
 my $PM = "vbm_analysis_vbm.pm";
-my $VERSION = "2015/08/06";
+my $VERSION = "2015/12/07";
 my $NAME = "Run vbm analysis with software of choice.";
 
 use strict;
@@ -24,7 +25,9 @@ my (@array_of_runnos,@channel_array,@smoothing_params,@software_array);
 my ($predictor_id);
 my (@group_1_runnos,@group_2_runnos);
 my (%go_hash,%go_mask,%smooth_pool_hash,%results_dir_hash,%work_dir_hash);
+my $log_msg;
 
+my $supported_vbm_software = '(surfstat|spm|ANTsR)';
 my $skip=0;
 
 my ($group_1_name,$group_2_name,$group_1_files,$group_2_files);
@@ -79,6 +82,9 @@ sub vbm_analysis_vbm {
 		
 		if ($software eq 'surfstat') {
 		    surfstat_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+		    `gzip ${software_results_path}/*.nii`;
+		} elsif ($software eq ('SPM' | 'spm' | 'Spm')) {
+		    spm_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
 		} else {
 		    print "I'm sorry, but VBM software \"$software\" is currently not supported :( \n";
 		}
@@ -147,6 +153,23 @@ sub vbm_analysis_vbm {
 #     return($file_array_ref,$error_msg);
 # }
 
+# ------------------
+sub spm_analysis_vbm {
+# ------------------
+    my ($contrast,$input_path,$results_master_path) = @_;
+    my $contrast_path = "${results_master_path}/${contrast}/";
+    if (! -e $contrast_path) {
+	mkdir ($contrast_path,$permissions);
+    }
+
+    my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
+
+    my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
+    print "surfstat command = ${surfstat_command}\n";
+    my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
+    print "Current state = $state\n";
+    return();
+}
 
 # ------------------
 sub surfstat_analysis_vbm {
@@ -168,8 +191,46 @@ sub surfstat_analysis_vbm {
 # ------------------
 sub vbm_analysis_vbm_Init_check {
 # ------------------
+   my $init_error_msg='';
+   my $message_prefix="$PM initialization check:\n";
 
-    return('');
+    $software_list = $Hf->get_value('vba_analysis_software');
+    if ($software_list eq 'NO_KEY') {
+	$software_list = "surfstat"; 
+	$Hf->set_value('vba_analysis_software',$software_list);
+    }
+   @software_array = split(',',$software_list);
+
+   $software_list = '';
+
+   foreach my $software (@software_array) {
+       if ($software =~ /^${supported_vbm_software}$/i) {
+	   if ($software =~ /^surfstat$/i) {
+	       $software = 'surfstat';
+	   } elsif ($software =~ /^spm$/i) {
+	       $software = 'spm';
+	   } elsif ($software =~ /^antsr$/i) {
+	       $software = 'antsr';
+	   }
+	   $software_list=$software_list.','.$software;
+	   $log_msg = $log_msg."\tVBA will be performed with software: ${software} \n";
+	   
+       } else {
+	   $init_error_msg=$init_error_msg."I'm sorry, but VBM software \"${software}\" is currently not supported :( \n";
+       }
+       
+   }
+   $Hf->set_value('vba_analysis_software',$software_list);
+
+   if ($log_msg ne '') {
+       log_info("${message_prefix}${log_msg}");
+   }
+   
+   if ($init_error_msg ne '') {
+       $init_error_msg = $message_prefix.$init_error_msg;
+   }
+       
+   return($init_error_msg);
 }
 
 # ------------------
@@ -189,10 +250,10 @@ sub vbm_analysis_vbm_Runtime_check {
 
     if ($use_Hf) {
 	$template_path = $Hf->get_value('template_work_dir');
-	$current_path = $Hf->get_value('vbm_analysis_path');
+	$current_path = $Hf->get_value('vba_analysis_path');
 	if ($current_path eq 'NO_KEY') {
 	    $current_path = "${template_path}/vbm_analysis";
-	    $Hf->set_value('vbm_analysis_path',$current_path);
+	    $Hf->set_value('vba_analysis_path',$current_path);
 	}
 	if (! -e $current_path) {
 	    mkdir ($current_path,$permissions);
@@ -201,15 +262,19 @@ sub vbm_analysis_vbm_Runtime_check {
 	$directory_prefix = $current_path;
 	if ($directory_prefix =~ s/\/glusterspace//) { }
 
-	$software_list = $Hf->get_value('vbm_analysis_software');
+	$software_list = $Hf->get_value('vba_analysis_software');
 	if ($software_list eq 'NO_KEY') { ## Should this go in init_check?
 	    $software_list = "surfstat"; 
-	    $Hf->set_value('vbm_analysis_software',$software_list);
+	    $Hf->set_value('vba_analysis_software',$software_list);
 	}
 	@software_array = split(',',$software_list);
 
-	$channel_comma_list = $Hf->get_value('channel_comma_list');
-	@channel_array = split(',',$channel_comma_list);
+	my $vba_contrast_comma_list = $Hf->get_value('vba_contrast_comma_list');
+	if ($vba_contrast_comma_list eq 'NO_KEY') { ## Should this go in init_check? # New feature to allow limited VBA/VBM analysis, 
+	    # used for reproccessing corrected Jacobians (07 Dec 2015);
+	    $vba_contrast_comma_list = $Hf->get_value('channel_comma_list');
+	}
+	@channel_array = split(',',$vba_contrast_comma_list);
 
 	$smoothing_comma_list = $Hf->get_value('smoothing_comma_list');
 
