@@ -232,8 +232,8 @@ sub prep_atlas_for_referencing_vbm {
 	$mask_ref = 'NULL';
     } else {
 	($rigid_mask_name,$dummy1,$rigid_mask_ext) = fileparts($rigid_atlas_mask_path);
-	$mask_ref = "${preprocess_dir}/${rigid_mask_name}_recentered${rigid_mask_ext}";
-    }
+	#$mask_ref = "${preprocess_dir}/${rigid_mask_name}_recentered${rigid_mask_ext}";
+	$mask_ref = "${preprocess_dir}/${rigid_mask_name}_recentered${rigid_mask_ext}";    }
 
     ##KLUDGE
     # Skip the attempt to use the mask for recentering for now, at least until the matlab command can be fixed...

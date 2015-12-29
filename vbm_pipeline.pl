@@ -404,7 +404,7 @@ if (defined $vba_contrast_comma_list) {
     $Hf->set_value('vba_contrast_comma_list',$vba_contrast_comma_list);
 }
 
-if (defined $vba_contrast_comma_list) {
+if (defined $vba_analysis_software) {
     $Hf->set_value('vba_analysis_software',$vba_analysis_software);
 }
 

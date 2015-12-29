@@ -110,7 +110,7 @@ sub study_variables_vbm {
 	
 	$project_name = "14.obrien.01";
 	$custom_predictor_string = "Control_vs_Reacher";
-	$diffeo_transform_parameters = "0.5,3,1";#0.5";
+	$diffeo_transform_parameters = "0.5,3,0.5";#1";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 0; #1
@@ -253,7 +253,7 @@ sub study_variables_vbm {
 	$flip_x = 0;
 	$flip_z = 0;
 
-	$optional_suffix = 'SyN3and1';
+	$optional_suffix = '';
 	$atlas_name = 'DTI101b';
 	$label_atlas_name = 'chass_symmetric';#'dti148lr';
 	$rigid_contrast = 'dwi';
@@ -263,13 +263,15 @@ sub study_variables_vbm {
 	$do_mask = 0;
 	$pre_masked = 1;
 
+	$vba_analysis_software = 'spm,surfstat';
+
 	$thresh_ref = {};
 
     } elsif ($obrien_invivo) {
 	
 	$project_name = "14.obrien.02";
 	$custom_predictor_string = "Control_vs_Reacher";
-	$diffeo_transform_parameters = "0.5,3,0.5";
+	$diffeo_transform_parameters = "0.5,3,1";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1;
@@ -358,7 +360,7 @@ sub study_variables_vbm {
 	$flip_x = 0;
 	$flip_z = 0;
 
-	$optional_suffix = '';
+	$optional_suffix = 'SyN3and1';
 	$atlas_name = 'DTI101b';
 	$label_atlas_name = 'DTI101b';
 	$rigid_contrast = 'T2star';
@@ -367,6 +369,9 @@ sub study_variables_vbm {
 	$threshold_code = 4;
 	$do_mask = 0;
 	$pre_masked = 1;
+
+	$vba_contrast_comma_list = 'jac';
+	$vba_analysis_software = 'spm,surfstat';
 
 	$thresh_ref = {};
 
@@ -517,10 +522,8 @@ B03248);
 
     {
 
-	$vba_analysis_software = 'SpM'; # FOR TESTING PURPOSES
-
 	$project_name = "13.mcnamara.02";
-	$create_labels = 0; # Only turned off for reprocessing of jac VBM
+	$create_labels = 1; # Only turned off for reprocessing of jac VBM
 	$custom_predictor_string = "Control_vs_Phantoms";
 	$template_name = 'faMDT_Control_n10a';
 #	$custom_predictor_string = "Control_vs_KA";
@@ -528,17 +531,17 @@ B03248);
 
 ## Note: NJC ~= "New Jack City", rather, "New Jacobian analysis Completed"
 
-	$diffeo_transform_parameters = "1,3,1"; # COMPLETED -- Have LR labelset # NJC
-#NJC	$diffeo_transform_parameters = "5,3,1"; # COMPLETED -- Have LR labelset
-#NJC	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15 -- Have LR labelset
+#	$diffeo_transform_parameters = "1,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom
+	$diffeo_transform_parameters = "5,3,1"; # COMPLETED -- Have LR labelset # NJC
+#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15 -- Have LR labelset# NJC
 
-#NJC	$diffeo_transform_parameters = "1,3,3"; # COMPLETED -- Have LR labelset
-#NJC	$diffeo_transform_parameters = "5,3,3"; # COMPLETED -- Have LR labelset
-#NJC	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED 16 Sept 15 ~ 12 am -- Have LR labelset
+#	$diffeo_transform_parameters = "1,3,3"; # COMPLETED -- Have LR labelset #NJC
+#	$diffeo_transform_parameters = "5,3,3"; # COMPLETED -- Have LR labelset #NJC
+#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED 16 Sept 15 ~ 12 am -- Have LR labelset #NJC
 
-#NJC	$diffeo_transform_parameters = "1,1,0"; # COMPLETED 19 Sept 15 ~ 12:30 pm , didn't start next one until 9 pm -- Have LR labelset
-#NJC	$diffeo_transform_parameters = "5,1,0"; # COMPLETED 20 Sept 15 ~ 8:45 pm -- Have LR labelset
-#NJC	$diffeo_transform_parameters = "0.5,1,0"; # NEED TO RUN!!!
+#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED 19 Sept 15 ~ 12:30 pm , didn't start next one until 9 pm -- Have LR labelset #NJC
+#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED 20 Sept 15 ~ 8:45 pm -- Have LR labelset #NJC
+#	$diffeo_transform_parameters = "0.5,1,0"; # NJC
 
 
 	$vbm_reference_space = "DTI101b";
