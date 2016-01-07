@@ -711,7 +711,7 @@ sub set_reference_space_vbm_Runtime_check {
 
 	if ($new_rigid_path =~ s/\.gz$//) {}
 
-	if (data_double_check($new_rigid_path)) {
+	if (! data_double_check($new_rigid_path)) {
 	    `gzip ${new_rigid_path}`;
 	}
 
