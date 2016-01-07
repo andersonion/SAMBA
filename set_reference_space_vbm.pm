@@ -162,7 +162,9 @@ sub set_reference_space_Output_check {
 	 }
 	 $full_error_msg = $full_error_msg.$error_msg;	 
 	 $file_array_ref{$V_or_L} = \@file_array;
-	 symbolic_link_cleanup($refspace_folder_hash{$V_or_L});
+	 if ($case == 2) {
+	     symbolic_link_cleanup($refspace_folder_hash{$V_or_L},$PM);
+	 }
      }
      return(\%file_array_ref,$full_error_msg);
 }

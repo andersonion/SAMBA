@@ -94,8 +94,8 @@ sub apply_mdt_warps_vbm {  # Main code
     } else {
 	$Hf->write_headfile($write_path_for_Hf);
 	if (! $gid) {
-	    symbolic_link_cleanup($diffeo_path);
-	    symbolic_link_cleanup($rigid_path);
+	    symbolic_link_cleanup($diffeo_path,$PM);
+	    symbolic_link_cleanup($rigid_path,$PM);
 	}
     }
  

@@ -91,7 +91,7 @@ sub calculate_mdt_warps_vbm {  # Main code
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
-	symbolic_link_cleanup($pairwise_path);
+	symbolic_link_cleanup($pairwise_path,$PM);
     }
     
 }

@@ -116,6 +116,9 @@ sub study_variables_vbm {
 	$create_labels = 0; #1
 	$label_space = "pre_affine";
 
+	$template_name = 'faMDT_Control_n12a';  # This is because analysis was originally performed with a "broken MDT", but could not be di
+	                                        # designated as such...faMDT_Control_n12 is actually broken, even though I modified the headfile to saw otherwise.
+
 	@control_group = qw(
         controlSpring2013_4
         controlSpring2013_7

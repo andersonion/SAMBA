@@ -80,7 +80,7 @@ sub warp_atlas_labels_vbm {  # Main code
     } else {
 	$Hf->write_headfile($write_path_for_Hf);
 
-	symbolic_link_cleanup($current_path);
+	symbolic_link_cleanup($current_path,$PM);
     }
  
 }

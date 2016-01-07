@@ -745,7 +745,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 	    $affine_target = $Hf->get_value('label_atlas_name');
 	    $xform_code = 'full_affine';
 	    $q_string = '';
-	    symbolic_link_cleanup($current_path);
+	    symbolic_link_cleanup($current_path,$PM);
 	}
 	    @array_of_runnos = ("MDT_${mdt_contrast}");
 
@@ -797,7 +797,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 	    $atlas_dir = $Hf->get_value('inputs_dir');
 	    $atlas_path  = get_nii_from_inputs($atlas_dir,$affine_target,$contrast);
 	    $q_string = "${current_path}/${affine_target}_${other_xform_suffix}";
-	    symbolic_link_cleanup($current_path);
+	    symbolic_link_cleanup($current_path,$PM);
 
 	}
 	$runlist = $Hf->get_value('complete_comma_list');
