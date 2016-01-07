@@ -49,10 +49,10 @@ sub convert_all_to_nifti_vbm {
 	    if ($go) {
 		my $current_file=get_nii_from_inputs($in_folder,$runno,$ch);
 
-		if ($current_file) {
-		    push(@nii_files,$current_file);
-		} else {
+		if ($current_file =~ /[\n]+/) {
 		    print "Unable to find input image for $runno and $ch in folder: ${in_folder}.\n";
+		} else {
+		    push(@nii_files,$current_file);
 		}
 	    }
 	}
@@ -119,7 +119,7 @@ sub convert_all_to_nifti_Output_check {
 	    if ($file_1 =~ /[\n]+/) {
 		$file_1 = "${current_path}/${runno}_${ch}.nii";
 	    }
-	    if ((data_double_check($file_1) ) || ((! $do_mask) &&  ($file_1 =~ /.*masked\.nii / ))) {
+	    if ((data_double_check($file_1) ) || ((! $do_mask) &&  (($file_1 =~ /.*masked\.nii/) || ($file_1 =~ /.*masked\.nii\.gz/)))) { # 6 January 2016: updated to look for .nii.gz as well.
 		$go_hash{$runno}{$ch}=1;
 		push(@file_array,$file_1);
 		$sub_missing_files_message = $sub_missing_files_message."\t$ch";

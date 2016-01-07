@@ -227,6 +227,9 @@ sub prep_atlas_for_referencing_vbm {
     my ($rigid_atlas_mask_path,$rigid_mask_name,$rigid_mask_ext,$mask_ref,$copy_cmd,$future_rigid_path);
     
     $future_rigid_path = "${inputs_dir}/${rigid_name}${rigid_ext}";
+    if ($future_rigid_path !~ /\.gz$/) {
+	$future_rigid_path = $future_rigid_path.'.gz';
+    }
     $rigid_atlas_mask_path = get_nii_from_inputs($rigid_dir,'',"mask");
     if ($rigid_atlas_mask_path =~ /[\n]+/) {
 	$mask_ref = 'NULL';
@@ -269,12 +272,15 @@ sub prep_atlas_for_referencing_vbm {
 	    `$copy_cmd`;
 	} else {
 	    $out_path = $new_rigid_path;
+	    if ($out_path =~ s/\.gz$//) {}
 	    $in_path = $rigid_atlas_path;
 	    $nifti_args = "\'${in_path}\', \'${out_path}\', 0, 0, 0";
 	    $name= $rigid_atlas_name;
 	    $nifti_command = make_matlab_command('center_nii_around_center_of_mass',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
 	    execute_log(1, "Recentering ${name} atlas around its center of mass", $nifti_command);
 	    `$nifti_command`;
+	    `gzip $out_path`;
+
 	    $last_cmd=$nifti_command;
 	}
 	
@@ -621,7 +627,13 @@ sub set_reference_path_vbm {
 		}
 		# print "\$preprocess_dir = ${preprocess_dir}\n";
 		my $new_file = "${preprocess_dir}/native_reference_${ref_runno}.nii";
+		if ($file =~ /\.gz$/) {
+		    $new_file = $new_file.'.gz';
+		}
 		`cp $file $new_file`;
+		if ($file !~ /\.gz$/) {
+		    `gzip ${new_file}`;
+		}
 		my $skip = 0;
 		recenter_nii_function($new_file,$preprocess_dir,$skip,$Hf);
 		$ref_path = $new_file;
@@ -694,6 +706,14 @@ sub set_reference_space_vbm_Runtime_check {
 	($rigid_name,$rigid_dir,$rigid_ext) = fileparts($rigid_atlas_path);
 #	$new_rigid_path="${preprocess_dir}/${rigid_name}${rigid_ext}";
 	$new_rigid_path="${inputs_dir}/${rigid_name}${rigid_ext}";
+
+	if ($new_rigid_path =~ s/\.gz$//) {}
+
+	if (data_double_check($new_rigid_path)) {
+	    `gzip ${new_rigid_path}`;
+	}
+
+	$new_rigid_path = $new_rigid_path.'.gz';
 	if (data_double_check($new_rigid_path)) {
 	    prep_atlas_for_referencing_vbm();
 	} else {

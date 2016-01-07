@@ -22,8 +22,8 @@ my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigm
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
-my $job;
-my $mem_request;
+my ($job,$job_count);
+my ($mem_request,$mem_request_2,$jobs_in_first_batch);
 my $dims;
 my $log_msg;
 my $batch_folder;
@@ -58,13 +58,14 @@ sub compare_reg_to_mdt_vbm {  # Main code
     compare_reg_to_mdt_vbm_Runtime_check();
 
    # my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
-
+    $job_count = 0;
     my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
     if (($MDT_to_atlas_JobID ne 'NO_KEY') && ($MDT_to_atlas_JobID ne 'UNDEFINED_VALUE' )) {
 	$expected_number_of_jobs++;
+	$job_count++;
     }
  
-    $mem_request = memory_estimator($expected_number_of_jobs,$nodes);    
+    ($mem_request,$mem_request_2,$jobs_in_first_batch) = memory_estimator_2($expected_number_of_jobs,$nodes);    
  
     foreach my $runno (@array_of_runnos) {
 	my ($f_xform_path,$i_xform_path);
@@ -253,7 +254,10 @@ sub reg_to_mdt {
 
 #    push(@test,$node_name);
 
-    
+    $job_count++;
+    if ($job_count > $jobs_in_first_batch){
+	$mem_request = $mem_request_2;
+    }
 
     my $jid = 0;
     if (cluster_check) {

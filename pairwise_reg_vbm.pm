@@ -26,12 +26,12 @@ my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigm
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
-my $job;
+my ($job,$job_count);
 my $dims;
 my $id_warp;
 my $log_msg;
 my ($expected_number_of_jobs,$hash_errors);
-my $mem_request;
+my ($mem_request,$mem_request_2,$jobs_in_first_batch);
 my $batch_folder;
 my $counter=0;
 
@@ -67,7 +67,7 @@ sub pairwise_reg_vbm {  # Main code
     
 
 #    my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
-    $mem_request = memory_estimator($expected_number_of_jobs,$nodes);
+    ($mem_request,$mem_request_2,$jobs_in_first_batch) = memory_estimator_2($expected_number_of_jobs,$nodes);
 
     my @remaining_runnos = @sorted_runnos;
     for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
@@ -250,7 +250,12 @@ sub create_pairwise_warps {
 	$rename_cmd = '';
 	$node = "civmcluster1";
 	@test=(1,$node);
-    } #else {
+    } else {
+	$job_count++;
+	if ($job_count > $jobs_in_first_batch){
+	    $mem_request = $mem_request_2;
+	}
+    }
 
 # ##  This code was supposed to optimize the node distribution of jobs for McNamara 10/10 run--didn't work as well as hoped!
 # 	$counter=$counter+1;
@@ -599,7 +604,7 @@ sub pairwise_reg_vbm_Runtime_check {
 
 
 # ONE OFF BAD CODE!!!!
-    $mdt_contrast_string = "SyN_5_3_1_fa";
+#    $mdt_contrast_string = "SyN_1_3_3_fa";
 #
 
 

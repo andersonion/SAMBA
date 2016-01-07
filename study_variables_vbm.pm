@@ -10,11 +10,11 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 0;
+my $obrien = 1;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 1;
+my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
@@ -264,7 +264,7 @@ sub study_variables_vbm {
 	$pre_masked = 1;
 
 	$vba_analysis_software = 'spm,surfstat';
-
+	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 	$thresh_ref = {};
 
     } elsif ($obrien_invivo) {
@@ -525,23 +525,23 @@ B03248);
 	$project_name = "13.mcnamara.02";
 	$create_labels = 1; # Only turned off for reprocessing of jac VBM
 	$custom_predictor_string = "Control_vs_Phantoms";
-	$template_name = 'faMDT_Control_n10a';
+#	$template_name = 'faMDT_Control_n10a';
 #	$custom_predictor_string = "Control_vs_KA";
 ##	$diffeo_transform_parameters = "0.5,3,0.5"; Not used for paper
 
 ## Note: NJC ~= "New Jack City", rather, "New Jacobian analysis Completed"
 
-#	$diffeo_transform_parameters = "1,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom
-	$diffeo_transform_parameters = "5,3,1"; # COMPLETED -- Have LR labelset # NJC
-#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15 -- Have LR labelset# NJC
+#	$diffeo_transform_parameters = "1,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom completed
+#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom completed
+#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15 -- Have LR labelset# NJC # Phantom completed
 
-#	$diffeo_transform_parameters = "1,3,3"; # COMPLETED -- Have LR labelset #NJC
-#	$diffeo_transform_parameters = "5,3,3"; # COMPLETED -- Have LR labelset #NJC
-#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED 16 Sept 15 ~ 12 am -- Have LR labelset #NJC
+	$diffeo_transform_parameters = "1,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed # Broken MDT running
+#	$diffeo_transform_parameters = "5,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed
+#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED 16 Sept 15 ~ 12 am -- Have LR labelset #NJC # Phantom completed
 
-#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED 19 Sept 15 ~ 12:30 pm , didn't start next one until 9 pm -- Have LR labelset #NJC
-#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED 20 Sept 15 ~ 8:45 pm -- Have LR labelset #NJC
-#	$diffeo_transform_parameters = "0.5,1,0"; # NJC
+#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED 19 Sept 15 ~ 12:30 pm , didn't start next one until 9 pm -- Have LR labelset #NJC # Phantom completed
+#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED 20 Sept 15 ~ 8:45 pm -- Have LR labelset #NJC # Phantom completed # Broken MDT completed
+#	$diffeo_transform_parameters = "0.5,1,0"; # NJC # Phantom completed
 
 
 	$vbm_reference_space = "DTI101b";

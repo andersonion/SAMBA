@@ -89,7 +89,7 @@ sub vbm_analysis_vbm {
 		
 		if ($software eq 'surfstat') {
 		    surfstat_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
-		    `gzip ${software_results_path}/*.nii`;
+		    `gzip ${software_results_path}/${contrast}/*.nii`;
 		} elsif ($software eq 'spm') {
 		    spm_analysis_vbm($contrast,$smooth_inputs,$software_work_path);
 		} else {
