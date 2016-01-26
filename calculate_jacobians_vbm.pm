@@ -197,7 +197,8 @@ sub calculate_jacobian {
 	$space_string = 'MDT';
 	$input_warp = "${diffeo_path}/MDT_to_${runno}_warp.nii.gz"; #Added '.gz' 2 September 2015
     }
-    $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 0 ;\n"; # Changed last binary flag from 1 to 0 (use GeometricJacobian)
+    $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 1 ;\n"; # Just testing...should still be bad.
+    #$jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 0 ;\n"; # Changed last binary flag from 1 to 0 (use GeometricJacobian)
 
 ## NOTE!!! All jacobian images created before 04 December 2015 are BAD!  They used a version of CreateJacobianDeterminantImage that did not account for any
 #          rotation matrices in the header when using the GeometricJacobian option.  This caused the effects of the warp to be inverted in the x and y direction
@@ -217,7 +218,19 @@ sub calculate_jacobian {
     my $go_message =  "$PM: Calculate jacobian images in ${space_string} for ${runno}";
     my $stop_message = "$PM:  Unable to calculate jacobian images in ${space_string} for ${runno}:\n${cmd}\n";
 
+
+### Kludge code for using my custom calculate Jacobian function in matlab
+    my $use_matlab = 1;
     my $jid = 0;
+    if ($use_matlab) {
+	my $jac_args ="\'$input_warp\', \'$out_file\',1,1";
+	my $jac_command = make_matlab_command('calculate_jacobian',$jac_args,"${runno}_",$Hf,0); # 'center_nii'
+#	my $jac_command = make_matlab_command('path','',,"${runno}_",$Hf,1); 
+	execute(1, "Calculating Jacobian from MDT image in Matlab for $runno ", $jac_command);
+	execute(1, "Masking Jacobian from MDT image for $runno ", $unzip_command);
+    } else {
+
+    #my $jid = 0;
     if (cluster_check) {
 	my $home_path = $current_path;
 	my $Id= "${runno}_calculate_jacobian_in_${space_string}_space";
@@ -236,7 +249,8 @@ sub calculate_jacobian {
     if ((!-e $out_file) && ($jid == 0)) {
 	error_out("$PM: missing jacobian image in ${space_string} space for ${runno}: ${out_file}");
     }
-    print "** $PM created ${out_file}.nii.gz\n"; #Added '.gz' 2 September 2015
+    }
+    print "** $PM created ${out_file}\n"; #Added '.gz' 2 September 2015 -- Don't have a clue why I thought that would be useful...
   
     return($jid,$out_file);
  }

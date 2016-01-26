@@ -604,7 +604,7 @@ sub pairwise_reg_vbm_Runtime_check {
 
 
 # ONE OFF BAD CODE!!!!
-#    $mdt_contrast_string = "SyN_1_3_3_fa";
+#   $mdt_contrast_string = "SyN_5_3_3_fa";
 #
 
 

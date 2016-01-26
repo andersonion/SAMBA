@@ -10,11 +10,11 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 1;
+my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 0;
+my $mcnamara = 1;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
@@ -133,7 +133,22 @@ sub study_variables_vbm {
         controlWinter2012_6
         controlWinter2012_9
         );
-    
+	
+	@group_1 = qw(
+        controlSpring2013_4
+        controlSpring2013_7
+        controlSpring2013_8
+        controlSpring2013_9
+        controlSpring2013_10
+        controlSpring2013_11
+        controlSummer2012_1
+        controlSummer2012_5
+        controlSummer2012_8
+        controlWinter2012_1
+        controlWinter2012_6
+        controlWinter2012_9
+        );
+
 	@compare_group = qw(
         controlLRSpring2013_4
         controlLRSpring2013_7
@@ -173,6 +188,20 @@ sub study_variables_vbm {
         reacherLRWinter2012_8
         );
 
+	@group_2 = qw(
+	reacherSpring2013_1
+        reacherSpring2013_2
+        reacherSpring2013_3
+        reacherSpring2013_5
+        reacherSpring2013_6
+        reacherSummer2012_2
+        reacherSummer2012_3
+        reacherSummer2012_5
+        reacherWinter2012_3
+        reacherWinter2012_5
+        reacherWinter2012_7
+        reacherWinter2012_8
+        );
 
 	# @compare_group = qw(
 	#     BCS10
@@ -267,7 +296,7 @@ sub study_variables_vbm {
 	$pre_masked = 1;
 
 	$vba_analysis_software = 'spm,surfstat';
-	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+#	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 	$thresh_ref = {};
 
     } elsif ($obrien_invivo) {
@@ -526,48 +555,48 @@ B03248);
     {
 
 	$project_name = "13.mcnamara.02";
-	$create_labels = 1; # Only turned off for reprocessing of jac VBM
-	$custom_predictor_string = "Control_vs_Phantoms";
-#	$template_name = 'faMDT_Control_n10a';
-#	$custom_predictor_string = "Control_vs_KA";
+	$create_labels = 0; # Only turned off for reprocessing of jac VBM
+#	$custom_predictor_string = "Control_vs_Phantoms";
+	$template_name = 'faMDT_Control_n10';
+	$custom_predictor_string = "Control_vs_KA";
 ##	$diffeo_transform_parameters = "0.5,3,0.5"; Not used for paper
 
 ## Note: NJC ~= "New Jack City", rather, "New Jacobian analysis Completed"
 
-#	$diffeo_transform_parameters = "1,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom completed
-#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom completed
-#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15 -- Have LR labelset# NJC # Phantom completed
+#	$diffeo_transform_parameters = "1,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom completed #NJC-3a
+#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom competed # NJC-3a
+#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15 -- Have LR labelset# NJC # Phantom completed  #  NJC-3a
 
-	$diffeo_transform_parameters = "1,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed # Broken MDT running
-#	$diffeo_transform_parameters = "5,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed
-#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED 16 Sept 15 ~ 12 am -- Have LR labelset #NJC # Phantom completed
+#	$diffeo_transform_parameters = "1,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed # Broken MDT running # NJC-3a
+	$diffeo_transform_parameters = "5,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed # NJC-3a
+#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED 16 Sept 15 ~ 12 am -- Have LR labelset #NJC # Phantom completed # NJC-3a
 
-#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED 19 Sept 15 ~ 12:30 pm , didn't start next one until 9 pm -- Have LR labelset #NJC # Phantom completed
-#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED 20 Sept 15 ~ 8:45 pm -- Have LR labelset #NJC # Phantom completed # Broken MDT completed
-#	$diffeo_transform_parameters = "0.5,1,0"; # NJC # Phantom completed
+#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED 19 Sept 15 ~ 12:30 pm , didn't start next one until 9 pm -- Have LR labelset #NJC # Phantom completed #NJC-3a
+#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED 20 Sept 15 ~ 8:45 pm -- Have LR labelset #NJC # Phantom completed # Broken MDT completed #NJC-3a
+#	$diffeo_transform_parameters = "0.5,1,0"; # NJC # Phantom completed #NJC-3a
 
 
 	$vbm_reference_space = "DTI101b";
 	$combined_rigid_and_affine = 0; # Was 1 for January runs.  We want to eventually have this set to zero and remove this variable from the code.
 	$label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
 
-#	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-#	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
-
 	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
+	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+
+#	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
+#	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
 #	@compare_group = qw(S64781);
 #	@compare_group = qw(S64745 S64763 S64766 S64769 S64772 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 	
 
-#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
-    	@channel_array = qw(dwi fa);
+	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+#    	@channel_array = qw(dwi fa);
 
-	$vba_contrast_comma_list = 'jac,dwi,fa'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 
 
-#	$flip_x = 1;
-	$flip_x = 0;
+	$flip_x = 1;
+#	$flip_x = 0;
 	$flip_z = 0;
 	
         $optional_suffix='SyN_1_3_1';
@@ -578,11 +607,11 @@ B03248);
 	$mdt_contrast = 'fa';
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 2200; #4 didn't seem to work...
-#	$do_mask = 1;
-	$do_mask = 0;
+	$do_mask = 1;
+#	$do_mask = 0;
     
-#	$pre_masked = 0;
-	$pre_masked = 1;
+	$pre_masked = 0;
+#	$pre_masked = 1;
 	$port_atlas_mask = 0;
 
         # Load McNamara Data

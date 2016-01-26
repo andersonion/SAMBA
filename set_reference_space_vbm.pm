@@ -708,11 +708,18 @@ sub set_reference_space_vbm_Runtime_check {
 	($rigid_name,$rigid_dir,$rigid_ext) = fileparts($rigid_atlas_path);
 #	$new_rigid_path="${preprocess_dir}/${rigid_name}${rigid_ext}";
 	$new_rigid_path="${inputs_dir}/${rigid_name}${rigid_ext}";
+	my $old_rigid_path = "${preprocess_dir}/${rigid_name}${rigid_ext}";
 
 	if ($new_rigid_path =~ s/\.gz$//) {}
 
 	if (! data_double_check($new_rigid_path)) {
 	    `gzip ${new_rigid_path}`;
+	}
+
+	if ($old_rigid_path =~ s/\.gz$//) {}
+
+	if (! data_double_check($old_rigid_path)) {
+	    `gzip ${old_rigid_path}`;
 	}
 
 	$new_rigid_path = $new_rigid_path.'.gz';
