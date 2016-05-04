@@ -40,7 +40,7 @@ dx = voxel_size(1);
 dy = voxel_size(2);
 dz = voxel_size(3);
 
-data_type = 16; % %his is necessary!  Don't trust the default of '32'!
+data_type = 16; % %This is necessary!  Don't trust the default of '32'!
 
 % Hopefully this origin business is unnecessary and should be correctly
 % handled by the CopyHeaderInformation function.

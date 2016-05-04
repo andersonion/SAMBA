@@ -10,7 +10,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $combined_rigid_and_affine $nodes $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $combined_rigid_and_affine $nodes $permissions $dims);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -24,7 +24,8 @@ my (%go_hash);
 my $go = 1;
 my ($job,$job_count);
 my ($mem_request,$mem_request_2,$jobs_in_first_batch);
-my $dims;
+#my $dims;
+if (! defined $dims) {$dims = 3;}
 my $log_msg;
 my $batch_folder;
 
@@ -91,7 +92,7 @@ sub compare_reg_to_mdt_vbm {  # Main code
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
 
 	if ($done_waiting) {
-	    print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
+	    print STDOUT  "  All diffeomorphic \"to-MDT\" registration jobs have completed; moving on to next step.\n";
 	}
     }
     my $case = 2;
@@ -131,10 +132,10 @@ sub compare_reg_to_mdt_Output_check {
 	     $go_hash{$runno}=1;
 	     $expected_number_of_jobs++;
 	     push(@file_array,$file_1,$file_2);
-	     $missing_files_message = $missing_files_message."${runno}\n";
+	     $missing_files_message = $missing_files_message."\t${runno}\n";
 	 } else {
 	     $go_hash{$runno}=0;
-	     $existing_files_message = $existing_files_message."${runno}\n";
+	     $existing_files_message = $existing_files_message."\t${runno}\n";
 	     }
      }
      if (($existing_files_message ne '') && ($case == 1)) {
@@ -229,7 +230,7 @@ sub reg_to_mdt {
 	    $moving_2 =$rigid_path."/${runno}_${mdt_contrast_2}.nii" ;
 	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
 	}
-	$pairwise_cmd = "antsRegistration -d 3 -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
+	$pairwise_cmd = "antsRegistration -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
 	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n";
     } else {
 	$moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
@@ -240,7 +241,7 @@ sub reg_to_mdt {
 	}
 #	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}"; 
 #	my $moving_affine =  $rigid_path."/${runno}_${xform_suffix}";
-	$pairwise_cmd = "antsRegistration -d 3 -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
+	$pairwise_cmd = "antsRegistration -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
 	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n"
     }
 
@@ -346,7 +347,7 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
     $diffeo_smoothing_sigmas = $Hf->get_value('diffeo_smoothing_sigmas');
     $diffeo_sampling_options = $Hf->get_value('diffeo_sampling_options');
 
-    $dims=$Hf->get_value('image_dimensions');
+#    $dims=$Hf->get_value('image_dimensions');
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
     $mdt_contrast_string = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
     @mdt_contrasts = split('_',$mdt_contrast_string); 

@@ -20,7 +20,7 @@ require civm_simple_util;
 
 my ($inputs_dir,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
 my (%reference_space_hash,%reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
-my ($rigid_name,$rigid_dir,$rigid_ext,$new_rigid_path,$native_ref_name);
+my ($rigid_name,$rigid_dir,$rigid_ext,$new_rigid_path,$future_rigid_path,$native_ref_name);
 my ($process_dir_for_labels);
 my ($log_msg);
 my $split_string = ",,,";
@@ -226,12 +226,13 @@ sub prep_atlas_for_referencing_vbm {
     my ($in_path,$out_path);
     my ($dummy1,$dummy2);
     my ($nifti_args,$name,$nifti_command);
-    my ($rigid_atlas_mask_path,$rigid_mask_name,$rigid_mask_ext,$mask_ref,$copy_cmd,$future_rigid_path);
+    my ($rigid_atlas_mask_path,$rigid_mask_name,$rigid_mask_ext,$mask_ref,$copy_cmd);
     
-    $future_rigid_path = "${inputs_dir}/${rigid_name}${rigid_ext}";
-    if ($future_rigid_path !~ /\.gz$/) {
-	$future_rigid_path = $future_rigid_path.'.gz';
-    }
+#    $future_rigid_path = "${inputs_dir}/${rigid_name}${rigid_ext}";
+#    if ($future_rigid_path !~ /\.gz$/) { 
+#	$future_rigid_path = $future_rigid_path.'.gz';
+#    }
+
     $rigid_atlas_mask_path = get_nii_from_inputs($rigid_dir,'',"mask");
     if ($rigid_atlas_mask_path =~ /[\n]+/) {
 	$mask_ref = 'NULL';
@@ -633,11 +634,24 @@ sub set_reference_path_vbm {
 		    $new_file = $new_file.'.gz';
 		}
 		`cp $file $new_file`;
-		if ($file !~ /\.gz$/) {
-		    `gzip ${new_file}`;
-		}
+		# if ($file !~ /\.gz$/) {
+		#     `gzip ${new_file}`;
+		# }
+		if ($new_file =~ /\.gz$/) {
+		     `gunzip ${new_file}`; # Need uncompressed file for Matlab -- this is not an intractable problem, though
+		     if ($new_file = s/\.gz$//) {} # Strip .gz for now
+		 }
+
 		my $skip = 0;
 		recenter_nii_function($new_file,$preprocess_dir,$skip,$Hf);
+
+		if ($new_file !~ /\.gz$/) {
+		    `gzip ${new_file}`;
+		    $new_file = $new_file.'.gz';  # 8 Feb 2016: Updated code to gunzip before matlab processing then gzip afterwards
+		}
+
+
+
 		$ref_path = $new_file;
 		$error_message='';
 	    } else {
@@ -703,32 +717,46 @@ sub set_reference_space_vbm_Runtime_check {
 	write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp")
     }
 
+
+##  2 February 2016: Had "fixed" this code several months ago, however it was sending the re-centered rigid atlas to base_images, and not even 
+##  creating a version for the preprocess folder. The rigid atlas will only be rereferenced if it is found in preprocess, which for new VBA runs
+##  would not be the case.  Thus we would have a recentered atlas with its own reference space being used for rigid registration, resulting in
+##  unknown behavior.  An example would be that all of our images get "shoved" to the top of their bounding box and the top of the brain gets lightly
+##  trimmed off.  Also, we will assume that this file will be in .gz format.  If not, then it will be gzipped.
+
     $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
+
     if (! data_double_check($rigid_atlas_path)) {
 	($rigid_name,$rigid_dir,$rigid_ext) = fileparts($rigid_atlas_path);
-#	$new_rigid_path="${preprocess_dir}/${rigid_name}${rigid_ext}";
-	$new_rigid_path="${inputs_dir}/${rigid_name}${rigid_ext}";
-	my $old_rigid_path = "${preprocess_dir}/${rigid_name}${rigid_ext}";
+	$new_rigid_path="${preprocess_dir}/${rigid_name}${rigid_ext}";
+	$future_rigid_path="${inputs_dir}/${rigid_name}${rigid_ext}";
+#	my $old_rigid_path = "${preprocess_dir}/${rigid_name}${rigid_ext}";
 
-	if ($new_rigid_path =~ s/\.gz$//) {}
+	if ($future_rigid_path =~ s/\.gz$//) {}
 
-	if (! data_double_check($new_rigid_path)) {
-	    `gzip ${new_rigid_path}`;
+	if (! data_double_check($future_rigid_path)) {
+	    `gzip ${future_rigid_path}`;
 	}
 
-	if ($old_rigid_path =~ s/\.gz$//) {}
+	$future_rigid_path = $future_rigid_path.'.gz';
 
-	if (! data_double_check($old_rigid_path)) {
-	    `gzip ${old_rigid_path}`;
-	}
+	if (data_double_check($future_rigid_path)) {
+	    if ($new_rigid_path =~ s/\.gz$//) {}
+	    if (! data_double_check($new_rigid_path)) {
+		`gzip ${new_rigid_path}`;
+	    }
+	    $new_rigid_path = $new_rigid_path.'.gz';
 
-	$new_rigid_path = $new_rigid_path.'.gz';
-	if (data_double_check($new_rigid_path)) {
-	    prep_atlas_for_referencing_vbm();
+	    if (data_double_check($new_rigid_path)) {
+		prep_atlas_for_referencing_vbm();
+	    } else {
+		$Hf->set_value('rigid_atlas_path',$future_rigid_path);
+	    }
 	} else {
-	    $Hf->set_value('rigid_atlas_path',$new_rigid_path);
+	    $Hf->set_value('rigid_atlas_path',$future_rigid_path);
 	}
     }
+
     if ($process_dir_for_labels == 1) {
 	`cp ${refspace_folder_hash{"vbm"}}/*\.nii* ${refspace_folder_hash{"label"}}`;
     }   

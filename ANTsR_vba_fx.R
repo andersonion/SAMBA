@@ -1,9 +1,12 @@
 ANTsR_vba<-function(contrast,maskname,controlinputfolder,treatedinputfolder,resultsfolder,control_name,treated_name,controlimages,treatedimages,cluster_thresh_size){
 library(knitr)
 library(ANTsR)
+library(parallel)
 #setwd(resultsfolder)
 if(!exists("simple_voxel_based_analysis", mode="function")) source("/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/simple_voxel_based_analysis.R")
 if(!exists("simple_roi_analysis", mode="function")) source("/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/simple_roi_analysis.R")
+if(!exists("simple_voxel_based_analysis_2", mode="function")) source("/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/simple_voxel_based_analysis_2.R")
+
 control_images<-unlist(strsplit(controlimages, ","))
 num_control = length(control_images)
 
@@ -23,6 +26,8 @@ for (i in 1:num_treated) {
 
 images <- c(controlFileNames, treatedFileNames)
 
+
+c1 <-detectCores()
 #output <- antsImageRead('MDT_fa.nii')
 #mask<-thresholdImage(output, 0.3, 1.3)
 #getMask(mask) 
@@ -42,8 +47,10 @@ if(direction == 1) {
   prefix <- paste0(treated_name,"_gt_",control_name,"_")
 }
 if (1) {
-simple_voxel_based_analysis(dimensionality = 3, imageFileNames = images, predictors = data.frame(diagnosis),
-                            maskFileName = maskname, outputPrefix = paste0(outputPath, prefix), testType = "student.t")
+  (simple_voxel_based_analysis_2(dimensionality = 3, imageFileNames = images, predictors = data.frame(diagnosis),maskFileName = maskname, outputPrefix = paste0(outputPath, prefix), testType = "student.t"))
+  
+#simple_voxel_based_analysis(dimensionality = 3, imageFileNames = images, predictors = data.frame(diagnosis),
+#                            maskFileName = maskname, outputPrefix = paste0(outputPath, prefix), testType = "student.t")
 }
 message_2 <- paste0("VBA completed for direction: ", direction)
 print(message_2)

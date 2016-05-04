@@ -14,7 +14,7 @@ my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 1;
+my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
@@ -22,6 +22,8 @@ my $bj = 0;
 my $bj_group = 0;
 my $agoston = 0;
 my $apoe = 0;
+my $christmas_rat = 0;
+my $mg_enhanced = 1;
 use strict;
 use warnings;
 
@@ -87,6 +89,7 @@ $label_reference
 
 $vba_contrast_comma_list
 $vba_analysis_software
+$smoothing_radius
 
 $image_dimensions
 ); # Need to replace $native_reference_space with $reference_space
@@ -109,15 +112,16 @@ sub study_variables_vbm {
     if ($obrien) {
 	
 	$project_name = "14.obrien.01";
-	$custom_predictor_string = "Control_vs_Reacher";
+	#$custom_predictor_string = "Control_vs_Reacher";
+	$custom_predictor_string = "Control_vs_Phantom";
 	$diffeo_transform_parameters = "0.5,3,0.5";#1";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
-	$create_labels = 0; #1
+	$create_labels = 1; #1
 	$label_space = "pre_affine";
 
-	$template_name = 'faMDT_Control_n12a';  # This is because analysis was originally performed with a "broken MDT", but could not be di
-	                                        # designated as such...faMDT_Control_n12 is actually broken, even though I modified the headfile to saw otherwise.
+	$template_name = 'faMDT_Control_n12a';  # This is because analysis was originally performed with a "broken MDT", but could not be
+	                                        # designated as such...faMDT_Control_n12 is actually broken, even though I modified the headfile to say otherwise.
 
 	@control_group = qw(
         controlSpring2013_4
@@ -134,152 +138,197 @@ sub study_variables_vbm {
         controlWinter2012_9
         );
 	
-	@group_1 = qw(
-        controlSpring2013_4
-        controlSpring2013_7
-        controlSpring2013_8
-        controlSpring2013_9
-        controlSpring2013_10
-        controlSpring2013_11
-        controlSummer2012_1
-        controlSummer2012_5
-        controlSummer2012_8
-        controlWinter2012_1
-        controlWinter2012_6
-        controlWinter2012_9
-        );
-
-	@compare_group = qw(
-        controlLRSpring2013_4
-        controlLRSpring2013_7
-        controlLRSpring2013_8
-        controlLRSpring2013_9
-        controlLRSpring2013_10
-        controlLRSpring2013_11
-        controlLRSummer2012_1
-        controlLRSummer2012_5
-        controlLRSummer2012_8
-        controlLRWinter2012_1
-        controlLRWinter2012_6
-        controlLRWinter2012_9
-        reacherSpring2013_1
-        reacherSpring2013_2
-        reacherSpring2013_3
-        reacherSpring2013_5
-        reacherSpring2013_6
-        reacherSummer2012_2
-        reacherSummer2012_3
-        reacherSummer2012_5
-        reacherWinter2012_3
-        reacherWinter2012_5
-        reacherWinter2012_7
-        reacherWinter2012_8
-        reacherLRSpring2013_1
-        reacherLRSpring2013_2
-        reacherLRSpring2013_3
-        reacherLRSpring2013_5
-        reacherLRSpring2013_6
-        reacherLRSummer2012_2
-        reacherLRSummer2012_3
-        reacherLRSummer2012_5
-        reacherLRWinter2012_3
-        reacherLRWinter2012_5
-        reacherLRWinter2012_7
-        reacherLRWinter2012_8
-        );
-
-	@group_2 = qw(
-	reacherSpring2013_1
-        reacherSpring2013_2
-        reacherSpring2013_3
-        reacherSpring2013_5
-        reacherSpring2013_6
-        reacherSummer2012_2
-        reacherSummer2012_3
-        reacherSummer2012_5
-        reacherWinter2012_3
-        reacherWinter2012_5
-        reacherWinter2012_7
-        reacherWinter2012_8
-        );
-
-	# @compare_group = qw(
-	#     BCS10
-	#     BCS11
-	#     BCS4
-	#     BCS7
-	#     BCS8
-	#     BCS9
-	#     BCU1
-	#     BCU7
-        #     BCW1
-        #     BCW4
-        #     BCW6
-        #     BCW9      
-	#     BRS1
-	#     BRS2
-	#     BRS3
-	#     BRS5
-	#     BRS6
-	#     BRU2
-	#     BRU3
-        #     BRU5
-        #     BRW3
-        #     BRW5
-        #     BRW7
-        #     BRW8
-	#     ICS10
-	#     ICS11
-	#     ICS4
-	#     ICS7
-	#     ICS8
-	#     ICS9
-	#     ICU1
-	#     ICU7
-        #     ICW1
-        #     ICW4
-        #     ICW6
-        #     ICW9
-	#     IRS1
-	#     IRS2
-	#     IRS3
-	#     IRS5
-	#     IRS6
-	#     IRU2
-	#     IRU3
-        #     IRU5
-        #     IRW3
-        #     IRW5
-        #     IRW7
-        #     IRW8
-	#     TCS10
-	#     TCS11
-	#     TCS4
-	#     TCS7
-	#     TCS8
-	#     TCS9
-	#     TCU1
-	#     TCU7
-	#     TRS1
-	#     TRS2
-	#     TRS3
-	#     TRS5
-	#     TRS6
-	#     TRU2
-	#     TRU3
-        #     TRU5
-        #     TCW1
-        #     TCW4
-        #     TCW6
-        #     TCW9
-        #     TRW3
-        #     TRW5
-        #     TRW7
-        #     TRW8
+	# @group_1 = qw(
+        # controlSpring2013_4
+        # controlSpring2013_7
+        # controlSpring2013_8
+        # controlSpring2013_9
+        # controlSpring2013_10
+        # controlSpring2013_11
+        # controlSummer2012_1
+        # controlSummer2012_5
+        # controlSummer2012_8
+        # controlWinter2012_1
+        # controlWinter2012_6
+        # controlWinter2012_9
         # );
 
-	@channel_array = qw(dwi fa adc); 
-#	@channel_array = qw(dwi fa);
+	# @compare_group = qw(
+        # phantomSpring2013_4
+        # phantomSpring2013_7
+        # phantomSpring2013_8
+        # phantomSpring2013_9
+        # phantomSpring2013_10
+        # phantomSpring2013_11
+        # phantomSummer2012_1
+        # phantomSummer2012_5
+        # phantomSummer2012_8
+        # phantomWinter2012_1
+        # phantomWinter2012_6
+        # phantomWinter2012_9
+        # );
+	
+	# @group_2 = qw(
+        # phantomSpring2013_4
+        # phantomSpring2013_7
+        # phantomSpring2013_8
+        # phantomSpring2013_9
+        # phantomSpring2013_10
+        # phantomSpring2013_11
+        # phantomSummer2012_1
+        # phantomSummer2012_5
+        # phantomSummer2012_8
+        # phantomWinter2012_1
+        # phantomWinter2012_6
+        # phantomWinter2012_9
+        # );
+
+	# @compare_group = qw(
+        # controlLRSpring2013_4
+        # controlLRSpring2013_7
+        # controlLRSpring2013_8
+        # controlLRSpring2013_9
+        # controlLRSpring2013_10
+        # controlLRSpring2013_11
+        # controlLRSummer2012_1
+        # controlLRSummer2012_5
+        # controlLRSummer2012_8
+        # controlLRWinter2012_1
+        # controlLRWinter2012_6
+        # controlLRWinter2012_9
+        # reacherSpring2013_1
+        # reacherSpring2013_2
+        # reacherSpring2013_3
+        # reacherSpring2013_5
+        # reacherSpring2013_6
+        # reacherSummer2012_2
+        # reacherSummer2012_3
+        # reacherSummer2012_5
+        # reacherWinter2012_3
+        # reacherWinter2012_5
+        # reacherWinter2012_7
+        # reacherWinter2012_8
+        # reacherLRSpring2013_1
+        # reacherLRSpring2013_2
+        # reacherLRSpring2013_3
+        # reacherLRSpring2013_5
+        # reacherLRSpring2013_6
+        # reacherLRSummer2012_2
+        # reacherLRSummer2012_3
+        # reacherLRSummer2012_5
+        # reacherLRWinter2012_3
+        # reacherLRWinter2012_5
+        # reacherLRWinter2012_7
+        # reacherLRWinter2012_8
+        # );
+
+	# @compare_group = qw(
+	# reacherSpring2013_1
+        # reacherSpring2013_2
+        # reacherSpring2013_3
+        # reacherSpring2013_5
+        # reacherSpring2013_6
+        # reacherSummer2012_2
+        # reacherSummer2012_3
+        # reacherSummer2012_5
+        # reacherWinter2012_3
+        # reacherWinter2012_5
+        # reacherWinter2012_7
+        # reacherWinter2012_8
+        # );
+
+	# @group_2 = qw(
+	# reacherSpring2013_1
+        # reacherSpring2013_2
+        # reacherSpring2013_3
+        # reacherSpring2013_5
+        # reacherSpring2013_6
+        # reacherSummer2012_2
+        # reacherSummer2012_3
+        # reacherSummer2012_5
+        # reacherWinter2012_3
+        # reacherWinter2012_5
+        # reacherWinter2012_7
+        # reacherWinter2012_8
+        # );
+
+	@compare_group = qw(
+	    BCS10
+	    BCS11
+	    BCS4
+	    BCS7
+	    BCS8
+	    BCS9
+	    BCU1
+	    BCU7
+            BCW1
+            BCW4
+            BCW6
+            BCW9      
+	    BRS1
+	    BRS2
+	    BRS3
+	    BRS5
+	    BRS6
+	    BRU2
+	    BRU3
+            BRU5
+            BRW3
+            BRW5
+            BRW7
+            BRW8
+	    ICS10
+	    ICS11
+	    ICS4
+	    ICS7
+	    ICS8
+	    ICS9
+	    ICU1
+	    ICU7
+            ICW1
+            ICW4
+            ICW6
+            ICW9
+	    IRS1
+	    IRS2
+	    IRS3
+	    IRS5
+	    IRS6
+	    IRU2
+	    IRU3
+            IRU5
+            IRW3
+            IRW5
+            IRW7
+            IRW8
+	    TCS10
+	    TCS11
+	    TCS4
+	    TCS7
+	    TCS8
+	    TCS9
+	    TCU1
+	    TCU7
+	    TRS1
+	    TRS2
+	    TRS3
+	    TRS5
+	    TRS6
+	    TRU2
+	    TRU3
+            TRU5
+            TCW1
+            TCW4
+            TCW6
+            TCW9
+            TRW3
+            TRW5
+            TRW7
+            TRW8
+        );
+
+#	@channel_array = qw(dwi fa adc); 
+	@channel_array = qw(dwi fa);
 
 
 	$flip_x = 0;
@@ -287,7 +336,7 @@ sub study_variables_vbm {
 
 	$optional_suffix = '';
 	$atlas_name = 'DTI101b';
-	$label_atlas_name = 'chass_symmetric';#'dti148lr';
+	$label_atlas_name = 'chass_symmetric2';#'dti148lr';
 	$rigid_contrast = 'dwi';
 	$mdt_contrast = 'fa'; #WAS fa
 	$skull_strip_contrast = 'dwi';
@@ -295,8 +344,8 @@ sub study_variables_vbm {
 	$do_mask = 0;
 	$pre_masked = 1;
 
-	$vba_analysis_software = 'spm,surfstat';
-#	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+	$vba_analysis_software = 'surfstat,antsr,spm';
+	$vba_contrast_comma_list = 'jac_to_MDT'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 	$thresh_ref = {};
 
     } elsif ($obrien_invivo) {
@@ -415,9 +464,9 @@ sub study_variables_vbm {
     {
 	$project_name = "13.colton.01";
 	$custom_predictor_string = "nos2_vs_cvn";
-	$optional_suffix = 'aTest6';
-	$diffeo_transform_parameters = "0.5,3,1";
-	$combined_rigid_and_affine = 1; # We want to eventually have this set to zero and remove this variable from the code.
+	$optional_suffix = '2016analysis'; #'aTest6'
+	$diffeo_transform_parameters = "0.5,3,0.5";  #"0.5,3,1"
+ 	$combined_rigid_and_affine = 0; #1 # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1;
 	$label_space = "pre_affine";
@@ -429,20 +478,21 @@ sub study_variables_vbm {
 	    $affine_target = 'N51211';
 	    $label_reference = "";
 	} else {
-	    @control_group = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406); #N51193-exclude N51404,N51383,N51386-manually z-roll and recalc tensors
-	    @compare_group = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388);
+	    @control_group = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406 N51193);#N51193-exclude N51404,N51383,N51386-manually z-roll and recalc tensors
+	    @compare_group = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388 N51124 N51130 
+              N51131 N51164 N51182 N51151 N51622 N51620 N51617);
 	    @channel_array = qw(adc dwi e1 e2 e3 fa);
 	    $affine_target = 'N51383';
 	}	
 
-#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
     
 	$flip_x = 1;
 	$flip_z = 0;
 	
 	
-	$atlas_name = 'DTI';
-	$label_atlas_name = 'DTI101b';
+	$atlas_name = 'DTI101b';
+	$label_atlas_name = 'chass_symmetric';#'DTI101b';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
 	$mdt_contrast = 'fa';
@@ -452,10 +502,12 @@ sub study_variables_vbm {
 	$port_atlas_mask = 1;
 	$pre_masked = 0;
     
+	$vba_analysis_software = 'antsr';
+
 #custom thresholds for Colton study
 	$thresh_ref = {
-	    'N51124'   => 2296,
-	    'N51130'   => 2644,
+	    'N51124'   => 5,#2296,
+	    'N51130'   => 4,#2644,
 	    'N51393'   => 2034,
 	    'N51392'   => 2372,
 	    'N51390'   => 2631,
@@ -556,47 +608,51 @@ B03248);
 
 	$project_name = "13.mcnamara.02";
 	$create_labels = 0; # Only turned off for reprocessing of jac VBM
-#	$custom_predictor_string = "Control_vs_Phantoms";
-	$template_name = 'faMDT_Control_n10';
-	$custom_predictor_string = "Control_vs_KA";
+	$custom_predictor_string = "Control_vs_Phantoms";
+	$template_name = 'faMDT_Control_n10d';
+#	$custom_predictor_string = "Control_vs_KA";
 ##	$diffeo_transform_parameters = "0.5,3,0.5"; Not used for paper
 
 ## Note: NJC ~= "New Jack City", rather, "New Jacobian analysis Completed"
 
-#	$diffeo_transform_parameters = "1,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom completed #NJC-3a
-#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom competed # NJC-3a
-#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15 -- Have LR labelset# NJC # Phantom completed  #  NJC-3a
+	$diffeo_transform_parameters = "1,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom completed #NJC-3a # ANTsR 1,d
+#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom competed # NJC-3a # ANTsR 1,d
+#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15 -- Have LR labelset# NJC # Phantom completed  #  NJC-3a # ANTsR 1,d
 
-#	$diffeo_transform_parameters = "1,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed # Broken MDT running # NJC-3a
-	$diffeo_transform_parameters = "5,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed # NJC-3a
-#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED 16 Sept 15 ~ 12 am -- Have LR labelset #NJC # Phantom completed # NJC-3a
+#	$diffeo_transform_parameters = "1,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed # Broken MDT running # NJC-3a #ANTsR 1,d
+#	$diffeo_transform_parameters = "5,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed # NJC-3a #ANTsR -- test# ANTsR 1,d
+#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED 16 Sept 15 ~ 12 am -- Have LR labelset #NJC # Phantom completed # NJC-3a # ANTsR 1,d
 
-#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED 19 Sept 15 ~ 12:30 pm , didn't start next one until 9 pm -- Have LR labelset #NJC # Phantom completed #NJC-3a
-#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED 20 Sept 15 ~ 8:45 pm -- Have LR labelset #NJC # Phantom completed # Broken MDT completed #NJC-3a
-#	$diffeo_transform_parameters = "0.5,1,0"; # NJC # Phantom completed #NJC-3a
+#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED 19 Sept 15 ~ 12:30 pm , didn't start next one until 9 pm -- Have LR labelset #NJC # Phantom completed #NJC-3a #ANTsR 1,d
+#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED 20 Sept 15 ~ 8:45 pm -- Have LR labelset #NJC # Phantom completed # Broken MDT completed #NJC-3a # ANTsR 1,d
+#	$diffeo_transform_parameters = "0.5,1,0"; # NJC # Phantom completed #NJC-3a # ANTsR 1,d
 
 
 	$vbm_reference_space = "DTI101b";
 	$combined_rigid_and_affine = 0; # Was 1 for January runs.  We want to eventually have this set to zero and remove this variable from the code.
 	$label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
 
-	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
-
 #	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-#	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
+#	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+
+	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
+	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
 #	@compare_group = qw(S64781);
 #	@compare_group = qw(S64745 S64763 S64766 S64769 S64772 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 	
 
-	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
-#    	@channel_array = qw(dwi fa);
+#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+    	@channel_array = qw(dwi fa);
 
-	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+	$vba_contrast_comma_list = 'fa'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+#	$vba_analysis_software = 'antsr';
+#	$vba_analysis_software = 'spm';
+#	$vba_analysis_software = 'surfstat,antsr,spm';
+	$vba_analysis_software = 'surfstat';
 
 
-	$flip_x = 1;
-#	$flip_x = 0;
+#	$flip_x = 1;
+	$flip_x = 0;
 	$flip_z = 0;
 	
         $optional_suffix='SyN_1_3_1';
@@ -607,11 +663,11 @@ B03248);
 	$mdt_contrast = 'fa';
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 2200; #4 didn't seem to work...
-	$do_mask = 1;
-#	$do_mask = 0;
+#	$do_mask = 1;
+	$do_mask = 0;
     
-	$pre_masked = 0;
-#	$pre_masked = 1;
+#	$pre_masked = 0;
+	$pre_masked = 1;
 	$port_atlas_mask = 0;
 
         # Load McNamara Data
@@ -757,6 +813,7 @@ S66013);
 S65613
 S65713
 S66113
+S66413
 N51813
 N51814
 N52013
@@ -767,7 +824,7 @@ N52614
 N52813
 N52814
 );
-#	Excluded: N51913/N51914 ("presig: high" issue), N52114 (lost tuning during b0 scan)
+#	Excluded: N51913/N51914 ("presig: high" issue), N52114 (lost tuning during b0 scan), N52913/N52914 (bad B0 image/loss of tuning?)
 
 	} elsif ($specimen == 2) {
 	@control_group = qw(
@@ -786,10 +843,13 @@ S65924
 S66024
 S66123
 S66124
+S66423
+S66424
 N51823
 N52023
 N52123
 N52623
+N52923
 );
 #	Excluded: N51923 ("presig: high"  issue), N52823 (large 180 artifact)
 
@@ -802,6 +862,7 @@ S66033);
 S65633
 S65733
 S66133
+S66433
 N51833
 N51834
 N51933
@@ -814,6 +875,8 @@ N52633
 N52634
 N52833
 N52834
+N52933
+N52934
 );
 #	Excluded: None
 
@@ -832,12 +895,15 @@ S65944
 S66044
 S66143
 S66144
+S66443
+S66444
 N51843
 N51943
 N52043
 N52143
 N52643
 N52843
+N52943
 );
 #	Excluded: None
 
@@ -850,6 +916,7 @@ S66053);
 S65653
 S65753
 S66153
+S66453
 N51853
 N51854
 N51953
@@ -861,6 +928,8 @@ N52154
 N52653
 N52853
 N52854
+N52953
+N52954
 );
 #	Excluded: N52654 (lost tuning around b5)
 	} elsif ($specimen == 6) {
@@ -878,6 +947,8 @@ S65964
 S66064
 S66163
 S66164
+S66463
+S66464
 N51863
 N51963
 N52063
@@ -885,7 +956,7 @@ N52163
 N52663
 N52863
 );
-#	Excluded: None
+#	Excluded: N52963
 	}
 
 #	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
@@ -947,7 +1018,7 @@ dummy
 	$pre_masked = 1;
  }
 
-elsif ($agoston)
+    elsif ($agoston)
     
     {
 	$project_name = "14.agoston.01";
@@ -958,7 +1029,7 @@ elsif ($agoston)
 	$vbm_reference_space = "native";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 1;
-
+	
 	@control_group = qw(S65456 S65459 S65466 S65521 S65530 S65533 S65537 S65541);
 	#@compare_group = qw(S65453 S65461 S65464 S65467 S65524 S65528 S65535 S65539 S65544);
 	@compare_group = qw(S66782 S66784 S66787 S66789 S66791 S66831 S66833 S66835 S66837  S66853 S66855 S66857 S66859 S66861 S66863 S66865 S66867 S66869);
@@ -1005,8 +1076,8 @@ elsif ($agoston)
 	$do_mask = 0;
 	$port_atlas_mask = 0;    
 	$pre_masked = 1;	
- } elsif ($apoe)
-    
+    } elsif ($apoe)
+	
     {
 	$project_name = "10.sullivan.01";
 	$custom_predictor_string = "control_vs_ApoE";
@@ -1035,12 +1106,124 @@ elsif ($agoston)
 	$threshold_code = 4;
 	$do_mask = 0;    
 	$pre_masked = 1;	
- }
-    
+    } elsif ($christmas_rat)
+     
+    {
+	$project_name = "15.gaj.36";
 
+	$vbm_reference_space = "native";
+	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+	$create_labels = 1;
+	$template_predictor = 'UNDEFINED';
+
+
+	@control_group = qw(S66971);
+	@compare_group = qw();#D66971); ## "You can learn a lot from a dummy..."
+
+	@channel_array = qw(dwi fa colorR colorG colorB adc e1 e2 e3);
     
+	$flip_x = 1;
+	$flip_z = 0;
+	
+	$optional_suffix = 'v2';
+	$atlas_name = 'rat2';#
+	$label_atlas_name = 'rat2';#
+	
+	$rigid_contrast = 'dwi';
+	## $affine_contrast = 'dwi';
+	$affine_metric = 'MI';
+	#$affine_radius=32;
+	$affine_sampling_options = 'Regular,0.75';
+	$affine_gradient_step = 0.05;
+	$affine_iterations = '500x500x500x500';
+	$affine_convergence_thresh = '1e-6'; #1e-6
+        $affine_convergence_window = 15;
+	$affine_smoothing_sigmas= '0x0x0x0vox';
+	$affine_shrink_factors = '6x4x2x1';
+	##$affine_target;
+
+	$mdt_contrast = 'fa';
+	$diffeo_metric = 'CC';
+	$diffeo_radius = 4;
+	$diffeo_shrink_factors = '8x4x2x1'; # Commented out to test default behavior.
+	$diffeo_iterations = '1000x1000x1000x1000';
+
+	$diffeo_transform_parameters = '0.4,3,1';
+	#$diffeo_transform_parameters = '0.6,3,2';
+	#$diffeo_transform_parameters = '0.8,3,3';
+	#$diffeo_transform_parameters = '1,3,1';
+
+	$diffeo_convergence_thresh = '1e-7';
+	$diffeo_convergence_window = 15;
+	$diffeo_smoothing_sigmas = '4x2x1x0vox';
+	$diffeo_sampling_options = 'Random,1';
+
+
+	$skull_strip_contrast = 'dwi';
+	$threshold_code = 4;
+	$do_mask = 1;
+	$port_atlas_mask = 1;    
+	$pre_masked = 0;	
+    }    elsif ($mg_enhanced)
+    
+    {
+	$project_name = "15.abb.07";
+	
+	$custom_predictor_string = "Control_vs_AD";
+
+
+	$vbm_reference_space = "native";
+	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+	$create_labels = 1;
+	
+	@control_group = qw(B04120 B04123 B04126 B04129 B04132 B04093 B04096 B04026 B04029 B04032 B04035 B04038 B04050);
+	@compare_group = qw(B04114 B04117 B04076 B04079 B04081 B04084 B04087 B04090 B04020 B04023 B04040 B04044 B04047);
+
+	@group_1 = qw(B04120 B04123 B04126 B04129 B04132 B04093 B04096 B04026 B04029 B04032 B04035 B04038 B04050);
+	@group_2 = qw(B04114 B04076 B04081 B04084 B04087 B04090 B04020 B04023 B04040 B04044 B04047); #B04117  B04079
+
+	@channel_array = qw(T2);
+    
+	$flip_x = 1;
+	$flip_z = 0;
+	
+	$optional_suffix = '';
+	$atlas_name = 'chass_symmetric';#
+	$label_atlas_name = 'chass_symmetric';#
+	
+	$rigid_contrast = 'T2';
+	## $affine_contrast = 'dwi';
+        $affine_metric = 'MI';
+	#$affine_radius=32;
+	#$affine_sampling_options = 'Regular,0.75';
+	#$affine_gradient_step = 0.05;
+	$affine_iterations = '3000x3000x3000x0';
+	#$affine_convergence_thresh = '1e-6';
+        #$affine_convergence_window = 15;
+	$affine_smoothing_sigmas= '0x0x0x0vox';
+	$affine_shrink_factors = '6x4x2x1';
+	##$affine_target;
+
+	$mdt_contrast = 'T2';
+	#$diffeo_metric = 'CC';
+	#$diffeo_radius = 4;
+	#$diffeo_shrink_factors = '8x4x2x1'; # Commented out to test default behavior.
+	#$diffeo_iterations = '500x500x500x500';
+	#$diffeo_transform_parameters = '0.4,3,1';
+	#$diffeo_convergence_thresh = '1e-7';
+	#$diffeo_convergence_window = 15;
+	#$diffeo_smoothing_sigmas = '4x2x1x0vox';
+	#$diffeo_sampling_options = 'Random,1';
+
+	$smoothing_radius = 1.5;
+
+	$skull_strip_contrast = 'T2';
+	$threshold_code = 4;
+	$do_mask = 0; #1
+	$port_atlas_mask = 0; #1    
+	$pre_masked = 1; #0	
+    }
 }
-
 sub  load_study_data_vbm {
 
 	my $bd = '/glusterspace'; #bd for Biggus-Diskus

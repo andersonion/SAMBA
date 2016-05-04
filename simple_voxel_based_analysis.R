@@ -2,7 +2,9 @@ simple_voxel_based_analysis <- function(dimensionality = 3, imageFileNames = c()
   "student.t", "wilcox"), maskFileName = "", outputPrefix = "./ANTsR") {
   
   ## Check input variables
-  
+  #library(parallel)
+  #c1 <-detectCores()
+
   if (missing(testType)) {
     stop("'testType' missing")
   }
@@ -26,7 +28,8 @@ simple_voxel_based_analysis <- function(dimensionality = 3, imageFileNames = c()
       predictors <- as.data.frame(predictors)
     }
     colnames(predictors) <- c("diagnosis")
-    formula <- as.formula(response ~ 1 + diagnosis)
+ #   formula <- as.formula(response ~ 1 + diagnosis)
+ formula <- as.formula(response ~ diagnosis) # testing to see if this fixes unwanted sign flippage
   }
   predictorNames <- colnames(predictors)
   
@@ -90,6 +93,7 @@ simple_voxel_based_analysis <- function(dimensionality = 3, imageFileNames = c()
     
     if (testType == "student.t") {
       testResults <- try(t.test(formula = formula, data = testData))
+
       if (inherits(testResults, "try-error")) {
         tValues[i] <- NA
         pValues[i] <- NA

@@ -140,6 +140,7 @@ $label_reference
 
 $vba_contrast_comma_list
 $vba_analysis_software
+$smoothing_radius
 
 $image_dimensions
  );
@@ -316,6 +317,9 @@ if (defined $diffeo_sampling_options) {
     $Hf->set_value('diffeo_sampling_options',$diffeo_sampling_options);
 }
 
+if (defined $smoothing_radius) {
+    $Hf->set_value('preVBM_smoothing_radius',$smoothing_radius);
+}
 
 $Hf->set_value('rigid_atlas_name',$atlas_name);
 $Hf->set_value('rigid_contrast',$rigid_contrast);
@@ -453,7 +457,6 @@ if (defined $vba_analysis_software) {
      mask_for_mdt_vbm
      compare_reg_to_mdt_vbm
      mdt_reg_to_atlas_vbm
-     vbm_with_surfstat_vbm
      warp_atlas_labels_vbm
      calculate_jacobians_vbm
      vbm_analysis_vbm
@@ -514,7 +517,7 @@ if (defined $vba_analysis_software) {
 	$Hf->set_value('channel_comma_list',$channel_comma_list);
     }
     sleep($interval);
-
+    ###die; #####
     mask_images_vbm(); #$PM_code = 14
     sleep($interval);
 
@@ -562,6 +565,7 @@ if (defined $vba_analysis_software) {
     mask_for_mdt_vbm(); #$PM_code = 45
     sleep($interval);
  
+
     calculate_jacobians_vbm('i','control'); #$PM_code = 47 (or 46)
     sleep($interval);
 
@@ -638,7 +642,9 @@ if (defined $vba_analysis_software) {
 	#sleep($interval);
     }   
 
+  
     my $new_contrast = calculate_jacobians_vbm('i','compare'); #$PM_code = 53
+    
     push(@channel_array,$new_contrast);
     $channel_comma_list = $channel_comma_list.','.$new_contrast;
     $Hf->set_value('channel_comma_list',$channel_comma_list);

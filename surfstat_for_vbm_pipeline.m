@@ -52,8 +52,18 @@ dof=length(filenames)-2;
 %set up layout and read single slices
 %1 = group_1, 0 = group_2,
 naughts=4-rem(length(filenames),4);%find how many zeros we need to add to layout
-control_var=cat(2,ones(1,length(group_1_files)),zeros(1,length(group_2_files)));
-layout = reshape( [find(control_var) zeros(1,naughts+4) find(1-control_var)], [], 4);%make a layout for viewing
+%control_var=cat(2,ones(1,length(group_1_files)),zeros(1,length(group_2_files)));
+%%% 4 March 2016: YUGE bug fixed, changing line above to line below. What
+%%% was needed here was group numbers (i.e. "1" and "2"), not a binary
+%%% vector indicating which images are controls (i.e. "1"=control,
+%%% "2"=treated). Below, the line "Group = term..." needs the values
+%%% assigned here to be ASCENDING, otherwise a clusterflub of a reassigment
+%%% of images to control or treated will occur (or even worse, partial reassignment in
+%%% the case of unequal number of subjects). Also fixed the "layout = ..."
+%%% line to match.
+control_var=cat(2,ones(1,length(group_1_files)),2*ones(1,length(group_2_files)));
+%layout = reshape( [find(control_var) zeros(1,naughts+4) find(1-control_var)], [], 4);%make a layout for viewing
+layout = reshape( [find(2-control_var) zeros(1,naughts+4) find(control_var-1)], [], 4);%make a layout for viewing
 
 
 [wmav volwmav]=SurfStatAvVol({average_mask; average_mask});% read average mask

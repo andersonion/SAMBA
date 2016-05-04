@@ -116,10 +116,13 @@ sub convert_all_to_nifti_Output_check {
 	my $sub_missing_files_message='';
 	foreach my $ch (@channel_array) {
 	    $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
+	   # print "File_1 = ${file_1}\n\n";
+	    my $unfounded =0;
 	    if ($file_1 =~ /[\n]+/) {
 		$file_1 = "${current_path}/${runno}_${ch}.nii";
+		$unfounded = 1;
 	    }
-	    if ((data_double_check($file_1) ) || ((! $pre_masked) &&  ($file_1 !~ /.*masked\.nii/))) { # 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).
+	    if ((data_double_check($file_1) && data_double_check($file_1.'.gz')) || ((! $pre_masked) && $unfounded &&  ($file_1 !~ /.*masked\.nii/))) { # 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).
 	   # if ((data_double_check($file_1) ) || ((! $do_mask) &&  (($file_1 =~ /.*masked\.nii/) || ($file_1 =~ /.*masked\.nii\.gz/)))) { # 6 January 2016: updated to look for .nii.gz as well.
 		$go_hash{$runno}{$ch}=1;
 		push(@file_array,$file_1);

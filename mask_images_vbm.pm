@@ -17,7 +17,7 @@ use strict;
 use warnings;
 #no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $dims);
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
@@ -30,6 +30,9 @@ my (%go_hash,%make_hash,%mask_hash);
 my $go=1;
 my ($port_atlas_mask_path,$port_atlas_mask);
 my ($job);
+
+if (! defined $dims) {$dims = 3;}
+
 # ------------------
 sub mask_images_vbm {
 # ------------------
@@ -70,7 +73,7 @@ sub mask_images_vbm {
 	foreach my $runno (@array_of_runnos) {
 	    my $go = $make_hash{$runno};
 	    if ($go){		
-		my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
+		my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii.gz';
 		if (data_double_check($ported_mask)) {
 		    ($job) = port_atlas_mask_vbm($runno,$atlas_mask,$ported_mask);
 		    if ($job > 1) {
@@ -161,8 +164,14 @@ sub mask_images_Output_check {
 	my $sub_existing_files_message='';
 	my $sub_missing_files_message='';
 	
+
 	foreach my $ch (@channel_array) {
 	    $file_1 = "${current_path}/${runno}_${ch}_masked.nii";
+	    
+	    if (data_double_check($file_1)) {
+		$file_1 = $file_1.'.gz'; # 8 Feb 2016: added .gz    
+	    }
+	    
 	    if (data_double_check($file_1) ) {
 		$go_hash{$runno}{$ch}=1*$do_mask;
 		push(@file_array,$file_1);
@@ -204,9 +213,9 @@ sub port_atlas_mask_vbm {
     my ($runno,$atlas_mask,$port_mask) = @_;
 
     my $input_mask = $mask_hash{$runno};
-    my $new_mask = $mask_dir.'/'.$runno.'_atlas_mask.nii';
+    my $new_mask = $mask_dir.'/'.$runno.'_atlas_mask.nii.gz'; # 2 Feb 2016: added '.gz'
     
-    my $current_norm_mask = "${mask_dir}/${runno}_norm_mask.nii";
+    my $current_norm_mask = "${mask_dir}/${runno}_norm_mask.nii.gz";# 2 Feb 2016: added '.gz'
     my $out_prefix = $mask_dir.'/'.$runno."_mask_";
    # my $port_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
     my $temp_out_file = $out_prefix."0GenericAffine.mat";
@@ -274,9 +283,10 @@ sub mask_one_image {
 #    } else {
 	$runno_mask = $mask_hash{$runno};
 #    }
-    my $out_path = "${current_path}/${runno}_${ch}_masked.nii";
+    my $out_path = "${current_path}/${runno}_${ch}_masked.nii.gz"; # 12 Feb 2016: Added .gz
     my $centered_path = get_nii_from_inputs($current_path,$runno,$ch);
-    my $apply_cmd =  "ImageMath 3 ${out_path} m ${centered_path} ${runno_mask};\n";
+    my $apply_cmd = "fslmaths ${centered_path} -mas ${runno_mask} ${out_path} -odt \"input\";"; # 7 March 2016, Switched from ants ImageMath command to fslmaths, as fslmaths should be able to automatically handle color_fa images. (dim =4 instead of 3).
+   # my $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};\n";
     my $remove_cmd = "rm ${centered_path};\n";
     my $go_message = "$PM: Applying mask created by ${template_contrast} image of runno $runno" ;
     my $stop_message = "$PM: could not apply ${template_contrast} mask to ${centered_path}:\n${apply_cmd}\n" ;

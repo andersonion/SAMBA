@@ -21,6 +21,7 @@ require pipeline_utilities;
 my $use_Hf;
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$flip_x,$flip_z,$do_mask);
 my ($smoothing_comma_list,$software_list,$channel_comma_list,$template_path,$template_name,$average_mask);
+my $min_cluster_size;
 my (@array_of_runnos,@channel_array,@smoothing_params,@software_array);
 my ($predictor_id);
 my (@group_1_runnos,@group_2_runnos);
@@ -92,6 +93,8 @@ sub vbm_analysis_vbm {
 		    `gzip ${software_results_path}/${contrast}/*.nii`;
 		} elsif ($software eq 'spm') {
 		    spm_analysis_vbm($contrast,$smooth_inputs,$software_work_path);
+		} elsif ($software eq 'antsr') {
+		    antsr_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
 		} else {
 		    print "I'm sorry, but VBM software \"$software\" is currently not supported :( \n";
 		}
@@ -159,6 +162,80 @@ sub vbm_analysis_vbm {
 #     my $file_array_ref = \@file_array;
 #     return($file_array_ref,$error_msg);
 # }
+
+
+# ------------------
+sub antsr_analysis_vbm {
+# ------------------
+    my ($contrast,$input_path,$results_master_path) = @_;
+    my $contrast_path = "${results_master_path}/${contrast}/";
+    if (! -e $contrast_path) {
+	mkdir ($contrast_path,$permissions);
+    }
+
+    my $antsr_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\',\'${min_cluster_size}\'";
+
+    my $Id = "ANTsR_VBA_for_${contrast}";
+    my $in_source = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/ANTsR_vba_fx.R";
+    my $function = "ANTsR_vba";
+    my ($stub_path,$R_function,$R_args,$source) = make_R_stub($function,$antsr_args,$Id,$contrast_path,$in_source);
+    my $copy_of_function_command='';
+
+    open(my $fh, '<:encoding(UTF-8)', $source)
+	or die "Could not open file '$source' $!";
+		
+    while (my $row = <$fh>) {
+#	chomp $row;
+	#print "$row\n";
+	$copy_of_function_command = $copy_of_function_command."\## ".$row;
+    }
+    close($fh);
+
+    # if (open SESAME, ">$source") {
+    #   foreach my $line (@msg) {
+    #     print SESAME $line;
+    #   }
+    #   close SESAME;
+    #   print STDERR "  Wrote or re-wrote $filepath.\n";
+    # }
+    # else {
+    #   print STDERR  "ERROR: Cannot open file $filepath, can\'t writeTextFile\n";
+    #   return 0;
+    # }
+
+    my @test = (0);
+    my $go_message = "I guess we're testing out ANTsR vbm analysis here...\n";
+    my $mem_request = 120000;
+    my $antsr_command = "Rscript ${stub_path} --save\n"; 
+    print "ANTsR command = ${antsr_command}\n";
+     my $jid = 0;
+     if (cluster_check) {
+
+    
+     	my $cmd = $antsr_command.$copy_of_function_command;
+	my $go = 1;
+     	my $home_path = $contrast_path;
+    	my $batch_folder = $home_path.'/sbatch/';
+#    	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
+    	my $verbose = 2; # Will print log only for work done.
+    	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+    	if (! $jid) {
+    	    error_out();
+    	}
+    } # else {
+    # 	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
+    # 	if (! execute($go, $go_message, @cmds) ) {
+    # 	    error_out($stop_message);
+    # 	}
+    # }
+
+    # if (((!-e $new_warp) | (!-e $new_inverse)) && ($jid == 0)) {
+    # 	error_out($stop_message);
+    # }
+    # print "** $PM created ${new_warp} and ${new_inverse}\n";
+  
+     return($jid);
+}
 
 # ------------------
 sub spm_analysis_vbm {
@@ -233,6 +310,7 @@ sub vbm_analysis_vbm_Init_check {
 
    $software_list = '';
    my @temp_software_array;
+   my $cluster_stats=0;
 
    foreach my $software (@software_array) {
        if ($software =~ /^${supported_vbm_software}$/i) {
@@ -242,6 +320,7 @@ sub vbm_analysis_vbm_Init_check {
 	       $software = 'spm';
 	   } elsif ($software =~ /^antsr$/i) {
 	       $software = 'antsr';
+	       $cluster_stats = 1;
 	   }
 	   push(@temp_software_array,$software);
 
@@ -252,9 +331,18 @@ sub vbm_analysis_vbm_Init_check {
        }
        
    }
+#   print "cluster_stats = ${cluster_stats}\n";
+ 
    $software_list = join(',',@temp_software_array);
    $Hf->set_value('vba_analysis_software',$software_list);
 
+   $min_cluster_size = get_value('minimum_vba_cluster_size');
+    if (($min_cluster_size eq 'NO_KEY') && ($cluster_stats)) {
+	$min_cluster_size = 200; 
+	$Hf->set_value('minimum_vba_cluster_size',$min_cluster_size);
+	$log_msg = $log_msg."\tMinimum cluster size for ANTsR VBA cluster analysis not specified; using default of 200.\n";
+    }
+   print "min_cluster_size = ${min_cluster_size}\n";
    if ($log_msg ne '') {
        log_info("${message_prefix}${log_msg}");
    }
@@ -320,7 +408,7 @@ sub vbm_analysis_vbm_Runtime_check {
 	@smoothing_params = split(',',$smoothing_comma_list);
 
 	$template_name = $Hf->get_value('template_name');
-
+	$min_cluster_size = $Hf->get_value('minimum_vba_cluster_size');
     }
 
     my $template_images_path = $Hf->get_value('mdt_images_path');

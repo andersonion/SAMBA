@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $permissions  $intermediate_affine);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $permissions  $intermediate_affine $dims);
 require Headfile;
 require pipeline_utilities;
 
@@ -31,7 +31,7 @@ my $go = 1;
 my $job;
 
 my ($current_contrast,$group,$gid,$affine_target);
-
+if (! defined $dims) {$dims = 3;}
 
 # ------------------
 sub apply_mdt_warps_vbm {  # Main code
@@ -252,7 +252,7 @@ sub apply_mdt_warp {
 	$reference_image=$reference_image.'.gz';
     }
 
-    $cmd = "antsApplyTransforms --float -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";  
+    $cmd = "antsApplyTransforms --float -d ${dims} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";  
  
 
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
@@ -345,6 +345,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 
 	if ($runlist eq 'NO_KEY') {
 	    $runlist = $Hf->get_value('control_comma_list');
+	    $Hf->set_value('template_comma_list',$runlist); # 1 Feb 2016, just added these. If bug, then check here.
 	}
 	
     } elsif ($gid == 0) {
@@ -360,6 +361,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 
 	if ($runlist eq 'NO_KEY') {
 	    $runlist = $Hf->get_value('compare_comma_list');
+	    $Hf->set_value('nontemplate_comma_list',$runlist);  # 1 Feb 2016, just added these. If bug, then check here.
 	}
 
 

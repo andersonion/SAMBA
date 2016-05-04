@@ -195,7 +195,10 @@ sub calculate_jacobian {
     } else {
 	$out_file = "${current_path}/${runno}_jac_from_MDT.nii.gz"; # I don't think this will be the proper implementation of the "inverse" option. #Added '.gz' 2 September 2015
 	$space_string = 'MDT';
+
 	$input_warp = "${diffeo_path}/MDT_to_${runno}_warp.nii.gz"; #Added '.gz' 2 September 2015
+	#$input_warp = "${diffeo_path}/${runno}_to_MDT_warp.nii.gz"; # HORRIBLE CODE! Only testing to prove that "from MDT" is correct.
+
     }
     $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 1 ;\n"; # Just testing...should still be bad.
     #$jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 0 ;\n"; # Changed last binary flag from 1 to 0 (use GeometricJacobian)
@@ -223,11 +226,28 @@ sub calculate_jacobian {
     my $use_matlab = 1;
     my $jid = 0;
     if ($use_matlab) {
+	my @test=(1);
+
 	my $jac_args ="\'$input_warp\', \'$out_file\',1,1";
 	my $jac_command = make_matlab_command('calculate_jacobian',$jac_args,"${runno}_",$Hf,0); # 'center_nii'
 #	my $jac_command = make_matlab_command('path','',,"${runno}_",$Hf,1); 
 	execute(1, "Calculating Jacobian from MDT image in Matlab for $runno ", $jac_command);
-	execute(1, "Masking Jacobian from MDT image for $runno ", $unzip_command);
+#	execute(1, "Masking Jacobian from MDT image for $runno ", $unzip_command);
+	if (cluster_check) {
+	    my $home_path = $current_path;
+	    my $Id= "${runno}_calculate_jacobian_in_${space_string}_space";
+	    my $verbose = 2; # Will print log only for work done.
+	    $jid = cluster_exec($go, $go_message, $unzip_command ,$home_path,$Id,$verbose,21000,@test);     
+	    if (! $jid) {
+		error_out($stop_message);
+	    }
+	} else {
+	    my @cmds = ($unzip_command);
+	    if (! execute($go, $go_message, @cmds) ) {
+		error_out($stop_message);
+	    }
+	}
+
     } else {
 
     #my $jid = 0;

@@ -35,6 +35,8 @@ my $go = 1;
 my $job;
 my $current_checkpoint = 1; # Bound to change! Change here!
 my $number_of_template_runnos;
+my $log_msg;
+
 # my @parents = qw(pairwise_reg_vbm);
 # my @children = qw (apply_mdt_warps_vbm);
 
@@ -238,8 +240,44 @@ sub calculate_average_mdt_warp {
 # ------------------
 sub calculate_mdt_warps_vbm_Init_check {
 # ------------------
+    my $init_error_msg='';
+    my $message_prefix="$PM initialization check:\n";
 
-    return('');
+    $template_predictor = $Hf->get_value('template_predictor');
+    
+    my $default_switch=0;
+    if (($template_predictor eq 'NO_KEY') ||($template_predictor eq 'UNDEFINED_VALUE'))  {
+	my $predictor_id = $Hf->get_value('predictor_id');
+	if (($predictor_id ne 'NO_KEY') && ($predictor_id ne 'UNDEFINED_VALUE')) {
+	   # print "Predictor id = ${predictor_id}\n";
+	    if ($predictor_id =~ s/([_]+.*)//) {
+		$template_predictor = $predictor_id;
+	    } else {
+		$template_predictor = "NoNameYet";
+		$default_switch = 1;
+	    }
+	} else {
+	    $template_predictor = "NoNameYet";
+	    $default_switch = 1;
+	}
+    }
+    $Hf->set_value('template_predictor',$template_predictor);
+    $log_msg = $log_msg."\tTemplate predictor will be referred to as: ${template_predictor}.\n";
+    if ($default_switch) {
+	$log_msg = $log_msg."\tThis is the default value, since it was not otherwise specified.\n";
+    }
+
+
+
+    if ($log_msg ne '') {
+	log_info("${message_prefix}${log_msg}");
+    }
+
+    if ($init_error_msg ne '') {
+	$init_error_msg = $message_prefix.$init_error_msg;
+    }
+    
+    return($init_error_msg);
 }
 
 
@@ -274,19 +312,19 @@ sub calculate_mdt_warps_vbm_Runtime_check {
     $number_of_template_runnos = $#sorted_runnos + 1;
 #
 
-    if ($template_predictor eq 'NO_KEY') {
-	my $predictor_id = $Hf->get_value('predictor_id');
-	if ($predictor_id ne 'NO_KEY') {
-	    if ($predictor_id =~ s/([_]+.*)//) {
-		$template_predictor = $predictor_id;
-	    } else {
-		$template_predictor = "NoNameYet";
-	    }
-	} else {
-	    $template_predictor = "NoNameYet";
-	}
-    }
-    $Hf->set_value('template_predictor',$template_predictor);
+    # if (($template_predictor eq 'NO_KEY') ||($template_predictor eq 'UNDEFINED'))  {
+    # 	my $predictor_id = $Hf->get_value('predictor_id');
+    # 	if (($predictor_id ne 'NO_KEY') && ($predictor_id ne 'UNDEFINED')) {
+    # 	    if ($predictor_id =~ s/([_]+.*)//) {
+    # 		$template_predictor = $predictor_id;
+    # 	    } else {
+    # 		$template_predictor = "NoNameYet";
+    # 	    }
+    # 	} else {
+    # 	    $template_predictor = "NoNameYet";
+    # 	}
+    # }
+    # $Hf->set_value('template_predictor',$template_predictor);
 
     if ($template_name eq 'NO_KEY') {
 	$template_name = "${mdt_contrast}MDT_${template_predictor}_n${number_of_template_runnos}";
