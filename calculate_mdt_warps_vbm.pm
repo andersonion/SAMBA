@@ -388,6 +388,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               mdt_diffeo_path
                               number_of_nodes_used
                               predictor_id
+                              preVBM_smoothing_radius
                               rd_channel_added
                               stats_file
                               template_name
