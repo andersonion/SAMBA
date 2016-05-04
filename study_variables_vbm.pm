@@ -89,7 +89,7 @@ $label_reference
 
 $vba_contrast_comma_list
 $vba_analysis_software
-$smoothing_radius
+$smoothing_comma_list
 
 $image_dimensions
 ); # Need to replace $native_reference_space with $reference_space
@@ -1215,7 +1215,7 @@ dummy
 	#$diffeo_smoothing_sigmas = '4x2x1x0vox';
 	#$diffeo_sampling_options = 'Random,1';
 
-	$smoothing_radius = 1.5;
+	$smoothing_comma_list = 1.5;
 
 	$skull_strip_contrast = 'T2';
 	$threshold_code = 4;

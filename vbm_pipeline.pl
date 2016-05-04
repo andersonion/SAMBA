@@ -140,7 +140,7 @@ $label_reference
 
 $vba_contrast_comma_list
 $vba_analysis_software
-$smoothing_radius
+$smoothing_comma_list
 
 $image_dimensions
  );
@@ -317,8 +317,8 @@ if (defined $diffeo_sampling_options) {
     $Hf->set_value('diffeo_sampling_options',$diffeo_sampling_options);
 }
 
-if (defined $smoothing_radius) {
-    $Hf->set_value('preVBM_smoothing_radius',$smoothing_radius);
+if (defined $smoothing_comma_list) {
+    $Hf->set_value('smoothing_comma_list',$smoothing_comma_list);
 }
 
 $Hf->set_value('rigid_atlas_name',$atlas_name);
