@@ -17,6 +17,7 @@ no warnings qw(uninitialized bareword);
 
 use Cwd qw(abs_path);
 use File::Basename;
+use List::MoreUtils qw(uniq);
 use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $valid_formats_string $nodes $broken  $mdt_to_reg_start_time);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
@@ -40,7 +41,7 @@ $test_mode = 0;
 $nodes = shift(@ARGV);
 $broken = shift(@ARGV);
 
-if (! defined $nodes) { $nodes = 2 ;} 
+if (! defined $nodes) { $nodes = 4 ;} 
 
 if (! defined $broken) { $broken = 0 ;} 
 
@@ -122,6 +123,8 @@ $affine_sampling_options
 $affine_target
 
 $mdt_contrast
+$compare_contrast
+
 $diffeo_metric
 $diffeo_radius
 $diffeo_shrink_factors
@@ -188,29 +191,40 @@ if ($stats_file =~ s/pipeline_info/job_stats/) {
 my $preprocess_dir = $work_dir.'/preprocess';
 my $inputs_dir = $preprocess_dir.'/base_images';
 
-my $control_comma_list = join(',',@control_group);
-my $compare_comma_list = join(',',@compare_group);
-my $complete_comma_list = $control_comma_list.','.$compare_comma_list;
+
+## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
+
+my @all_runnos = uniq(@control_group,@compare_group);
+
+my $control_comma_list = join(',',uniq(@control_group));
+my $compare_comma_list = join(',',uniq(@compare_group));
+#my $complete_comma_list = $control_comma_list.','.$compare_comma_list;
+my $complete_comma_list =join(',',@all_runnos);
 
 
 my $group_1_runnos;
 my $group_2_runnos;
 if (defined @group_1) {
-    $group_1_runnos = join(',',@group_1);
+    $group_1_runnos = join(',',uniq(@group_1));
     $Hf->set_value('group_1_runnos',$group_1_runnos);
 }
 
 if (defined @group_2) {
-    $group_2_runnos = join(',',@group_2);
+    $group_2_runnos = join(',',uniq(@group_2));
     $Hf->set_value('group_2_runnos',$group_2_runnos);
 }
 
 if ((defined @group_1)&&(defined @group_2)) { 
-    my $all_groups_comma_list = $group_1_runnos.','.$group_2_runnos;
+    my @all_in_groups = uniq(@group_1,@group_2);
+    #my $all_groups_comma_list = $group_1_runnos.','.$group_2_runnos;
+    my $all_groups_comma_list = join(',',@all_in_groups) ;
     $Hf->set_value('all_groups_comma_list',$all_groups_comma_list);
 }
 
-my $channel_comma_list = join(',',@channel_array);
+my $channel_comma_list = join(',',uniq(@channel_array));
+
+## End duplication control
+
 
 $Hf->set_value('project_id',$project_id);
 
@@ -356,6 +370,10 @@ if (defined $affine_contrast) {
     $Hf->set_value('affine_contrast',$affine_contrast);
 }
 
+if (defined $compare_contrast) {
+    $Hf->set_value('compare_contrast',$compare_contrast);
+}
+
 $Hf->set_value('affine_identity_matrix',"$WORKSTATION_DATA/identity_affine.mat");
 
 $Hf->set_value('flip_x',$flip_x);
@@ -446,8 +464,8 @@ if (defined $vba_analysis_software) {
     my @modules_for_Init_check = qw(
      convert_all_to_nifti_vbm
      create_rd_from_e2_and_e3_vbm
-     set_reference_space_vbm
      mask_images_vbm
+     set_reference_space_vbm
      create_affine_reg_to_atlas_vbm
      apply_affine_reg_to_atlas_vbm
      pairwise_reg_vbm
@@ -641,8 +659,8 @@ if (defined $vba_analysis_software) {
 	# label_statistics_vbm();#$PM_code = 65
 	#sleep($interval);
     }   
+ 
 
-  
     my $new_contrast = calculate_jacobians_vbm('i','compare'); #$PM_code = 53
     
     push(@channel_array,$new_contrast);

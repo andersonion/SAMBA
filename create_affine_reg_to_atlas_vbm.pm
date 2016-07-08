@@ -23,7 +23,7 @@ my ($rigid_atlas,$contrast, $runlist,$work_path,$current_path,$label_atlas,$labe
 my ($affine_metric,$affine_shrink_factors,$affine_iterations,$affine_gradient_step,$affine_convergence_thres);
 my ($affine_convergence_window,$affine_smoothing_sigmas,$affine_sampling_options,$affine_radius);
 my ($xform_code,$xform_path,$xform_suffix,$atlas_dir,$atlas_path,$inputs_dir);
-my (@array_of_runnos,@jobs,@mdt_contrasts);
+my (@array_of_runnos,@array_of_control_runnos,@jobs,@mdt_contrasts);
 my (%go_hash,%create_output);
 my $go = 1;
 my $job;
@@ -79,19 +79,41 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 		`ln -s ${xform_path}  ${pipeline_name}`;
 	    }
 	}
+	my $mdt_flag = 0;
+	foreach my $current_runno (@array_of_control_runnos) {
+	    if ($runno eq $current_runno) {
+		$mdt_flag = 1;
+	    }
+	}
+
 	if ($mdt_to_atlas) {
 	    headfile_list_handler($Hf,"forward_label_xforms","${pipeline_name}",0);
 	    headfile_list_handler($Hf,"inverse_label_xforms","-i ${pipeline_name}",1);
 	} elsif (! ((! $do_rigid) && ($runno eq $affine_target))) {
-	    headfile_list_handler($Hf,"forward_xforms_${runno}","${pipeline_name}",0);
-	    headfile_list_handler($Hf,"inverse_xforms_${runno}","-i ${pipeline_name}",1);
+	    if ($mdt_flag) {
+		headfile_list_handler($Hf,"mdt_forward_xforms_${runno}","${pipeline_name}",0);
+		headfile_list_handler($Hf,"mdt_inverse_xforms_${runno}","-i ${pipeline_name}",1);
+	    } else {
+		headfile_list_handler($Hf,"forward_xforms_${runno}","${pipeline_name}",0);
+		headfile_list_handler($Hf,"inverse_xforms_${runno}","-i ${pipeline_name}",1);
+	    }
 	} elsif ((! $do_rigid) && ($runno eq $affine_target)) {
 	    if ($combined_rigid_and_affine) {
-		my $rigid_xform_name = $Hf->get_value("forward_xforms_${runno}");
+		my $rigid_xform_name;
+		if ($mdt_flag) {
+		    $rigid_xform_name = $Hf->get_value("mdt_forward_xforms_${runno}");
+		} else {
+		    $rigid_xform_name = $Hf->get_value("forward_xforms_${runno}");
+		}
 		`cp $rigid_xform_name $pipeline_name`;
 	    }
-	    headfile_list_handler($Hf,"forward_xforms_${runno}","${pipeline_name}",0);
-	    headfile_list_handler($Hf,"inverse_xforms_${runno}","-i ${pipeline_name}",1);
+	    if ($mdt_flag) {
+		headfile_list_handler($Hf,"mdt_forward_xforms_${runno}","${pipeline_name}",0);
+		headfile_list_handler($Hf,"mdt_inverse_xforms_${runno}","-i ${pipeline_name}",1);
+	    } else {
+		headfile_list_handler($Hf,"forward_xforms_${runno}","${pipeline_name}",0);
+		headfile_list_handler($Hf,"inverse_xforms_${runno}","-i ${pipeline_name}",1);
+	    }
 	}
 
 
@@ -116,6 +138,10 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     $Hf->write_headfile($write_path_for_Hf);
     `chmod 777 ${write_path_for_Hf}`;
 
+    # Clean up derived transforms.
+    `rm ${current_path}/*Derived*mat`;
+
+
     my $PM_code;
     if ($do_rigid) {
 	$PM_code = 21;
@@ -125,7 +151,6 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 	$PM_code = 61;
     }
     
-    #@jobs = (53901,53902,53904); ## TEST
     
     my $real_time = write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
@@ -802,6 +827,10 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 	}
 	$runlist = $Hf->get_value('complete_comma_list');
 	@array_of_runnos = split(',',$runlist);
+
+	my $control_runlist = $Hf->get_value('control_comma_list');
+	@array_of_control_runnos = split(',',$control_runlist);
+
 
 	
     }

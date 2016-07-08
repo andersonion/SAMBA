@@ -194,8 +194,15 @@ sub create_pairwise_warps {
     my ($q_string,$r_string);
     my ($fixed_string,$moving_string,$fixed_affine,$moving_affine);
     $fixed_string=$Hf->get_value("forward_xforms_${fixed_runno}");
+    if ($fixed_string eq 'NO_KEY') {
+	$fixed_string=$Hf->get_value("mdt_forward_xforms_${fixed_runno}")
+    }
+
     $moving_string=$Hf->get_value("forward_xforms_${moving_runno}");
-	
+    if ($moving_string eq 'NO_KEY') {
+	$moving_string=$Hf->get_value("mdt_forward_xforms_${moving_runno}")
+    }	
+
     my $stop = 2;
     my $start;
     if ($combined_rigid_and_affine) {
@@ -430,7 +437,7 @@ sub pairwise_reg_vbm_Init_check {
     my @xform_params = split(',',$diffeo_transform_parameters);
     if ($diffeo_transform_parameters eq ('' || 'NO_KEY')) {
 	#$diffeo_transform_parameters = $defaults_Hf->get_value('diffeo_transform_parameters');
-	$diffeo_transform_parameters = '0.5,3,0';
+	$diffeo_transform_parameters = '0.5,3,1'; # Was '0.5,3,0' up until 2 June 2016
 	$log_msg = $log_msg."\tNo diffeomorphic gradient step specified; using default value of \"${diffeo_transform_parameters}\".\n";
     } elsif (($xform_params[0] =~ /^[0-9\.]+$/) && ($xform_params[1] =~ /^[0-9\.]+$/) && ($xform_params[2] =~ /^[0-9\.]+$/)) {
 	$diffeo_transform_parameters = join(',',($xform_params[0],$xform_params[1],$xform_params[2])); # We will ignore any extra input, but not tell anyone--shhh!

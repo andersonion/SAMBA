@@ -184,7 +184,13 @@ sub apply_mdt_warp_to_labels {
     my $raw_warp;
 
     if ($runno ne 'MDT') {
-	my $add_warp_string = $Hf->get_value("forward_xforms_${runno}");    
+	my $add_warp_string = $Hf->get_value("forward_xforms_${runno}");
+	
+	if ($add_warp_string eq 'NO_KEY') {
+	    $add_warp_string=$Hf->get_value("mdt_forward_xforms_${runno}")
+	}
+
+    
 	my @add_warp_array = split(',',$add_warp_string);
 	$raw_warp = pop(@add_warp_array);
     }

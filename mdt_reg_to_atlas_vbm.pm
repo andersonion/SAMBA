@@ -65,7 +65,8 @@ sub mdt_reg_to_atlas_vbm {  # Main code
     my @array_of_compare_runnos = split(',',$compare_runlist);
     my $expected_number_of_jobs = $#array_of_compare_runnos + 2;
 
-    $mem_request = memory_estimator($expected_number_of_jobs,$nodes); 
+    $mem_request = memory_estimator($expected_number_of_jobs,$nodes);
+    $mem_request = $mem_request*(1.5); # Need a smarter way to handle the greater variability in mem size of reg to atlas jobs.
     print "Expected number of jobs = ${expected_number_of_jobs}\n\nMem_request = ${mem_request}\n\n";
 
     foreach my $runno (@array_of_runnos) {

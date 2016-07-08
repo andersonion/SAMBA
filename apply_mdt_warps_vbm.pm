@@ -246,6 +246,10 @@ sub apply_mdt_warp {
     my $image_to_warp = get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
     
     my $warp_string = $Hf->get_value("${direction_string}_xforms_${runno}");
+    if ($warp_string eq 'NO_KEY') {
+	$warp_string=$Hf->get_value("mdt_${direction_string}_xforms_${runno}")
+    }
+
     my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
 
     if (data_double_check($reference_image)) {

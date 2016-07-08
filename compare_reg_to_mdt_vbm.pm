@@ -15,7 +15,7 @@ require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
-my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$template_path,$median_images_path,$current_path);
+my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$compare_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$template_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
 my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_transform_parameters);
 my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options);
@@ -80,6 +80,21 @@ sub compare_reg_to_mdt_vbm {  # Main code
 	} else {
 	    $f_xform_path = "${current_path}/${runno}_to_MDT_warp.nii.gz";
 	    $i_xform_path = "${current_path}/MDT_to_${runno}_warp.nii.gz";
+	}
+   
+	my $xform_string=$Hf->get_value("forward_xforms_${runno}");
+	if ($xform_string eq 'NO_KEY') {
+	    $xform_string=$Hf->get_value("mdt_forward_xforms_${runno}");
+	    my @xform_array = split(',',$xform_string);
+	    shift(@xform_array);
+	    $xform_string = join(',',@xform_array);
+	    $Hf->set_value("forward_xforms_${runno}",$xform_string);
+
+	    my $inverse_xform_string=$Hf->get_value("mdt_inverse_xforms_${runno}");
+	    my @inverse_xform_array = split(',',$inverse_xform_string);
+	    pop(@inverse_xform_array);
+	    $inverse_xform_string = join(',',@inverse_xform_array);
+	    $Hf->set_value("inverse_xforms_${runno}",$inverse_xform_string);
 	}
 	headfile_list_handler($Hf,"forward_xforms_${runno}",$f_xform_path,0);
 	headfile_list_handler($Hf,"inverse_xforms_${runno}",$i_xform_path,1);
@@ -207,6 +222,12 @@ sub reg_to_mdt {
     my ($moving_string,$moving_affine);
     
     $moving_string=$Hf->get_value("forward_xforms_${runno}");
+    if ($moving_string eq 'NO_KEY') {
+	$moving_string=$Hf->get_value("mdt_forward_xforms_${runno}");
+	my @moving_array = split(',',$moving_string);
+	shift(@moving_array);
+	$moving_string = join(',',@moving_array);
+    }
     my $stop = 2;
     my $start;
     if ($combined_rigid_and_affine) {
@@ -219,15 +240,15 @@ sub reg_to_mdt {
     
     
     if ($mdt_contrast_2 ne '') {
-	$fixed_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii";
+	$fixed_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii.gz";
     }
     
     if ($pre_affined) {
 
-	$moving = $rigid_path."/${runno}_${mdt_contrast}.nii";
+	$moving = $rigid_path."/${runno}_${mdt_contrast}.nii.gz";
 	if ($mdt_contrast_2 ne '') {
 	    
-	    $moving_2 =$rigid_path."/${runno}_${mdt_contrast_2}.nii" ;
+	    $moving_2 =$rigid_path."/${runno}_${mdt_contrast_2}.nii.gz" ;
 	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
 	}
 	$pairwise_cmd = "antsRegistration -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
@@ -349,7 +370,12 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
 
 #    $dims=$Hf->get_value('image_dimensions');
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
-    $mdt_contrast_string = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
+    $compare_contrast_string = $Hf->get_value('compare_contrast');
+    if (defined $compare_contrast_string) {
+	$mdt_contrast_string = $compare_contrast_string;
+    } else {
+	$mdt_contrast_string = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
+    }
     @mdt_contrasts = split('_',$mdt_contrast_string); 
     $mdt_contrast = $mdt_contrasts[0];
     if ($#mdt_contrasts > 0) {

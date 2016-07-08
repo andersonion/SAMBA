@@ -17,6 +17,7 @@ use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions);
 require Headfile;
 require pipeline_utilities;
 require civm_simple_util;
+require convert_all_to_nifti_vbm;
 
 my ($inputs_dir,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
 my (%reference_space_hash,%reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
@@ -26,9 +27,12 @@ my ($log_msg);
 my $split_string = ",,,";
 my (%file_array_ref,@spaces);
 my ($work_to_do_HoA);
-my (@jobs);
+my (@jobs_1,@jobs_2);
+my $dims;
 my $go = 1;
 my $job;
+my %runno_hash_vba;
+my %runno_hash_label;
 
 # ------------------
 sub set_reference_space_vbm {  # Main code
@@ -37,33 +41,62 @@ sub set_reference_space_vbm {  # Main code
      set_reference_space_vbm_Runtime_check();
      my $ref_file;
      foreach my $V_or_L (@spaces) {
+	 my $work_folder = $refspace_folder_hash{$V_or_L};
 	 $ref_file = $reference_path_hash{$V_or_L};
 	 my %hashish = %$work_to_do_HoA;
+
+	 my %runno_hash;
+	 if ($V_or_L eq "vbm") {
+	     %runno_hash = %runno_hash_vba;
+	 } else {
+	     %runno_hash = %runno_hash_label;
+	 }
+	 foreach my $runno (keys %runno_hash) {
+	     my $in_file = $runno_hash{$runno};
+	     my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
+	     ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
+	     if ($job > 1) {
+		 push(@jobs_1,$job);
+	     }   
+	 }
+
+	 if (cluster_check() && ($#jobs_1 != -1)) {
+	     my $interval = 1;
+	     my $verbose = 1;
+	     my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_1);
+	     
+	     if ($done_waiting) {
+		 print STDOUT  "  All translation alignment referencing jobs have completed; moving on to next step.\n";
+	     }
+	 }
+    
+     
 	 my $array_ref = $hashish{$V_or_L};
 	 foreach my $out_file (@$array_ref) {
 	     my ($in_name,$dumdum,$in_ext) = fileparts($out_file);
 	     my $in_file = "${preprocess_dir}/${in_name}${in_ext}";
 	     ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
 	     if ($job > 1) {
-		 push(@jobs,$job);
+		 push(@jobs_2,$job);
 	     }
 	 }
      }
-
-     if (cluster_check() && ($#jobs != -1)) {
+    
+    
+     if (cluster_check() && ($#jobs_2 != -1)) {
 	 my $interval = 2;
 	 my $verbose = 1;
-	 my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+	 my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_2);
 
 	 if ($done_waiting) {
 	     print STDOUT  "  All referencing jobs have completed; moving on to next step.\n";
 	 }
      }
     
-    
     my $case = 2;
     my ($dummy,$error_message)=set_reference_space_Output_check($case);
-    
+
+    my @jobs = (@jobs_1,@jobs_2);    
     my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
     
@@ -108,11 +141,12 @@ sub set_reference_space_Output_check {
 	 my $missing_files_message = '';
 
 	 my @files_to_check;
-
+	 my %runno_hash;
 	 if ($case == 1) {
 	     print "$PM: Checking ${V_or_L} and preprocess folders...";
 	     opendir(DIR, $preprocess_dir);
 	     @files_to_check = grep(/(\.nii)+(\.gz)*$/ ,readdir(DIR));# @input_files;
+
 	 } else {
 	     print "$PM: Checking ${V_or_L} folder...";
 	     my %hashish = %$work_to_do_HoA;
@@ -135,6 +169,12 @@ sub set_reference_space_Output_check {
 	     if (data_double_check($out_file)) {
 		 if ($case == 1) {
 		    # print "\n${out_file} added to list of files to be re-referenced.\n";
+		     if ($file =~ /^([^\.]+)_[^_\.]+\..+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016
+			 my $runno = $1;
+			 if (! defined $runno_hash{$runno}) {
+			     $runno_hash{$runno}= $preprocess_dir.'/'.$file;
+			 }
+		     }
 		 }
 		 push(@file_array,$out_file);	     
 		 $missing_files_message = $missing_files_message."   $file \n";
@@ -162,6 +202,14 @@ sub set_reference_space_Output_check {
 	 }
 	 $full_error_msg = $full_error_msg.$error_msg;	 
 	 $file_array_ref{$V_or_L} = \@file_array;
+
+	 if ($case == 1) {
+	     if ($V_or_L eq 'vbm') {
+		 %runno_hash_vba = %runno_hash;
+	     } else {
+		 %runno_hash_label = %runno_hash;
+	     }
+	 }
 	 if ($case == 2) {
 	     symbolic_link_cleanup($refspace_folder_hash{$V_or_L},$PM);
 	 }
@@ -173,6 +221,11 @@ sub set_reference_space_Output_check {
 sub apply_new_reference_space_vbm {
 # ------------------
     my ($in_file,$ref_file,$out_file)=@_;
+    my $do_registration = 1;    
+    if ($out_file =~ /\.nii(\.gz)?/) {
+	$do_registration = 0;
+    }
+
     my $interp = "Linear"; # Default    
     my $in_spacing = get_spacing_from_header($in_file);
     my $ref_spacing = get_spacing_from_header($ref_file);
@@ -184,13 +237,49 @@ sub apply_new_reference_space_vbm {
     }
     
     my $cmd;
-    if (compare_two_reference_spaces($in_file,$ref_file)) {
-	$cmd = "ln -s ${in_file} ${out_file}";
-	print "Linking $in_file to $out_file\n\n";
+    my @cmds;
+    my $translation_transform;
+    if ($do_registration) {
+	if (! compare_two_reference_spaces($in_file,$ref_file)) {	  
+	    my ($dummy_1,$out_path,$dummy_2) = fileparts($out_file);
+	    if (! -d $out_path ) {
+		mkdir ($out_path,$permissions);
+	    }
+
+	    $translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
+	    my $excess_transform =  "${out_file}1Translation.mat" ;
+	    if (data_double_check($translation_transform)) {
+		my $translation_cmd = "antsRegistration -d ${dims} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file};\n";
+		my $remove_cmd = "rm ${excess_transform};\n";
+		$cmd = $translation_cmd.$remove_cmd;
+		@cmds = ($translation_cmd,$remove_cmd);
+	    } 
+	} else {
+	    my $affine_identity = $Hf->get_value('affine_identity_matrix');
+	    $cmd = "cp ${affine_identity} ${translation_transform};\n";
+	    @cmds = ($cmd);
+	}
     } else {
-	$cmd = "antsApplyTransforms -d 3 -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file};\n"; 
-    }  
-    
+	if (compare_two_reference_spaces($in_file,$ref_file)) {
+	    $cmd = "ln -s ${in_file} ${out_file}";
+	    print "Linking $in_file to $out_file\n\n";
+	} else {
+	    my $runno;
+	    my $gz = '';
+	    if ($out_file =~ s/(\.gz)$//) {$gz = '.gz';}
+	    my ($out_name,$out_path,$dummy_2) = fileparts($out_file);
+	    $out_file = $out_file.$gz;
+	    if ($out_name =~ /([^\.]+)_[^_\.]+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016
+		$runno = $1;
+	    }
+	    #my ($dummy_1,$out_path,$dummy_2) = fileparts($out_file);
+
+	    $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
+	    $cmd = "antsApplyTransforms -d 3 -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform};\n"; 
+	    @cmds = ($cmd);
+	}  
+    }
+	
     my @list = split('/',$in_file);
     my $short_filename = pop(@list);
     
@@ -198,24 +287,26 @@ sub apply_new_reference_space_vbm {
     my $stop_message = "$PM: Unable to apply reference space of ${ref_file} to ${short_filename}:  $cmd\n";
     
     my $jid = 0;
-    if (cluster_check) {
-	my ($dummy1,$home_path,$dummy2) = fileparts($out_file);
-	my $Id= "${short_filename}_reference_to_proper_space";
-	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose);     
-	if (! $jid) {
-	    error_out($stop_message);
+    if ($cmd){
+	if (cluster_check) {
+	    my ($dummy1,$home_path,$dummy2) = fileparts($out_file);
+	    my $Id= "${short_filename}_reference_to_proper_space";
+	    my $verbose = 2; # Will print log only for work done.
+	    $jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose);     
+	    if (! $jid) {
+		error_out($stop_message);
+	    }
+	} else {
+	    if (! execute($go, $go_message, @cmds) ) {
+		error_out($stop_message);
+	    }
 	}
-    } else {
-	if (! execute($go, $go_message, $cmd) ) {
-	    error_out($stop_message);
+	if (data_double_check($out_file)  && ($jid == 0)) {
+	    error_out("$PM: could not properly create translation transform and/or apply reference: ${out_file}");
+	    print "** $PM: apply reference created ${out_file}\n";
 	}
     }
-
-    if (data_double_check($out_file)  && ($jid == 0)) {
-	error_out("$PM: could not properly apply reference: ${out_file}");
-	print "** $PM: apply reference created ${out_file}\n";
-    }
+    
     return($jid);
 }
 
@@ -463,22 +554,36 @@ sub set_reference_space_vbm_Init_check {
     my $native_ref_file = "${preprocess_dir}/${native_ref_name}";
     my $local_ref_file;
     if ($refname_hash{'vbm'} eq "native") {
-	$local_ref_file = "${refspace_folder_hash{'vbm'}}/${native_ref_name}";
-	# log_info( "Native ref file = ${native_ref_file}"); # Most of this info is logged in aggregrate anyways...
-	# log_info("Local vbm ref file = ${local_ref_file}");
-	`cp ${native_ref_file} ${local_ref_file}`;
+	#$local_ref_file = "${refspace_folder_hash{'vbm'}}/${native_ref_name}";
+	my $local_path = "${refspace_folder_hash{'vbm'}}/";
+	$local_ref_file = "${local_path}/${native_ref_name}";
+	if (data_double_check($local_ref_file)) {
+	    my $name = "centered_mass_for_${native_ref_name}";
+	    `cp ${native_ref_file} ${local_ref_file}`;
+	    #recenter_nii_function($local_ref_file,$local_path,0,$Hf);
+	    my $nifti_args = "\'${local_ref_file}\'";
+	    my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
+	    execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
+	}
 	$reference_path_hash{'vbm'} = $local_ref_file;
     }
     
     
     if ($refname_hash{'label'} eq "native") {
 	if ($refname_hash{'vbm'} ne "native") {
-	    $local_ref_file = "${refspace_folder_hash{'label'}}/${native_ref_name}";
-	    `cp ${native_ref_file} ${local_ref_file}`;
-	  #  log_info( "Native ref file = ${native_ref_file}");
+	    my $local_path = "${refspace_folder_hash{'label'}}/";
+	    #$local_ref_file = "${refspace_folder_hash{'label'}}/${native_ref_name}";
+	    $local_ref_file = "${local_path}/${native_ref_name}";
+	    if (data_double_check($local_ref_file)) {
+		my $name = "centered_mass_for_${native_ref_name}";
+		`cp ${native_ref_file} ${local_ref_file}`;
+		#recenter_nii_function($local_ref_file,$local_path,0,$Hf);
+		my $nifti_args = "\'${local_ref_file}\'";
+		my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
+		execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
+	    }
 	}
 	$reference_path_hash{'label'} = $local_ref_file;
-	# log_info("Local label ref file = ${local_ref_file}");	
     }
     
     
@@ -678,6 +783,7 @@ sub set_reference_space_vbm_Runtime_check {
 # ------------------
     $preprocess_dir = $Hf->get_value('preprocess_dir');
     $inputs_dir = $Hf->get_value('inputs_dir');
+    $dims=$Hf->get_value('image_dimensions');
 
     if (! -e $preprocess_dir ) {
 	    mkdir ($preprocess_dir,$permissions);
@@ -727,6 +833,8 @@ sub set_reference_space_vbm_Runtime_check {
     $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
 
     if (! data_double_check($rigid_atlas_path)) {
+	my $original_gz = '';
+	if ($rigid_atlas_path =~ s/\.gz$//) {$original_gz = '.gz';}
 	($rigid_name,$rigid_dir,$rigid_ext) = fileparts($rigid_atlas_path);
 	$new_rigid_path="${preprocess_dir}/${rigid_name}${rigid_ext}";
 	$future_rigid_path="${inputs_dir}/${rigid_name}${rigid_ext}";
@@ -740,18 +848,27 @@ sub set_reference_space_vbm_Runtime_check {
 
 	$future_rigid_path = $future_rigid_path.'.gz';
 
-	if (data_double_check($future_rigid_path)) {
-	    if ($new_rigid_path =~ s/\.gz$//) {}
-	    if (! data_double_check($new_rigid_path)) {
-		`gzip ${new_rigid_path}`;
-	    }
-	    $new_rigid_path = $new_rigid_path.'.gz';
+	$new_rigid_path = $new_rigid_path.'.gz';
 
+	if (data_double_check($future_rigid_path)) {
 	    if (data_double_check($new_rigid_path)) {
-		prep_atlas_for_referencing_vbm();
-	    } else {
-		$Hf->set_value('rigid_atlas_path',$future_rigid_path);
+		if ($new_rigid_path =~ s/\.gz$//) {}
+		if (! data_double_check($new_rigid_path)) {
+		    `gzip ${new_rigid_path}`;
+		}
+		#$new_rigid_path = $new_rigid_path.'.gz';
+		
+		if ((data_double_check($new_rigid_path)) && (data_double_check($new_rigid_path.'gz'))) {
+		    `cp ${rigid_atlas_path} ${new_rigid_path}${original_gz}`;
+		    if (! $original_gz) {
+			`gzip ${new_rigid_path}`;
+		    }
+		    #	prep_atlas_for_referencing_vbm();
+		    #    } else {
+		}
 	    }
+	    $Hf->set_value('rigid_atlas_path',$future_rigid_path);
+	
 	} else {
 	    $Hf->set_value('rigid_atlas_path',$future_rigid_path);
 	}

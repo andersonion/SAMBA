@@ -10,7 +10,7 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 0;
+my $obrien = 1;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
@@ -23,7 +23,7 @@ my $bj_group = 0;
 my $agoston = 0;
 my $apoe = 0;
 my $christmas_rat = 0;
-my $mg_enhanced = 1;
+my $mg_enhanced =0;
 use strict;
 use warnings;
 
@@ -71,6 +71,8 @@ $affine_sampling_options
 $affine_target
 
 $mdt_contrast
+$compare_contrast
+
 $diffeo_metric
 $diffeo_radius
 $diffeo_shrink_factors
@@ -112,16 +114,20 @@ sub study_variables_vbm {
     if ($obrien) {
 	
 	$project_name = "14.obrien.01";
-	#$custom_predictor_string = "Control_vs_Reacher";
-	$custom_predictor_string = "Control_vs_Phantom";
+	$custom_predictor_string = "Control_vs_Reacher";
+	#$custom_predictor_string = "Control_vs_Phantom";
 	$diffeo_transform_parameters = "0.5,3,0.5";#1";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1; #1
-	$label_space = "pre_affine";
+	$label_space = "pre_rigid";
 
-	$template_name = 'faMDT_Control_n12a';  # This is because analysis was originally performed with a "broken MDT", but could not be
+#	$template_name = 'faMDT_Control_n12c';  # This is because analysis was originally performed with a "broken MDT", but could not be
 	                                        # designated as such...faMDT_Control_n12 is actually broken, even though I modified the headfile to say otherwise.
+                                                # faMDT_Control_n12a is the most kosher set...note that the in vivo registration is driven by fa here 
+                                                # faMDT_Control_n12b is the assymetric phantom run
+                                                # faMDT_Control_n12c is for rerunning the in vivo with dwi driving the registration
+                                                # ...note that the in vivo registration is driven by "fa" here--but in reality I made a copy of the dwi and renamed it "fa"!!!
 
 	@control_group = qw(
         controlSpring2013_4
@@ -138,20 +144,20 @@ sub study_variables_vbm {
         controlWinter2012_9
         );
 	
-	# @group_1 = qw(
-        # controlSpring2013_4
-        # controlSpring2013_7
-        # controlSpring2013_8
-        # controlSpring2013_9
-        # controlSpring2013_10
-        # controlSpring2013_11
-        # controlSummer2012_1
-        # controlSummer2012_5
-        # controlSummer2012_8
-        # controlWinter2012_1
-        # controlWinter2012_6
-        # controlWinter2012_9
-        # );
+	@group_1 = qw(
+        controlSpring2013_4
+        controlSpring2013_7
+        controlSpring2013_8
+        controlSpring2013_9
+        controlSpring2013_10
+        controlSpring2013_11
+        controlSummer2012_1
+        controlSummer2012_5
+        controlSummer2012_8
+        controlWinter2012_1
+        controlWinter2012_6
+        controlWinter2012_9
+        );
 
 	# @compare_group = qw(
         # phantomSpring2013_4
@@ -237,8 +243,95 @@ sub study_variables_vbm {
         # reacherWinter2012_8
         # );
 
-	# @group_2 = qw(
-	# reacherSpring2013_1
+	@group_2 = qw(
+	reacherSpring2013_1
+        reacherSpring2013_2
+        reacherSpring2013_3
+        reacherSpring2013_5
+        reacherSpring2013_6
+        reacherSummer2012_2
+        reacherSummer2012_3
+        reacherSummer2012_5
+        reacherWinter2012_3
+        reacherWinter2012_5
+        reacherWinter2012_7
+        reacherWinter2012_8
+        );
+
+	# @compare_group = qw(
+	#     BCS10
+	#     BCS11
+	#     BCS4
+	#     BCS7
+	#     BCS8
+	#     BCS9
+	#     BCU1
+	#     BCU7
+        #     BCW1
+        #     BCW4
+        #     BCW6
+        #     BCW9      
+	#     BRS1
+	#     BRS2
+	#     BRS3
+	#     BRS5
+	#     BRS6
+	#     BRU2
+	#     BRU3
+        #     BRU5
+        #     BRW3
+        #     BRW5
+        #     BRW7
+        #     BRW8
+	#     ICS10
+	#     ICS11
+	#     ICS4
+	#     ICS7
+	#     ICS8
+	#     ICS9
+	#     ICU1
+	#     ICU7
+        #     ICW1
+        #     ICW4
+        #     ICW6
+        #     ICW9
+	#     IRS1
+	#     IRS2
+	#     IRS3
+	#     IRS5
+	#     IRS6
+	#     IRU2
+	#     IRU3
+        #     IRU5
+        #     IRW3
+        #     IRW5
+        #     IRW7
+        #     IRW8
+	#     TCS10
+	#     TCS11
+	#     TCS4
+	#     TCS7
+	#     TCS8
+	#     TCS9
+	#     TCU1
+	#     TCU7
+	#     TRS1
+	#     TRS2
+	#     TRS3
+	#     TRS5
+	#     TRS6
+	#     TRU2
+	#     TRU3
+        #     TRU5
+        #     TCW1
+        #     TCW4
+        #     TCW6
+        #     TCW9
+        #     TRW3
+        #     TRW5
+        #     TRW7
+        #     TRW8
+        # reacherSpring2013_1
         # reacherSpring2013_2
         # reacherSpring2013_3
         # reacherSpring2013_5
@@ -251,7 +344,6 @@ sub study_variables_vbm {
         # reacherWinter2012_7
         # reacherWinter2012_8
         # );
-
 	@compare_group = qw(
 	    BCS10
 	    BCS11
@@ -325,6 +417,30 @@ sub study_variables_vbm {
             TRW5
             TRW7
             TRW8
+        controlSpring2013_4
+        controlSpring2013_7
+        controlSpring2013_8
+        controlSpring2013_9
+        controlSpring2013_10
+        controlSpring2013_11
+        controlSummer2012_1
+        controlSummer2012_5
+        controlSummer2012_8
+        controlWinter2012_1
+        controlWinter2012_6
+        controlWinter2012_9
+        reacherSpring2013_1
+        reacherSpring2013_2
+        reacherSpring2013_3
+        reacherSpring2013_5
+        reacherSpring2013_6
+        reacherSummer2012_2
+        reacherSummer2012_3
+        reacherSummer2012_5
+        reacherWinter2012_3
+        reacherWinter2012_5
+        reacherWinter2012_7
+        reacherWinter2012_8
         );
 
 #	@channel_array = qw(dwi fa adc); 
@@ -334,18 +450,22 @@ sub study_variables_vbm {
 	$flip_x = 0;
 	$flip_z = 0;
 
-	$optional_suffix = '';
+	$optional_suffix = 'clean';
 	$atlas_name = 'DTI101b';
 	$label_atlas_name = 'chass_symmetric2';#'dti148lr';
 	$rigid_contrast = 'dwi';
 	$mdt_contrast = 'fa'; #WAS fa
+	$compare_contrast = 'dwi';
+	$diffeo_metric = 'MI'; # For MDT creation purposes it was CC
+	$diffeo_radius = '32'; # For MDT creation purposes it was 4, here it means Number of Bins
+
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
 	$do_mask = 0;
 	$pre_masked = 1;
 
-	$vba_analysis_software = 'surfstat,antsr,spm';
-	$vba_contrast_comma_list = 'jac_to_MDT'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+	$vba_analysis_software = 'surfstat,spm';
+#	$vba_contrast_comma_list = 'jac_to_MDT'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 	$thresh_ref = {};
 
     } elsif ($obrien_invivo) {
@@ -492,7 +612,7 @@ sub study_variables_vbm {
 	
 	
 	$atlas_name = 'DTI101b';
-	$label_atlas_name = 'chass_symmetric';#'DTI101b';
+	$label_atlas_name = 'chass_symmetric2';#'DTI101b';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
 	$mdt_contrast = 'fa';
@@ -607,9 +727,9 @@ B03248);
     {
 
 	$project_name = "13.mcnamara.02";
-	$create_labels = 0; # Only turned off for reprocessing of jac VBM
+	$create_labels = 1; # Only turned off for reprocessing of jac VBM
 	$custom_predictor_string = "Control_vs_Phantoms";
-	$template_name = 'faMDT_Control_n10d';
+	$template_name = 'faMDT_Control_n10a';
 #	$custom_predictor_string = "Control_vs_KA";
 ##	$diffeo_transform_parameters = "0.5,3,0.5"; Not used for paper
 
@@ -1182,7 +1302,9 @@ dummy
 	@group_1 = qw(B04120 B04123 B04126 B04129 B04132 B04093 B04096 B04026 B04029 B04032 B04035 B04038 B04050);
 	@group_2 = qw(B04114 B04076 B04081 B04084 B04087 B04090 B04020 B04023 B04040 B04044 B04047); #B04117  B04079
 
-	@channel_array = qw(T2);
+	@channel_array = qw(T2 T2star X);
+#	@channel_array = qw(T2star X);
+
     
 	$flip_x = 1;
 	$flip_z = 0;
@@ -1209,13 +1331,13 @@ dummy
 	#$diffeo_radius = 4;
 	#$diffeo_shrink_factors = '8x4x2x1'; # Commented out to test default behavior.
 	#$diffeo_iterations = '500x500x500x500';
-	#$diffeo_transform_parameters = '0.4,3,1';
+	$diffeo_transform_parameters = '0.5,3,1';
 	#$diffeo_convergence_thresh = '1e-7';
 	#$diffeo_convergence_window = 15;
 	#$diffeo_smoothing_sigmas = '4x2x1x0vox';
 	#$diffeo_sampling_options = 'Random,1';
 
-	$smoothing_comma_list = 1.5;
+#	$smoothing_comma_list = 1.5;
 
 	$skull_strip_contrast = 'T2';
 	$threshold_code = 4;

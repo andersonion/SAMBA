@@ -65,9 +65,9 @@ sub calculate_mdt_warps_vbm {  # Main code
 	    }
 	}
 	if ($direction eq 'f') {
-	    headfile_list_handler($Hf,"forward_xforms_${runno}",$xform_path,0);
+	    headfile_list_handler($Hf,"mdt_forward_xforms_${runno}",$xform_path,0); # added 'mdt_', 15 June 2016
 	} else {
-	    headfile_list_handler($Hf,"inverse_xforms_${runno}",$xform_path,1);
+	    headfile_list_handler($Hf,"mdt_inverse_xforms_${runno}",$xform_path,1); # added 'mdt_', 15 June 2016
 	}
     }
      
