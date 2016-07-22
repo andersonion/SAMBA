@@ -10,11 +10,11 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 1;
+my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 0;
+my $mcnamara = 1;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
@@ -727,36 +727,51 @@ B03248);
     {
 
 	$project_name = "13.mcnamara.02";
-	$create_labels = 1; # Only turned off for reprocessing of jac VBM
-	$custom_predictor_string = "Control_vs_Phantoms";
-	$template_name = 'faMDT_Control_n10a';
+	$create_labels = 0; # Only turned off for reprocessing of jac VBM
+	$custom_predictor_string = "Control_vs_KA";
+	$template_name = 'faMDT_Control_n10j';
+
+## Template guide for bad Jacobian exposition:
+#  faMDT_Control_n10e: Original ANTs with Geo option on
+#  faMDT_Control_n10f: Original ANTs with Geo option on, reverse polarity and Subject-to-MDT
+#  faMDT_Control_n10g: Original ANTs with no Geo option, reverse polarity
+#  faMDT_Control_n10h: Original ANTs with no Geo option, use Subject-to-MDT
+#  faMDT_Control_n10j: Good MATLAB calculation with reverse polarity and Subject-to-MDT
+
 #	$custom_predictor_string = "Control_vs_KA";
 ##	$diffeo_transform_parameters = "0.5,3,0.5"; Not used for paper
 
 ## Note: NJC ~= "New Jack City", rather, "New Jacobian analysis Completed"
 
-	$diffeo_transform_parameters = "1,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom completed #NJC-3a # ANTsR 1,d
-#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED -- Have LR labelset # NJC # Phantom competed # NJC-3a # ANTsR 1,d
-#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED 8 Sept 15 -- Have LR labelset# NJC # Phantom completed  #  NJC-3a # ANTsR 1,d
+	$diffeo_transform_parameters = "1,3,1"; # COMPLETED: (e),(f),(g),(h),
+#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED: (e),(f),(g),(h),
+#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED: (e),(f),(g),(h),
 
-#	$diffeo_transform_parameters = "1,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed # Broken MDT running # NJC-3a #ANTsR 1,d
-#	$diffeo_transform_parameters = "5,3,3"; # COMPLETED -- Have LR labelset #NJC # Phantom completed # NJC-3a #ANTsR -- test# ANTsR 1,d
-#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED 16 Sept 15 ~ 12 am -- Have LR labelset #NJC # Phantom completed # NJC-3a # ANTsR 1,d
+#	$diffeo_transform_parameters = "1,3,3"; # COMPLETED: (e),(f),(g),(h),
+#	$diffeo_transform_parameters = "5,3,3"; # COMPLETED: (e),(f),(g),(h),
+#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED: (e),(f),(g),(h),
 
-#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED 19 Sept 15 ~ 12:30 pm , didn't start next one until 9 pm -- Have LR labelset #NJC # Phantom completed #NJC-3a #ANTsR 1,d
-#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED 20 Sept 15 ~ 8:45 pm -- Have LR labelset #NJC # Phantom completed # Broken MDT completed #NJC-3a # ANTsR 1,d
-#	$diffeo_transform_parameters = "0.5,1,0"; # NJC # Phantom completed #NJC-3a # ANTsR 1,d
+#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED: (e),(f),  ,(h),
+#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED: (e),(f),(g),(h),
+#	$diffeo_transform_parameters = "0.5,1,0"; # COMPLETED:(e),(f),(g),(h),
 
 
 	$vbm_reference_space = "DTI101b";
-	$combined_rigid_and_affine = 0; # Was 1 for January runs.  We want to eventually have this set to zero and remove this variable from the code.
+	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
 	$label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
 
-#	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-#	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
-
 	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
+	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+
+	my $reverse_polarity = 1;
+# Use this to swap polarity for bad Jac exposition.
+	if ($reverse_polarity) {
+	@group_1 = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+	@group_2 = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
+	}
+
+#	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
+# 	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
 #	@compare_group = qw(S64781);
 #	@compare_group = qw(S64745 S64763 S64766 S64769 S64772 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 	
@@ -764,7 +779,7 @@ B03248);
 #	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
     	@channel_array = qw(dwi fa);
 
-	$vba_contrast_comma_list = 'fa'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 #	$vba_analysis_software = 'antsr';
 #	$vba_analysis_software = 'spm';
 #	$vba_analysis_software = 'surfstat,antsr,spm';

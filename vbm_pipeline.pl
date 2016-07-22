@@ -584,7 +584,8 @@ if (defined $vba_analysis_software) {
     sleep($interval);
  
 
-    calculate_jacobians_vbm('i','control'); #$PM_code = 47 (or 46)
+#    calculate_jacobians_vbm('i','control'); #$PM_code = 47 (or 46)
+    calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46)
     sleep($interval);
 
 
@@ -661,7 +662,8 @@ if (defined $vba_analysis_software) {
     }   
  
 
-    my $new_contrast = calculate_jacobians_vbm('i','compare'); #$PM_code = 53
+#    my $new_contrast = calculate_jacobians_vbm('i','compare'); #$PM_code = 53
+    my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53
     
     push(@channel_array,$new_contrast);
     $channel_comma_list = $channel_comma_list.','.$new_contrast;

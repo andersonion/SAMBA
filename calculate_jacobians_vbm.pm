@@ -197,11 +197,11 @@ sub calculate_jacobian {
 	$space_string = 'MDT';
 
 	$input_warp = "${diffeo_path}/MDT_to_${runno}_warp.nii.gz"; #Added '.gz' 2 September 2015
-	#$input_warp = "${diffeo_path}/${runno}_to_MDT_warp.nii.gz"; # HORRIBLE CODE! Only testing to prove that "from MDT" is correct.
+	#$input_warp = "${diffeo_path}/${runno}_to_MDT_warp.nii.gz"; # HORRIBLE CODE! Only testing to prove that "from MDT" is correct. NOTE: this is irrelevant if I use 'f' instead of 'i' for the Direction when I call the command.
 
     }
-    $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 1 ;\n"; # Just testing...should still be bad.
-    #$jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 0 ;\n"; # Changed last binary flag from 1 to 0 (use GeometricJacobian)
+    #$jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 1 ;\n"; # Just testing...should still be bad.
+    $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 0 ;\n"; # Changed last binary flag from 1 to 0 (use GeometricJacobian)
 
 ## NOTE!!! All jacobian images created before 04 December 2015 are BAD!  They used a version of CreateJacobianDeterminantImage that did not account for any
 #          rotation matrices in the header when using the GeometricJacobian option.  This caused the effects of the warp to be inverted in the x and y direction
@@ -229,7 +229,8 @@ sub calculate_jacobian {
 	my @test=(1);
 
 	my $jac_args ="\'$input_warp\', \'$out_file\',1,1";
-	my $jac_command = make_matlab_command('calculate_jacobian',$jac_args,"${runno}_",$Hf,0); # 'center_nii'
+#	my $jac_command = make_matlab_command('calculate_jacobian',$jac_args,"${runno}_",$Hf,0); Before 22 July 2016, this was calculate log_10(jac)
+	my $jac_command = make_matlab_command('calculate_jacobian_natural_log',$jac_args,"${runno}_",$Hf,0); # After 22 July 2016, calculating ln(jac)
 #	my $jac_command = make_matlab_command('path','',,"${runno}_",$Hf,1); 
 	execute(1, "Calculating Jacobian from MDT image in Matlab for $runno ", $jac_command);
 #	execute(1, "Masking Jacobian from MDT image for $runno ", $unzip_command);

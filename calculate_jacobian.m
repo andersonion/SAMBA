@@ -22,6 +22,13 @@ function calculate_jacobian(in_warp,out_file,do_log_jacobian,rotate_around_z)
 %  This version has been tested and produces pretty good results (within
 %  the limits of the mean-differences/gradient method).
 %
+% UPDATE 22 July 2016 (BJ Anderson)
+% This script calculate log-jacobian in LOG-10, NOT natural log!
+% Please use calculate_jacobian_natural_log instead!
+% Pipeline code is updated as of 22 July 2016 to calculate LN instead.
+%
+
+
 
 %%
 %addpath('/home/rja20/cluster_code/workstation_code/shared/mathworks/NIfTI_20140122/')

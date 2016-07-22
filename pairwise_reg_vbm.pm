@@ -1,10 +1,6 @@
 #!/usr/local/pipeline-link/perl
 # pairwise_reg_vbm.pm 
 
-
-
-
-
 my $PM = "pairwise_reg_vbm.pm";
 my $VERSION = "2015/06/17";
 my $NAME = "Pairwise registration for Minimum Deformation Template calculation.";
@@ -611,7 +607,7 @@ sub pairwise_reg_vbm_Runtime_check {
 
 
 # ONE OFF BAD CODE!!!!
-#  $mdt_contrast_string = "SyN_1_3_1_fa";
+  $mdt_contrast_string = "SyN_1_3_1_fa";
 #
 
 
