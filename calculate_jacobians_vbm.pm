@@ -228,7 +228,8 @@ sub calculate_jacobian {
     if ($use_matlab) {
 	my @test=(1);
 
-	my $jac_args ="\'$input_warp\', \'$out_file\',1,1";
+#	my $jac_args ="\'$input_warp\', \'$out_file\',1,1"; The old (pre-22July2016) script had a "rotate around z" command which is now obsolete.
+	my $jac_args ="\'$input_warp\', \'$out_file\',1";
 #	my $jac_command = make_matlab_command('calculate_jacobian',$jac_args,"${runno}_",$Hf,0); Before 22 July 2016, this was calculate log_10(jac)
 	my $jac_command = make_matlab_command('calculate_jacobian_natural_log',$jac_args,"${runno}_",$Hf,0); # After 22 July 2016, calculating ln(jac)
 #	my $jac_command = make_matlab_command('path','',,"${runno}_",$Hf,1); 
