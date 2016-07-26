@@ -200,8 +200,8 @@ sub calculate_jacobian {
 	#$input_warp = "${diffeo_path}/${runno}_to_MDT_warp.nii.gz"; # HORRIBLE CODE! Only testing to prove that "from MDT" is correct. NOTE: this is irrelevant if I use 'f' instead of 'i' for the Direction when I call the command.
 
     }
-    #$jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 1 ;\n"; # Just testing...should still be bad.
-    $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 0 ;\n"; # Changed last binary flag from 1 to 0 (use GeometricJacobian)
+    $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 1 ;\n"; # Just testing...should still be bad. # Correct when used with Sub2MDT warp, counter-intuitive as it is.
+#    $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 0 ;\n"; # Changed last binary flag from 1 to 0 (use GeometricJacobian)
 
 ## NOTE!!! All jacobian images created before 04 December 2015 are BAD!  They used a version of CreateJacobianDeterminantImage that did not account for any
 #          rotation matrices in the header when using the GeometricJacobian option.  This caused the effects of the warp to be inverted in the x and y direction
@@ -223,7 +223,7 @@ sub calculate_jacobian {
 
 
 ### Kludge code for using my custom calculate Jacobian function in matlab
-    my $use_matlab = 1;
+    my $use_matlab = 0; # 26 July 2016 -- ANTs with Geo option, with Subject-to-MDT, will give what one would expect from the MDT-to-Subject Jacobian
     my $jid = 0;
     if ($use_matlab) {
 	my @test=(1);

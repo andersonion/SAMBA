@@ -584,8 +584,8 @@ if (defined $vba_analysis_software) {
     sleep($interval);
  
 
-#    calculate_jacobians_vbm('i','control'); #$PM_code = 47 (or 46)
-    calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46)
+#    calculate_jacobians_vbm('i','control'); #$PM_code = 47 (or 46) ## Goddam ANTs changed the fundamental definition of Jacobian, need to use forward 26 July 2016
+    calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46) ## BAD code! Don't use this unless you are trying to make a point! #Just kidding its the right thing to do after all--WTH?!?
     sleep($interval);
 
 
@@ -662,14 +662,14 @@ if (defined $vba_analysis_software) {
     }   
  
 
-#    my $new_contrast = calculate_jacobians_vbm('i','compare'); #$PM_code = 53
-    my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53
+#    my $new_contrast = calculate_jacobians_vbm('i','compare'); #$PM_code = 53 # Nope, this is bad--26 July 2016
+    my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53 # BAD code. Don't this unless trying to prove a point. # JK Kidding this code is right believe it or not.
     
     push(@channel_array,$new_contrast);
     $channel_comma_list = $channel_comma_list.','.$new_contrast;
     $Hf->set_value('channel_comma_list',$channel_comma_list);
     sleep($interval);
-    
+#    die;####
     vbm_analysis_vbm(); #$PM_code = 72
     sleep($interval);
 

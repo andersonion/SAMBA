@@ -10,11 +10,11 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 1;
+my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 0;
+my $mcnamara = 1;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
@@ -243,94 +243,95 @@ sub study_variables_vbm {
         # reacherWinter2012_8
         # );
 
-	@group_2 = qw(
-	reacherSpring2013_1
-        reacherSpring2013_2
-        reacherSpring2013_3
-        reacherSpring2013_5
-        reacherSpring2013_6
-        reacherSummer2012_2
-        reacherSummer2012_3
-        reacherSummer2012_5
-        reacherWinter2012_3
-        reacherWinter2012_5
-        reacherWinter2012_7
-        reacherWinter2012_8
-        );
+	# @group_2 = qw(
+	# reacherSpring2013_1
+        # reacherSpring2013_2
+        # reacherSpring2013_3
+        # reacherSpring2013_5
+        # reacherSpring2013_6
+        # reacherSummer2012_2
+        # reacherSummer2012_3
+        # reacherSummer2012_5
+        # reacherWinter2012_3
+        # reacherWinter2012_5
+        # reacherWinter2012_7
+        # reacherWinter2012_8
+        # );
 
-	# @compare_group = qw(
-	#     BCS10
-	#     BCS11
-	#     BCS4
-	#     BCS7
-	#     BCS8
-	#     BCS9
-	#     BCU1
-	#     BCU7
-        #     BCW1
-        #     BCW4
-        #     BCW6
-        #     BCW9      
-	#     BRS1
-	#     BRS2
-	#     BRS3
-	#     BRS5
-	#     BRS6
-	#     BRU2
-	#     BRU3
-        #     BRU5
-        #     BRW3
-        #     BRW5
-        #     BRW7
-        #     BRW8
-	#     ICS10
-	#     ICS11
-	#     ICS4
-	#     ICS7
-	#     ICS8
-	#     ICS9
-	#     ICU1
-	#     ICU7
-        #     ICW1
-        #     ICW4
-        #     ICW6
-        #     ICW9
-	#     IRS1
-	#     IRS2
-	#     IRS3
-	#     IRS5
-	#     IRS6
-	#     IRU2
-	#     IRU3
-        #     IRU5
-        #     IRW3
-        #     IRW5
-        #     IRW7
-        #     IRW8
-	#     TCS10
-	#     TCS11
-	#     TCS4
-	#     TCS7
-	#     TCS8
-	#     TCS9
-	#     TCU1
-	#     TCU7
-	#     TRS1
-	#     TRS2
-	#     TRS3
-	#     TRS5
-	#     TRS6
-	#     TRU2
-	#     TRU3
-        #     TRU5
-        #     TCW1
-        #     TCW4
-        #     TCW6
-        #     TCW9
-        #     TRW3
-        #     TRW5
-        #     TRW7
-        #     TRW8
+	@compare_group = qw(
+	    BCS10
+	    BCS11
+	    BCS4
+	    BCS7
+	    BCS8
+	    BCS9
+	    BCU1
+	    BCU7
+            BCW1
+            BCW4
+            BCW6
+            BCW9      
+	    BRS1
+	    BRS2
+	    BRS3
+	    BRS5
+	    BRS6
+	    BRU2
+	    BRU3
+            BRU5
+            BRW3
+            BRW5
+            BRW7
+            BRW8
+	    ICS10
+	    ICS11
+	    ICS4
+	    ICS7
+	    ICS8
+	    ICS9
+	    ICU1
+	    ICU7
+            ICW1
+            ICW4
+            ICW6
+            ICW9
+	    IRS1
+	    IRS2
+	    IRS3
+	    IRS5
+	    IRS6
+	    IRU2
+	    IRU3
+            IRU5
+            IRW3
+            IRW5
+            IRW7
+            IRW8
+	    TCS10
+	    TCS11
+	    TCS4
+	    TCS7
+	    TCS8
+	    TCS9
+	    TCU1
+	    TCU7
+	    TRS1
+	    TRS2
+	    TRS3
+	    TRS5
+	    TRS6
+	    TRU2
+	    TRU3
+            TRU5
+            TCW1
+            TCW4
+            TCW6
+            TCW9
+            TRW3
+            TRW5
+            TRW7
+            TRW8
+        );
         # reacherSpring2013_1
         # reacherSpring2013_2
         # reacherSpring2013_3
@@ -442,35 +443,35 @@ sub study_variables_vbm {
         # reacherWinter2012_7
         # reacherWinter2012_8
         # );
-	@compare_group = qw(
-        controlSpring2013_4
-        controlSpring2013_7
-        controlSpring2013_8
-        controlSpring2013_9
-        controlSpring2013_10
-        controlSpring2013_11
-        controlSummer2012_1
-        controlSummer2012_5
-        controlSummer2012_8
-        controlWinter2012_1
-        controlWinter2012_6
-        controlWinter2012_9
-        reacherSpring2013_1
-        reacherSpring2013_2
-        reacherSpring2013_3
-        reacherSpring2013_5
-        reacherSpring2013_6
-        reacherSummer2012_2
-        reacherSummer2012_3
-        reacherSummer2012_5
-        reacherWinter2012_3
-        reacherWinter2012_5
-        reacherWinter2012_7
-        reacherWinter2012_8
-        );
+	# @compare_group = qw(
+        # controlSpring2013_4
+        # controlSpring2013_7
+        # controlSpring2013_8
+        # controlSpring2013_9
+        # controlSpring2013_10
+        # controlSpring2013_11
+        # controlSummer2012_1
+        # controlSummer2012_5
+        # controlSummer2012_8
+        # controlWinter2012_1
+        # controlWinter2012_6
+        # controlWinter2012_9
+        # reacherSpring2013_1
+        # reacherSpring2013_2
+        # reacherSpring2013_3
+        # reacherSpring2013_5
+        # reacherSpring2013_6
+        # reacherSummer2012_2
+        # reacherSummer2012_3
+        # reacherSummer2012_5
+        # reacherWinter2012_3
+        # reacherWinter2012_5
+        # reacherWinter2012_7
+        # reacherWinter2012_8
+        # );
 
 #	@channel_array = qw(dwi fa adc); 
-	@channel_array = qw(dwi fa ct);
+	@channel_array = qw(dwi fa);
 
 
 	$flip_x = 0;
@@ -490,7 +491,7 @@ sub study_variables_vbm {
 	$do_mask = 0;
 	$pre_masked = 1;
 
-	$vba_analysis_software = 'spm';#surfstat
+	$vba_analysis_software = 'surfstat,spm';#
 #	$vba_contrast_comma_list = 'jac_to_MDT'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 	$thresh_ref = {};
 
@@ -754,8 +755,8 @@ B03248);
 
 	$project_name = "13.mcnamara.02";
 	$create_labels = 0; # Only turned off for reprocessing of jac VBM
-	$custom_predictor_string = "Control_vs_KA";
-	$template_name = 'faMDT_Control_n10j';
+#	$custom_predictor_string = "Control_vs_KA";
+	$template_name = 'faMDT_Control_n10n';
 
 ## Template guide for bad Jacobian exposition:
 #  faMDT_Control_n10e: Original ANTs with Geo option on --> reverse polarity
@@ -763,13 +764,16 @@ B03248);
 #  faMDT_Control_n10g: Original ANTs with no Geo option, reverse polarity --> correct polarity, correct MDT2Sub
 #  faMDT_Control_n10h: Original ANTs with no Geo option, use Subject-to-MDT --> Sub2MDT + reverse polarity 
 #  faMDT_Control_n10j: Good MATLAB calculation with reverse polarity and Subject-to-MDT
+#  faMDT_Control_n10k: Good MATLAB calc, correct polarity, MDT-to-subject...should be consistent with faMDT_Control_n10
+#  faMDT_Control_n10m: "Good" MATLAB calc of phantom, correct polarity, MDT-to-subject...should be consistent with faMDT_Control_n10
+#  faMDT_Control_n10n: Original ANTs with Geo option on, phantoms, Sub2MDT
 
-#	$custom_predictor_string = "Control_vs_KA";
+	$custom_predictor_string = "Control_vs_Phantom";
 ##	$diffeo_transform_parameters = "0.5,3,0.5"; Not used for paper
 
 ## Note: NJC ~= "New Jack City", rather, "New Jacobian analysis Completed"
 
-#	$diffeo_transform_parameters = "1,3,1"; # COMPLETED: (e),(f),(g),(h),(j)
+	$diffeo_transform_parameters = "1,3,1"; # COMPLETED: (e),(f),(g),(h),(j)
 #	$diffeo_transform_parameters = "5,3,1"; # COMPLETED: (e),(f),(g),(h),
 #	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED: (e),(f),(g),(h),
 
@@ -787,18 +791,18 @@ B03248);
 	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
 	$label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
 
-	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+#	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
+#	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 
-	my $reverse_polarity = 1;
+	my $reverse_polarity = 0;
 # Use this to swap polarity for bad Jac exposition.
 	if ($reverse_polarity) {
 	@group_1 = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 	@group_2 = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
 	}
 
-#	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-# 	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
+	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
+ 	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
 #	@compare_group = qw(S64781);
 #	@compare_group = qw(S64745 S64763 S64766 S64769 S64772 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 	
