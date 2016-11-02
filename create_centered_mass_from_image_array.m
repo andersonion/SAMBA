@@ -6,7 +6,7 @@ nii = load_untouch_nii(in_file);
 image = nii.img;
 
 dims=nii.hdr.dime.dim;
-dims = dims(2:4)
+dims = dims(2:4);
 frac = 4;
 starters = ceil(dims*(1/2-1/(frac*2)));
 enders = starters + round(dims/frac);
@@ -16,5 +16,4 @@ image(starters(1):enders(1),starters(2):enders(2),starters(3):enders(3))=1;
 
 nii.img = image;
 
-
-save_untouch_nii(nii,in_file)
+save_untouch_nii(nii,out_file)

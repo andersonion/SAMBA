@@ -10,11 +10,11 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 0;
+my $obrien =0;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 1;
+my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
@@ -24,6 +24,8 @@ my $agoston = 0;
 my $apoe = 0;
 my $christmas_rat = 0;
 my $mg_enhanced =0;
+my $john_multicoil=1;
+my $nian_connectome = 0;
 use strict;
 use warnings;
 
@@ -114,13 +116,14 @@ sub study_variables_vbm {
     if ($obrien) {
 	
 	$project_name = "14.obrien.01";
-	$custom_predictor_string = "Control_vs_Reacher";
-	#$custom_predictor_string = "Control_vs_Phantom";
+	#$custom_predictor_string = "Control_vs_Reacher";
+	$custom_predictor_string = "Control_vs_Phantom";
 	$diffeo_transform_parameters = "0.5,3,0.5";#1";
 	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1; #1
-	$label_space = "pre_rigid";
+	#$label_space = "pre_rigid";
+	$label_space = "post_affine";
 
 #	$template_name = 'faMDT_Control_n12c';  # This is because analysis was originally performed with a "broken MDT", but could not be
 	                                        # designated as such...faMDT_Control_n12 is actually broken, even though I modified the headfile to say otherwise.
@@ -159,35 +162,35 @@ sub study_variables_vbm {
         controlWinter2012_9
         );
 
-	# @compare_group = qw(
-        # phantomSpring2013_4
-        # phantomSpring2013_7
-        # phantomSpring2013_8
-        # phantomSpring2013_9
-        # phantomSpring2013_10
-        # phantomSpring2013_11
-        # phantomSummer2012_1
-        # phantomSummer2012_5
-        # phantomSummer2012_8
-        # phantomWinter2012_1
-        # phantomWinter2012_6
-        # phantomWinter2012_9
-        # );
+	@compare_group = qw(
+        phantomSpring2013_4
+        phantomSpring2013_7
+        phantomSpring2013_8
+        phantomSpring2013_9
+        phantomSpring2013_10
+        phantomSpring2013_11
+        phantomSummer2012_1
+        phantomSummer2012_5
+        phantomSummer2012_8
+        phantomWinter2012_1
+        phantomWinter2012_6
+        phantomWinter2012_9
+        );
 	
-	# @group_2 = qw(
-        # phantomSpring2013_4
-        # phantomSpring2013_7
-        # phantomSpring2013_8
-        # phantomSpring2013_9
-        # phantomSpring2013_10
-        # phantomSpring2013_11
-        # phantomSummer2012_1
-        # phantomSummer2012_5
-        # phantomSummer2012_8
-        # phantomWinter2012_1
-        # phantomWinter2012_6
-        # phantomWinter2012_9
-        # );
+	@group_2 = qw(
+        phantomSpring2013_4
+        phantomSpring2013_7
+        phantomSpring2013_8
+        phantomSpring2013_9
+        phantomSpring2013_10
+        phantomSpring2013_11
+        phantomSummer2012_1
+        phantomSummer2012_5
+        phantomSummer2012_8
+        phantomWinter2012_1
+        phantomWinter2012_6
+        phantomWinter2012_9
+        );
 
 	# @compare_group = qw(
         # controlLRSpring2013_4
@@ -258,80 +261,80 @@ sub study_variables_vbm {
         # reacherWinter2012_8
         # );
 
-	@compare_group = qw(
-	    BCS10
-	    BCS11
-	    BCS4
-	    BCS7
-	    BCS8
-	    BCS9
-	    BCU1
-	    BCU7
-            BCW1
-            BCW4
-            BCW6
-            BCW9      
-	    BRS1
-	    BRS2
-	    BRS3
-	    BRS5
-	    BRS6
-	    BRU2
-	    BRU3
-            BRU5
-            BRW3
-            BRW5
-            BRW7
-            BRW8
-	    ICS10
-	    ICS11
-	    ICS4
-	    ICS7
-	    ICS8
-	    ICS9
-	    ICU1
-	    ICU7
-            ICW1
-            ICW4
-            ICW6
-            ICW9
-	    IRS1
-	    IRS2
-	    IRS3
-	    IRS5
-	    IRS6
-	    IRU2
-	    IRU3
-            IRU5
-            IRW3
-            IRW5
-            IRW7
-            IRW8
-	    TCS10
-	    TCS11
-	    TCS4
-	    TCS7
-	    TCS8
-	    TCS9
-	    TCU1
-	    TCU7
-	    TRS1
-	    TRS2
-	    TRS3
-	    TRS5
-	    TRS6
-	    TRU2
-	    TRU3
-            TRU5
-            TCW1
-            TCW4
-            TCW6
-            TCW9
-            TRW3
-            TRW5
-            TRW7
-            TRW8
-        );
+	# @compare_group = qw(
+	#     BCS10
+	#     BCS11
+	#     BCS4
+	#     BCS7
+	#     BCS8
+	#     BCS9
+	#     BCU1
+	#     BCU7
+        #     BCW1
+        #     BCW4
+        #     BCW6
+        #     BCW9      
+	#     BRS1
+	#     BRS2
+	#     BRS3
+	#     BRS5
+	#     BRS6
+	#     BRU2
+	#     BRU3
+        #     BRU5
+        #     BRW3
+        #     BRW5
+        #     BRW7
+        #     BRW8
+	#     ICS10
+	#     ICS11
+	#     ICS4
+	#     ICS7
+	#     ICS8
+	#     ICS9
+	#     ICU1
+	#     ICU7
+        #     ICW1
+        #     ICW4
+        #     ICW6
+        #     ICW9
+	#     IRS1
+	#     IRS2
+	#     IRS3
+	#     IRS5
+	#     IRS6
+	#     IRU2
+	#     IRU3
+        #     IRU5
+        #     IRW3
+        #     IRW5
+        #     IRW7
+        #     IRW8
+	#     TCS10
+	#     TCS11
+	#     TCS4
+	#     TCS7
+	#     TCS8
+	#     TCS9
+	#     TCU1
+	#     TCU7
+	#     TRS1
+	#     TRS2
+	#     TRS3
+	#     TRS5
+	#     TRS6
+	#     TRU2
+	#     TRU3
+        #     TRU5
+        #     TCW1
+        #     TCW4
+        #     TCW6
+        #     TCW9
+        #     TRW3
+        #     TRW5
+        #     TRW7
+        #     TRW8
+       
         # reacherSpring2013_1
         # reacherSpring2013_2
         # reacherSpring2013_3
@@ -483,7 +486,7 @@ sub study_variables_vbm {
 	$rigid_contrast = 'dwi';
 	$mdt_contrast = 'fa'; #WAS fa
 	$compare_contrast = 'dwi';
-	$diffeo_metric = 'MI'; # For MDT creation purposes it was CC
+	$diffeo_metric = 'CC'; # For MDT creation purposes it was CC
 	$diffeo_radius = '32'; # For MDT creation purposes it was 4, here it means Number of Bins
 
 	$skull_strip_contrast = 'dwi';
@@ -491,8 +494,8 @@ sub study_variables_vbm {
 	$do_mask = 0;
 	$pre_masked = 1;
 
-	$vba_analysis_software = 'surfstat,spm';#
-#	$vba_contrast_comma_list = 'jac_to_MDT'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+	$vba_analysis_software = 'surfstat';#
+	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 	$thresh_ref = {};
 
     } elsif ($obrien_invivo) {
@@ -754,9 +757,9 @@ B03248);
     {
 
 	$project_name = "13.mcnamara.02";
-	$create_labels = 0; # Only turned off for reprocessing of jac VBM
-#	$custom_predictor_string = "Control_vs_KA";
-	$template_name = 'faMDT_Control_n10n';
+	$create_labels = 1; # Only turned off for reprocessing of jac VBM
+	$custom_predictor_string = "Control_vs_KA";
+#	$template_name = 'faMDT_Control_n10';
 
 ## Template guide for bad Jacobian exposition:
 #  faMDT_Control_n10e: Original ANTs with Geo option on --> reverse polarity
@@ -768,47 +771,55 @@ B03248);
 #  faMDT_Control_n10m: "Good" MATLAB calc of phantom, correct polarity, MDT-to-subject...should be consistent with faMDT_Control_n10
 #  faMDT_Control_n10n: Original ANTs with Geo option on, phantoms, Sub2MDT
 
-	$custom_predictor_string = "Control_vs_Phantom";
+#	$custom_predictor_string = "Control_vs_Phantom";
 ##	$diffeo_transform_parameters = "0.5,3,0.5"; Not used for paper
 
 ## Note: NJC ~= "New Jack City", rather, "New Jacobian analysis Completed"
 
-	$diffeo_transform_parameters = "1,3,1"; # COMPLETED: (e),(f),(g),(h),(j)
-#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED: (e),(f),(g),(h),
-#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED: (e),(f),(g),(h),
+#	$diffeo_transform_parameters = "1,3,1"; # COMPLETED: (e),(f),(g),(h),(j) -- REDO (d)
+#	$diffeo_transform_parameters = "5,3,1"; # COMPLETED: (e),(f),(g),(h), -- REDO (d)
+#	$diffeo_transform_parameters = "0.5,3,1"; # COMPLETED: (e),(f),(g),(h), -- REDO (d)
 
-#	$diffeo_transform_parameters = "1,3,3"; # COMPLETED: (e),(f),(g),(h),
-#	$diffeo_transform_parameters = "5,3,3"; # COMPLETED: (e),(f),(g),(h),
-#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED: (e),(f),(g),(h),
+#	$diffeo_transform_parameters = "1,3,3"; # COMPLETED: (e),(f),(g),(h), -- REDO (d)-- had to rerun because of preexisting "jac_to_MDT_" files from Feb 2016
+#	$diffeo_transform_parameters = "5,3,3"; # COMPLETED: (e),(f),(g),(h), -- REDO (d)
+#	$diffeo_transform_parameters = "0.5,3,3";  # COMPLETED: (e),(f),(g),(h), -- REDO (d)
 
-#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED: (e),(f),  ,(h),
-#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED: (e),(f),(g),(h),
-#	$diffeo_transform_parameters = "0.5,1,0"; # COMPLETED:(e),(f),(g),(h),
+#	$diffeo_transform_parameters = "1,1,0"; # COMPLETED: (e),(f),  ,(h), -- REDO (d)
+#	$diffeo_transform_parameters = "5,1,0"; # COMPLETED: (e),(f),(g),(h), -- REDO (d)
+#	$diffeo_transform_parameters = "0.5,1,0"; # COMPLETED:(e),(f),(g),(h), -- REDO (d)
+
+	$diffeo_transform_parameters = "0.5,3,1"; # For use with producing chass_symmetric2 labels which can be manually corrected.
 
 
-
-	$vbm_reference_space = "DTI101b";
+	#$vbm_reference_space = "/glusterspace/VBM_13mcnamara02_DTI101b_quick-inputs/y_padded.nii";#"DTI101b";
+	$vbm_reference_space ="/glusterspace/VBM_13mcnamara02_DTI101b_quick-work/preprocess/base_images/reference_file_c_ypadded.nii.gz";
 	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
-	$label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
-
+	#$label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
+	$label_space = "pre_rigid";
 #	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
 #	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+	
+	my $cheating = 1; # We are "cheating" to produce chass_symmetric2 labelsets quickly.
+	if ($cheating) {
+	@control_group = qw(S64944);
+	@compare_group = qw(S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414 S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 
+	}
 	my $reverse_polarity = 0;
 # Use this to swap polarity for bad Jac exposition.
 	if ($reverse_polarity) {
-	@group_1 = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
-	@group_2 = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
+	@group_2 = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+	@group_1 = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
 	}
 
-	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
- 	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
+#	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
+# 	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
 #	@compare_group = qw(S64781);
 #	@compare_group = qw(S64745 S64763 S64766 S64769 S64772 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 	
 
-#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
-    	@channel_array = qw(dwi fa);
+	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+#    	@channel_array = qw(dwi fa);
 
 	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 #	$vba_analysis_software = 'antsr';
@@ -817,23 +828,25 @@ B03248);
 	$vba_analysis_software = 'surfstat';
 
 
-#	$flip_x = 1;
-	$flip_x = 0;
+	$flip_x = 1;
+#	$flip_x = 0;
 	$flip_z = 0;
 	
-        $optional_suffix='SyN_1_3_1';
+        #$optional_suffix='zippy';#SyN_1_3_1';
+	$optional_suffix='quick';
 	$atlas_name = 'DTI101b';
-	$label_atlas_name = 'DTI101b';
+#	$label_atlas_name = 'DTI101b';
+	$label_atlas_name = 'chass_symmetric2';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
 	$mdt_contrast = 'fa';
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 2200; #4 didn't seem to work...
-#	$do_mask = 1;
-	$do_mask = 0;
+	$do_mask = 1;
+#	$do_mask = 0;
     
-#	$pre_masked = 0;
-	$pre_masked = 1;
+	$pre_masked = 0;
+#	$pre_masked = 1;
 	$port_atlas_mask = 0;
 
         # Load McNamara Data
@@ -1383,13 +1396,124 @@ dummy
 	#$diffeo_smoothing_sigmas = '4x2x1x0vox';
 	#$diffeo_sampling_options = 'Random,1';
 
-#	$smoothing_comma_list = 1.5;
+	$smoothing_comma_list ='1,1.5,2';
 
 	$skull_strip_contrast = 'T2';
 	$threshold_code = 4;
 	$do_mask = 0; #1
 	$port_atlas_mask = 0; #1    
 	$pre_masked = 1; #0	
+    }
+elsif ($john_multicoil)
+    
+    {
+	$project_name = "13.gpc.05";
+	$custom_predictor_string = "isocenter_vs_offcenter";
+	$vbm_reference_space = "native";
+	#$vbm_reference_space="/glusterspace/VBM_16gaj38_DTI101b-work/preprocess/base_images/reference_image_native_N54470.nii.gz";
+	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+	$create_labels = 1;
+
+	@control_group = qw(B05111);
+	@compare_group = qw(B10030 B10031 B10016 B10025 B10032 B10033 B10040 B10046);
+#	@control_group = qw(B05111 B10030 B10031 B10016 B10025 B10032 B10033);
+#	@compare_group = qw(dummy);
+
+	@channel_array = qw(dwi fa);#e1 e2 e3 adc);
+	#@channel_array = qw(mask);
+    
+	$flip_x = 1;
+	$flip_z = 1;
+	
+	$optional_suffix = 'test';
+	$atlas_name = 'chass_symmetric2';#'DTI101b';#
+	$label_atlas_name = 'chass_symmetric2';#
+	
+	$rigid_contrast = 'dwi';
+	## $affine_contrast = 'dwi';
+	#$affine_radius=32;
+	$affine_metric = 'MI';
+	$affine_shrink_factors = '6x4x2x1';
+	$affine_iterations = '500x500x500x500';
+	$affine_gradient_step = 0.05;
+	$affine_convergence_thresh = '1e-7';
+        $affine_convergence_window = 20;
+	$affine_smoothing_sigmas= '0x0x0x0vox';
+	#$affine_sampling_options = 'Random,0.5';
+	#$affine_target='S6546at9';
+
+	$mdt_contrast = 'fa';
+	$diffeo_metric = 'CC';
+	$diffeo_radius = 4;
+	$diffeo_shrink_factors = '8x4x2x1'; # Commented out to test default behavior.
+	$diffeo_iterations = '500x500x500x500';
+	$diffeo_transform_parameters = '0.5,3,0.5';
+	$diffeo_convergence_thresh = '1e-7';
+	$diffeo_convergence_window = 15;
+	#$diffeo_smoothing_sigmas = '0.9x0.6x0.3,0.15x0mm';
+	#$diffeo_sampling_options = 'Random,0.5';
+
+
+	$skull_strip_contrast = 'dwi';
+	$threshold_code = 3;
+	$do_mask = 1;
+	$port_atlas_mask = 0;    
+	$pre_masked = 0;	
+    }
+elsif ($nian_connectome)
+    
+    {
+	$project_name = "16.gaj.38";
+	#$custom_predictor_string = "isocenter_vs_offcenter";
+	#$vbm_reference_space = "native";
+	#$vbm_reference_space="/glusterspace/VBM_16gaj38_DTI101b-work/preprocess/base_images/reference_image_native_N54470.nii.gz";
+	$vbm_reference_space="/glusterspace/VBM_16gaj38_DTI101b_42p5um-work/preprocess/base_images/reference_image_native_N54538.nii.gz";
+	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
+	$create_labels = 1;
+
+	@control_group = qw(chass_symmetric2);
+	#@compare_group = qw(N54470);
+	@compare_group = qw(N54538 N54539 N54540);
+
+	@channel_array = qw(dwi fa);
+	#@channel_array = qw(mask);
+    
+	$flip_x = 0;
+	$flip_z = 1;
+	
+	$optional_suffix = '42p5um';
+	$atlas_name = 'DTI101b';#
+	$label_atlas_name = 'chass_symmetric2';#
+	
+	$rigid_contrast = 'dwi';
+	$affine_iterations = '500x500x500x500';
+	$affine_gradient_step = 0.05;
+
+	$mdt_contrast = 'fa';
+	$diffeo_metric = 'CC';
+	#$diffeo_radius = 4;
+	#$diffeo_shrink_factors = '8x4x2x1'; # Commented out to test default behavior.
+	#$diffeo_iterations = '500x500x500x500';
+	$diffeo_transform_parameters = '0.5,3,0.5';
+	#$diffeo_convergence_thresh = '1e-7';
+	#$diffeo_convergence_window = 15;
+	#$diffeo_smoothing_sigmas = '0.9x0.6x0.3,0.15x0mm';
+	#$diffeo_sampling_options = 'Random,0.5';
+
+
+	$skull_strip_contrast = 'dwi';
+#	$threshold_code = 2900;
+	# custom thresholds for CS study
+	$thresh_ref = {
+	    'N54538'   => 2600,
+	    'N54539'   => 1600,
+	    'N54540'   => 1230
+	};
+
+
+	$do_mask = 1;
+	$port_atlas_mask = 1;    
+	$pre_masked = 0;	
     }
 }
 sub  load_study_data_vbm {

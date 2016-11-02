@@ -19,9 +19,9 @@ require pipeline_utilities;
 require civm_simple_util;
 require convert_all_to_nifti_vbm;
 
-my ($inputs_dir,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
-my (%reference_space_hash,%reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
-my ($rigid_name,$rigid_dir,$rigid_ext,$new_rigid_path,$future_rigid_path,$native_ref_name);
+my ($inputs_dir,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,,$original_rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
+my (%reference_space_hash,%reference_path_hash,%input_reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
+my ($rigid_name,$rigid_dir,$rigid_ext,$new_rigid_path,$future_rigid_path,$native_ref_name,$translation_dir);
 my ($process_dir_for_labels);
 my ($log_msg);
 my $split_string = ",,,";
@@ -34,6 +34,8 @@ my $job;
 my %runno_hash_vba;
 my %runno_hash_label;
 
+my %preferred_contrast_hash;
+
 # ------------------
 sub set_reference_space_vbm {  # Main code
 # ------------------
@@ -42,6 +44,12 @@ sub set_reference_space_vbm {  # Main code
      my $ref_file;
      foreach my $V_or_L (@spaces) {
 	 my $work_folder = $refspace_folder_hash{$V_or_L};
+	 my $translation_dir = "${work_folder}/translation_xforms/";
+
+	 if (! -e $translation_dir ) {
+	     mkdir ($translation_dir,$permissions);
+	 }
+
 	 $ref_file = $reference_path_hash{$V_or_L};
 	 my %hashish = %$work_to_do_HoA;
 
@@ -146,7 +154,7 @@ sub set_reference_space_Output_check {
 	     print "$PM: Checking ${V_or_L} and preprocess folders...";
 	     opendir(DIR, $preprocess_dir);
 	     @files_to_check = grep(/(\.nii)+(\.gz)*$/ ,readdir(DIR));# @input_files;
-
+	     @files_to_check=sort(@files_to_check);
 	 } else {
 	     print "$PM: Checking ${V_or_L} folder...";
 	     my %hashish = %$work_to_do_HoA;
@@ -166,20 +174,24 @@ sub set_reference_space_Output_check {
 	     }
 	     print ".";
 	     
-	     if (data_double_check($out_file)) {
+	     if ((data_double_check($out_file)) && (data_double_check($out_file.'.gz'))) {
 		 if ($case == 1) {
 		    # print "\n${out_file} added to list of files to be re-referenced.\n";
-		     if ($file =~ /^([^\.]+)_[^_\.]+\..+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016
+		     my $test_file = $file;
+		     if ($test_file =~ s/(_masked)//i){}
+		     if ($test_file =~ /^([^\.]+)_([^_\.])+\..+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016 ## Forgot about "masked"...OOF, that hurt! 14 October 2016
 			 my $runno = $1;
+			 my $contrast = $2;
 			 if (! defined $runno_hash{$runno}) {
 			     $runno_hash{$runno}= $preprocess_dir.'/'.$file;
+			     print "runno_hash{${runno}}= $runno_hash{$runno}\n\n"; ##
 			 }
 		     }
 		 }
 		 push(@file_array,$out_file);	     
 		 $missing_files_message = $missing_files_message."   $file \n";
 	     } elsif (! compare_two_reference_spaces($out_file,$refspace)) {
-		 #print "\n${out_file} added to list of files to be re-referenced.\n";
+		 print "\n${out_file} FUCKITY FUCK FUCK added to list of files to be re-referenced.\n";
 		 push(@file_array,$out_file);	     
 		 $missing_files_message = $missing_files_message."   $file \n";
 	     } else {
@@ -232,7 +244,7 @@ sub apply_new_reference_space_vbm {
     if ($in_spacing eq $ref_spacing) {
 	$interp = "NearestNeighbor";
     }
-    if ($in_file =~ /(mask|Mask|MASK)/) {
+    if ($in_file =~ /(mask|Mask|MASK)\./) {
 	$interp="NearestNeighbor";
     }
     
@@ -268,7 +280,8 @@ sub apply_new_reference_space_vbm {
 	    my $gz = '';
 	    if ($out_file =~ s/(\.gz)$//) {$gz = '.gz';}
 	    my ($out_name,$out_path,$dummy_2) = fileparts($out_file);
-	    $out_file = $out_file.$gz;
+	    $out_file = $out_file.'.gz';
+	    if ($out_name =~ s/(_masked)//i) {}
 	    if ($out_name =~ /([^\.]+)_[^_\.]+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016
 		$runno = $1;
 	    }
@@ -466,9 +479,11 @@ sub set_reference_space_vbm_Init_check {
 	    $for_labels = 0;
 	}
 
-	($reference_path_hash{$V_or_L},$refname_hash{$V_or_L},$ref_error) = set_reference_path_vbm($reference_space_hash{$V_or_L},$for_labels);
+	($input_reference_path_hash{$V_or_L},$reference_path_hash{$V_or_L},$refname_hash{$V_or_L},$ref_error) = set_reference_path_vbm($reference_space_hash{$V_or_L},$for_labels);
 	$Hf->set_value("${V_or_L}_reference_path",$reference_path_hash{$V_or_L});
-	my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($reference_path_hash{$V_or_L});
+	$Hf->set_value("${V_or_L}_input_reference_path",$input_reference_path_hash{$V_or_L});
+	#my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($reference_path_hash{$V_or_L});
+	my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($input_reference_path_hash{$V_or_L});
 
 	$refspace_hash{$V_or_L} = $bounding_box_and_spacing;
 	$Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
@@ -549,44 +564,46 @@ sub set_reference_space_vbm_Init_check {
 	
     }
 
+    # Changed 1 September 2016: Implemented uniform processing for reference files. Feed source directly into function
+    #    for creating a centered binary mass in the reference image.  This should automatically handle all centering 
+    #    issues, including re-centering the rigid atlas target.
 
+    # my $native_ref_file = "${preprocess_dir}/${native_ref_name}";
+    # my $local_ref_file;
+    # if ($refname_hash{'vbm'} eq "native") {
+    # 	#$local_ref_file = "${refspace_folder_hash{'vbm'}}/${native_ref_name}";
+    # 	my $local_path = "${refspace_folder_hash{'vbm'}}/";
+    # 	$local_ref_file = "${local_path}/${native_ref_name}";
+    # 	if (data_double_check($local_ref_file)) {
+    # 	    my $name = "centered_mass_for_${native_ref_name}";
+    # 	    `cp ${native_ref_file} ${local_ref_file}`;
+    # 	    #recenter_nii_function($local_ref_file,$local_path,0,$Hf);
+    # 	    my $nifti_args = "\'${local_ref_file}\'";
+    # 	    my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
+    # 	    execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
+    # 	}
+    # 	$reference_path_hash{'vbm'} = $local_ref_file;
+    # }
+    
+    
+    # if ($refname_hash{'label'} eq "native") {
+    # 	if ($refname_hash{'vbm'} ne "native") {
+    # 	    my $local_path = "${refspace_folder_hash{'label'}}/";
+    # 	    #$local_ref_file = "${refspace_folder_hash{'label'}}/${native_ref_name}";
+    # 	    $local_ref_file = "${local_path}/${native_ref_name}";
+    # 	    if (data_double_check($local_ref_file)) {
+    # 		my $name = "centered_mass_for_${native_ref_name}";
+    # 		`cp ${native_ref_file} ${local_ref_file}`;
+    # 		#recenter_nii_function($local_ref_file,$local_path,0,$Hf);
+    # 		my $nifti_args = "\'${local_ref_file}\'";
+    # 		my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
+    # 		execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
+    # 	    }
+    # 	}
+    # 	$reference_path_hash{'label'} = $local_ref_file;
+    # }
+    
 
-    my $native_ref_file = "${preprocess_dir}/${native_ref_name}";
-    my $local_ref_file;
-    if ($refname_hash{'vbm'} eq "native") {
-	#$local_ref_file = "${refspace_folder_hash{'vbm'}}/${native_ref_name}";
-	my $local_path = "${refspace_folder_hash{'vbm'}}/";
-	$local_ref_file = "${local_path}/${native_ref_name}";
-	if (data_double_check($local_ref_file)) {
-	    my $name = "centered_mass_for_${native_ref_name}";
-	    `cp ${native_ref_file} ${local_ref_file}`;
-	    #recenter_nii_function($local_ref_file,$local_path,0,$Hf);
-	    my $nifti_args = "\'${local_ref_file}\'";
-	    my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
-	    execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
-	}
-	$reference_path_hash{'vbm'} = $local_ref_file;
-    }
-    
-    
-    if ($refname_hash{'label'} eq "native") {
-	if ($refname_hash{'vbm'} ne "native") {
-	    my $local_path = "${refspace_folder_hash{'label'}}/";
-	    #$local_ref_file = "${refspace_folder_hash{'label'}}/${native_ref_name}";
-	    $local_ref_file = "${local_path}/${native_ref_name}";
-	    if (data_double_check($local_ref_file)) {
-		my $name = "centered_mass_for_${native_ref_name}";
-		`cp ${native_ref_file} ${local_ref_file}`;
-		#recenter_nii_function($local_ref_file,$local_path,0,$Hf);
-		my $nifti_args = "\'${local_ref_file}\'";
-		my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
-		execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
-	    }
-	}
-	$reference_path_hash{'label'} = $local_ref_file;
-    }
-    
-    
     $Hf->set_value('vbm_refspace_folder',$refspace_folder_hash{'vbm'});
     $Hf->set_value("vbm_reference_path",$reference_path_hash{'vbm'});
 
@@ -617,8 +634,9 @@ sub set_reference_space_vbm_Init_check {
 		if ($this_path !~ /[\n]+/) {
 		   my ($this_name,$dumdum,$this_ext)= fileparts($this_path);
 		   my $that_path = "${inputs_dir}/${this_name}${this_ext}";
-		    $Hf->set_value('rigid_atlas_path',$that_path);
-		    $log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${that_path} as the expected rigid atlas path.\n";
+		   #$Hf->set_value('rigid_atlas_path',$that_path);
+		   $Hf->set_value('original_rigid_atlas_path',$that_path); #Updated 1 September 2016
+		   $log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${that_path} as the expected rigid atlas path.\n";
 		} else {
 		    $init_error_msg=$init_error_msg."The desired target for rigid registration appears to be runno: ${rigid_target}, ".
 			"but could not locate appropriate image.\nError message is: ${this_path}";	    
@@ -627,9 +645,11 @@ sub set_reference_space_vbm_Init_check {
 		if (data_double_check($rigid_target)) {
 		    $log_msg=$log_msg."\tNo valid rigid targets have been implied or specified (${rigid_target} could not be validated). Rigid registration will be skipped.\n";
 		    $Hf->set_value('rigid_atlas_path','');
+		    $Hf->set_value('original_rigid_atlas_path',''); # Added 1 September 2016
 		} else {
-		    $log_msg=$log_msg."\tThe specified file to be used as the rigid target exist: ${rigid_target}. (Note: it has note been verified to be a valid image.)\n";
-		    $Hf->set_value('rigid_atlas_path',$rigid_target);
+		    $log_msg=$log_msg."\tThe specified file to be used as the original rigid target exists: ${rigid_target}. (Note: it has not been verified to be a valid image.)\n";
+		   # $Hf->set_value('rigid_atlas_path',$rigid_target);
+		    $Hf->set_value('original_rigid_atlas_path',$rigid_target);#Updated 1 September 2016
 		}
 	    }
 	}
@@ -639,13 +659,35 @@ sub set_reference_space_vbm_Init_check {
 	} else {
 	    my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
 	    my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
-	    $rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
-	    
+	    #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
+
+	    $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
 	    if (data_double_check($rigid_atlas_path))  {
-		$init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
+		$rigid_atlas_path=$rigid_atlas_path.'.gz';
+		if (data_double_check($rigid_atlas_path))  {
+		    $original_rigid_atlas_path  = get_nii_from_inputs($preprocess_dir,$rigid_atlas_name,$rigid_contrast);
+		    if ($original_rigid_atlas_path =~ /[\n]+/) {
+			$original_rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);#Updated 1 September 2016
+			if (data_double_check($original_rigid_atlas_path))  { # Updated 1 September 2016
+			    $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
+			} else {
+			    `cp ${original_rigid_atlas_path} ${preprocess_dir}`;
+			    if ($original_rigid_atlas_path !~ /\.gz$/) {
+				`gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii`;
+			    } 
+			}
+		    }
+		} else {
+		    `gzip ${rigid_atlas_path}`;
+		    #$rigid_atlas_path=$rigid_atlas_path.'.gz'; #If things break, look here! 27 Sept 2016
+		    $original_rigid_atlas_path = $expected_rigid_atlas_path;
+		}
 	    } else {
-		$Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
+		$original_rigid_atlas_path = $expected_rigid_atlas_path;
 	    }
+	    
+	    $Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
+	    $Hf->set_value('original_rigid_atlas_path',$original_rigid_atlas_path); # Updated 1 September 2016
 	}
     }
     
@@ -669,47 +711,56 @@ sub set_reference_path_vbm {
     my $ref_string; 
     $inputs_dir = $Hf->get_value('inputs_dir');
     my $ref_path;
+    my $input_ref_path;
     my $error_message;
     
     my $which_space='vbm';
-    if ($for_labels) {$which_space = 'label';}
-    
+    if ($for_labels) {
+	$which_space = 'label';
+    }
+    my $ref_folder= $refspace_folder_hash{${which_space}};    
+
     if (! data_double_check($ref_option)) {
 	my ($r_name,$r_path,$r_extension) = fileparts($ref_option);
 	if ($r_extension =~ m/^[.]{1}(hdr|img|nii|nii\.gz)$/) {
 	    $log_msg=$log_msg."\tThe selected ${which_space} reference space is an [acceptable] arbitrary file: ${ref_option}\n";
-	    $ref_path=$ref_option;
+	    $input_ref_path=$ref_option;
 	    $r_name =~ s/([^0-9a-zA-Z]*)//g;
 	    $r_name =~ m/(^[\w]{2,8})/;
-	    $ref_string = "c_$1";
+	    $ref_string = "c_$1";  # "c" stands for custom
+	    $ref_path="${ref_folder}/reference_file_${ref_string}.nii.gz";
 	} else {
 	    $error_message="The arbitrary file selected for defining ${which_space} reference space exists but is NOT  in an acceptable format:\n${ref_option}\n";
 	}
     }
-    
+
+
     if ($ref_path ne '') {
 	if ($for_labels) {
 	    $Hf->set_value('label_refname',$ref_string);
 	} else {
-	    $Hf->set_value('vbm_refname',$ref_string);
+	    $Hf->set_value('vbm_refname',$ref_string); 
 	}
+
 	$log_msg=$log_msg."\tThe ${which_space} reference string/name = ${ref_string}\n";
-	return($ref_path,$ref_string,$error_message);
+	#return($ref_path,$ref_string,$error_message);
+	return($input_ref_path,$ref_path,$ref_string,$error_message); #Updated 1 September 2016
     }
     
     my $atlas_dir_perhaps = "${WORKSTATION_DATA}/atlas/${ref_option}";
     
     if (-d $atlas_dir_perhaps) {
 	$log_msg=$log_msg."\tThe ${which_space} reference space will be inherited from the ${ref_option} atlas.\n";
-	$ref_path = get_nii_from_inputs($atlas_dir_perhaps,$ref_option,$rigid_contrast);
-	if (($ref_path =~ /[\n]+/) || (data_double_check($ref_path))) {
-	    $error_message = $error_message.$ref_path;
+	$input_ref_path = get_nii_from_inputs($atlas_dir_perhaps,$ref_option,$rigid_contrast);
+	if (($input_ref_path =~ /[\n]+/) || (data_double_check($input_ref_path))) {
+	    $error_message = $error_message.$input_ref_path;
 	}
-	$ref_string="a_${ref_option}";
-	$log_msg=$log_msg."\tThe full ${which_space} reference path is ${ref_path}\n";
+	$ref_string="a_${ref_option}"; # "a" stands for atlas
+	$ref_path="${ref_folder}/reference_file_${ref_string}.nii.gz";
+	$log_msg=$log_msg."\tThe full ${which_space} input reference path is ${input_ref_path}\n";
     } else {
 	my $ref_runno;
-	 my $preprocess_dir = $Hf->get_value('preprocess_dir');
+	my $preprocess_dir = $Hf->get_value('preprocess_dir');
 	if ($runno_list =~ /[,]*${ref_option}[,]*/ ) {
 	    $ref_runno=$ref_option;
 	} else {
@@ -717,56 +768,23 @@ sub set_reference_path_vbm {
 	    $ref_runno = shift(@control_runnos);
 	}
 	print " Ref_runno = ${ref_runno}\n";
-	$ref_path = get_nii_from_inputs($preprocess_dir,"native_reference",$ref_runno);
+	#$ref_path = get_nii_from_inputs($preprocess_dir,"native_reference",$ref_runno);
+	#$ref_path = get_nii_from_inputs($preprocess_dir,"reference_image_native",$ref_runno);# Updated 1 September 2016
+	
+	$input_ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,"");
 	$ref_string="native";
-	$native_ref_name = "native_reference_${ref_runno}.nii";
-	if ($ref_path =~ /\.gz$/) {
-	    $native_ref_name = $native_ref_name.'.gz';
-	}	
-	# print "\$ref path = ${ref_path}\n";
-	if ($ref_path =~ /[\n]+/) {
-	   # print "Apparently ref path does not exist : ${ref_path}\n";
-	    my $pristine_dir = $Hf->get_value('pristine_input_dir');
-	    my $file =  get_nii_from_inputs($pristine_dir,$ref_runno,$rigid_contrast);
-
-	    if (($file !~ /[\n]+/) || (! data_double_check($file))) {
-		if (! -e  $preprocess_dir) {
-		    mkdir ( $preprocess_dir,$permissions);
-		}
-		# print "\$preprocess_dir = ${preprocess_dir}\n";
-		my $new_file = "${preprocess_dir}/native_reference_${ref_runno}.nii";
-		if ($file =~ /\.gz$/) {
-		    $new_file = $new_file.'.gz';
-		}
-		`cp $file $new_file`;
-		# if ($file !~ /\.gz$/) {
-		#     `gzip ${new_file}`;
-		# }
-		if ($new_file =~ /\.gz$/) {
-		     `gunzip ${new_file}`; # Need uncompressed file for Matlab -- this is not an intractable problem, though
-		     if ($new_file = s/\.gz$//) {} # Strip .gz for now
-		 }
-
-		my $skip = 0;
-		recenter_nii_function($new_file,$preprocess_dir,$skip,$Hf);
-
-		if ($new_file !~ /\.gz$/) {
-		    `gzip ${new_file}`;
-		    $new_file = $new_file.'.gz';  # 8 Feb 2016: Updated code to gunzip before matlab processing then gzip afterwards
-		}
-
-
-
-		$ref_path = $new_file;
-		$error_message='';
-	    } else {
-		$error_message = $error_message.$file;
-	    }
-	    
-	    $log_msg=$log_msg."\tThe ${which_space} reference space will be inherited from the native base images.\n\tThe full reference path is ${ref_path}\n";
-	}
+	$ref_path="${ref_folder}/reference_image_native_${ref_runno}.nii.gz";
+	
+	$error_message='';
+	#} else {
+#	$error_message = $error_message.$file;
+	#   }
+	
+	$log_msg=$log_msg."\tThe ${which_space} reference space will be inherited from the native base images.\n\tThe full reference path is ${ref_path}\n";
+	
     }
-    
+
+
     if ($for_labels) {
 	$Hf->set_value('label_refname',$ref_string);
     } else {
@@ -775,7 +793,7 @@ sub set_reference_path_vbm {
     
     $log_msg=$log_msg."\tThe ${which_space} reference string/name = ${ref_string}\n";
     
-    return($ref_path,$ref_string,$error_message);
+    return($input_ref_path,$ref_path,$ref_string,$error_message);
 }
 
 # ------------------
@@ -792,6 +810,8 @@ sub set_reference_space_vbm_Runtime_check {
     if (! -e $inputs_dir ) {
 	    mkdir ($inputs_dir,$permissions);
     }
+
+ 
 
     $process_dir_for_labels = $Hf->get_value('base_images_for_labels');
     $refspace_folder_hash{'vbm'} = $Hf->get_value('vbm_refspace_folder');
@@ -817,8 +837,20 @@ sub set_reference_space_vbm_Runtime_check {
     }
     foreach my $V_or_L (@spaces) {
 	$reference_space_hash{$V_or_L} = $Hf->get_value("${V_or_L}_reference_space");
-	$reference_path_hash{$V_or_L} = $Hf->get_value("${V_or_L}_reference_path");
+	my $inpath = $Hf->get_value("${V_or_L}_input_reference_path");
+	my $outpath = $Hf->get_value("${V_or_L}_reference_path");
 	$refspace_hash{$V_or_L} = $Hf->get_value("${V_or_L}_refspace");
+	$refname_hash{$V_or_L} =  $Hf->get_value("${V_or_L}_refname");
+
+
+
+	if (data_double_check($outpath)) {
+	    my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
+	    my $nifti_args = "\'${inpath}\' , \'${outpath}\'";
+	    my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
+	    execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
+	}
+
         # write refspace_temp.txt (for human purposes, in case this module fails)
 	write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp")
     }
@@ -830,49 +862,48 @@ sub set_reference_space_vbm_Runtime_check {
 ##  unknown behavior.  An example would be that all of our images get "shoved" to the top of their bounding box and the top of the brain gets lightly
 ##  trimmed off.  Also, we will assume that this file will be in .gz format.  If not, then it will be gzipped.
 
-    $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
+    # $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
 
-    if (! data_double_check($rigid_atlas_path)) {
-	my $original_gz = '';
-	if ($rigid_atlas_path =~ s/\.gz$//) {$original_gz = '.gz';}
-	($rigid_name,$rigid_dir,$rigid_ext) = fileparts($rigid_atlas_path);
-	$new_rigid_path="${preprocess_dir}/${rigid_name}${rigid_ext}";
-	$future_rigid_path="${inputs_dir}/${rigid_name}${rigid_ext}";
-#	my $old_rigid_path = "${preprocess_dir}/${rigid_name}${rigid_ext}";
+    # if (! data_double_check($rigid_atlas_path)) {
+    # 	my $original_gz = '';
+    # 	if ($rigid_atlas_path =~ s/\.gz$//) {$original_gz = '.gz';}
+    # 	($rigid_name,$rigid_dir,$rigid_ext) = fileparts($rigid_atlas_path);
+    # 	$new_rigid_path="${preprocess_dir}/${rigid_name}${rigid_ext}";
+    # 	$future_rigid_path="${inputs_dir}/${rigid_name}${rigid_ext}";
 
-	if ($future_rigid_path =~ s/\.gz$//) {}
+    # 	if ($future_rigid_path =~ s/\.gz$//) {}
 
-	if (! data_double_check($future_rigid_path)) {
-	    `gzip ${future_rigid_path}`;
-	}
+    # 	if (! data_double_check($future_rigid_path)) {
+    # 	    `gzip ${future_rigid_path}`;
+    # 	}
 
-	$future_rigid_path = $future_rigid_path.'.gz';
+    # 	$future_rigid_path = $future_rigid_path.'.gz';
 
-	$new_rigid_path = $new_rigid_path.'.gz';
+    # 	$new_rigid_path = $new_rigid_path.'.gz';
 
-	if (data_double_check($future_rigid_path)) {
-	    if (data_double_check($new_rigid_path)) {
-		if ($new_rigid_path =~ s/\.gz$//) {}
-		if (! data_double_check($new_rigid_path)) {
-		    `gzip ${new_rigid_path}`;
-		}
-		#$new_rigid_path = $new_rigid_path.'.gz';
+    # 	if (data_double_check($future_rigid_path)) {
+    # 	    if (data_double_check($new_rigid_path)) {
+    # 		if ($new_rigid_path =~ s/\.gz$//) {}
+    # 		if (! data_double_check($new_rigid_path)) {
+    # 		    `gzip ${new_rigid_path}`;
+    # 		}
+    # 		#$new_rigid_path = $new_rigid_path.'.gz';
 		
-		if ((data_double_check($new_rigid_path)) && (data_double_check($new_rigid_path.'gz'))) {
-		    `cp ${rigid_atlas_path} ${new_rigid_path}${original_gz}`;
-		    if (! $original_gz) {
-			`gzip ${new_rigid_path}`;
-		    }
-		    #	prep_atlas_for_referencing_vbm();
-		    #    } else {
-		}
-	    }
-	    $Hf->set_value('rigid_atlas_path',$future_rigid_path);
+    # 		if ((data_double_check($new_rigid_path)) && (data_double_check($new_rigid_path.'gz'))) {
+    # 		    `cp ${rigid_atlas_path} ${new_rigid_path}${original_gz}`;
+    # 		    if (! $original_gz) {
+    # 			`gzip ${new_rigid_path}`;
+    # 		    }
+    # 		    #	prep_atlas_for_referencing_vbm();
+    # 		    #    } else {
+    # 		}
+    # 	    }
+    # 	    $Hf->set_value('rigid_atlas_path',$future_rigid_path);
 	
-	} else {
-	    $Hf->set_value('rigid_atlas_path',$future_rigid_path);
-	}
-    }
+    # 	} else {
+    # 	    $Hf->set_value('rigid_atlas_path',$future_rigid_path);
+    # 	}
+    # }
 
     if ($process_dir_for_labels == 1) {
 	`cp ${refspace_folder_hash{"vbm"}}/*\.nii* ${refspace_folder_hash{"label"}}`;

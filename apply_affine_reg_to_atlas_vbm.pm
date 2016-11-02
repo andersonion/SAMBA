@@ -146,7 +146,7 @@ sub apply_affine_reg_to_atlas_vbm_Runtime_check {
 # Set up work
     $moving_contrast = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
     $rigid_contrast = $Hf->get_value('rigid_contrast');
-    $domain_path =$Hf->get_value('rigid_atlas_path');
+    $domain_path =$Hf->get_value('rigid_atlas_path'); 
     $inputs_dir = $Hf->get_value('inputs_dir');
     $work_path = $Hf->get_value('dir_work');
     $current_path = $Hf->get_value('rigid_work_dir');

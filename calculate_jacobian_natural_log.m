@@ -74,8 +74,8 @@ out_nii.hdr.dime.dim(6)=1;
 %     dz = -dz;
 %end
 
-dx = (-1)*my_nii.hdr.hist.srow_x(1); % The default for Nifti appears to be DCM=(-(dx)/abs(dx),-(dy)/abs(dy),(dz)/abs(dz));
-dy = (-1)*my_nii.hdr.hist.srow_y(2); % See note directly above
+dx = my_nii.hdr.hist.srow_x(1); 
+dy = my_nii.hdr.hist.srow_y(2);
 dz = my_nii.hdr.hist.srow_z(3);
 
 if ( (abs(dx/abs_dx) ~= 1) ||  (abs(dy/abs_dy) ~= 1) || (abs(dz/abs_dz) ~= 1) )

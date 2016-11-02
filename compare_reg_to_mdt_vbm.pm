@@ -371,7 +371,7 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
 #    $dims=$Hf->get_value('image_dimensions');
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
     $compare_contrast_string = $Hf->get_value('compare_contrast');
-    if (defined $compare_contrast_string) {
+    if ((defined $compare_contrast_string) && ($compare_contrast_string ne 'NO_KEY')) {
 	$mdt_contrast_string = $compare_contrast_string;
     } else {
 	$mdt_contrast_string = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.

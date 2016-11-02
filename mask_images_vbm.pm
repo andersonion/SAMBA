@@ -343,6 +343,7 @@ sub mask_images_vbm_Init_check {
     $port_atlas_mask_path = $Hf->get_value('port_atlas_mask_path');
     $rigid_contrast = $Hf->get_value('rigid_contrast');
     my $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
+    my $original_rigid_atlas_path=$Hf->get_value('original_rigid_atlas_path'); # Added 1 September 2016
     my $rigid_atlas=$Hf->get_value('rigid_atlas_name');
     if ($do_mask eq 'NO_KEY') { $do_mask=0;}
     if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
@@ -355,8 +356,15 @@ sub mask_images_vbm_Init_check {
 		($dummy1,$rigid_dir,$dummy2) = fileparts($rigid_atlas_path);
 		$port_atlas_mask_path = get_nii_from_inputs($rigid_dir,'','mask');
 		if ($port_atlas_mask_path =~ /[\n]+/) {
-		    $port_atlas_mask_path=$default_mask;  # Use default mask
-		    $log_msg=$log_msg."\tNo atlas mask specified; porting default atlas mask: ${port_atlas_mask_path}\n";
+		    my ($dummy1,$original_rigid_dir,$dummy2);
+		    ($dummy1,$original_rigid_dir,$dummy2) = fileparts($original_rigid_atlas_path);
+		    $port_atlas_mask_path = get_nii_from_inputs($original_rigid_dir,'','mask');
+		    if ($port_atlas_mask_path =~ /[\n]+/) {
+			$port_atlas_mask_path=$default_mask;  # Use default mask
+			$log_msg=$log_msg."\tNo atlas mask specified; porting default atlas mask: ${port_atlas_mask_path}\n";
+		    } else {
+			`cp ${port_atlas_mask} ${rigid_dir}`;
+		    }
 		} else {
 		    $log_msg=$log_msg."\tNo atlas mask specified; porting rigid ${rigid_atlas} atlas mask: ${port_atlas_mask_path}\n";
 		}

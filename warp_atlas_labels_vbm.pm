@@ -185,11 +185,10 @@ sub apply_mdt_warp_to_labels {
 
     if ($runno ne 'MDT') {
 	my $add_warp_string = $Hf->get_value("forward_xforms_${runno}");
-	
+
 	if ($add_warp_string eq 'NO_KEY') {
 	    $add_warp_string=$Hf->get_value("mdt_forward_xforms_${runno}")
 	}
-
     
 	my @add_warp_array = split(',',$add_warp_string);
 	$raw_warp = pop(@add_warp_array);
@@ -204,6 +203,9 @@ sub apply_mdt_warp_to_labels {
     $mdt_warp_train=format_transforms_for_command_line($mdt_warp_string);
     if ($runno ne 'MDT') {
 	$warp_string = $Hf->get_value("inverse_xforms_${runno}");
+	if ($warp_string eq 'NO_KEY') {
+	    $warp_string=$Hf->get_value("mdt_inverse_xforms_${runno}")
+	}
 	$stop=3;
 	if ($label_space eq 'pre_rigid') {
 	    if ($combined_rigid_and_affine) {
