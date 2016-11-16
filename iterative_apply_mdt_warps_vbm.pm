@@ -1,20 +1,20 @@
 #!/usr/local/pipeline-link/perl
-# apply_mdt_warps_vbm.pm 
+# iterative_apply_mdt_warps_vbm.pm 
 # Originally written by BJ Anderson, CIVM
 
 
 
 
-my $PM = "apply_mdt_warps_vbm.pm";
-my $VERSION = "2015/02/19";
-my $NAME = "Application of warps derived from the calculation of the Minimum Deformation Template.";
+my $PM = "iterative_apply_mdt_warps_vbm.pm";
+my $VERSION = "2016/11/04";
+my $NAME = "Application of warps derived from the calculation of the Minimum Deformation Template, modified for the iterative template creation strategy.";
 my $DESC = "ants";
 
 use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $permissions $ants_verbosity $intermediate_affine $dims);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $permissions $reservation $intermediate_affine $dims);
 require Headfile;
 require pipeline_utilities;
 
@@ -22,23 +22,24 @@ use List::Util qw(max);
 
 
 my $do_inverse_bool = 0;
-my ($runlist,$rigid_path,$current_path,$write_path_for_Hf);
-my ($inputs_dir,$mdt_creation_strategy);
-my ($interp,$template_path, $template_name, $diffeo_path,$work_done,$vbm_reference_path,$label_reference_path,$label_refname,$label_results_path,$label_path);
+my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
+my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
+my ($interp,$mdt_path,$template_predictor,$template_path, $template_name, $diffeo_path,$work_done,$vbm_reference_path,$label_reference_path,$label_refname,$label_results_path,$label_path);
 my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
 my (%go_hash);
 my $go = 1;
 my $job;
 
 my ($current_contrast,$group,$gid,$affine_target);
+my $current_iteration;
+
 if (! defined $dims) {$dims = 3;}
-if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
 # ------------------
-sub apply_mdt_warps_vbm {  # Main code
+sub iterative_apply_mdt_warps_vbm {  # Main code
 # ------------------
     my $direction;
-    ($current_contrast,$direction,$group) = @_;
+    ($current_contrast,$direction,$group,$current_iteration) = @_;
     my $start_time = time;
 
     $interp = "Linear"; # Hardcode this here for now...may need to make it a soft variable.
@@ -49,7 +50,7 @@ sub apply_mdt_warps_vbm {  # Main code
 
     my $PM_code;
 
-    if ($group =~ /(control|mdt|template)/i) {
+    if ($group eq "control") {
 	$gid = 1;
 	$PM_code = 43;
     } elsif ($group eq "compare") {
@@ -61,7 +62,7 @@ sub apply_mdt_warps_vbm {  # Main code
     }else {
 	error_out("$PM: invalid group of runnos specified.  Please consult your local coder and have them fix their problem.");
     }
-    apply_mdt_warps_vbm_Runtime_check($direction);
+    iterative_apply_mdt_warps_vbm_Runtime_check($direction);
 
     foreach my $runno (@array_of_runnos) {
 	$go = $go_hash{$runno};
@@ -85,26 +86,18 @@ sub apply_mdt_warps_vbm {  # Main code
 	}
     }
     my $case = 2;
-    my ($dummy,$error_message)=apply_mdt_warps_Output_check($case,$direction);
+    my ($dummy,$error_message)=iterative_apply_mdt_warps_Output_check($case,$direction);
 
     my $real_time = write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
-
-    @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
 	$Hf->write_headfile($write_path_for_Hf);
-	if ($mdt_creation_strategy eq 'iterative') {
-	    if ($gid < 2) {
-		symbolic_link_cleanup($diffeo_path,$PM);
-	    }
-	} else {
-	    if (! $gid) {
-		symbolic_link_cleanup($diffeo_path,$PM);
-		symbolic_link_cleanup($rigid_path,$PM);
-	    }
+	if (! $gid) {
+	    symbolic_link_cleanup($diffeo_path,$PM);
+	    symbolic_link_cleanup($rigid_path,$PM);
 	}
     }
  
@@ -113,7 +106,7 @@ sub apply_mdt_warps_vbm {  # Main code
 
 
 # ------------------
-sub apply_mdt_warps_Output_check {
+sub iterative_apply_mdt_warps_Output_check {
 # ------------------
      my ($case, $direction) = @_;
      my $message_prefix ='';
@@ -184,14 +177,14 @@ sub apply_mdt_warps_Output_check {
  }
 
 # ------------------
-sub apply_mdt_warps_Input_check {
+sub iterative_apply_mdt_warps_Input_check {
 # ------------------
 
 }
 
 
 # ------------------
-sub apply_mdt_warp {
+sub iterative_apply_mdt_warp {
 # ------------------
     my ($runno,$direction) = @_;
     my ($cmd);
@@ -265,7 +258,7 @@ sub apply_mdt_warp {
 	$reference_image=$reference_image.'.gz';
     }
 
-    $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";  
+    $cmd = "antsApplyTransforms --float -d ${dims} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";  
  
 
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
@@ -297,24 +290,11 @@ sub apply_mdt_warp {
 
 
 # ------------------
-sub apply_mdt_warps_vbm_Init_check {
+sub iterative_apply_mdt_warps_vbm_Init_check {
 # ------------------
-# It does not make sense to have the images for label overlay in post-rigid space if 
-# the rigid and affine transforms are combined. While it is easy to get the images into
-# post-rigid space, it is not straightfoward to get the labels into said space. It could
-# in theory by lastly applying an forward rigid transform, but we will leave such tomfoolery for another day.
 
     my $init_error_msg='';
     my $message_prefix="$PM:\n";
-    # my $rigid_plus_affine = $Hf->get_value('combined_rigid_and_affine');
-    # my $do_labels = $Hf->get_value('create_labels');
-    # $label_space = $Hf->get_value('label_space');
-    # if ($label_space eq ('post_rigid' || 'pre_affine' || 'postrigid' || 'preaffine')) {
-    # 	if (($do_labels == 1) && ($rigid_plus_affine) && ($old_ants)) {
-    # 	    $init_error_msg = $init_error_msg."Label space of ${label_space} is not compatible with combined rigid and affine transforms using old ants.\n".
-    # 		"Please consider setting label space to either \"pre_rigid\" or \"post_affine\".\n";
-    # 	}
-    # } 
 
     if ($init_error_msg ne '') {
 	$init_error_msg = $message_prefix.$init_error_msg;
@@ -324,15 +304,21 @@ sub apply_mdt_warps_vbm_Init_check {
 
 
 # ------------------
-sub apply_mdt_warps_vbm_Runtime_check {
+sub iterative_apply_mdt_warps_vbm_Runtime_check {
 # ------------------
     my ($direction)=@_;
  
 # # Set up work
-
+    
+    $mdt_contrast = $Hf->get_value('mdt_contrast');
+    $mdt_path = $Hf->get_value('mdt_work_dir');
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');
 
+ #   $predictor_id = $Hf->get_value('predictor_id');
+ #   $predictor_path = $Hf->get_value('predictor_work_dir');
+
+    my $template_predictor = $Hf->get_value('template_predictor');
     $template_path = $Hf->get_value('template_work_dir');
     $template_name = $Hf->get_value('template_name');
 
@@ -341,12 +327,12 @@ sub apply_mdt_warps_vbm_Runtime_check {
 
     if ($gid == 1) {
 	$diffeo_path = $Hf->get_value('mdt_diffeo_path');   
-	#$current_path = $Hf->get_value('mdt_images_path');
-	#if ($current_path eq 'NO_KEY') {
+	$current_path = $Hf->get_value('mdt_images_path');
+	if ($current_path eq 'NO_KEY') {
 	   # $current_path = "${predictor_path}/MDT_images";
 	    $current_path = "${template_path}/MDT_images";
 	    $Hf->set_value('mdt_images_path',$current_path);
-	#}
+	}
 #	$runlist = $Hf->get_value('control_comma_list');
 	$runlist = $Hf->get_value('template_comma_list');
 
@@ -357,12 +343,12 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	
     } elsif ($gid == 0) {
 	$diffeo_path = $Hf->get_value('reg_diffeo_path');   
-	#$current_path = $Hf->get_value('reg_images_path');
-	#if ($current_path eq 'NO_KEY') {
+	$current_path = $Hf->get_value('reg_images_path');
+	if ($current_path eq 'NO_KEY') {
 	 #  $current_path = "${predictor_path}/reg_images";
 	    $current_path = "${template_path}/reg_images";
 	    $Hf->set_value('reg_images_path',$current_path);
-	#}
+	}
 	# $runlist = $Hf->get_value('compare_comma_list');
 	$runlist = $Hf->get_value('nontemplate_comma_list');
 
@@ -393,10 +379,10 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	    mkdir ( $intermediary_path,$permissions);
 	}
 
-	#if ($current_path eq 'NO_KEY') {
+	if ($current_path eq 'NO_KEY') {
 	    $current_path = "${intermediary_path}/images";
 	    $Hf->set_value('label_images_dir',$current_path);
-	#}
+	}
 	if (! -e $current_path) {
 	    mkdir ($current_path,$permissions);
 	}
@@ -418,10 +404,8 @@ sub apply_mdt_warps_vbm_Runtime_check {
     @array_of_runnos = split(',',$runlist);
 #
 
-    $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
-
     my $case = 1;
-    my ($dummy,$skip_message)=apply_mdt_warps_Output_check($case,$direction);
+    my ($dummy,$skip_message)=iterative_apply_mdt_warps_Output_check($case,$direction);
 
     if ($skip_message ne '') {
 	print "${skip_message}";

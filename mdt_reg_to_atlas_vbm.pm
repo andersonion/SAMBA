@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions $nodes $mdt_to_reg_start_time);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions $nodes $dims $ants_verbosity $mdt_to_reg_start_time);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -28,10 +28,11 @@ my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_co
 my (%go_hash);
 my $go = 1;
 my $job;
-my $dims;
 my ($log_msg);
 my ($mem_request);
 
+if (! defined $dims) {$dims = 3;}
+if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
 my($warp_suffix,$inverse_suffix,$affine_suffix,$label_atlas);
 if (! $intermediate_affine) {
@@ -215,7 +216,7 @@ sub mdt_reg_to_atlas {
 	$r_string = '';
     }
     
-    $pairwise_cmd = "antsRegistration -d $dims -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
+    $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
 	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${r_string} -u;\n";
 
     
@@ -313,7 +314,7 @@ sub mdt_reg_to_atlas_vbm_Runtime_check {
     $diffeo_smoothing_sigmas = $Hf->get_value('diffeo_smoothing_sigmas');
     $diffeo_sampling_options = $Hf->get_value('diffeo_sampling_options');
 
-    $dims=$Hf->get_value('image_dimensions');
+    #$dims=$Hf->get_value('image_dimensions');
     $label_atlas = $Hf->get_value('label_atlas_name');
     $work_path = $Hf->get_value('regional_stats_dir');
     $label_path=$Hf->get_value('labels_dir');

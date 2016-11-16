@@ -14,7 +14,7 @@ my $obrien =0;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 0;
+my $mcnamara = 1;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
@@ -24,7 +24,7 @@ my $agoston = 0;
 my $apoe = 0;
 my $christmas_rat = 0;
 my $mg_enhanced =0;
-my $john_multicoil=1;
+my $john_multicoil=0;
 my $nian_connectome = 0;
 use strict;
 use warnings;
@@ -73,6 +73,11 @@ $affine_sampling_options
 $affine_target
 
 $mdt_contrast
+$mdt_creation_strategy
+$mdt_iterations
+$mdt_convergence_threshold
+$initial_template
+
 $compare_contrast
 
 $diffeo_metric
@@ -112,6 +117,7 @@ sub study_variables_vbm {
     # Note: pre_affine/post_rigid is not available with $combined_rigid_and_affine =1 & $old_ants = 1.
     $port_atlas_mask =0; # This is just setting the default.
     $combined_rigid_and_affine = 0; # Will eventually always be "0" (and hardcoded accordingly)
+    $mdt_creation_strategy = 'pairwise'; # Options: 'pairwise (old Kochonov method)and 'iterative' (SyGN) Will eventually move to 'iterative'.
 ## Study variables for O'Brien
     if ($obrien) {
 	
@@ -759,6 +765,14 @@ B03248);
 	$project_name = "13.mcnamara.02";
 	$create_labels = 1; # Only turned off for reprocessing of jac VBM
 	$custom_predictor_string = "Control_vs_KA";
+
+
+
+	$mdt_creation_strategy = 'iterative';
+	$mdt_iterations = 3; #6
+	#$mdt_convergence_threshold # Need to figure out how to use this!
+
+
 #	$template_name = 'faMDT_Control_n10';
 
 ## Template guide for bad Jacobian exposition:
@@ -796,15 +810,15 @@ B03248);
 	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
 	#$label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
 	$label_space = "pre_rigid";
-#	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-#	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
+	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 	
-	my $cheating = 1; # We are "cheating" to produce chass_symmetric2 labelsets quickly.
-	if ($cheating) {
-	@control_group = qw(S64944);
-	@compare_group = qw(S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414 S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+#	my $cheating = 0; # We are "cheating" to produce chass_symmetric2 labelsets quickly.
+#	if ($cheating) {
+#	@control_group = qw(S64944);
+#	@compare_group = qw(S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414 S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+#	}
 
-	}
 	my $reverse_polarity = 0;
 # Use this to swap polarity for bad Jac exposition.
 	if ($reverse_polarity) {
@@ -1473,7 +1487,7 @@ elsif ($nian_connectome)
 
 	@control_group = qw(chass_symmetric2);
 	#@compare_group = qw(N54470);
-	@compare_group = qw(N54538 N54539 N54540);
+	@compare_group = qw(N54538 N54539 N54540 N54528_29_1);
 
 	@channel_array = qw(dwi fa);
 	#@channel_array = qw(mask);
@@ -1507,6 +1521,7 @@ elsif ($nian_connectome)
 	$thresh_ref = {
 	    'N54538'   => 2600,
 	    'N54539'   => 1600,
+            'N54528_29_1' => 2350,
 	    'N54540'   => 1230
 	};
 

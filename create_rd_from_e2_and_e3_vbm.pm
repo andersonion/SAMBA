@@ -1,10 +1,6 @@
 #!/usr/local/pipeline-link/perl
 # create_rd_from_e2_and_e3_vbm.pm 
 
-
-
-
-
 my $PM = "create_rd_from_e2_and_e3_vbm.pm";
 my $VERSION = "2015/02/25";
 my $NAME = "Creation of rd channel/contrast via averaging e2 and e3.";
@@ -42,15 +38,20 @@ sub create_rd_from_e2_and_e3_vbm {  # Main code
 		}
 	    }
 	}
-	if (cluster_check()) {
+
+	my $done_waiting;
+	if (cluster_check() && ($jobs[0] ne '')) {
 	    my $interval = 2;
 	    my $verbose = 1;
-	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-	    
-	    if ($done_waiting) {
-		print STDOUT  "  Rd images have been created for all runnos; moving on to next step.\n";
-	    }
+	    $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+	} else {
+	    $done_waiting = 1;
 	}
+
+	if ($done_waiting) {
+	    print STDOUT  "  Rd images have been created for all runnos; moving on to next step.\n";
+	}
+	
 	my $case = 2;
 	my ($dummy,$error_message)=create_rd_from_e2_and_e3_Output_check($case);
 
@@ -84,7 +85,6 @@ sub create_rd_from_e2_and_e3_Output_check {
      } elsif ($case == 2) {
  	$message_prefix = "  Unable to create rd images for the following runno(s):\n";
      } 
-
      
      my $existing_files_message = '';
      my $missing_files_message = '';

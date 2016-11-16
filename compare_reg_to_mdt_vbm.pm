@@ -2,32 +2,34 @@
 # compare_reg_to_mdt_vbm.pm 
 
 my $PM = "compare_reg_to_mdt_vbm.pm";
-my $VERSION = "2014/12/02";
-my $NAME = "Pairwise registration for Minimum Deformation Template calculation.";
+my $VERSION = "2016/11/15"; # Cleaned up code; added iterative template creation support; added ants verbosity default (1), as new ANTs has default of (0) otherwise.
+my $NAME = "Registration to MDT or other template.";
 my $DESC = "ants";
 
 use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $combined_rigid_and_affine $nodes $permissions $dims);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $combined_rigid_and_affine $nodes $ants_verbosity $permissions $dims);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
-my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$compare_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$template_path,$median_images_path,$current_path);
-my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
+my ($mdt_contrast,$mdt_contrast_string,$compare_contrast_string,$mdt_contrast_2, $runlist,$rigid_path,$mdt_path,$template_path,$median_images_path,$current_path,$inputs_dir);
 my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_transform_parameters);
-my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options);
+my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options,$diffeo_levels);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
 my $go = 1;
 my ($job,$job_count);
 my ($mem_request,$mem_request_2,$jobs_in_first_batch);
-#my $dims;
+
 if (! defined $dims) {$dims = 3;}
+if (! defined $ants_verbosity) {$ants_verbosity = 1;}
+
 my $log_msg;
 my $batch_folder;
+my ($match_registration_levels_to_iteration,$mdt_creation_strategy);
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
 if (! $intermediate_affine) {
@@ -184,23 +186,6 @@ sub compare_reg_to_mdt_Input_check {
 # ------------------
 sub reg_to_mdt {
 # ------------------
-    
-    
-#
-    my 	%node_ref = (	   
-	    'N51393'   => 'civmcluster1-01',
-	    'N51392'   => 'civmcluster1-01',
-	    'N51390'   => 'civmcluster1-05',	   
-	    'N51136'   => 'civmcluster1-01',	    
-	    'N51282'   => 'civmcluster1-03',
-	    'N51234'   => 'civmcluster1-02',	   
-	    'N51241'   => 'civmcluster1-04',
-	    'N51252'   => 'civmcluster1-04',
-	    'N51201'   => 'civmcluster1-02',
-	);
-    
-#
-
     my ($runno) = @_;
     my $pre_affined = $intermediate_affine;
     # Set to "1" for using results of apply_affine_reg_to_atlas module, 
@@ -262,7 +247,7 @@ sub reg_to_mdt {
 	}
 #	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}"; 
 #	my $moving_affine =  $rigid_path."/${runno}_${xform_suffix}";
-	$pairwise_cmd = "antsRegistration -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
+	$pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
 	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n"
     }
 
@@ -270,24 +255,41 @@ sub reg_to_mdt {
 
     my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
     my $stop_message = "$PM: could not create diffeomorphic warp to MDT for ${runno}:\n${pairwise_cmd}\n" ;
-    my $node_name = $node_ref{$runno};
-    #print "Node name = ${node_name}\n";
-#    $node_name='civmcluster1-03';
+ 
+    my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
+	"ln -s ${out_warp} ${new_warp};\n".
+	"ln -s ${out_inverse} ${new_inverse};\n".
+	"rm ${out_affine};\n";
+    
 
-#    push(@test,$node_name);
 
-    $job_count++;
+## It is possible that we have done more iterations of template creation.  If so, then the "MDT_diffeo" warps will be the same work we want here, with the one caveat that the same diffeo parameters are used during template creation and registration to template (no doubt we will stray from this path soon).
+    my $future_template_path = $template_path;
+    my $mdt_iterations = $Hf->get_value('mdt_iterations');
+    my $future_iteration = ($mdt_iterations + 1);
+    if ($future_template_path =~ s/_i([0-9]+[\/]*)?/_i${future_iteration}/) { }
+    my $future_MDT_diffeo_path = "${future_template_path}/MDT_diffeo/";
+    my $reusable_warp = "${future_MDT_diffeo_path}/${runno}_to_MDT_warp.nii.gz"; # none 
+    my $reusable_inverse_warp = "${future_MDT_diffeo_path}/MDT_to_${runno}_warp.nii.gz"; 
+
+    if ((! data_double_check($reusable_warp,$reusable_inverse_warp)) && ($mdt_iterations >= $diffeo_levels)){
+	$pairwise_cmd = '';
+	$rename_cmd = "ln ${reusable_warp} ${new_warp}; ln ${reusable_inverse_warp} ${new_inverse};";
+    } else {
+	$job_count++;
+    }
+
     if ($job_count > $jobs_in_first_batch){
 	$mem_request = $mem_request_2;
     }
 
     my $jid = 0;
     if (cluster_check) {
-	my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s;\n"; # random sleep of 5-15 seconds
-	my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
-	    "ln -s ${out_warp} ${new_warp};\n".
-	    "ln -s ${out_inverse} ${new_inverse};\n".
-	    "rm ${out_affine};\n";
+	#my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s;\n"; # random sleep of 5-15 seconds
+	# my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
+	#     "ln -s ${out_warp} ${new_warp};\n".
+	#     "ln -s ${out_inverse} ${new_inverse};\n".
+	#     "rm ${out_affine};\n";
     
 	my $cmd = $pairwise_cmd.$rename_cmd;	
 	my $home_path = $current_path;
@@ -356,9 +358,10 @@ sub compare_reg_to_mdt_vbm_Init_check {
 # ------------------
 sub compare_reg_to_mdt_vbm_Runtime_check {
 # ------------------
-
+    $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
 
     $diffeo_iterations = $Hf->get_value('diffeo_iterations');
+    $diffeo_levels = $Hf->get_value('diffeo_levels');
     $diffeo_metric = $Hf->get_value('diffeo_metric');
     $diffeo_radius = $Hf->get_value('diffeo_radius');
     $diffeo_shrink_factors = $Hf->get_value('diffeo_shrink_factors');
@@ -368,8 +371,6 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
     $diffeo_smoothing_sigmas = $Hf->get_value('diffeo_smoothing_sigmas');
     $diffeo_sampling_options = $Hf->get_value('diffeo_sampling_options');
 
-#    $dims=$Hf->get_value('image_dimensions');
-    $xform_suffix = $Hf->get_value('rigid_transform_suffix');
     $compare_contrast_string = $Hf->get_value('compare_contrast');
     if ((defined $compare_contrast_string) && ($compare_contrast_string ne 'NO_KEY')) {
 	$mdt_contrast_string = $compare_contrast_string;
@@ -401,6 +402,29 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
  	    mkdir ($current_path,$permissions);
  	}
     }
+
+    if ($mdt_creation_strategy eq 'iterative') {
+	$match_registration_levels_to_iteration = $Hf->get_value('match_registration_levels_to_iteration');
+	if (($match_registration_levels_to_iteration eq 'NO_KEY') ||($match_registration_levels_to_iteration eq 'UNDEFINED_VALUE'))  {
+	    $match_registration_levels_to_iteration=0;
+	}
+	# Adjust number of registration levels if need be.
+	if ($match_registration_levels_to_iteration) {
+	    if ($mdt_iterations < $diffeo_levels) {
+		my @iteration_array = split('x',$diffeo_iterations);
+		my @new_iteration_array;
+		for (my $ii = 0; $ii < $diffeo_levels ; $ii++) {
+		    if ($ii < $mdt_iterations) {
+			push(@new_iteration_array,$iteration_array[$ii]);
+		    } else {
+			push(@new_iteration_array,'0');
+		    }
+		}
+		$diffeo_iterations = join('x',@new_iteration_array);
+	    }
+	}
+    }
+
 
     $runlist = $Hf->get_value('compare_comma_list');
     @array_of_runnos = split(',',$runlist);

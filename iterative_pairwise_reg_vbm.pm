@@ -1,23 +1,22 @@
 #!/usr/local/pipeline-link/perl
-# pairwise_reg_vbm.pm 
+# iterative_template_construction_vbm.pm 
 
-my $PM = "pairwise_reg_vbm.pm";
-my $VERSION = "2015/06/17";
-my $NAME = "Pairwise registration for Minimum Deformation Template calculation.";
+my $PM = "iterative_pairwise_reg_vbm.pm";
+my $VERSION = "2016/11/03";
+my $NAME = "Adaptation of Nick and Brian's optimatal template construction (for a true Minimum Deformation Template).";
 my $DESC = "ants";
 
 use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $intermediate_affine $dims $ants_verbosity $nodes $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $ants_verbosity $intermediate_affine $nodes $reservation $permissions $dims);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
-my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$current_path);
-my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_transform_parameters);
+my ($mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$rigid_path,$mdt_path,$current_path,$inputs_dir);
+my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_levels,$diffeo_transform_parameters);
 my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
 my (%go_hash);
@@ -27,22 +26,32 @@ my $id_warp;
 my $log_msg;
 my ($expected_number_of_jobs,$hash_errors);
 my ($mem_request,$mem_request_2,$jobs_in_first_batch);
+my $max_iterations;
 my $batch_folder;
 my $counter=0;
+my $current_checkpoint = 1; # Bound to change! Change here!
+my $write_path_for_Hf;
+
+my $update_step_size;
+my ($template_predictor,$template_path,$master_template_dir,$starting_iteration,$template_match);
+my ($current_target,$old_iteration);
+my $match_registration_levels_to_iteration;
 
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
-# if (! $intermediate_affine) {
-   $warp_suffix = "1Warp.nii.gz";
-   $inverse_suffix = "1InverseWarp.nii.gz";
-   $affine_suffix = "0GenericAffine.mat";
-# } else {
-#     $warp_suffix = "0Warp.nii.gz";
-#     $inverse_suffix = "0InverseWarp.nii.gz";
-#     $affine_suffix = "0GenericAffine.mat";
-# }
+
+my $cheating = 0;
+if ($cheating) {
+$warp_suffix = "2Warp.nii.gz";
+$inverse_suffix = "2InverseWarp.nii.gz";
+$affine_suffix = "0GenericAffine.mat";
+} else {
+$warp_suffix = "1Warp.nii.gz";
+$inverse_suffix = "1InverseWarp.nii.gz";
+$affine_suffix = "0GenericAffine.mat";
+}
 
 my $affine = 0;
 
@@ -50,71 +59,83 @@ my $affine = 0;
 # my @children = qw (reg_template_vbm);
 
 #$test_mode=0;
-
+my ($type,$current_iteration);
 
 # ------------------
-sub pairwise_reg_vbm {  # Main code
+sub iterative_pairwise_reg_vbm {  # Main code
 # ------------------
     
-    my ($type) = @_;
+   ($type,$current_iteration) = @_;
     if ($type eq "a") {
 	$affine = 1;
     }
     my $start_time = time;
-    pairwise_reg_vbm_Runtime_check();
+    iterative_pairwise_reg_vbm_Runtime_check();
     
 
 #    my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
-    ($mem_request,$mem_request_2,$jobs_in_first_batch) = memory_estimator_2($expected_number_of_jobs,$nodes);
+   ($mem_request,$mem_request_2,$jobs_in_first_batch) = memory_estimator_2($expected_number_of_jobs,$nodes);
+#    my $template_group ='';
+   my @remaining_runnos = @sorted_runnos;
+   for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
+       $moving_runno = $remaining_runnos[0];
+       my $current_file = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
+       $go = $go_hash{$moving_runno};
+       if ($go) {
+	   if ($current_iteration) {
+	       ($job) = create_iterative_pairwise_warps($moving_runno);
+	       #	sleep(0.25);
+	       if ($job > 1) {
+		   push(@jobs,$job);
+	       }
+	   } else {
+	       `cp ${id_warp} ${current_path}/${moving_runno}_to_MDT_warp.nii.gz`;
+	       `cp ${id_warp} ${current_path}/MDT_to_${moving_runno}_warp.nii.gz`; 
+	   }
+       }
+   }
 
-    my @remaining_runnos = @sorted_runnos;
-    for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
-	$moving_runno = $remaining_runnos[0];
-	foreach my $fixed_runno (@remaining_runnos) {
-	    $go = $go_hash{$moving_runno}{$fixed_runno};
-	    if ($go) {
-		($job) = create_pairwise_warps($moving_runno,$fixed_runno);
-	#	sleep(0.25);
-		if ($job > 1) {
-		    push(@jobs,$job);
-		}
-	    }
-	}
-    }
-    
-    if (cluster_check() && ($jobs[0] ne '')) {
-	my $interval = 15;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
+   if (cluster_check() && ($jobs[0] ne '')) {
+       my $interval = 15;
+       my $verbose = 1;
+       my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
+       
+       if ($done_waiting) {
+	   print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
+       }
+   }
+   my $case = 2;
+   my ($dummy,$error_message)=iterative_pairwise_reg_Output_check($case);
+   
+   $Hf->write_headfile($write_path_for_Hf);
+   `chmod 777 ${write_path_for_Hf}`;
 
-	if ($done_waiting) {
-	    print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
-	}
-    }
-    my $case = 2;
-    my ($dummy,$error_message)=pairwise_reg_Output_check($case);
+   my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
+   print "$PM took ${real_time} seconds to complete.\n";
+   
+   @jobs=(); # Clear out the job list, since it will remember everything when this module is used iteratively.
 
-    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
-    print "$PM took ${real_time} seconds to complete.\n";
+   if ($error_message ne '') {
+       error_out("${error_message}",0);
+   } else {
+       return($current_iteration);
+   }
 
-    if ($error_message ne '') {
-	error_out("${error_message}",0);
-    }
 }
 
 
 
 # ------------------
-sub pairwise_reg_Output_check {
+sub iterative_pairwise_reg_Output_check {
 # ------------------
      my ($case) = @_;
      my $message_prefix ='';
      my ($file_1,$file_2,@files);
      my @file_array=();
      if ($case == 1) {
-  	$message_prefix = "  Pairwise diffeomorphic warps already exist for the following runno pairs and will not be recalculated:\n";
+  	$message_prefix = "  Diffeomorphic warps to the iterativly constructed template already exist for the following runno(s) and will not be recalculated:\n";
      } elsif ($case == 2) {
- 	$message_prefix = "  Unable to create pairwise diffeomorphic warps for the following runno pairs:\n";
+ 	$message_prefix = "  Unable to create diffeomorphic warp(s) to the iteratively constructed template for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
 
 
@@ -126,21 +147,19 @@ sub pairwise_reg_Output_check {
 
      for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
 	 $moving_runno = $remaining_runnos[0];
-	 foreach my $fixed_runno (@remaining_runnos) {
-	     $file_1 = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz";
-	     $file_2 = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
-
-	     if (data_double_check($file_1, $file_2)) {
-		 $go_hash{$moving_runno}{$fixed_runno}=1;
-		 if ($file_1 ne $file_2) {
-		     $expected_number_of_jobs++;
-		 }
-		 push(@file_array,$file_1,$file_2);
-		 $missing_files_message = $missing_files_message."\t${moving_runno}<-->${fixed_runno}";
-	     } else {
-		 $go_hash{$moving_runno}{$fixed_runno}=0;
-		 $existing_files_message = $existing_files_message."\t${moving_runno}<-->${fixed_runno}";
+	 $file_1 = "${current_path}/${moving_runno}_to_MDT_warp.nii.gz";
+	 $file_2 = "${current_path}/MDT_to_${moving_runno}_warp.nii.gz";
+	 
+	 if (data_double_check($file_1, $file_2)) {
+	     $go_hash{$moving_runno}=1;
+	     if ($file_1 ne $file_2) {
+		 $expected_number_of_jobs++;
 	     }
+	     push(@file_array,$file_1,$file_2);
+	     $missing_files_message = $missing_files_message."\t${moving_runno}";
+	 } else {
+	     $go_hash{$moving_runno}=0;
+	     $existing_files_message = $existing_files_message."\t${moving_runno}";
 	 }
 	 if (($existing_files_message ne '') && ($case == 1)) {
 	     $existing_files_message = $existing_files_message."\n";
@@ -162,7 +181,7 @@ sub pairwise_reg_Output_check {
  }
 
 # ------------------
-sub pairwise_reg_Input_check {
+sub iterative_pairwise_reg_Input_check {
 # ------------------
 
 
@@ -170,37 +189,33 @@ sub pairwise_reg_Input_check {
 
 
 # ------------------
-sub create_pairwise_warps {
+sub create_iterative_pairwise_warps {
 # ------------------
-    my ($moving_runno,$fixed_runno) = @_;
+    my ($moving_runno) = @_;
     my $pre_affined = $intermediate_affine;
-
+    
     # Set to "1" for using results of apply_affine_reg_to_atlas module, 
     # "0" if we decide to skip that step.  It appears the latter is easily the superior option.
-
+    
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
-    my $out_file =  "${current_path}/${moving_runno}_to_${fixed_runno}_"; # Same
-    my $new_warp = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz"; # none 
-    my $new_inverse = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
-    my $new_affine = "${current_path}/${moving_runno}_to_${fixed_runno}_affine.nii.gz";
+    my $out_file =  "${current_path}/${moving_runno}_to_MDT_"; # Same
+    my $new_warp = "${current_path}/${moving_runno}_to_MDT_warp.nii.gz"; # none 
+    my $new_inverse = "${current_path}/MDT_to_${moving_runno}_warp.nii.gz";
+    my $new_affine = "${current_path}/${moving_runno}_to_MDT_affine.nii.gz";
     my $out_warp = "${out_file}${warp_suffix}";
     my $out_inverse =  "${out_file}${inverse_suffix}";
     my $out_affine = "${out_file}${affine_suffix}";
-
+    
     my $second_contrast_string='';
-
+    
     my ($q_string,$r_string);
-    my ($fixed_string,$moving_string,$fixed_affine,$moving_affine);
-    $fixed_string=$Hf->get_value("forward_xforms_${fixed_runno}");
-    if ($fixed_string eq 'NO_KEY') {
-	$fixed_string=$Hf->get_value("mdt_forward_xforms_${fixed_runno}")
-    }
-
+    my ($moving_string,$moving_affine);
+    
     $moving_string=$Hf->get_value("forward_xforms_${moving_runno}");
     if ($moving_string eq 'NO_KEY') {
 	$moving_string=$Hf->get_value("mdt_forward_xforms_${moving_runno}")
     }	
-
+    
     my $stop = 2;
     my $start;
     if ($combined_rigid_and_affine) {
@@ -208,39 +223,30 @@ sub create_pairwise_warps {
     } else {
 	$start = 1;
     }
-    $q_string = format_transforms_for_command_line($fixed_string,"q",$start,$stop);
+    #$q_string = format_transforms_for_command_line($fixed_string,"q",$start,$stop);
+    $q_string = '';
     $r_string = format_transforms_for_command_line($moving_string,"r",$start,$stop);
     
-    if ($pre_affined) {
-	$fixed = $rigid_path."/${fixed_runno}_${mdt_contrast}.nii";
-	$moving = $rigid_path."/${moving_runno}_${mdt_contrast}.nii";
-	if ($mdt_contrast_2 ne '') {
-	    $fixed_2 = $rigid_path."/${fixed_runno}_${mdt_contrast_2}.nii" ;
-	    $moving_2 =$rigid_path."/${moving_runno}_${mdt_contrast_2}.nii" ;
-	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
-	}
-	$pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
-	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n";
-    } else {
-	$fixed = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast);
-	$moving = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
-	if ($mdt_contrast_2 ne '') {
-	  $fixed_2 = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast_2) ;
-	  $moving_2 = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast_2) ;
-	  $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
-	}
-
-	$pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
-	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n" 
+    
+    $fixed = $current_target;
+    $moving = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
+    if ($mdt_contrast_2 ne '') {
+	##$fixed_2 = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast_2) ; # Need to "fix" this, chuckle chuckle.
+	#$moving_2 = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast_2) ;
+	#$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
     }
-
+    
+    $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d $dims -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
+	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n" ;
+    
+    
     if (-e $new_warp) { unlink($new_warp);}
     if (-e $new_inverse) { unlink($new_inverse);}
-    my $go_message = "$PM: create pairwise warp for the pair ${moving_runno} and ${fixed_runno}" ;
-    my $stop_message = "$PM: could not create warp between ${moving_runno} and ${fixed_runno}:\n${pairwise_cmd}\n";
+    my $go_message = "$PM: create iterative pairwise warp for the pair ${moving_runno} and MDT" ;
+    my $stop_message = "$PM: could not create iterative warp between ${moving_runno} and MDT:\n${pairwise_cmd}\n";
+    
 
-
-   
+    
     my $rename_cmd;
     $rename_cmd = "".  #### Need to add a check to make sure the out files were created before linking!
 	"ln -s ${out_warp} ${new_warp};\n".
@@ -248,47 +254,31 @@ sub create_pairwise_warps {
 	"rm ${out_affine};\n";
     my @test = (0);
     my $node = '';
-   # print "t1 = $test[0]\n\nt2=$test[1]\n\n";
 
-    if ($fixed_runno eq $moving_runno) {
-	$pairwise_cmd = "cp ${id_warp} ${new_warp}";
-	$rename_cmd = '';
-	$node = "civmcluster1";
-	@test=(1,$node);
-    } else {
-	$job_count++;
-	if ($job_count > $jobs_in_first_batch){
-	    $mem_request = $mem_request_2;
-	}
+    $job_count++;
+    if ($job_count > $jobs_in_first_batch){
+	$mem_request = $mem_request_2;
     }
 
-# ##  This code was supposed to optimize the node distribution of jobs for McNamara 10/10 run--didn't work as well as hoped!
-# 	$counter=$counter+1;
-# 	if ($counter=~ /^(19|32|35|9|29|21|31|22|10|37|18|45|24)$/) {
-# 	    $node = "civmcluster1-02"; #-01
-# 	    $mem_request = memory_estimator(13,1);
-# 	} elsif ($counter =~ /^(4|33|28|43|1|2|5|38|27|12|25|6)$/) { # Moved "13" to last node 
-# 	    $node = "civmcluster1-05"; #-02
-# 	    $mem_request = memory_estimator(13,1);
-# 	} elsif ($counter =~ /^(26|20|40|8|23|14|3|16|7|41|36|34)$/) {
-# 	    $node = "civmcluster1-04"; #-03
-# 	    $mem_request = memory_estimator(12,1);
-# 	} elsif ($counter =~ /^(30|17|39|15|11|42|44|13)$/){ #Imported "13" from 2nd node
-# 	    $node = "civmcluster1"; #-04
-# 	    $mem_request = memory_estimator(10,1); #(7,1)
-# 	}
-# 	@test=(0,$node);
-#     }
+## It is possible that VBM processing was done after previous iteration.  If so, then the "reg_diffeo" warps will be the same work we want here, with the one caveat that the same diffeo parameters are used during template creation and registration to template (no doubt we will soon stray from this path).
+    my $previous_template_path = $template_path;
+    if ($previous_template_path =~ s/_i([0-9]+[\/]*)?/_i($old_iteration)/) { }
+    my $prev_reg_diffeo_path = "${previous_template_path}/reg_diffeo/";
+    my $reusable_warp = "${prev_reg_diffeo_path}/${moving_runno}_to_MDT_warp.nii.gz"; # none 
+    my $reusable_inverse_warp = "${prev_reg_diffeo_path}/MDT_to_${moving_runno}_warp.nii.gz"; 
 
+    if (! data_double_check($reusable_warp,$reusable_inverse_warp)){
+	$pairwise_cmd = '';
+	$rename_cmd = "ln ${reusable_warp} ${new_warp}; ln ${reusable_inverse_warp} ${new_inverse};";
+    }
+##
     my $jid = 0;
     if (cluster_check) {
-
-    
 	my $cmd = $pairwise_cmd.$rename_cmd;
 	
 	my $home_path = $current_path;
 	$batch_folder = $home_path.'/sbatch/';
-	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
+	my $Id= "${moving_runno}_to_MDT_create_iterative_pairwise_warp";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
@@ -311,14 +301,64 @@ sub create_pairwise_warps {
 
 
 # ------------------
-sub pairwise_reg_vbm_Init_check {
+sub iterative_pairwise_reg_vbm_Init_check {
 # ------------------
     my $init_error_msg='';
+    
     my $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
     if ($mdt_creation_strategy eq 'iterative') {
 	my $message_prefix="$PM initialization check:\n";
+
+	$template_predictor = $Hf->get_value('template_predictor');
 	
+	my $default_switch=0;
+	if (($template_predictor eq 'NO_KEY') ||($template_predictor eq 'UNDEFINED_VALUE'))  {
+	    my $predictor_id = $Hf->get_value('predictor_id');
+	    if (($predictor_id ne 'NO_KEY') && ($predictor_id ne 'UNDEFINED_VALUE')) {
+		# print "Predictor id = ${predictor_id}\n";
+		if ($predictor_id =~ s/([_]+.*)//) {
+		    $template_predictor = $predictor_id;
+		} else {
+		    $template_predictor = "NoNameYet";
+		    $default_switch = 1;
+		}
+	    } else {
+		$template_predictor = "NoNameYet";
+		$default_switch = 1;
+	    }
+	}
+	$Hf->set_value('template_predictor',$template_predictor);
+	$log_msg = $log_msg."\tTemplate predictor will be referred to as: ${template_predictor}.\n";
+	if ($default_switch) {
+	    $log_msg = $log_msg."\tThis is the default value, since it was not otherwise specified.\n";
+	}
+
+	my $initial_template = $Hf->get_value('initial_template');
+	if (! data_double_check($initial_template))  {
+	   my($name,$path,$suffix)= fileparts($initial_template);
+	   if ($name =~ s/(_i)([0-9]+)$//) {
+	       my $starting_iteration = (1+$2);
+	       $Hf->set_value('starting_iteration_for_template_creation',$starting_iteration);
+	       $Hf->set_value('template_name',$name);
+	       $log_msg = $log_msg."\tAn initialization template has been specified with the name: $name\n";
+	       $log_msg = $log_msg."\tIt appears to be from iteration ${2}; template creation will resume at ${starting_iteration}\n";
+
+	   }
+	   else {
+	       $Hf->set_value('template_name',$name);
+	       $log_msg = $log_msg."\tAn initialization template has been specified with the name: $name\n";
+	       $log_msg = $log_msg."\tTemplate creation will attempt to pick up where any previous work may have left off\n";
+	   }
+	}
+
+	$match_registration_levels_to_iteration = $Hf->get_value('match_registration_levels_to_iteration');
+	if (($match_registration_levels_to_iteration eq 'NO_KEY') ||($match_registration_levels_to_iteration eq 'UNDEFINED_VALUE'))  {
+	    $match_registration_levels_to_iteration=1;
+	    $Hf->set_value('match_registration_levels_to_iteration',$match_registration_levels_to_iteration);
+	}
+
 	$diffeo_metric = $Hf->get_value('diffeo_metric');
+	
 	my @valid_metrics = ('CC','MI','Mattes','MeanSquares','Demons','GC');
 	my $valid_metrics = join(', ',@valid_metrics);
 	my $metric_flag = 0;
@@ -387,14 +427,14 @@ sub pairwise_reg_vbm_Init_check {
 	    $log_msg = $log_msg."\tRunning in TEST MODE: using minimal diffeomorphic iterations:  \"${diffeo_iterations}\".\n";
 	} else {
 	    if ($diffeo_iterations eq ('' || 'NO_KEY')) {
-		#$diffeo_iterations = $defaults_Hf->get_value('diffeo_iterations');
+	    #$diffeo_iterations = $defaults_Hf->get_value('diffeo_iterations');
 		$diffeo_iterations="4000x4000x4000x4000";
 		$log_msg = $log_msg."\tNo diffeomorphic iterations specified; using default values:  \"${diffeo_iterations}\".\n";
 	    }
 	}
 	$log_msg=$log_msg."\tNumber of levels for diffeomorphic registration=${diffeo_levels}.\n";	
 	$Hf->set_value('diffeo_iterations',$diffeo_iterations);
-	
+	$Hf->set_value('diffeo_levels',$diffeo_levels);
 	
 	$diffeo_shrink_factors=$Hf->get_value('diffeo_shrink_factors');
 	if ( $diffeo_shrink_factors eq ('' || 'NO_KEY')) {
@@ -459,18 +499,18 @@ sub pairwise_reg_vbm_Init_check {
 	} else {
 	    $init_error_msg=$init_error_msg."Invalid diffeomorphic convergence threshold specified: \"${diffeo_convergence_thresh}\". ".
 		"Real positive numbers are accepted; scientific notation (\"X.Ye-Z\") are also righteous.\n";
-	}
+    }
 	$Hf->set_value('diffeo_convergence_thresh',$diffeo_convergence_thresh);    
 	
 	my $dcw_error = 0;
 	$diffeo_convergence_window=$Hf->get_value('diffeo_convergence_window');
 	if (  $diffeo_convergence_window eq ('' || 'NO_KEY')) {
 	    #$diffeo_convergence_window = $defaults_Hf->get_value('diffeo_convergence_window');
-	$diffeo_convergence_window = 20;
-	$log_msg = $log_msg."\tNo diffeomorphic convergence window specified; using default value of \"${diffeo_convergence_window}\".\n";
+	    $diffeo_convergence_window = 20;
+	    $log_msg = $log_msg."\tNo diffeomorphic convergence window specified; using default value of \"${diffeo_convergence_window}\".\n";
 	} elsif ($diffeo_convergence_window =~ /^[0-9]+$/) {
 	    if ($diffeo_convergence_window < 5) {
-		$dcw_error=1;
+	    $dcw_error=1;
 	    }
 	} else {
 	    $dcw_error=1;
@@ -526,11 +566,11 @@ sub pairwise_reg_vbm_Init_check {
 		} 
 	    } else {
 		$init_error_msg=$init_error_msg."Units specified for diffeomorphic smoothing sigmas \"${input_diffeo_smoothing_sigmas}\" are not valid. ".
-		    "Acceptable units are either \'vox\' or \'mm\', or may be omitted (equivalent to \'mm\').\n";
+		"Acceptable units are either \'vox\' or \'mm\', or may be omitted (equivalent to \'mm\').\n";
 	    }
 	    
 	    $diffeo_smoothing_sigmas = $diffeo_smoothing_sigmas.$diffeo_smoothing_units;
-	}
+    }
 	$Hf->set_value('diffeo_smoothing_sigmas',$diffeo_smoothing_sigmas);
 	
 	$diffeo_sampling_options=$Hf->get_value('diffeo_sampling_options');
@@ -574,23 +614,32 @@ sub pairwise_reg_vbm_Init_check {
 	$Hf->set_value('diffeo_sampling_options',$diffeo_sampling_options);
 	
 	
-
-
+	$update_step_size = $Hf->get_value('update_step_size');
+	if ($update_step_size eq ('' || 'NO_KEY')) {
+	    $update_step_size =0.25;
+	    $Hf->set_value('update_step_size',$update_step_size);
+	    $log_msg = $log_msg."\tNo step size specified for shape update during iterative template construction; using default values of ${update_step_size}.\n";
+	}
+    
 	if ($log_msg ne '') {
 	    log_info("${message_prefix}${log_msg}");
 	}
-    
+
 	if ($init_error_msg ne '') {
 	    $init_error_msg = $message_prefix.$init_error_msg;
 	}
-    }
+    }    
     return($init_error_msg);
 }
 # ------------------
-sub pairwise_reg_vbm_Runtime_check {
+sub iterative_pairwise_reg_vbm_Runtime_check {
 # ------------------
 
+    $update_step_size = $Hf->get_value('update_step_size');
+    $match_registration_levels_to_iteration=$Hf->get_value('match_registration_levels_to_iteration');
+    
     $diffeo_iterations = $Hf->get_value('diffeo_iterations');
+    $diffeo_levels = $Hf->get_value('diffeo_levels');
     $diffeo_metric = $Hf->get_value('diffeo_metric');
     $diffeo_radius = $Hf->get_value('diffeo_radius');
     $diffeo_shrink_factors = $Hf->get_value('diffeo_shrink_factors');
@@ -600,26 +649,32 @@ sub pairwise_reg_vbm_Runtime_check {
     $diffeo_smoothing_sigmas = $Hf->get_value('diffeo_smoothing_sigmas');
     $diffeo_sampling_options = $Hf->get_value('diffeo_sampling_options');
  
-    #$dims=$Hf->get_value('image_dimensions');
-    $xform_suffix = $Hf->get_value('rigid_transform_suffix');
     $mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
     @mdt_contrasts = split('_',$mdt_contrast_string); 
     $mdt_contrast = $mdt_contrasts[0];
+
     if ($#mdt_contrasts > 0) {
 	$mdt_contrast_2 = $mdt_contrasts[1];
     }  #The working assumption is that we will not expand beyond using two contrasts for registration...
 
-
-# ONE OFF BAD CODE!!!!
-#   $mdt_contrast_string = "SyN_1_3_1_fa";
-#
-
-
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');
     $mdt_path = $Hf->get_value('mdt_work_dir');
-    $current_path = $Hf->get_value('mdt_pairwise_dir');
- 
+
+    $template_path = $Hf->get_value('template_work_dir'); #
+
+    $current_path = $Hf->get_value('mdt_diffeo_path'); #
+
+    my $template_checkpoint_completed = $Hf->get_value('template_checkpoint_completed');
+    if  ($template_checkpoint_completed eq 'NO_KEY') {
+	$template_checkpoint_completed = 0;
+    }
+    
+    my $SyN_string = `echo "${diffeo_transform_parameters}" | tr "." "p" | tr "," "_" `;
+    chomp($SyN_string);
+    $mdt_contrast_string = "SyN_${SyN_string}_${mdt_contrast_string}"; 
+
+
     if ($mdt_path eq 'NO_KEY') {
 	$mdt_path = "${rigid_path}/${mdt_contrast_string}";
  	$Hf->set_value('mdt_work_dir',$mdt_path);
@@ -628,38 +683,203 @@ sub pairwise_reg_vbm_Runtime_check {
  	}
     }
 
-    if ($current_path eq 'NO_KEY') {
-	$current_path = "${mdt_path}/MDT_pairs";
- 	$Hf->set_value('mdt_pairwise_dir',$current_path);
- 	if (! -e $current_path) {
- 	    mkdir ($current_path,$permissions);
+ 
+    $master_template_dir = $Hf->get_value('master_template_folder');
+    if ($master_template_dir eq 'NO_KEY') {
+	$master_template_dir = "${mdt_path}/templates";
+ 	$Hf->set_value('master_template_folder',$master_template_dir);
+ 	if (! -e $master_template_dir) {
+ 	    mkdir ($master_template_dir,$permissions);
  	}
     }
+
+
+    $initial_template = $Hf->get_value('initial_template');
+    $template_name = $Hf->get_value('template_name');
+    $starting_iteration = $Hf->get_value('starting_iteration_for_template_creation');
+
+    if (! data_double_check($initial_template)){
+	my $initial_source_iteration=0;
+	my($name,$path,$suffix)= fileparts($initial_template);
+	if ((defined $starting_iteration) && ($starting_iteration > 0)) { # This runs the danger of being defined as "NO_KEY", etc.
+	    $initial_source_iteration = $starting_iteration - 1;
+	    $name="${name}_i0";
+	}
+	`cp ${initial_template} ${master_template_dir}/${template_name}_i${initial_source_iteration}.${suffix}`;
+    }
+
 
     $runlist = $Hf->get_value('control_comma_list');
     @array_of_runnos = split(',',$runlist);
     @sorted_runnos=sort(@array_of_runnos);
 
+    my $number_of_template_runnos = $#sorted_runnos + 1;
+
+    if ($template_name eq 'NO_KEY') {
+	$template_name = "${mdt_contrast}MDT_${template_predictor}_n${number_of_template_runnos}";
+	$Hf->set_value('template_name',$template_name);
+    }
+    if ($template_path eq 'NO_KEY') {
+	$template_path = "${mdt_path}/${template_name}_i${current_iteration}"; # Unsure if I should add current iteration here.
+    }
+    
+    if ($current_path eq 'NO_KEY') {
+	$current_path = "${template_path}/MDT_diffeo";
+    }
+#if ($template_path eq 'NO_KEY') {
+######### Generate an appropriate template name, check for redundancy
+    print "Should run checkpoint here!\n\n";
+    my $checkpoint = $Hf->get_value('last_headfile_checkpoint'); # For now, this is the first checkpoint, but that will probably evolve.
+    my $previous_checkpoint = $current_checkpoint - 1;
+   
+    # if (($checkpoint eq "NO_KEY") || ($checkpoint <= $previous_checkpoint)) {
+    if ((($checkpoint eq "NO_KEY") || ($checkpoint < $previous_checkpoint)) && (! $template_checkpoint_completed)) {
+	$template_match = 0;
+	my $temp_template_path;
+	my $temp_current_path;
+	my @alphabet = qw(a b c d e f g h j k m n p q r s t u v w x y z); # Don't want to use i,l,o (I,L,O)
+	@alphabet = ('',@alphabet);
+
+	my $include = 0; # We will exclude certain keys from headfile comparison. Exclude key list getting bloated...may need to switch to include.
+	my @excluded_keys =qw(affine_identity_matrix
+                              affine_target_image
+                              all_groups_comma_list
+                              compare_comma_list  
+                              complete_comma_list
+                              channel_comma_list
+                              create_labels
+                              group_1_runnos
+                              group_2_runnos
+                              label_atlas_dir
+                              label_atlas_name
+                              label_atlas_path
+                              label_reference_path
+                              label_reference_space
+                              label_refname
+                              label_refspace
+                              label_refspace_folder
+                              label_space
+                              template_checkpoint_completed
+                              mdt_iterations
+                              last_update_warp
+                              mdt_images_path
+                              template_comma_list
+                              median_images_path
+                              forward_xforms 
+                              inverse_xforms
+                              last_headfile_checkpoint
+                              mdt_diffeo_path
+                              number_of_nodes_used
+                              predictor_id
+                              rd_channel_added
+                              smoothing_comma_list
+                              stats_file
+                              template_name
+                              template_work_dir
+                              threshold_hash_ref
+                              vba_analysis_software
+                              vba_contrast_comma_list ); # affine_target_image will need to be removed from this list once we fully support it.
+
+	#$temp_template_name = $template_name;
+	$max_iterations = $Hf->get_value('mdt_iterations');
+	for (my $i=0; $template_match== 0; $i++) {
+	    my $letter = $alphabet[$i];
+	   my $temp_template_name = $template_name.$letter;
+	   # print "current_letter = ${letter}\n";
+	    #$temp_current_path = $current_path;
+	    print "Original current path = ${temp_current_path}\n\n\n";
+	    my $iteration_found = 0;
+	    for (my $iter=$max_iterations; (($iteration_found== 0) && ($iter > -1)); $iter--) { # -1 or 0 before resetting # previously: ($max_iteration-1)
+		$temp_current_path = $mdt_path.'/'.$temp_template_name."_i${iter}/MDT_diffeo" ;
+		#if ($temp_current_path =~ s/(\/[A-Za-z_]+[\/]?)$/${letter}_i${iter}$1/) {
+		    print "Temp_current_path = ${temp_current_path}\n\n\n";		    
+		    my $current_tempHf = find_temp_headfile_pointer($temp_current_path);
+		    my $Hf_comp = '';
+		    #print "current_iteration = ${iter}\n";
+		    if ($current_tempHf ne "0"){# numeric compare vs string?
+			$iteration_found = $iter;
+			$Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);		    
+			if ($Hf_comp eq '') {
+			    $template_match = 1;
+			} else {
+			    print " $PM: ${Hf_comp}\n"; # Is this the right place for this?
+			}
+		    }
+		#}
+	    }  
+
+	    if ($template_match || (! $iteration_found)) {
+		$template_match=1;
+		$template_name = $template_name.$letter; 
+		#$template_path = $temp_template_path.$letter;
+		#$current_path = $temp_current_path;   
+		print " At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n";
+	    }
+	    
+	    if ($iteration_found) {
+		$current_iteration = $iteration_found;
+		print " Evidence of previous iterations found; starting at highest iteration, Iteration ${current_iteration}.\n";
+	    }
+	    #$template_path = $template_path.$letter."_i".$current_iteration;
+	}
+	$Hf->set_value('template_checkpoint_completed',1);
+    }
+    $template_path = $mdt_path.'/'.$template_name."_i".$current_iteration;
+    print "Current template_path = ${template_path}\n\n";
+    if (! -e $template_path) {
+	mkdir ($template_path,$permissions);
+    }
+    $Hf->set_value('template_work_dir',$template_path);
+#####
+    
+    
+    $current_path = "${template_path}/MDT_diffeo";
+    $Hf->set_value('mdt_diffeo_path',$current_path);
+    if (! -e $current_path) {
+	mkdir ($current_path,$permissions);
+    }
+    $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
+ 
+    print "current_path = ${current_path}\n\n";
+    $old_iteration=($current_iteration - 1);
+    $current_target = "${master_template_dir}/${template_name}_i${old_iteration}.nii.gz";
+
+# Adjust number of registration levels if need be.
+    if ($match_registration_levels_to_iteration) {
+	if ($current_iteration < $diffeo_levels) {
+	    my @iteration_array = split('x',$diffeo_iterations);
+	    my @new_iteration_array;
+	    for (my $ii = 0; $ii < $diffeo_levels ; $ii++) {
+		if ($ii < $current_iteration) {
+		    push(@new_iteration_array,$iteration_array[$ii]);
+		} else {
+		    push(@new_iteration_array,'0');
+		}
+	    }
+	    $diffeo_iterations = join('x',@new_iteration_array);
+	}
+    }
+
 
     ## Generate an identity warp for our general purposes ##
 
-    $id_warp = "${current_path}/identity_warp.nii.gz";
+    $id_warp = "${master_template_dir}/identity_warp.nii.gz";
     my $first_runno = $array_of_runnos[0];
     my $first_image = get_nii_from_inputs($inputs_dir,$first_runno,$mdt_contrast);
-    print "current path = ${current_path}\n\n";
+
     if (data_double_check($id_warp)) {
-	make_identity_warp($first_image,$Hf,$current_path);
+	make_identity_warp($first_image,$Hf,$master_template_dir);
     }
     
     ##
 
     my $case = 1;
-    my ($dummy,$skip_message)=pairwise_reg_Output_check($case);
-
-    if ($skip_message ne '') {
+    my ($dummy,$skip_message)=iterative_pairwise_reg_Output_check($case);
+	
+   if ($skip_message ne '') {
 	print "${skip_message}";
     }
-
+	
 # check for needed input files to produce output files which need to be produced in this step?
 
 }

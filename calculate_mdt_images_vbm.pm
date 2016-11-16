@@ -1,12 +1,8 @@
 #!/usr/local/pipeline-link/perl
 # calculate_mdt_images_vbm.pm 
 
-
-
-
-
 my $PM = "calculate_mdt_images_vbm.pm";
-my $VERSION = "2014/12/02";
+my $VERSION = "2016/11/14"; # Cleaned up code, added support for iterative template creation process.
 my $NAME = "Calculation of the average Minimal Deformation Template for a given contrast.";
 my $DESC = "ants";
 
@@ -14,7 +10,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $intermediate_affine $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT $reservation $dims $ants_verbosity $permissions);
 require Headfile;
 require pipeline_utilities;
 
@@ -22,23 +18,31 @@ use List::Util qw(max);
 
 
 my $do_inverse_bool = 0;
-my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
-my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my ($mdt_path,$pairwise_path,$template_predictor,$template_path,$template_name,$mdt_images_path,$work_done);
+my ($inputs_dir,$mdt_contrast,$runlist,$current_path,$write_path_for_Hf);
+my ($template_path,$template_name,$mdt_images_path,$work_done,$reference_image,$master_template_dir);
 my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed);
-my (%go_hash);
+my (%go_hash,%int_go_hash);
 my $go = 1;
 my $job;
-
+my ($last_update_warp,$mdt_creation_strategy,$current_iteration);
 
 my (@contrast_list);
 
+if (! defined $ants_verbosity) {$ants_verbosity = 1;}
+if (! defined $dims) {$dims = 3;}
+
+my $interp = "Linear"; # Hardcode this here for now...may need to make it a soft variable.
 
 # ------------------
 sub calculate_mdt_images_vbm {  # Main code
 # ------------------
 
-    (@contrast_list) = @_;
+    ($current_iteration,@contrast_list) = @_;
+    if ($current_iteration !~ /^[0-9]+?/) { # Backwards compatibility, maybe first contrast instead of current iteration.
+	unshift(@contrast_list,$current_iteration);
+	$current_iteration = 69; # This is just a juvenile number to make sure we can see if it fails.
+    }
+
     my $start_time = time;
 
     calculate_mdt_images_vbm_Runtime_check();
@@ -84,11 +88,13 @@ sub calculate_mdt_images_vbm {  # Main code
     my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
+    @jobs=(); # Clear out the job list, since it will remember everything when this module is used iteratively.
+
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
 	$Hf->write_headfile($write_path_for_Hf);
-#x	symbolic_link_cleanup($pairwise_path);
+#	symbolic_link_cleanup($pairwise_path);
     }
  
 }
@@ -113,7 +119,7 @@ sub calculate_mdt_images_Output_check {
      my $missing_files_message = '';
      
      $out_file = "${current_path}/MDT_${contrast}.nii.gz";
-
+     $int_go_hash{$contrast}=0;
      if (data_double_check($out_file)) {
 	 if ($out_file =~ s/\.gz$//) {
 	     if (data_double_check($out_file)) {
@@ -121,6 +127,18 @@ sub calculate_mdt_images_Output_check {
 		 push(@file_array,$out_file);
 		 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
 		 $missing_files_message = $missing_files_message."\t$contrast\n";
+		 if ($mdt_creation_strategy eq 'iterative'){
+		     my $int_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
+		     if (data_double_check($int_file)) {
+			 if ($int_file =~ s/\.gz$//) {
+			     if (data_double_check($int_file)) {
+				 $int_go_hash{$contrast}=1;
+				 push(@file_array,$int_file);
+				 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+			     }
+			 }
+		     }
+		 }
 	     } else {
 		 `gzip -f ${out_file}`; #Is -f safe to use?
 		 $go_hash{$contrast}=0;
@@ -161,14 +179,35 @@ sub calculate_mdt_images_Input_check {
 sub calculate_average_mdt_image {
 # ------------------
     my ($contrast) = @_;
-    my ($cmd);
-    my $out_file = "${current_path}/MDT_${contrast}.nii.gz";
+    my ($cmd,$avg_cmd,$update_cmd,$cleanup_cmd,$copy_cmd);
+    my ($out_file, $intermediate_file);
 
- 
-    $cmd =" AverageImages 3 ${out_file} 0";
-    foreach my $runno (@array_of_runnos) {
-	$cmd = $cmd." ${mdt_images_path}/${runno}_${contrast}_to_MDT.nii.gz";
+    if ($mdt_creation_strategy eq 'iterative') {
+
+	my $warp_train_car = " -t ${last_update_warp} ";
+	my $warp_train = $warp_train_car.$warp_train_car.$warp_train_car.$warp_train_car;
+
+	$out_file = "${current_path}/MDT_${contrast}.nii.gz";
+	$intermediate_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
+ 	$update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";
+	$cleanup_cmd = "if [[ -f ${out_file} ]]; then rm ${intermediate_file}; fi\n";
+	if ($contrast eq $mdt_contrast) { # This needs to be adapted to support multiple mdt contrasts!
+	    my $backup_file = "${master_template_dir}/${template_name}_i${current_iteration}.nii.gz";
+	    $copy_cmd = "cp ${out_file} ${backup_file}\n";
+	}
+    } else {
+	$intermediate_file = $out_file;
     }
+    if ($int_go_hash{$contrast}) { 
+	$avg_cmd =" AverageImages 3 ${intermediate_file} 0";
+	foreach my $runno (@array_of_runnos) {
+	    $avg_cmd = $avg_cmd." ${mdt_images_path}/${runno}_${contrast}_to_MDT.nii.gz";
+	}
+	$avg_cmd = $avg_cmd.";\n";
+    }
+
+    $cmd = $avg_cmd.$update_cmd.$cleanup_cmd.$copy_cmd;
+
     my $go_message =  "$PM: created average MDT image(s) for contrast:  ${contrast}";
     my $stop_message = "$PM: could not create an average MDT image for contrast: ${contrast}:\n${cmd}\n";
 
@@ -210,27 +249,30 @@ sub calculate_mdt_images_vbm_Runtime_check {
 # ------------------
 
 # # Set up work
-    
+    $master_template_dir = $Hf->get_value('master_template_folder');
     $mdt_contrast = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
-    $mdt_path = $Hf->get_value('mdt_work_dir');
-    $pairwise_path = $Hf->get_value('mdt_pairwise_dir');
     $inputs_dir = $Hf->get_value('inputs_dir');
-#
-#    $predictor_id = $Hf->get_value('predictor_id');
-#    $predictor_path = $Hf->get_value('predictor_work_dir');
-   
-    $template_predictor = $Hf->get_value('template_predictor');
+
+    $last_update_warp = $Hf->get_value('last_update_warp');
+    $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
+
     $template_path = $Hf->get_value('template_work_dir');  
     $template_name = $Hf->get_value('template_name'); 
 #
     $mdt_images_path = $Hf->get_value('mdt_images_path');
-    $current_path = $Hf->get_value('median_images_path');
+    #$current_path = $Hf->get_value('median_images_path');
 
-    if ($current_path eq 'NO_KEY') {
-	$current_path = "${template_path}/median_images";
+    #if ($current_path eq 'NO_KEY') {
+    $current_path = "${template_path}/median_images";
+    if (! -e $current_path) {
 	mkdir ($current_path,$permissions);
- 	$Hf->set_value('median_images_path',$current_path);
     }
+    $Hf->set_value('median_images_path',$current_path); 
+    #}
+
+    my $vbm_reference_path = $Hf->get_value('vbm_reference_path');
+    $reference_image=$vbm_reference_path;
+
     
     $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
 

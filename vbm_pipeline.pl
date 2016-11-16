@@ -18,7 +18,7 @@ no warnings qw(uninitialized bareword);
 use Cwd qw(abs_path);
 use File::Basename;
 use List::MoreUtils qw(uniq);
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $valid_formats_string $nodes $broken  $mdt_to_reg_start_time);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $valid_formats_string $nodes $reservation $broken  $mdt_to_reg_start_time);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
@@ -40,9 +40,27 @@ $test_mode = 0;
 
 $nodes = shift(@ARGV);
 $broken = shift(@ARGV);
+$reservation='';
 
-if (! defined $nodes) { $nodes = 4 ;} 
+if (! defined $nodes) {
+    $nodes = 4 ;}
+else {
+    if ($nodes =~ /[^0-9]/) { # Test to see if this is not a number; if so, assume it to be a reservation.
+	$reservation = $nodes;
+	my $reservation_info = `scontrol show reservation ${reservation}`;
+	if ($reservation_info =~ /NodeCnt=([0-9]*)/m) { # Unsure if I need the 'm' option)
+	    $nodes = $1;
+	} else {
+	    $nodes = 4;
+	    print "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\nProceeding with NO reservation, and assuming you want to run on ${nodes} nodes.\n\n\n"; 
+	    $reservation = '';
+	    sleep(5);
+	}
+    }
+}
 
+
+print "nodes = $nodes; reservation = \"$reservation\".\n\n\n";
 if (! defined $broken) { $broken = 0 ;} 
 
 umask(002);
@@ -66,8 +84,12 @@ require create_rd_from_e2_and_e3_vbm;
 require mask_images_vbm;
 require create_affine_reg_to_atlas_vbm;
 require apply_affine_reg_to_atlas_vbm;
+require iterative_template_construction_vbm;
+require iterative_pairwise_reg_vbm;
 require pairwise_reg_vbm;
 require calculate_mdt_warps_vbm;
+require iterative_calculate_mdt_warps_vbm;
+require iterative_apply_mdt_warps_vbm;
 require apply_mdt_warps_vbm;
 require calculate_mdt_images_vbm;
 require compare_reg_to_mdt_vbm;
@@ -123,6 +145,11 @@ $affine_sampling_options
 $affine_target
 
 $mdt_contrast
+$mdt_creation_strategy
+$mdt_iterations
+$mdt_convergence_threshold
+$initial_template
+
 $compare_contrast
 
 $diffeo_metric
@@ -337,7 +364,25 @@ if (defined $smoothing_comma_list) {
 
 $Hf->set_value('rigid_atlas_name',$atlas_name);
 $Hf->set_value('rigid_contrast',$rigid_contrast);
+
+
 $Hf->set_value('mdt_contrast',$mdt_contrast);
+
+if (defined $mdt_creation_strategy) {
+    $Hf->set_value('mdt_creation_strategy',$mdt_creation_strategy);
+}
+
+if (defined $mdt_iterations) {
+ $Hf->set_value('mdt_iterations',$mdt_iterations);
+}
+
+if (defined $mdt_convergence_threshold) {
+    $Hf->set_value('mdt_convergence_threshold',$mdt_convergence_threshold);
+}
+
+if (defined $initial_template) {
+ $Hf->set_value('initial_template',$initial_template);
+}
 
 $Hf->set_value('number_of_nodes_used',$nodes);
 
@@ -469,8 +514,12 @@ if (defined $vba_analysis_software) {
      create_affine_reg_to_atlas_vbm
      apply_affine_reg_to_atlas_vbm
      pairwise_reg_vbm
+     iterative_pairwise_reg_vbm
+     iterative_template_construction_vbm
      calculate_mdt_warps_vbm
+     iterative_calculate_mdt_warps_vbm
      apply_mdt_warps_vbm
+     iterative_apply_mdt_warps_vbm
      calculate_mdt_images_vbm
      mask_for_mdt_vbm
      compare_reg_to_mdt_vbm
@@ -561,44 +610,79 @@ if (defined $vba_analysis_software) {
 
    # calculate_mdt_warps_vbm("f","affine");
    # sleep($interval);
+    
+    my $group_name='';
 
-    pairwise_reg_vbm("d"); #$PM_code = 41
-    sleep($interval);
-   
-    #die;####
- 
-    calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
-    sleep($interval);
+## Different approaches to MDT creation start to diverge here. ## 2 November 2016
+    if ($mdt_creation_strategy eq 'iterative') {
 
-    calculate_mdt_warps_vbm("i","diffeo"); #$PM_code = 42
-    sleep($interval);
+	if (0) {
+	    iterative_template_construction_vbm("d"); # To Temporarily handle calling Nick/Brian's script (04 Nov 2016...will ultimately remove
+	} else {
+	    my $starting_iteration=$Hf->get_value('starting_iteration');
 
-    my $group_name = "control";
-    foreach my $a_contrast (@channel_array) {
-	apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 43
-    }
-    calculate_mdt_images_vbm(@channel_array); #$PM_code = 44
-    sleep($interval);
+	    if ($starting_iteration =~ /([1-9]{1}|[0-9]{2,})/) {
+	    } else {
+		$starting_iteration = 0;
+	    }
+	   # print "starting_iteration = ${starting_iteration}";
+	   # die;
 
-    mask_for_mdt_vbm(); #$PM_code = 45
-    sleep($interval);
+	    for (my $ii = $starting_iteration; $ii <= $mdt_iterations; $ii++) {  # Will need to add a "while" option that runs to a certain point of stability; We don't really count the 0th iteration because normally this is just the averaging of the affine-aligned images. 
+
+		$ii = iterative_pairwise_reg_vbm("d",$ii); #$PM_code = 41 # This returns $ii in case it is determined that some iteration levels can/should be skipped.
+		sleep($interval);
+
+		iterative_calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
+		sleep($interval);
+
+		$group_name = "control";
+		foreach my $a_contrast (@channel_array) {
+		    apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 43
+		}
+		calculate_mdt_images_vbm($ii,@channel_array); #$PM_code = 44
+		sleep($interval);	    
+	    }
+
+	    mask_for_mdt_vbm(); #$PM_code = 45
+	    sleep($interval);
+	}
+    } else {
+	pairwise_reg_vbm("d"); #$PM_code = 41
+	sleep($interval);
+	
+	calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
+	sleep($interval);
+
+	calculate_mdt_warps_vbm("i","diffeo"); #$PM_code = 42
+	sleep($interval);
+
+	$group_name = "control";
+	foreach my $a_contrast (@channel_array) {
+	    apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 43
+	}
+	calculate_mdt_images_vbm(@channel_array); #$PM_code = 44
+	sleep($interval);
+
+	mask_for_mdt_vbm(); #$PM_code = 45
+	sleep($interval);
  
 
 #    calculate_jacobians_vbm('i','control'); #$PM_code = 47 (or 46) ## Goddam ANTs changed the fundamental definition of Jacobian, need to use forward 26 July 2016
-    calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46) ## BAD code! Don't use this unless you are trying to make a point! #Just kidding its the right thing to do after all--WTH?!?
-    sleep($interval);
+	calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46) ## BAD code! Don't use this unless you are trying to make a point! #Just kidding its the right thing to do after all--WTH?!?
+	sleep($interval);
 
-
+	}
 
 # Things can get parallel right about here...
-
+    
 # Branch one: 
-   if ($create_labels) {
+    if ($create_labels) {
 	$do_rigid = 0;
 	my $mdt_to_atlas = 1;
 	create_affine_reg_to_atlas_vbm($do_rigid,$mdt_to_atlas);  #$PM_code = 61
 	sleep($interval);
-
+	
 	mdt_reg_to_atlas_vbm(); #$PM_code = 62
 	sleep($interval);
     }
@@ -607,13 +691,13 @@ if (defined $vba_analysis_software) {
     compare_reg_to_mdt_vbm("d"); #$PM_code = 51
     sleep($interval);
     #create_average_mdt_image_vbm(); ### What the heck was this?
-
+    
     $group_name = "compare";    
     foreach my $a_contrast (@channel_array) {
 	apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 52 
     }
     sleep($interval);
-
+    
 
 # Remerge before ending pipeline
     

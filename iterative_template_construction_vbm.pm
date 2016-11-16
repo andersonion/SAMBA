@@ -1,16 +1,16 @@
 #!/usr/local/pipeline-link/perl
-# pairwise_reg_vbm.pm 
+# iterative_template_construction_vbm.pm 
 
-my $PM = "pairwise_reg_vbm.pm";
-my $VERSION = "2015/06/17";
-my $NAME = "Pairwise registration for Minimum Deformation Template calculation.";
+my $PM = "iterative_template_construction_vbm.pm";
+my $VERSION = "2016/11/03";
+my $NAME = "Adaptation of Nick and Brian's optimatal template construction (for a true Minimum Deformation Template).";
 my $DESC = "ants";
 
 use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $intermediate_affine $dims $ants_verbosity $nodes $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $intermediate_affine $nodes $reservation $permissions);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -23,26 +23,21 @@ my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_co
 my (%go_hash);
 my $go = 1;
 my ($job,$job_count);
+my $dims;
 my $id_warp;
 my $log_msg;
 my ($expected_number_of_jobs,$hash_errors);
 my ($mem_request,$mem_request_2,$jobs_in_first_batch);
+my $max_iterations;
 my $batch_folder;
 my $counter=0;
-
-if (! defined $dims) {$dims = 3;}
-if (! defined $ants_verbosity) {$ants_verbosity = 1;}
-
+my $update_step_size;
 my($warp_suffix,$inverse_suffix,$affine_suffix);
-# if (! $intermediate_affine) {
+
    $warp_suffix = "1Warp.nii.gz";
    $inverse_suffix = "1InverseWarp.nii.gz";
    $affine_suffix = "0GenericAffine.mat";
-# } else {
-#     $warp_suffix = "0Warp.nii.gz";
-#     $inverse_suffix = "0InverseWarp.nii.gz";
-#     $affine_suffix = "0GenericAffine.mat";
-# }
+
 
 my $affine = 0;
 
@@ -53,7 +48,7 @@ my $affine = 0;
 
 
 # ------------------
-sub pairwise_reg_vbm {  # Main code
+sub iterative_template_construction_vbm {  # Main code
 # ------------------
     
     my ($type) = @_;
@@ -61,38 +56,55 @@ sub pairwise_reg_vbm {  # Main code
 	$affine = 1;
     }
     my $start_time = time;
-    pairwise_reg_vbm_Runtime_check();
+    iterative_template_construction_vbm_Runtime_check();
     
 
 #    my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
     ($mem_request,$mem_request_2,$jobs_in_first_batch) = memory_estimator_2($expected_number_of_jobs,$nodes);
-
+    my $template_group ='';
     my @remaining_runnos = @sorted_runnos;
     for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
-	$moving_runno = $remaining_runnos[0];
-	foreach my $fixed_runno (@remaining_runnos) {
-	    $go = $go_hash{$moving_runno}{$fixed_runno};
-	    if ($go) {
-		($job) = create_pairwise_warps($moving_runno,$fixed_runno);
-	#	sleep(0.25);
-		if ($job > 1) {
-		    push(@jobs,$job);
-		}
-	    }
-	}
-    }
-    
-    if (cluster_check() && ($jobs[0] ne '')) {
-	my $interval = 15;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
+     	$moving_runno = $remaining_runnos[0];
+	my $current_file = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
 
-	if ($done_waiting) {
-	    print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
-	}
+## Multi-modal template creation not supported yet!!! 03 Nov 2016
+	$template_group = "${template_group} ${current_file}";
     }
+#	foreach my $fixed_runno (@remaining_runnos) {
+#     	    $go = $go_hash{$moving_runno}{$fixed_runno};
+# 	    if ($go) {
+    # 		($job) = create_pairwise_warps($moving_runno,$fixed_runno);
+    # 	#	sleep(0.25);
+    # 		if ($job > 1) {
+    # 		    push(@jobs,$job);
+    # 		}
+    # 	    }
+    # 	}
+    # }
+    my $mdt_string = ${mdt_contrast};
+    if (defined $mdt_contrast_2) {
+	$mdt_string = $mdt_string.','.$mdt_contrast_2;
+    }
+# Going to try this without "${script_path} in front of the script name.
+    my $kludge_command =" bash antsMultivariateTemplateConstruction_call_from_VBA_pipeline.sh -d ${dims} -o ${current_path}/ -a 0 -b 1 -c 5 -e 0 -i ${max_iterations} ". 
+	" -j \"${mdt_string}\"  -g ${update_step_size} -k 1  -f ${diffeo_shrink_factors}  -s ${diffeo_smoothing_sigmas} -q ${diffeo_iterations} -v ${mem_request} ".
+	"  -x \"${reservation}\" -n ${diffeo_convergence_window} -r 0 -l \"${diffeo_convergence_thresh}\"  -m ${diffeo_metric}[${diffeo_radius}]  -t SyN[${diffeo_transform_parameters}] ${template_group}";
+
+    print "kludge_command = ${kludge_command}\n\n";
+    my $bash_log_file = ${current_path}.'/template_construction_log.txt';
+    my $status = `${kludge_command} >> ${bash_log_file}`;
+
+    # if (cluster_check() && ($jobs[0] ne '')) {
+    # 	my $interval = 15;
+    # 	my $verbose = 1;
+    # 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
+
+    # 	if ($done_waiting) {
+    # 	    print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
+    # 	}
+    # }
     my $case = 2;
-    my ($dummy,$error_message)=pairwise_reg_Output_check($case);
+    my ($dummy,$error_message)=iterative_template_construction_Output_check($case);
 
     my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
@@ -105,16 +117,16 @@ sub pairwise_reg_vbm {  # Main code
 
 
 # ------------------
-sub pairwise_reg_Output_check {
+sub iterative_template_construction_Output_check {
 # ------------------
      my ($case) = @_;
      my $message_prefix ='';
      my ($file_1,$file_2,@files);
      my @file_array=();
      if ($case == 1) {
-  	$message_prefix = "  Pairwise diffeomorphic warps already exist for the following runno pairs and will not be recalculated:\n";
+  	$message_prefix = "  Diffeomorphic warps to the iterativly constructed template already exist for the following runno(s) and will not be recalculated:\n";
      } elsif ($case == 2) {
- 	$message_prefix = "  Unable to create pairwise diffeomorphic warps for the following runno pairs:\n";
+ 	$message_prefix = "  Unable to create diffeomorphic warp(s) to the iteratively constructed template for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
 
 
@@ -126,21 +138,19 @@ sub pairwise_reg_Output_check {
 
      for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
 	 $moving_runno = $remaining_runnos[0];
-	 foreach my $fixed_runno (@remaining_runnos) {
-	     $file_1 = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz";
-	     $file_2 = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
-
-	     if (data_double_check($file_1, $file_2)) {
-		 $go_hash{$moving_runno}{$fixed_runno}=1;
-		 if ($file_1 ne $file_2) {
-		     $expected_number_of_jobs++;
-		 }
-		 push(@file_array,$file_1,$file_2);
-		 $missing_files_message = $missing_files_message."\t${moving_runno}<-->${fixed_runno}";
-	     } else {
-		 $go_hash{$moving_runno}{$fixed_runno}=0;
-		 $existing_files_message = $existing_files_message."\t${moving_runno}<-->${fixed_runno}";
+	 $file_1 = "${current_path}/${moving_runno}_2Warp.nii.gz";
+	 $file_2 = "${current_path}/${moving_runno}_2InverseWarp.nii.gz";
+	 
+	 if (data_double_check($file_1, $file_2)) {
+	     $go_hash{$moving_runno}=1;
+	     if ($file_1 ne $file_2) {
+		 $expected_number_of_jobs++;
 	     }
+	     push(@file_array,$file_1,$file_2);
+	     $missing_files_message = $missing_files_message."\t${moving_runno}";
+	 } else {
+	     $go_hash{$moving_runno}=0;
+	     $existing_files_message = $existing_files_message."\t${moving_runno}";
 	 }
 	 if (($existing_files_message ne '') && ($case == 1)) {
 	     $existing_files_message = $existing_files_message."\n";
@@ -162,7 +172,7 @@ sub pairwise_reg_Output_check {
  }
 
 # ------------------
-sub pairwise_reg_Input_check {
+sub iterative_template_construction_Input_check {
 # ------------------
 
 
@@ -219,7 +229,7 @@ sub create_pairwise_warps {
 	    $moving_2 =$rigid_path."/${moving_runno}_${mdt_contrast_2}.nii" ;
 	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
 	}
-	$pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
+	$pairwise_cmd = "antsRegistration -d $dims -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
 	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n";
     } else {
 	$fixed = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast);
@@ -230,7 +240,7 @@ sub create_pairwise_warps {
 	  $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
 	}
 
-	$pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
+	$pairwise_cmd = "antsRegistration -d $dims -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
 	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n" 
     }
 
@@ -261,24 +271,6 @@ sub create_pairwise_warps {
 	    $mem_request = $mem_request_2;
 	}
     }
-
-# ##  This code was supposed to optimize the node distribution of jobs for McNamara 10/10 run--didn't work as well as hoped!
-# 	$counter=$counter+1;
-# 	if ($counter=~ /^(19|32|35|9|29|21|31|22|10|37|18|45|24)$/) {
-# 	    $node = "civmcluster1-02"; #-01
-# 	    $mem_request = memory_estimator(13,1);
-# 	} elsif ($counter =~ /^(4|33|28|43|1|2|5|38|27|12|25|6)$/) { # Moved "13" to last node 
-# 	    $node = "civmcluster1-05"; #-02
-# 	    $mem_request = memory_estimator(13,1);
-# 	} elsif ($counter =~ /^(26|20|40|8|23|14|3|16|7|41|36|34)$/) {
-# 	    $node = "civmcluster1-04"; #-03
-# 	    $mem_request = memory_estimator(12,1);
-# 	} elsif ($counter =~ /^(30|17|39|15|11|42|44|13)$/){ #Imported "13" from 2nd node
-# 	    $node = "civmcluster1"; #-04
-# 	    $mem_request = memory_estimator(10,1); #(7,1)
-# 	}
-# 	@test=(0,$node);
-#     }
 
     my $jid = 0;
     if (cluster_check) {
@@ -311,14 +303,17 @@ sub create_pairwise_warps {
 
 
 # ------------------
-sub pairwise_reg_vbm_Init_check {
+sub iterative_template_construction_vbm_Init_check {
 # ------------------
     my $init_error_msg='';
+    my $message_prefix="$PM initialization check:\n";
+    
     my $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
+    
     if ($mdt_creation_strategy eq 'iterative') {
-	my $message_prefix="$PM initialization check:\n";
 	
 	$diffeo_metric = $Hf->get_value('diffeo_metric');
+	
 	my @valid_metrics = ('CC','MI','Mattes','MeanSquares','Demons','GC');
 	my $valid_metrics = join(', ',@valid_metrics);
 	my $metric_flag = 0;
@@ -387,14 +382,14 @@ sub pairwise_reg_vbm_Init_check {
 	    $log_msg = $log_msg."\tRunning in TEST MODE: using minimal diffeomorphic iterations:  \"${diffeo_iterations}\".\n";
 	} else {
 	    if ($diffeo_iterations eq ('' || 'NO_KEY')) {
-		#$diffeo_iterations = $defaults_Hf->get_value('diffeo_iterations');
+	    #$diffeo_iterations = $defaults_Hf->get_value('diffeo_iterations');
 		$diffeo_iterations="4000x4000x4000x4000";
 		$log_msg = $log_msg."\tNo diffeomorphic iterations specified; using default values:  \"${diffeo_iterations}\".\n";
 	    }
 	}
 	$log_msg=$log_msg."\tNumber of levels for diffeomorphic registration=${diffeo_levels}.\n";	
 	$Hf->set_value('diffeo_iterations',$diffeo_iterations);
-	
+
 	
 	$diffeo_shrink_factors=$Hf->get_value('diffeo_shrink_factors');
 	if ( $diffeo_shrink_factors eq ('' || 'NO_KEY')) {
@@ -459,18 +454,18 @@ sub pairwise_reg_vbm_Init_check {
 	} else {
 	    $init_error_msg=$init_error_msg."Invalid diffeomorphic convergence threshold specified: \"${diffeo_convergence_thresh}\". ".
 		"Real positive numbers are accepted; scientific notation (\"X.Ye-Z\") are also righteous.\n";
-	}
+    }
 	$Hf->set_value('diffeo_convergence_thresh',$diffeo_convergence_thresh);    
 	
 	my $dcw_error = 0;
 	$diffeo_convergence_window=$Hf->get_value('diffeo_convergence_window');
 	if (  $diffeo_convergence_window eq ('' || 'NO_KEY')) {
 	    #$diffeo_convergence_window = $defaults_Hf->get_value('diffeo_convergence_window');
-	$diffeo_convergence_window = 20;
-	$log_msg = $log_msg."\tNo diffeomorphic convergence window specified; using default value of \"${diffeo_convergence_window}\".\n";
+	    $diffeo_convergence_window = 20;
+	    $log_msg = $log_msg."\tNo diffeomorphic convergence window specified; using default value of \"${diffeo_convergence_window}\".\n";
 	} elsif ($diffeo_convergence_window =~ /^[0-9]+$/) {
 	    if ($diffeo_convergence_window < 5) {
-		$dcw_error=1;
+	    $dcw_error=1;
 	    }
 	} else {
 	    $dcw_error=1;
@@ -526,11 +521,11 @@ sub pairwise_reg_vbm_Init_check {
 		} 
 	    } else {
 		$init_error_msg=$init_error_msg."Units specified for diffeomorphic smoothing sigmas \"${input_diffeo_smoothing_sigmas}\" are not valid. ".
-		    "Acceptable units are either \'vox\' or \'mm\', or may be omitted (equivalent to \'mm\').\n";
+		"Acceptable units are either \'vox\' or \'mm\', or may be omitted (equivalent to \'mm\').\n";
 	    }
 	    
 	    $diffeo_smoothing_sigmas = $diffeo_smoothing_sigmas.$diffeo_smoothing_units;
-	}
+    }
 	$Hf->set_value('diffeo_smoothing_sigmas',$diffeo_smoothing_sigmas);
 	
 	$diffeo_sampling_options=$Hf->get_value('diffeo_sampling_options');
@@ -574,21 +569,28 @@ sub pairwise_reg_vbm_Init_check {
 	$Hf->set_value('diffeo_sampling_options',$diffeo_sampling_options);
 	
 	
-
-
-	if ($log_msg ne '') {
-	    log_info("${message_prefix}${log_msg}");
-	}
-    
-	if ($init_error_msg ne '') {
-	    $init_error_msg = $message_prefix.$init_error_msg;
+	$update_step_size = $Hf->get_value('update_step_size');
+	if ($update_step_size eq ('' || 'NO_KEY')) {
+	    $update_step_size =0.25;
+	    $Hf->set_value('update_step_size',$update_step_size);
+	    $log_msg = $log_msg."\tNo step size specified for shape update during iterative template construction; using default values of ${update_step_size}.\n";
 	}
     }
+    if ($log_msg ne '') {
+	log_info("${message_prefix}${log_msg}");
+    }
+    
+    if ($init_error_msg ne '') {
+	$init_error_msg = $message_prefix.$init_error_msg;
+    }
+    
     return($init_error_msg);
 }
 # ------------------
-sub pairwise_reg_vbm_Runtime_check {
+sub iterative_template_construction_vbm_Runtime_check {
 # ------------------
+
+    $update_step_size = $Hf->get_value('update_step_size');
 
     $diffeo_iterations = $Hf->get_value('diffeo_iterations');
     $diffeo_metric = $Hf->get_value('diffeo_metric');
@@ -600,7 +602,7 @@ sub pairwise_reg_vbm_Runtime_check {
     $diffeo_smoothing_sigmas = $Hf->get_value('diffeo_smoothing_sigmas');
     $diffeo_sampling_options = $Hf->get_value('diffeo_sampling_options');
  
-    #$dims=$Hf->get_value('image_dimensions');
+    $dims=$Hf->get_value('image_dimensions');
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
     $mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
     @mdt_contrasts = split('_',$mdt_contrast_string); 
@@ -608,6 +610,14 @@ sub pairwise_reg_vbm_Runtime_check {
     if ($#mdt_contrasts > 0) {
 	$mdt_contrast_2 = $mdt_contrasts[1];
     }  #The working assumption is that we will not expand beyond using two contrasts for registration...
+
+    $max_iterations = $Hf->get_value('mdt_iterations');
+    
+    if (0) { # if...I ever get around to fixing this code, it will handle iterations that will depend on some metric  of template stability
+	my $mdt_convergence_threshold = $Hf->get_value('mdt_convergence_threshold');
+	$max_iterations = 'something_else,but i don\'t know what!'; 
+    }
+
 
 
 # ONE OFF BAD CODE!!!!
@@ -618,8 +628,12 @@ sub pairwise_reg_vbm_Runtime_check {
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');
     $mdt_path = $Hf->get_value('mdt_work_dir');
-    $current_path = $Hf->get_value('mdt_pairwise_dir');
- 
+    $current_path = $Hf->get_value('template_work_dir');
+    my $SyN_string = `echo "${diffeo_transform_parameters}" | tr "." "p" | tr "," "_" `;
+    chomp($SyN_string);
+    $mdt_contrast_string = "SyN_${SyN_string}_${mdt_contrast_string}"; 
+
+
     if ($mdt_path eq 'NO_KEY') {
 	$mdt_path = "${rigid_path}/${mdt_contrast_string}";
  	$Hf->set_value('mdt_work_dir',$mdt_path);
@@ -629,8 +643,8 @@ sub pairwise_reg_vbm_Runtime_check {
     }
 
     if ($current_path eq 'NO_KEY') {
-	$current_path = "${mdt_path}/MDT_pairs";
- 	$Hf->set_value('mdt_pairwise_dir',$current_path);
+	$current_path = "${mdt_path}/template_construction";
+	$Hf->set_value('template_work_dir',$current_path);
  	if (! -e $current_path) {
  	    mkdir ($current_path,$permissions);
  	}
@@ -654,7 +668,7 @@ sub pairwise_reg_vbm_Runtime_check {
     ##
 
     my $case = 1;
-    my ($dummy,$skip_message)=pairwise_reg_Output_check($case);
+    my ($dummy,$skip_message)=iterative_template_construction_Output_check($case);
 
     if ($skip_message ne '') {
 	print "${skip_message}";
