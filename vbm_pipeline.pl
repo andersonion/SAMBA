@@ -84,7 +84,6 @@ require create_rd_from_e2_and_e3_vbm;
 require mask_images_vbm;
 require create_affine_reg_to_atlas_vbm;
 require apply_affine_reg_to_atlas_vbm;
-require iterative_template_construction_vbm;
 require iterative_pairwise_reg_vbm;
 require pairwise_reg_vbm;
 require calculate_mdt_warps_vbm;
@@ -515,7 +514,6 @@ if (defined $vba_analysis_software) {
      apply_affine_reg_to_atlas_vbm
      pairwise_reg_vbm
      iterative_pairwise_reg_vbm
-     iterative_template_construction_vbm
      calculate_mdt_warps_vbm
      iterative_calculate_mdt_warps_vbm
      apply_mdt_warps_vbm
@@ -616,9 +614,9 @@ if (defined $vba_analysis_software) {
 ## Different approaches to MDT creation start to diverge here. ## 2 November 2016
     if ($mdt_creation_strategy eq 'iterative') {
 
-	if (0) {
-	    iterative_template_construction_vbm("d"); # To Temporarily handle calling Nick/Brian's script (04 Nov 2016...will ultimately remove
-	} else {
+	#if (0) {
+	#    iterative_template_construction_vbm("d"); # To Temporarily handle calling Nick/Brian's script (04 Nov 2016...will ultimately remove
+	#} else {
 	    my $starting_iteration=$Hf->get_value('starting_iteration');
 
 	    if ($starting_iteration =~ /([1-9]{1}|[0-9]{2,})/) {
@@ -646,7 +644,7 @@ if (defined $vba_analysis_software) {
 
 	    mask_for_mdt_vbm(); #$PM_code = 45
 	    sleep($interval);
-	}
+	#}
     } else {
 	pairwise_reg_vbm("d"); #$PM_code = 41
 	sleep($interval);

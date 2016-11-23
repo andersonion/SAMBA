@@ -17,7 +17,7 @@ use strict;
 use warnings;
 #no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $dims);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $dims $ants_verbosity);
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
@@ -32,6 +32,7 @@ my ($port_atlas_mask_path,$port_atlas_mask);
 my ($job);
 
 if (! defined $dims) {$dims = 3;}
+if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
 # ------------------
 sub mask_images_vbm {
@@ -225,11 +226,11 @@ sub port_atlas_mask_vbm {
     $cleanup_command=$cleanup_command."if [ -e \"${port_mask}\" ]\nthen\n\tif [ -e \"${new_mask}\" ]\n\tthen\n\t\trm ${new_mask};\n";
     
     if (! -e $new_mask) {
-	$apply_xform_command = "antsApplyTransforms --float -d 3 -i $atlas_mask -o $new_mask -t [${temp_out_file}, 1] -r $current_norm_mask -n NearestNeighbor;\n";
+	$apply_xform_command = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} -i $atlas_mask -o $new_mask -t [${temp_out_file}, 1] -r $current_norm_mask -n NearestNeighbor;\n";
 	$cleanup_command=$cleanup_command."\t\tif [ -e \"${temp_out_file}\" ]\n\t\tthen\n\t\t\trm ${temp_out_file};\n";
 	
 	if (! -e $temp_out_file) {
-	    $atlas_mask_reg_command = "antsRegistration -d 3 -r [$atlas_mask,$current_norm_mask,1] ".
+	    $atlas_mask_reg_command = "antsRegistration -v ${ants_verbosity} -d ${dims} -r [$atlas_mask,$current_norm_mask,1] ".
 #		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t translation[0.1] -c [3000x3000x0x0,1.e-8,20] ".
 #		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t rigid[0.1] -c [3000x3000x0x0,1.e-8,20] ".
 		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t affine[0.1] -c [3000x3000x0x0,1.e-8,20] ". 

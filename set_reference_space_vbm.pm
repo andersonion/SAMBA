@@ -13,13 +13,13 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $dims $ants_verbosity);
 require Headfile;
 require pipeline_utilities;
 require civm_simple_util;
 require convert_all_to_nifti_vbm;
 
-my ($inputs_dir,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,,$original_rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
+my ($inputs_dir,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$original_rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
 my (%reference_space_hash,%reference_path_hash,%input_reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
 my ($rigid_name,$rigid_dir,$rigid_ext,$new_rigid_path,$future_rigid_path,$native_ref_name,$translation_dir);
 my ($process_dir_for_labels);
@@ -28,13 +28,14 @@ my $split_string = ",,,";
 my (%file_array_ref,@spaces);
 my ($work_to_do_HoA);
 my (@jobs_1,@jobs_2);
-my $dims;
 my $go = 1;
 my $job;
 my %runno_hash_vba;
 my %runno_hash_label;
-
 my %preferred_contrast_hash;
+
+if (! defined $dims) {$dims = 3;}
+if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
 # ------------------
 sub set_reference_space_vbm {  # Main code
@@ -261,7 +262,7 @@ sub apply_new_reference_space_vbm {
 	    $translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
 	    my $excess_transform =  "${out_file}1Translation.mat" ;
 	    if (data_double_check($translation_transform)) {
-		my $translation_cmd = "antsRegistration -d ${dims} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file};\n";
+		my $translation_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file};\n";
 		my $remove_cmd = "rm ${excess_transform};\n";
 		$cmd = $translation_cmd.$remove_cmd;
 		@cmds = ($translation_cmd,$remove_cmd);
@@ -288,7 +289,7 @@ sub apply_new_reference_space_vbm {
 	    #my ($dummy_1,$out_path,$dummy_2) = fileparts($out_file);
 
 	    $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
-	    $cmd = "antsApplyTransforms -d 3 -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform};\n"; 
+	    $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform};\n"; 
 	    @cmds = ($cmd);
 	}  
     }
@@ -324,87 +325,88 @@ sub apply_new_reference_space_vbm {
 }
 
 
-#---------------------
-sub prep_atlas_for_referencing_vbm {
-#---------------------
-    my ($in_path,$out_path);
-    my ($dummy1,$dummy2);
-    my ($nifti_args,$name,$nifti_command);
-    my ($rigid_atlas_mask_path,$rigid_mask_name,$rigid_mask_ext,$mask_ref,$copy_cmd);
+
+# # 16 Nov 2016, Commenting out this code because we believe it is no longer needed.
+# #---------------------
+# sub prep_atlas_for_referencing_vbm {
+# #---------------------
+#     my ($in_path,$out_path);
+#     my ($dummy1,$dummy2);
+#     my ($nifti_args,$name,$nifti_command);
+#     my ($rigid_atlas_mask_path,$rigid_mask_name,$rigid_mask_ext,$mask_ref,$copy_cmd);
     
-#    $future_rigid_path = "${inputs_dir}/${rigid_name}${rigid_ext}";
-#    if ($future_rigid_path !~ /\.gz$/) { 
-#	$future_rigid_path = $future_rigid_path.'.gz';
-#    }
+# #    $future_rigid_path = "${inputs_dir}/${rigid_name}${rigid_ext}";
+# #    if ($future_rigid_path !~ /\.gz$/) { 
+# #	$future_rigid_path = $future_rigid_path.'.gz';
+# #    }
 
-    $rigid_atlas_mask_path = get_nii_from_inputs($rigid_dir,'',"mask");
-    if ($rigid_atlas_mask_path =~ /[\n]+/) {
-	$mask_ref = 'NULL';
-    } else {
-	($rigid_mask_name,$dummy1,$rigid_mask_ext) = fileparts($rigid_atlas_mask_path);
-	#$mask_ref = "${preprocess_dir}/${rigid_mask_name}_recentered${rigid_mask_ext}";
-	$mask_ref = "${preprocess_dir}/${rigid_mask_name}_recentered${rigid_mask_ext}";    }
+#     $rigid_atlas_mask_path = get_nii_from_inputs($rigid_dir,'',"mask");
+#     if ($rigid_atlas_mask_path =~ /[\n]+/) {
+# 	$mask_ref = 'NULL';
+#     } else {
+# 	($rigid_mask_name,$dummy1,$rigid_mask_ext) = fileparts($rigid_atlas_mask_path);
+# 	$mask_ref = "${preprocess_dir}/${rigid_mask_name}_recentered${rigid_mask_ext}";    }
 
-    ##KLUDGE
-    # Skip the attempt to use the mask for recentering for now, at least until the matlab command can be fixed...
-    $mask_ref = "NULL";
+#     ##KLUDGE
+#     # Skip the attempt to use the mask for recentering for now, at least until the matlab command can be fixed...
+#     $mask_ref = "NULL";
 
-    #KLUDGE
+#     #KLUDGE
 
 
-    my $new_rigid_mask_path;
-    my $delete_rigid_atlas_mask=0;
-    if (($mask_ref ne 'NULL') && (! data_double_check($rigid_atlas_mask_path))) {
-	#print "This should NOT be happening.\n\n\n";
-	$out_path = $mask_ref;
-	$in_path = $rigid_atlas_mask_path;
-	$nifti_args = "\'${in_path}\', \'${out_path}\', 0, 0, 0";
-	$name= $rigid_mask_name;
-	$nifti_command = make_matlab_command('center_nii_around_center_of_mass',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
-	execute_log(1, "Recentering ${name} atlas mask around its center of mass", $nifti_command);
-	`$nifti_command`;
-	$delete_rigid_atlas_mask = 1;
-	$new_rigid_mask_path=$out_path;
-    } else {
-	$mask_ref = 'NULL';
-    }
+#     my $new_rigid_mask_path;
+#     my $delete_rigid_atlas_mask=0;
+#     if (($mask_ref ne 'NULL') && (! data_double_check($rigid_atlas_mask_path))) {
+# 	#print "This should NOT be happening.\n\n\n";
+# 	$out_path = $mask_ref;
+# 	$in_path = $rigid_atlas_mask_path;
+# 	$nifti_args = "\'${in_path}\', \'${out_path}\', 0, 0, 0";
+# 	$name= $rigid_mask_name;
+# 	$nifti_command = make_matlab_command('center_nii_around_center_of_mass',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
+# 	execute_log(1, "Recentering ${name} atlas mask around its center of mass", $nifti_command);
+# 	`$nifti_command`;
+# 	$delete_rigid_atlas_mask = 1;
+# 	$new_rigid_mask_path=$out_path;
+#     } else {
+# 	$mask_ref = 'NULL';
+#     }
     
-    my $last_cmd;
+#     my $last_cmd;
 
-    if ($new_rigid_path ne '') {
-	if ($mask_ref ne 'NULL') { 
-	    $copy_cmd = "CopyImageHeaderInformation ${mask_ref} ${rigid_atlas_path} ${new_rigid_path} 1 1 1";
-	    $last_cmd=$copy_cmd;
-	    execute_log(1,"Recentering ${rigid_atlas_path} via copying header info from ${rigid_atlas_mask_path} ",$copy_cmd);
-	    `$copy_cmd`;
-	} else {
-	    $out_path = $new_rigid_path;
-	    if ($out_path =~ s/\.gz$//) {}
-	    $in_path = $rigid_atlas_path;
-	    $nifti_args = "\'${in_path}\', \'${out_path}\', 0, 0, 0";
-	    $name= $rigid_atlas_name;
-	    $nifti_command = make_matlab_command('center_nii_around_center_of_mass',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
-	    execute_log(1, "Recentering ${name} atlas around its center of mass", $nifti_command);
-	    `$nifti_command`;
-	    `gzip $out_path`;
+#     if ($new_rigid_path ne '') {
+# 	if ($mask_ref ne 'NULL') { 
+# 	    $copy_cmd = "CopyImageHeaderInformation ${mask_ref} ${rigid_atlas_path} ${new_rigid_path} 1 1 1";
+# 	    $last_cmd=$copy_cmd;
+# 	    execute_log(1,"Recentering ${rigid_atlas_path} via copying header info from ${rigid_atlas_mask_path} ",$copy_cmd);
+# 	    `$copy_cmd`;
+# 	} else {
+# 	    $out_path = $new_rigid_path;
+# 	    if ($out_path =~ s/\.gz$//) {}
+# 	    $in_path = $rigid_atlas_path;
+# 	    $nifti_args = "\'${in_path}\', \'${out_path}\', 0, 0, 0";
+# 	    $name= $rigid_atlas_name;
+# 	    $nifti_command = make_matlab_command('center_nii_around_center_of_mass',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
+# 	    execute_log(1, "Recentering ${name} atlas around its center of mass", $nifti_command);
+# 	    `$nifti_command`;
+# 	    `gzip $out_path`;
 
-	    $last_cmd=$nifti_command;
-	}
+# 	    $last_cmd=$nifti_command;
+# 	}
 	
-	if (data_double_check($new_rigid_path)) {
-	    error_out("Failed to create recentered copy of ${rigid_atlas_path}: ${new_rigid_path}\nMost recent command: ${last_cmd}");
-	} else {
-	    $Hf->set_value('rigid_atlas_path',$future_rigid_path);
-	    log_info("Properly referenced rigid atlas path is expected to be ${future_rigid_path}\n(Derived from ${rigid_atlas_path}");
-	}
-    }
+# 	if (data_double_check($new_rigid_path)) {
+# 	    error_out("Failed to create recentered copy of ${rigid_atlas_path}: ${new_rigid_path}\nMost recent command: ${last_cmd}");
+# 	} else {
+# 	    $Hf->set_value('rigid_atlas_path',$future_rigid_path);
+# 	    log_info("Properly referenced rigid atlas path is expected to be ${future_rigid_path}\n(Derived from ${rigid_atlas_path}");
+# 	}
+#     }
     
-    if ($delete_rigid_atlas_mask) {
-	my $rm_cmd = "rm ${new_rigid_mask_path}";
-#	execute_log(1,"Deleting extraneous mask: ${new_rigid_mask_path}",$rm_cmd);
-#	`$rm_cmd`;
-    }
-}
+#     if ($delete_rigid_atlas_mask) {
+# 	my $rm_cmd = "rm ${new_rigid_mask_path}";
+# #	execute_log(1,"Deleting extraneous mask: ${new_rigid_mask_path}",$rm_cmd);
+# #	`$rm_cmd`;
+#     }
+# }
 
 
 # ------------------

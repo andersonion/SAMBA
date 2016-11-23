@@ -811,7 +811,10 @@ B03248);
 	#$label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
 	$label_space = "pre_rigid";
 	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+	#@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
+
+	@compare_group = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154 S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
+
 	
 #	my $cheating = 0; # We are "cheating" to produce chass_symmetric2 labelsets quickly.
 #	if ($cheating) {
@@ -819,12 +822,12 @@ B03248);
 #	@compare_group = qw(S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414 S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 #	}
 
-	my $reverse_polarity = 0;
+#	my $reverse_polarity = 0;
 # Use this to swap polarity for bad Jac exposition.
-	if ($reverse_polarity) {
+#	if ($reverse_polarity) {
 	@group_2 = qw(S64745 S64763 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
 	@group_1 = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-	}
+#	}
 
 #	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
 # 	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);

@@ -236,7 +236,7 @@ sub reg_to_mdt {
 	    $moving_2 =$rigid_path."/${runno}_${mdt_contrast_2}.nii.gz" ;
 	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
 	}
-	$pairwise_cmd = "antsRegistration -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
+	$pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
 	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n";
     } else {
 	$moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);

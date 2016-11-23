@@ -15,7 +15,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $create_labels $nodes $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $create_labels $nodes $permissions $dims $ants_verbosity);
 require Headfile;
 require pipeline_utilities;
 
@@ -30,8 +30,11 @@ my $job;
 my ($do_rigid,$affine_target,$q_string,$r_string,$other_xform_suffix,$mdt_to_atlas,$mdt_contrast_string,$mdt_contrast,$mdt_contrast_2,$mdt_path);
 my $ants_affine_suffix = "0GenericAffine.mat";
 my $mem_request;
-my $dims;
 my $log_msg;
+
+if (! defined $dims) {$dims = 3;}
+if (! defined $ants_verbosity) {$ants_verbosity = 1;}
+
 # ------------------
 sub create_affine_reg_to_atlas_vbm {  # Main code
 # ------------------
@@ -154,6 +157,8 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     
     my $real_time = write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
+
+    @jobs=();
     
     if ($error_message ne '') {
 	error_out("${error_message}",0);
@@ -268,14 +273,14 @@ sub create_affine_transform_vbm {
 	# 	      " -u 1 -z $collapse -l 1 -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4"; 
 	
 	# } else {
-	$cmd = "antsRegistration -d $dims -r [$atlas_path,$B_path,1] ". 
+	$cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -r [$atlas_path,$B_path,1] ". 
 	    " ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ".
 	    " -s ${affine_smoothing_sigmas} -f ${affine_shrink_factors}  ". #-f 6x4x2x1
 	    " $q $r -u 1 -z 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
 	# }	  
     } elsif ($xform_code eq 'full_affine') {
 	if ($mdt_to_atlas) {
-	    $cmd = "antsRegistration -d $dims ". # 3 Feb 2016: do I want rigid and affine separate?
+	    $cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ". # 3 Feb 2016: do I want rigid and affine separate?
 		#" ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ". 
 		#" -s ${affine_smoothing_sigmas} -f ${affine_shrink_factors}  ". # -s 4x2x1x1vox -f  6x4x2x1 
 		" ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ". 
@@ -283,7 +288,7 @@ sub create_affine_transform_vbm {
 		" -u 1 -z 1 -l 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";  # "-z 1" instead of "-z $collapse", as we want rigid + affine together in this case.
 	    
 	} else {	  
-	    $cmd = "antsRegistration -d $dims ". #-r [$atlas_path,$B_path,1] ".
+	    $cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ". #-r [$atlas_path,$B_path,1] ".
 		" ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ".
 		"-s ${affine_smoothing_sigmas} -f  ${affine_shrink_factors} -l 1 ". # -s 4x2x1x0.5vox-f 6x4x2x1
 		" $q $r -u 1 -z $collapse -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
@@ -717,7 +722,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 #                     default to the general affine options.
 ##
 
-    $dims=$Hf->get_value('image_dimensions');  
+    #$dims=$Hf->get_value('image_dimensions');  
     $inputs_dir = $Hf->get_value('inputs_dir');
     if ($mdt_to_atlas) {
 

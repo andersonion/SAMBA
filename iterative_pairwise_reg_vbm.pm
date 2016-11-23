@@ -81,6 +81,8 @@ sub iterative_pairwise_reg_vbm {  # Main code
        $moving_runno = $remaining_runnos[0];
        my $current_file = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
        $go = $go_hash{$moving_runno};
+       my $forward_out =  "${current_path}/${moving_runno}_to_MDT_warp.nii.gz";
+       my $inverse_out = "${current_path}/MDT_to_${moving_runno}_warp.nii.gz";
        if ($go) {
 	   if ($current_iteration) {
 	       ($job) = create_iterative_pairwise_warps($moving_runno);
@@ -89,10 +91,20 @@ sub iterative_pairwise_reg_vbm {  # Main code
 		   push(@jobs,$job);
 	       }
 	   } else {
-	       `cp ${id_warp} ${current_path}/${moving_runno}_to_MDT_warp.nii.gz`;
-	       `cp ${id_warp} ${current_path}/MDT_to_${moving_runno}_warp.nii.gz`; 
+	       `cp ${id_warp} ${forward_out}`;
+	       `cp ${id_warp} ${inverse_out}`; 
 	   }
        }
+       my $replace = 0;
+
+       my $xform_string = $Hf->get_value("mdt_forward_xforms_${moving_runno}");
+       my @xforms = split(',',$xform_string);
+       if ($xforms[0] =~ /\.nii(\.gz){0,1}?/) {
+	   $replace = 1;
+       }
+
+       headfile_list_handler($Hf,"mdt_forward_xforms_${moving_runno}",$forward_out,0,$replace); # added 'mdt_', 15 June 2016
+       headfile_list_handler($Hf,"mdt_inverse_xforms_${moving_runno}",$inverse_out,1,$replace); # added 'mdt_', 15 June 2016
    }
 
    if (cluster_check() && ($jobs[0] ne '')) {
@@ -223,6 +235,14 @@ sub create_iterative_pairwise_warps {
     } else {
 	$start = 1;
     }
+
+
+    my @moving_array=split(',',$moving_string);  # In this case, we only want to consider the last 2 listed transforms, affine and rigid.
+    while ($#moving_array > 1) {
+	my $trash = shift(@moving_array)
+    }
+    $moving_string = join(',',@moving_array);
+
     #$q_string = format_transforms_for_command_line($fixed_string,"q",$start,$stop);
     $q_string = '';
     $r_string = format_transforms_for_command_line($moving_string,"r",$start,$stop);
@@ -254,12 +274,11 @@ sub create_iterative_pairwise_warps {
 	"rm ${out_affine};\n";
     my @test = (0);
     my $node = '';
-
-    $job_count++;
-    if ($job_count > $jobs_in_first_batch){
-	$mem_request = $mem_request_2;
+    
+    if (! data_double_check($out_warp,$out_inverse)) {
+	$pairwise_cmd = '';
     }
-
+	
 ## It is possible that VBM processing was done after previous iteration.  If so, then the "reg_diffeo" warps will be the same work we want here, with the one caveat that the same diffeo parameters are used during template creation and registration to template (no doubt we will soon stray from this path).
     my $previous_template_path = $template_path;
     if ($previous_template_path =~ s/_i([0-9]+[\/]*)?/_i($old_iteration)/) { }
@@ -272,6 +291,17 @@ sub create_iterative_pairwise_warps {
 	$rename_cmd = "ln ${reusable_warp} ${new_warp}; ln ${reusable_inverse_warp} ${new_inverse};";
     }
 ##
+
+
+    if ($pairwise_cmd ne '') {
+	$job_count++;
+	if ($job_count > $jobs_in_first_batch){
+	    $mem_request = $mem_request_2;
+	}
+    }
+
+
+
     my $jid = 0;
     if (cluster_check) {
 	my $cmd = $pairwise_cmd.$rename_cmd;
@@ -726,6 +756,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     if ($current_path eq 'NO_KEY') {
 	$current_path = "${template_path}/MDT_diffeo";
     }
+    my $original_template_name = $template_name;
 #if ($template_path eq 'NO_KEY') {
 ######### Generate an appropriate template name, check for redundancy
     print "Should run checkpoint here!\n\n";
@@ -787,12 +818,12 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
 	   my $temp_template_name = $template_name.$letter;
 	   # print "current_letter = ${letter}\n";
 	    #$temp_current_path = $current_path;
-	    print "Original current path = ${temp_current_path}\n\n\n";
+	   # print "Original current path = ${temp_current_path}\n\n\n";
 	    my $iteration_found = 0;
 	    for (my $iter=$max_iterations; (($iteration_found== 0) && ($iter > -1)); $iter--) { # -1 or 0 before resetting # previously: ($max_iteration-1)
 		$temp_current_path = $mdt_path.'/'.$temp_template_name."_i${iter}/MDT_diffeo" ;
 		#if ($temp_current_path =~ s/(\/[A-Za-z_]+[\/]?)$/${letter}_i${iter}$1/) {
-		    print "Temp_current_path = ${temp_current_path}\n\n\n";		    
+		    #print "Temp_current_path = ${temp_current_path}\n\n\n";		    
 		    my $current_tempHf = find_temp_headfile_pointer($temp_current_path);
 		    my $Hf_comp = '';
 		    #print "current_iteration = ${iter}\n";
@@ -812,8 +843,10 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
 		$template_match=1;
 		$template_name = $template_name.$letter; 
 		#$template_path = $temp_template_path.$letter;
-		#$current_path = $temp_current_path;   
-		print " At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n";
+		#$current_path = $temp_current_path;
+		if ($template_name ne $original_template_name) {   
+		    print " At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n";
+		}
 	    }
 	    
 	    if ($iteration_found) {
