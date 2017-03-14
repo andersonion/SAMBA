@@ -15,7 +15,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $create_labels $nodes $permissions $dims $ants_verbosity);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $create_labels $nodes $permissions $dims $ants_verbosity $reservation);
 require Headfile;
 require pipeline_utilities;
 
@@ -303,6 +303,11 @@ sub create_affine_transform_vbm {
     my $go_message =  "create ${xform_code} transform for ${A_file}";
     my $stop_message = "$PM: create_transform: could not make transform: $cmd\n";
     
+    my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+
     my $jid = 0;
     if (cluster_check) {
 	my ($dummy1,$home_path,$dummy2) = fileparts($result_transform_path_base);
@@ -311,7 +316,7 @@ sub create_affine_transform_vbm {
 #      my $Id_base = $home_base[0];
 	my $Id= "${moving_runno}_create_affine_registration";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request);
+	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);
 	
 	if (! $jid) {
 	    error_out($stop_message);

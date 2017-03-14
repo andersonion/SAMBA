@@ -10,7 +10,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $reservation $dims $ants_verbosity $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT $reservation $dims $ants_verbosity $reservation $permissions);
 require Headfile;
 require pipeline_utilities;
 
@@ -211,12 +211,20 @@ sub calculate_average_mdt_image {
     my $go_message =  "$PM: created average MDT image(s) for contrast:  ${contrast}";
     my $stop_message = "$PM: could not create an average MDT image for contrast: ${contrast}:\n${cmd}\n";
 
+    my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+
+    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+
+
     my $jid = 0;
     if (cluster_check) {
 	my $home_path = $current_path;
 	my $Id= "${contrast}_calculate_average_MDT_image";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}

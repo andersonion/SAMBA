@@ -10,7 +10,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $combined_rigid_and_affine $nodes $ants_verbosity $permissions $dims);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $combined_rigid_and_affine $nodes $ants_verbosity $permissions $dims $reservation);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -281,6 +281,11 @@ sub reg_to_mdt {
 
     if ($job_count > $jobs_in_first_batch){
 	$mem_request = $mem_request_2;
+    }
+
+
+    if (defined $reservation) {
+	@test =(0,$reservation);
     }
 
     my $jid = 0;

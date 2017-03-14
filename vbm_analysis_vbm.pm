@@ -13,7 +13,7 @@ use strict;
 use warnings;
 no warnings qw(bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $valid_formats_string $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $valid_formats_string $permissions $reservation);
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
@@ -32,11 +32,15 @@ my $skip=0;
 
 my ($group_1_name,$group_2_name,$group_1_files,$group_2_files);
 
+my $use_template_images;
 
 
 if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
 if (! defined $dims) {$dims = 3;}
+
+
+my $matlab_path = '/cm/shared/apps/MATLAB/R2015b/'; #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
 
 # ------------------
 sub vbm_analysis_vbm {
@@ -45,7 +49,6 @@ sub vbm_analysis_vbm {
     my @args = @_;
     my $start_time = time;
     vbm_analysis_vbm_Runtime_check(@args);
-
 
     foreach my $smoothing (@smoothing_params) {
 	print "Running smoothing for ${smoothing}\n";
@@ -90,7 +93,7 @@ sub vbm_analysis_vbm {
 		
 		if ($software eq 'surfstat') {
 		    surfstat_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
-		    `gzip ${software_results_path}/${contrast}/*.nii`;
+		   # `gzip ${software_results_path}/${contrast}/*.nii`; # Hopefully will be unnecessary after 20 Dec 2016 due to updated SurfStat function.
 		} elsif ($software eq 'spm') {
 		    spm_analysis_vbm($contrast,$smooth_inputs,$software_work_path);
 		} elsif ($software eq 'antsr') {
@@ -208,10 +211,13 @@ sub antsr_analysis_vbm {
     my $mem_request = 120000;
     my $antsr_command = "Rscript ${stub_path} --save\n"; 
     print "ANTsR command = ${antsr_command}\n";
-     my $jid = 0;
-     if (cluster_check) {
 
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
     
+    my $jid = 0;
+    if (cluster_check) {    
      	my $cmd = $antsr_command.$copy_of_function_command;
 	my $go = 1;
      	my $home_path = $contrast_path;
@@ -286,13 +292,40 @@ sub surfstat_analysis_vbm {
     if (! -e $contrast_path) {
 	mkdir ($contrast_path,$permissions);
     }
-
+    
     my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
-
-    my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
-    print "surfstat command = ${surfstat_command}\n";
-    my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
-    print "Current state = $state\n";
+    my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
+    my $exec_testing =1;
+    if ($exec_testing) {
+	my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
+	my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
+	my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
+	
+	my @test=(0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
+	my $mem_request = '10000';
+	my $jid = 0;
+	if (cluster_check) {
+	    my $go =1;	    
+#	my $cmd = $pairwise_cmd.$rename_cmd;
+	    my $cmd = "${executable_path} ${matlab_path} ${surfstat_args_2}";
+	    
+	    my $home_path = $current_path;
+	    my $Id= "${contrast}_surfstat_VBA_for_${group_1_name}_vs_${group_2_name}";
+	    my $verbose = 2; # Will print log only for work done.
+	    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+	    if (! $jid) {
+		error_out($stop_message);
+	    }
+	}
+    } else {
+	my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
+	print "surfstat command = ${surfstat_command}\n";
+	my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
+	print "Current state = $state\n";
+    }
     return();
 }
 # ------------------
@@ -422,7 +455,20 @@ sub vbm_analysis_vbm_Runtime_check {
     my @array_of_runnos = split(',',$runlist);
     my $runno_OR_list = join("|",@array_of_runnos);
 
-    my @all_input_dirs = ($template_images_path,$registered_images_path);
+    my $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
+
+    if (${mdt_creation_strategy} eq 'iterative') {
+	$use_template_images = 0;
+    }
+
+    my @all_input_dirs;
+    if ($use_template_images) {
+	@all_input_dirs = ($template_images_path,$registered_images_path);
+    } else {
+	@all_input_dirs = ($registered_images_path); #BJA, 4 Jan 2017: Added this fix because previously it would pull from the template path. This is not set up to be backward compatible, although we got involved in related shenanigans with the Reacher (O'Brien) data.
+    } 
+
+
     my @files_to_link; 
 
     foreach my $directory (@all_input_dirs) {

@@ -350,7 +350,10 @@ sub calculate_mdt_warps_vbm_Runtime_check {
    print "Should run checkpoint here!\n\n";
     my $checkpoint = $Hf->get_value('last_headfile_checkpoint'); # For now, this is the first checkpoint, but that will probably evolve.
     my $previous_checkpoint = $current_checkpoint - 1;
-   
+
+    my $manual_bypass = 0;
+
+    if (! $manual_bypass) { # Temporary by pass, due to backwards compatibility issues that are too much of a pain to immediately resolve. 12 December 2016
     # if (($checkpoint eq "NO_KEY") || ($checkpoint <= $previous_checkpoint)) {
     if (($checkpoint eq "NO_KEY") || ($checkpoint < $previous_checkpoint)) {
 	$template_match = 0;
@@ -424,7 +427,11 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 	    }
 	}
     }
+    } else {
 
+
+
+    }
     print "Current template_path = ${template_path}\n\n";
     if (! -e $template_path) {
 	mkdir ($template_path,$permissions);

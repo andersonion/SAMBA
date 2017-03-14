@@ -13,7 +13,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $dims $ants_verbosity);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $dims $reservation $ants_verbosity);
 require Headfile;
 require pipeline_utilities;
 require civm_simple_util;
@@ -60,6 +60,8 @@ sub set_reference_space_vbm {  # Main code
 	 } else {
 	     %runno_hash = %runno_hash_label;
 	 }
+
+
 	 foreach my $runno (keys %runno_hash) {
 	     my $in_file = $runno_hash{$runno};
 	     my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
@@ -108,12 +110,14 @@ sub set_reference_space_vbm {  # Main code
     my @jobs = (@jobs_1,@jobs_2);    
     my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
+
     
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
 	foreach my $space (@spaces) {
 	    `mv ${refspace_folder_hash{$space}}/refspace.txt.tmp ${refspace_folder_hash{$space}}/refspace.txt`;
+	    `gzip ${refspace_folder_hash{$space}}/*.nii`;
 	}
     }
 }
@@ -140,7 +144,7 @@ sub set_reference_space_Output_check {
 	 }
 
 	 if ($case == 1) {
-	     $message_prefix = "  The following images for ${space_string} analysis in folder ${work_folder} have already been properly referrenced\n and will not be reprocessed :\n";
+	     $message_prefix = "  The following images for ${space_string} analysis in folder ${work_folder} have already been properly referenced\n and will not be reprocessed :\n";
 	 } elsif ($case == 2) {
 	     $message_prefix = "  Unable to properly set the ${space_string} reference for the following images in folder ${work_folder}:\n";
 	 }   # For Init_check, we could just add the appropriate cases.
@@ -174,7 +178,8 @@ sub set_reference_space_Output_check {
 		 $out_file = $file;
 	     }
 	     print ".";
-	     
+	     my $tester = ((data_double_check($out_file)) && (data_double_check($out_file.'.gz')));
+	     #print "tester = ${tester} for out_file = ${out_file}\n\n";
 	     if ((data_double_check($out_file)) && (data_double_check($out_file.'.gz'))) {
 		 if ($case == 1) {
 		    # print "\n${out_file} added to list of files to be re-referenced.\n";
@@ -185,14 +190,14 @@ sub set_reference_space_Output_check {
 			 my $contrast = $2;
 			 if (! defined $runno_hash{$runno}) {
 			     $runno_hash{$runno}= $preprocess_dir.'/'.$file;
-			     print "runno_hash{${runno}}= $runno_hash{$runno}\n\n"; ##
+			    # print "runno_hash{${runno}}= $runno_hash{$runno}\n\n"; ##
 			 }
 		     }
 		 }
 		 push(@file_array,$out_file);	     
 		 $missing_files_message = $missing_files_message."   $file \n";
 	     } elsif (! compare_two_reference_spaces($out_file,$refspace)) {
-		 print "\n${out_file} FUCKITY FUCK FUCK added to list of files to be re-referenced.\n";
+		 print "\n${out_file} added to list of files to be re-referenced.\n";
 		 push(@file_array,$out_file);	     
 		 $missing_files_message = $missing_files_message."   $file \n";
 	     } else {
@@ -234,7 +239,8 @@ sub set_reference_space_Output_check {
 sub apply_new_reference_space_vbm {
 # ------------------
     my ($in_file,$ref_file,$out_file)=@_;
-    my $do_registration = 1;    
+    my $do_registration = 1; 
+
     if ($out_file =~ /\.nii(\.gz)?/) {
 	$do_registration = 0;
     }
@@ -252,14 +258,19 @@ sub apply_new_reference_space_vbm {
     my $cmd;
     my @cmds;
     my $translation_transform;
+
+    my $test =  compare_two_reference_spaces($in_file,$ref_file);
+   # print "Test output = ${test}\n\n\n";
+   # print "Do registration? ${do_registration}\n\n\n";
     if ($do_registration) {
+	$translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
 	if (! compare_two_reference_spaces($in_file,$ref_file)) {	  
 	    my ($dummy_1,$out_path,$dummy_2) = fileparts($out_file);
 	    if (! -d $out_path ) {
 		mkdir ($out_path,$permissions);
 	    }
 
-	    $translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
+	    #$translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
 	    my $excess_transform =  "${out_file}1Translation.mat" ;
 	    if (data_double_check($translation_transform)) {
 		my $translation_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file};\n";
@@ -296,6 +307,13 @@ sub apply_new_reference_space_vbm {
 	
     my @list = split('/',$in_file);
     my $short_filename = pop(@list);
+
+    my @test = (0);
+    my $mem_request = '';  # 12 December 2016: Will hope that this triggers the default, and hope that will be enough.
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+
     
     my $go_message =  "$PM: Apply reference space of ${ref_file} to ${short_filename}";
     my $stop_message = "$PM: Unable to apply reference space of ${ref_file} to ${short_filename}:  $cmd\n";
@@ -306,7 +324,7 @@ sub apply_new_reference_space_vbm {
 	    my ($dummy1,$home_path,$dummy2) = fileparts($out_file);
 	    my $Id= "${short_filename}_reference_to_proper_space";
 	    my $verbose = 2; # Will print log only for work done.
-	    $jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose);     
+	    $jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);     
 	    if (! $jid) {
 		error_out($stop_message);
 	    }

@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions $reservation);
 require Headfile;
 require pipeline_utilities;
 
@@ -109,68 +109,68 @@ sub calculate_jacobians_vbm {  # Main code
 # ------------------
 sub calculate_jacobians_Output_check {
 # ------------------
-     my ($case, $direction) = @_;
-     my $message_prefix ='';
-     my ($out_file,$dir_string);
-     if ($direction eq 'f' ) {
-	 $space_string = 'individual image';
-     } elsif ($direction eq 'i') {
-	 $space_string = 'MDT';
-     }
-
-     my @file_array=();
-     if ($case == 1) {
+    my ($case, $direction) = @_;
+    my $message_prefix ='';
+    my ($out_file,$dir_string);
+    if ($direction eq 'f' ) {
+	$space_string = 'individual image';
+    } elsif ($direction eq 'i') {
+	$space_string = 'MDT';
+    }
+    
+    my @file_array=();
+    if ($case == 1) {
   	$message_prefix = "  Jacobian images in ${space_string} space have already been calculated for the following runno(s) and will not be recalculated:\n";
-     } elsif ($case == 2) {
+    } elsif ($case == 2) {
  	$message_prefix = "  Unable to calculate jacobian images in ${space_string} for the following runno(s):\n";
-     }   # For Init_check, we could just add the appropriate cases.
+    }   # For Init_check, we could just add the appropriate cases.
+    
+    
+    my $existing_files_message = '';
+    my $missing_files_message = '';
+    
+    foreach my $runno (@array_of_runnos) {
+	if ($direction eq 'f' ) {
+	    $out_file = "${current_path}/${runno}_jac_to_MDT.nii.gz"; #added '.gz' 2 September 2015
+	} elsif ($direction eq 'i') {
+	    $out_file =  "${current_path}/${runno}_jac_from_MDT.nii.gz"; #added '.gz' 2 September 2015
+	}
+	
+	if (data_double_check($out_file)) {
+	    if ($out_file =~ s/\.gz$//) {
+		if (data_double_check($out_file)) {
+		    $go_hash{$runno}=1;
+		    push(@file_array,$out_file);
+		    #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+		    $missing_files_message = $missing_files_message."\t$runno\n";
+		} else {
+		    `gzip -f ${out_file}`; #Is -f safe to use?
+		    $go_hash{$runno}=0;
+		    $existing_files_message = $existing_files_message."\t$runno\n";
+		}
+	    }
+	} else {
+	    $go_hash{$runno}=0;
+	    $existing_files_message = $existing_files_message."\t$runno\n";
+	}
+    }
+    if (($existing_files_message ne '') && ($case == 1)) {
+	$existing_files_message = $existing_files_message."\n";
+    } elsif (($missing_files_message ne '') && ($case == 2)) {
+	$missing_files_message = $missing_files_message."\n";
+    }
+    
+    my $error_msg='';
 
-     
-     my $existing_files_message = '';
-     my $missing_files_message = '';
-     
-     foreach my $runno (@array_of_runnos) {
-	 if ($direction eq 'f' ) {
-	     $out_file = "${current_path}/${runno}_jac_to_MDT.nii.gz"; #added '.gz' 2 September 2015
-	 } elsif ($direction eq 'i') {
-	     $out_file =  "${current_path}/${runno}_jac_from_MDT.nii.gz"; #added '.gz' 2 September 2015
-	 }
-
-	 if (data_double_check($out_file)) {
-	     if ($out_file =~ s/\.gz$//) {
-		 if (data_double_check($out_file)) {
-		     $go_hash{$runno}=1;
-		     push(@file_array,$out_file);
-		     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-		     $missing_files_message = $missing_files_message."\t$runno\n";
-		 } else {
-		     `gzip -f ${out_file}`; #Is -f safe to use?
-		     $go_hash{$runno}=0;
-		     $existing_files_message = $existing_files_message."\t$runno\n";
-		 }
-	     }
-	 } else {
-	     $go_hash{$runno}=0;
-	     $existing_files_message = $existing_files_message."\t$runno\n";
-	 }
-     }
-     if (($existing_files_message ne '') && ($case == 1)) {
-	 $existing_files_message = $existing_files_message."\n";
-     } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $missing_files_message = $missing_files_message."\n";
-     }
-     
-     my $error_msg='';
-
-     if (($existing_files_message ne '') && ($case == 1)) {
-	 $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
-     } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
-     }
-
-     my $file_array_ref = \@file_array;
-     return($file_array_ref,$error_msg);
- }
+    if (($existing_files_message ne '') && ($case == 1)) {
+	$error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
+    } elsif (($missing_files_message ne '') && ($case == 2)) {
+	$error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
+    }
+    
+    my $file_array_ref = \@file_array;
+    return($file_array_ref,$error_msg);
+}
 
 # # ------------------
 # sub calculate_jacobians_Input_check {
@@ -187,7 +187,7 @@ sub calculate_jacobian {
     my ($jac_command,$unzip_command);
     my $out_file = '';
     my $space_string = '';
-
+    
     if ($direction eq 'f') {
 	$out_file = "${current_path}/${runno}_jac_to_MDT.nii.gz"; # Need to settle on exact file name format... #Added '.gz' 2 September 2015
 	$space_string = 'individual_image';
@@ -195,69 +195,44 @@ sub calculate_jacobian {
     } else {
 	$out_file = "${current_path}/${runno}_jac_from_MDT.nii.gz"; # I don't think this will be the proper implementation of the "inverse" option. #Added '.gz' 2 September 2015
 	$space_string = 'MDT';
-
+	
 	$input_warp = "${diffeo_path}/MDT_to_${runno}_warp.nii.gz"; #Added '.gz' 2 September 2015
 	#$input_warp = "${diffeo_path}/${runno}_to_MDT_warp.nii.gz"; # HORRIBLE CODE! Only testing to prove that "from MDT" is correct. NOTE: this is irrelevant if I use 'f' instead of 'i' for the Direction when I call the command.
-
+	
     }
     $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 1 ;\n"; # Just testing...should still be bad. # Correct when used with Sub2MDT warp, counter-intuitive as it is.
 #    $jac_command = "CreateJacobianDeterminantImage 3 ${input_warp} ${out_file} 1 0 ;\n"; # Changed last binary flag from 1 to 0 (use GeometricJacobian)
-
+    
 ## NOTE!!! All jacobian images created before 04 December 2015 are BAD!  They used a version of CreateJacobianDeterminantImage that did not account for any
 #          rotation matrices in the header when using the GeometricJacobian option.  This caused the effects of the warp to be inverted in the x and y direction
 #         (because of the "standard" [-1 -1 1] diagonals of our cosine matrix), but not the z.  The net result for logJacobian images was roughly -2/3 modulation,
 #         though that is only approximate and any images and VBM calculated this way is unreliable.
 ##         While the ANTs guys found the bug and fixed it, James was unable to rebuild the latest version of ANTs on the cluster, so our best option to moved forward
 #         is to just turn off the GeometricJacobian option.  The alternative, the Finite Differences method, is pretty comparable.
-
-
-
+    
+    
+    
     $unzip_command = "ImageMath 3 ${out_file} m ${out_file} ${mask_path};\n";
-
+    
 #    $jac_command = "ANTSJacobian 3 ${input_warp} ${out_file} 1 ${mask_path} 1;\n"; # Older ANTS command
 #    $unzip_command = "gunzip -c ${out_file}logjacobian.nii.gz > ${out_file}.nii;\n";  
-
+    
     $cmd=$jac_command.$unzip_command;
     my $go_message =  "$PM: Calculate jacobian images in ${space_string} for ${runno}";
     my $stop_message = "$PM:  Unable to calculate jacobian images in ${space_string} for ${runno}:\n${cmd}\n";
-
-
-### Kludge code for using my custom calculate Jacobian function in matlab
-    my $use_matlab = 0; # 26 July 2016 -- ANTs with Geo option, with Subject-to-MDT, will give what one would expect from the MDT-to-Subject Jacobian
-    my $jid = 0;
-    if ($use_matlab) {
-	my @test=(1);
-
-#	my $jac_args ="\'$input_warp\', \'$out_file\',1,1"; The old (pre-22July2016) script had a "rotate around z" command which is now obsolete.
-	my $jac_args ="\'$input_warp\', \'$out_file\',1";
-#	my $jac_command = make_matlab_command('calculate_jacobian',$jac_args,"${runno}_",$Hf,0); Before 22 July 2016, this was calculate log_10(jac)
-	my $jac_command = make_matlab_command('calculate_jacobian_natural_log',$jac_args,"${runno}_",$Hf,0); # After 22 July 2016, calculating ln(jac)
-#	my $jac_command = make_matlab_command('path','',,"${runno}_",$Hf,1); 
-	execute(1, "Calculating Jacobian from MDT image in Matlab for $runno ", $jac_command);
-#	execute(1, "Masking Jacobian from MDT image for $runno ", $unzip_command);
-	if (cluster_check) {
-	    my $home_path = $current_path;
-	    my $Id= "${runno}_calculate_jacobian_in_${space_string}_space";
-	    my $verbose = 2; # Will print log only for work done.
-	    $jid = cluster_exec($go, $go_message, $unzip_command ,$home_path,$Id,$verbose,21000,@test);     
-	    if (! $jid) {
-		error_out($stop_message);
-	    }
-	} else {
-	    my @cmds = ($unzip_command);
-	    if (! execute($go, $go_message, @cmds) ) {
-		error_out($stop_message);
-	    }
-	}
-
-    } else {
-
-    #my $jid = 0;
+    
+    my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+    
+    my $jid = 0;    
     if (cluster_check) {
 	my $home_path = $current_path;
 	my $Id= "${runno}_calculate_jacobian_in_${space_string}_space";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}
@@ -267,11 +242,11 @@ sub calculate_jacobian {
 	    error_out($stop_message);
 	}
     }
-
+    
     if ((!-e $out_file) && ($jid == 0)) {
 	error_out("$PM: missing jacobian image in ${space_string} space for ${runno}: ${out_file}");
     }
-    }
+
     print "** $PM created ${out_file}\n"; #Added '.gz' 2 September 2015 -- Don't have a clue why I thought that would be useful...
   
     return($jid,$out_file);

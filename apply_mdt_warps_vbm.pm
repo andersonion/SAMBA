@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $permissions $ants_verbosity $intermediate_affine $dims);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $permissions $ants_verbosity $reservation $intermediate_affine $dims);
 require Headfile;
 require pipeline_utilities;
 
@@ -75,7 +75,7 @@ sub apply_mdt_warps_vbm {  # Main code
     }
      
 
-    if (cluster_check()) {
+    if (cluster_check() && ($jobs[0] ne '')) {
 	my $interval = 2;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
@@ -271,12 +271,19 @@ sub apply_mdt_warp {
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} MDT warp(s) to ${current_contrast} image for  ${runno}:\n${cmd}\n";
 
+    my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+
+    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+
     my $jid = 0;
     if (cluster_check) {
 	my $home_path = $current_path;
 	my $Id= "${runno}_${current_contrast}_apply_${direction_string}_MDT_warp";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}

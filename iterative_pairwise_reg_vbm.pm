@@ -107,6 +107,10 @@ sub iterative_pairwise_reg_vbm {  # Main code
        headfile_list_handler($Hf,"mdt_inverse_xforms_${moving_runno}",$inverse_out,1,$replace); # added 'mdt_', 15 June 2016
    }
 
+ #  if   ($current_iteration == 5) {
+   #     @jobs=qw(1380535  1380536  1380537  1380538  1380539  1380540  1380541  1380542  1380543  1380544  1380545  1380546  1380547  1380548  1380549  1380550  1380935 1380936 1380937 1380938);  ## MEGA ONE-OFF!!!
+   # }
+
    if (cluster_check() && ($jobs[0] ne '')) {
        my $interval = 15;
        my $verbose = 1;
@@ -275,13 +279,17 @@ sub create_iterative_pairwise_warps {
     my @test = (0);
     my $node = '';
     
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+
     if (! data_double_check($out_warp,$out_inverse)) {
 	$pairwise_cmd = '';
     }
 	
 ## It is possible that VBM processing was done after previous iteration.  If so, then the "reg_diffeo" warps will be the same work we want here, with the one caveat that the same diffeo parameters are used during template creation and registration to template (no doubt we will soon stray from this path).
     my $previous_template_path = $template_path;
-    if ($previous_template_path =~ s/_i([0-9]+[\/]*)?/_i($old_iteration)/) { }
+    if ($previous_template_path =~ s/_i([0-9]+[\/]*)?/_i${old_iteration}/) { }
     my $prev_reg_diffeo_path = "${previous_template_path}/reg_diffeo/";
     my $reusable_warp = "${prev_reg_diffeo_path}/${moving_runno}_to_MDT_warp.nii.gz"; # none 
     my $reusable_inverse_warp = "${prev_reg_diffeo_path}/MDT_to_${moving_runno}_warp.nii.gz"; 
@@ -291,7 +299,7 @@ sub create_iterative_pairwise_warps {
 	$rename_cmd = "ln ${reusable_warp} ${new_warp}; ln ${reusable_inverse_warp} ${new_inverse};";
     }
 ##
-
+    my $tester =0;
 
     if ($pairwise_cmd ne '') {
 	$job_count++;
@@ -299,7 +307,28 @@ sub create_iterative_pairwise_warps {
 	    $mem_request = $mem_request_2;
 	}
     }
+   # my $jj = $job_count-1;
+   # my @nodes=qw(civmcluster1 civmcluster1-02 civmcluster1-03 civmcluster1-04 civmcluster1-05 civmcluster1-06G  civmcluster1-FX2-1 civmcluster1-FX2-2 civmcluster1-FX2-3 civmcluster1-FX2-4);
+    #my @node_i = (6,5,7,8,3,4,9,0,1,5,4,7,3,2,1,9,0,8,6,2);
+    #$node = $nodes[$node_i[$jj]];
 
+    #if (($node eq 'civmcluster1-01') || ($node eq 'civmcluster1-FX2-1')) {
+#	$reservation = 'dyc6_8';
+#    } elsif (($node eq 'civmcluster1-03') ||($node eq 'civmcluster1-04') || ($node eq 'civmcluster1-05'))  {
+#	$reservation = 'rja20_4';
+#    } else {
+#	$reservation = '';
+#    }
+#
+#    if ($node eq 'civmcluster1') {
+#	$tester = 1;
+#    } else {
+#	$tester = 0;
+#    }
+
+#    $mem_request = 90000;
+#    $node=join(',',($node, $reservation));
+#    @test=($tester,$node);
 
 
     my $jid = 0;
@@ -762,9 +791,10 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     print "Should run checkpoint here!\n\n";
     my $checkpoint = $Hf->get_value('last_headfile_checkpoint'); # For now, this is the first checkpoint, but that will probably evolve.
     my $previous_checkpoint = $current_checkpoint - 1;
-   
+    #print "template checkpoint completed already? ${template_checkpoint_completed}\n\n";
     # if (($checkpoint eq "NO_KEY") || ($checkpoint <= $previous_checkpoint)) {
     if ((($checkpoint eq "NO_KEY") || ($checkpoint < $previous_checkpoint)) && (! $template_checkpoint_completed)) {
+	#print "Begin checking for previously completed work\n\n";
 	$template_match = 0;
 	my $temp_template_path;
 	my $temp_current_path;
@@ -784,6 +814,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               label_atlas_dir
                               label_atlas_name
                               label_atlas_path
+                              label_input_reference_path
                               label_reference_path
                               label_reference_space
                               label_refname
@@ -801,6 +832,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               last_headfile_checkpoint
                               mdt_diffeo_path
                               number_of_nodes_used
+                              original_rigid_atlas_path
                               predictor_id
                               rd_channel_added
                               smoothing_comma_list

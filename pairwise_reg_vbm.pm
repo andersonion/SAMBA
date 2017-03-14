@@ -315,7 +315,7 @@ sub pairwise_reg_vbm_Init_check {
 # ------------------
     my $init_error_msg='';
     my $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
-    if ($mdt_creation_strategy eq 'iterative') {
+    if ($mdt_creation_strategy ne 'iterative') {
 	my $message_prefix="$PM initialization check:\n";
 	
 	$diffeo_metric = $Hf->get_value('diffeo_metric');

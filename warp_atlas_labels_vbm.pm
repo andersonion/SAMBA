@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $reference_path  $intermediate_affine);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $reference_path  $intermediate_affine $reservation);
 require Headfile;
 require pipeline_utilities;
 
@@ -241,12 +241,21 @@ sub apply_mdt_warp_to_labels {
     my $go_message =  "$PM: create ${label_atlas_name} label set for ${runno}";
     my $stop_message = "$PM: could not create ${label_atlas_name} label set for ${runno}:\n${cmd}\n";
 
+
+    my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+    
+    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+
+
     my $jid = 0;
     if (cluster_check) {
 	my $home_path = $current_path;
 	my $Id= "create_${label_atlas_name}_labels_for_${runno}";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}

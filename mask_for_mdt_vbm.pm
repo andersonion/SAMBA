@@ -14,7 +14,7 @@ use strict;
 use warnings;
 #no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT);
+use vars qw($Hf $BADEXIT $GOODEXIT $reservation);
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
@@ -181,6 +181,13 @@ sub mask_for_mdt_Output_check {
      my $go_message = "$PM: Extractinging mask from MDT ${template_contrast} image." ;
      my $stop_message = "$PM: unable to extract mask from MDT ${template_contrast} image:\n${mask_command_1}\n${mask_command_2}\n" ;
 
+     my @test=(0);
+     if (defined $reservation) {
+	 @test =(0,$reservation);
+     }
+
+     my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+     
 
      my $jid = 0;
      if (cluster_check) { 
@@ -191,7 +198,7 @@ sub mask_for_mdt_Output_check {
  	my $home_path = $current_path;
  	my $Id= "extract_mask_from_MDT_${template_contrast}";
  	my $verbose = 2; # Will print log only for work done.
- 	$jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose);     
+ 	$jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
  	if (! $jid) {
  	    error_out($stop_message);
  	}

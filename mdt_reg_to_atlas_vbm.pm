@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions $nodes $dims $ants_verbosity $mdt_to_reg_start_time);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions $nodes $dims $ants_verbosity $reservation $mdt_to_reg_start_time);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -224,6 +224,9 @@ sub mdt_reg_to_atlas {
     my $stop_message = "$PM: could not create diffeomorphic warp from MDT for label atlas ${label_atlas}:\n${pairwise_cmd}\n" ;
 
     my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
 
     my $jid = 0;
     if (cluster_check) {

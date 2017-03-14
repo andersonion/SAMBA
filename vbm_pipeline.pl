@@ -755,7 +755,7 @@ if (defined $vba_analysis_software) {
     vbm_analysis_vbm(); #$PM_code = 72
     sleep($interval);
 
-   # smooth_images_vbm(); #$PM_code = 71 (now called from vbm_analysis_vbm
+   # smooth_images_vbm(); #$PM_code = 71 (now called from vbm_analysis_vbm)
     sleep($interval);
 
 
@@ -770,16 +770,21 @@ if (defined $vba_analysis_software) {
 #    $process = pop(@split);
     my $process = "vbm_pipeline";
     
-    my $completion_message ="Congratulations, master scientist. Your VBM pipeline process has completed.  Hope you find something interesting.";
+    my $completion_message ="Congratulations, master scientist. Your VBM pipeline process has completed.  Hope you find something interesting.\n";
     my $time = time;
     my $email_folder = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/email/';			
     my $email_file="${email_folder}/VBM_pipeline_completion_email_for_${time}.txt";
     
+    my $local_time = localtime();
+    my $local_time_stamp = "This file was generated on ${local_time}, local time.\n";
     my $time_stamp = "Completion time stamp = ${time} seconds since January 1, 1970 (or some equally asinine date).\n";
+   
+
     my $subject_line = "Subject: VBM Pipeline has finished!!!\n";
 
 			
-    my $email_content = $subject_line.$completion_message.$time_stamp;
+    #my $email_content = $subject_line.$completion_message.$time_stamp;
+    my $email_content = $subject_line.$completion_message.$local_time_stamp.$time_stamp;
     `echo "${email_content}" > ${email_file}`;
     `sendmail -f $process.civmcluster1\@dhe.duke.edu rja20\@duke.edu < ${email_file}`;
     `sendmail -f $process.civmcluster1\@dhe.duke.edu 9196128939\@vtext.com < ${email_file}`;

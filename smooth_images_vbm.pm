@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $permissions $valid_formats_string $dims $nodes);
+use vars qw($Hf $BADEXIT $GOODEXIT  $permissions $valid_formats_string $dims $nodes $reservation);
 require Headfile;
 require pipeline_utilities;
 
@@ -221,12 +221,17 @@ sub smooth_images {
     my $go_message =  "$PM: Smoothing images with sigma=${smoothing_param} ${units}: ${out_directory}";
     my $stop_message = "$PM:  Unable to smooth image with sigma=${smoothing_param} ${units} :\n${cmd}\n";
 
+    my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+
     my $jid = 0;
     if (cluster_check) {
 	my $home_path = $out_directory;
 	my $Id= "smooth_image_with_sigma_${smoothing_param}${units}_${batch_number}";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request);     
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}
