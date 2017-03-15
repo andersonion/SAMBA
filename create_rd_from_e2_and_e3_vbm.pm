@@ -190,7 +190,13 @@ sub create_rd_from_e2_and_e3_vbm_Runtime_check {
 	# $current_path = $Hf->get_value('inputs_dir'); 
 
 	$runlist = $Hf->get_value('complete_comma_list');
-	@array_of_runnos = split(',',$runlist);
+
+	if ($runlist eq 'EMPTY_VALUE') {
+	    @array_of_runnos = ();
+	} else {
+	    @array_of_runnos = split(',',$runlist);
+	}
+
 
 	my $case = 1;
 	my ($dummy,$skip_message)=create_rd_from_e2_and_e3_Output_check($case);

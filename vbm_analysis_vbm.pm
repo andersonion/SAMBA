@@ -452,7 +452,14 @@ sub vbm_analysis_vbm_Runtime_check {
 	$runlist = $Hf->get_value('complete_comma_list');
     }
 
-    my @array_of_runnos = split(',',$runlist);
+    my @array_of_runnos;
+    
+    if ($runlist eq 'EMPTY_VALUE') {
+	@array_of_runnos = ();
+    } else {
+	@array_of_runnos = split(',',$runlist);
+    }
+
     my $runno_OR_list = join("|",@array_of_runnos);
 
     my $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');

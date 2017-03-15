@@ -72,7 +72,10 @@ sub compare_reg_to_mdt_vbm {  # Main code
  
     foreach my $runno (@array_of_runnos) {
 	my ($f_xform_path,$i_xform_path);
+
 	$go = $go_hash{$runno};
+
+	
 	if ($go) {
 	    ($job,$f_xform_path,$i_xform_path) = reg_to_mdt($runno);
 	    #	sleep(0.25);
@@ -143,18 +146,23 @@ sub compare_reg_to_mdt_Output_check {
      my $missing_files_message = '';
      
      foreach my $runno (@array_of_runnos) {
-	 $file_1 = "${current_path}/${runno}_to_MDT_warp.nii.gz";
-	 $file_2 = "${current_path}/MDT_to_${runno}_warp.nii.gz";
-	 if (data_double_check($file_1,$file_2)) {
-	     $go_hash{$runno}=1;
-	     $expected_number_of_jobs++;
-	     push(@file_array,$file_1,$file_2);
-	     $missing_files_message = $missing_files_message."\t${runno}\n";
-	 } else {
+	 if ($runno eq 'EMPTY_VALUE') {
 	     $go_hash{$runno}=0;
-	     $existing_files_message = $existing_files_message."\t${runno}\n";
+	 } else {
+	     $file_1 = "${current_path}/${runno}_to_MDT_warp.nii.gz";
+	     $file_2 = "${current_path}/MDT_to_${runno}_warp.nii.gz";
+	     if (data_double_check($file_1,$file_2)) {
+		 $go_hash{$runno}=1;
+		 $expected_number_of_jobs++;
+		 push(@file_array,$file_1,$file_2);
+		 $missing_files_message = $missing_files_message."\t${runno}\n";
+	     } else {
+		 $go_hash{$runno}=0;
+		 $existing_files_message = $existing_files_message."\t${runno}\n";
 	     }
+	 }
      }
+
      if (($existing_files_message ne '') && ($case == 1)) {
 	 $existing_files_message = $existing_files_message."\n";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
@@ -432,7 +440,11 @@ sub compare_reg_to_mdt_vbm_Runtime_check {
 
 
     $runlist = $Hf->get_value('compare_comma_list');
-    @array_of_runnos = split(',',$runlist);
+    if ($runlist eq 'EMPTY_VALUE') {
+	@array_of_runnos = ();
+    } else {
+	@array_of_runnos = split(',',$runlist);
+    }
     
     my $case = 1;
     my ($dummy,$skip_message)=compare_reg_to_mdt_Output_check($case);

@@ -302,8 +302,15 @@ sub calculate_mdt_warps_vbm_Runtime_check {
     if ($runlist eq 'NO_KEY') {
 	$runlist = $Hf->get_value('control_comma_list');
     }
+    
 
-    @array_of_runnos = split(',',$runlist);
+    if ($runlist eq 'EMPTY_VALUE') {
+	@array_of_runnos = ();
+    } else {
+	@array_of_runnos = split(',',$runlist);
+    }
+
+
     @sorted_runnos=sort(@array_of_runnos);
     $number_of_template_runnos = $#sorted_runnos + 1;
 #

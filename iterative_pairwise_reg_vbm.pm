@@ -307,28 +307,6 @@ sub create_iterative_pairwise_warps {
 	    $mem_request = $mem_request_2;
 	}
     }
-   # my $jj = $job_count-1;
-   # my @nodes=qw(civmcluster1 civmcluster1-02 civmcluster1-03 civmcluster1-04 civmcluster1-05 civmcluster1-06G  civmcluster1-FX2-1 civmcluster1-FX2-2 civmcluster1-FX2-3 civmcluster1-FX2-4);
-    #my @node_i = (6,5,7,8,3,4,9,0,1,5,4,7,3,2,1,9,0,8,6,2);
-    #$node = $nodes[$node_i[$jj]];
-
-    #if (($node eq 'civmcluster1-01') || ($node eq 'civmcluster1-FX2-1')) {
-#	$reservation = 'dyc6_8';
-#    } elsif (($node eq 'civmcluster1-03') ||($node eq 'civmcluster1-04') || ($node eq 'civmcluster1-05'))  {
-#	$reservation = 'rja20_4';
-#    } else {
-#	$reservation = '';
-#    }
-#
-#    if ($node eq 'civmcluster1') {
-#	$tester = 1;
-#    } else {
-#	$tester = 0;
-#    }
-
-#    $mem_request = 90000;
-#    $node=join(',',($node, $reservation));
-#    @test=($tester,$node);
 
 
     my $jid = 0;
@@ -769,7 +747,15 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
 
 
     $runlist = $Hf->get_value('control_comma_list');
-    @array_of_runnos = split(',',$runlist);
+
+    if ($runlist eq 'EMPTY_VALUE') {
+	@array_of_runnos = ();
+    } else {
+	@array_of_runnos = split(',',$runlist);
+    }
+
+
+
     @sorted_runnos=sort(@array_of_runnos);
 
     my $number_of_template_runnos = $#sorted_runnos + 1;

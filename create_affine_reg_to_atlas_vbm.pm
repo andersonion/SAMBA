@@ -836,11 +836,21 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 
 	}
 	$runlist = $Hf->get_value('complete_comma_list');
-	@array_of_runnos = split(',',$runlist);
+  
+	if ($runlist eq 'EMPTY_VALUE') {
+	    @array_of_runnos = ();
+	} else {
+	    @array_of_runnos = split(',',$runlist);
+	}
+
 
 	my $control_runlist = $Hf->get_value('control_comma_list');
-	@array_of_control_runnos = split(',',$control_runlist);
 
+	if ($control_runlist eq 'EMPTY_VALUE') {
+	    @array_of_control_runnos = ();
+	} else {
+	    @array_of_control_runnos = split(',',$control_runlist);
+	}
 
 	
     }

@@ -302,8 +302,11 @@ sub calculate_jacobians_vbm_Runtime_check {
     
     $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
         
-    @array_of_runnos = split(',',$runlist);
-
+    if ($runlist eq 'EMPTY_VALUE') {
+	@array_of_runnos = ();
+    } else {
+	@array_of_runnos = split(',',$runlist);
+    }
 
     my $case = 1;
     my ($dummy,$skip_message)=calculate_jacobians_Output_check($case,$direction);

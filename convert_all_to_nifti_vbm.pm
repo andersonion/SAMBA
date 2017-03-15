@@ -188,7 +188,15 @@ sub convert_all_to_nifti_vbm_Runtime_check {
     }
 
     $runlist = $Hf->get_value('complete_comma_list');
-    @array_of_runnos = split(',',$runlist);
+
+    if ($runlist eq 'EMPTY_VALUE') {
+	@array_of_runnos = ();
+    } else {
+	@array_of_runnos = split(',',$runlist);
+    }
+
+
+
  
     $ch_runlist = $Hf->get_value('channel_comma_list');
     @channel_array = split(',',$ch_runlist);

@@ -138,6 +138,8 @@ sub calculate_mdt_images_Output_check {
 			     }
 			 }
 		     }
+		 } else {
+		     $int_go_hash{$contrast}=1;
 		 }
 	     } else {
 		 `gzip -f ${out_file}`; #Is -f safe to use?
@@ -181,13 +183,13 @@ sub calculate_average_mdt_image {
     my ($contrast) = @_;
     my ($cmd,$avg_cmd,$update_cmd,$cleanup_cmd,$copy_cmd);
     my ($out_file, $intermediate_file);
-
+	$out_file = "${current_path}/MDT_${contrast}.nii.gz";
     if ($mdt_creation_strategy eq 'iterative') {
 
 	my $warp_train_car = " -t ${last_update_warp} ";
 	my $warp_train = $warp_train_car.$warp_train_car.$warp_train_car.$warp_train_car;
 
-	$out_file = "${current_path}/MDT_${contrast}.nii.gz";
+	#$out_file = "${current_path}/MDT_${contrast}.nii.gz"; #moved outside of if statement
 	$intermediate_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
  	$update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";
 	$cleanup_cmd = "if [[ -f ${out_file} ]]; then rm ${intermediate_file}; fi\n";
@@ -290,7 +292,12 @@ sub calculate_mdt_images_vbm_Runtime_check {
     if ($runlist eq 'NO_KEY') {
 	$runlist = $Hf->get_value('control_comma_list');
     }
-    @array_of_runnos = split(',',$runlist);
+
+    if ($runlist eq 'EMPTY_VALUE') {
+	@array_of_runnos = ();
+    } else {
+	@array_of_runnos = split(',',$runlist);
+    }
 #
 
     my $case = 1;

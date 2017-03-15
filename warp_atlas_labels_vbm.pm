@@ -350,7 +350,12 @@ sub warp_atlas_labels_vbm_Runtime_check {
     } else {
 	$runlist = 'MDT';
     }
-    @array_of_runnos = split(',',$runlist);
+ 
+    if ($runlist eq 'EMPTY_VALUE') {
+	@array_of_runnos = ();
+    } else {
+	@array_of_runnos = split(',',$runlist);
+    }
 
     my $case = 1;
     my ($dummy,$skip_message)=warp_atlas_labels_Output_check($case,$direction);

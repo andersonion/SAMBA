@@ -681,7 +681,12 @@ sub set_reference_space_vbm_Init_check {
 	    my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
 	    #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
 
-	    $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
+	    my $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast); #Added 14 March 2017
+	    my ($rigid_atlas_filename,$dumdum,$rigid_atlas_ext)= fileparts($test_path);
+	    #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
+	    $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_filename}${rigid_atlas_ext}"; #Updated 14 March 2017
+
+
 	    if (data_double_check($rigid_atlas_path))  {
 		$rigid_atlas_path=$rigid_atlas_path.'.gz';
 		if (data_double_check($rigid_atlas_path))  {

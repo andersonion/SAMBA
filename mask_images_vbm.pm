@@ -425,7 +425,9 @@ sub mask_images_vbm_Runtime_check {
 
     $num_morphs = 5;
     $morph_radius = 2;
-    $dim_divisor = 2;
+    #$dim_divisor = 2; #Changed to 1, BJA 14 March 2017
+    $dim_divisor = 1;
+
     $status_display_level=0;
 
     if ($mask_dir eq 'NO_KEY') {
@@ -438,7 +440,14 @@ sub mask_images_vbm_Runtime_check {
     }
 
     $runlist = $Hf->get_value('complete_comma_list');
-    @array_of_runnos = split(',',$runlist);
+ 
+    if ($runlist eq 'EMPTY_VALUE') {
+	@array_of_runnos = ();
+    } else {
+	@array_of_runnos = split(',',$runlist);
+    }
+
+
  
     $ch_runlist = $Hf->get_value('channel_comma_list');
     @channel_array = split(',',$ch_runlist);
