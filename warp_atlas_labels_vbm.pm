@@ -23,7 +23,7 @@ use List::Util qw(max);
 
 my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
-my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir,$median_images_path);
+my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir,$results_dir,$final_results_dir,$median_images_path);
 my ($mdt_path,$template_name, $diffeo_path,$work_done);
 my ($label_path,$label_reference_path,$label_refname,$do_byte);
 my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
@@ -33,7 +33,10 @@ my $job;
 my $group='all';
 
 my ($label_atlas,$atlas_label_dir,$atlas_label_path);
+my ($convert_labels_to_RAS,$final_ROI_path);
 
+my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
+my $make_ROIs_executable_path = "/glusterspace/BJ/run_Labels_to_ROIs_exec.sh";
 
 # ------------------
 sub warp_atlas_labels_vbm {  # Main code
@@ -70,7 +73,6 @@ sub warp_atlas_labels_vbm {  # Main code
     my $case = 2;
     my ($dummy,$error_message)=warp_atlas_labels_Output_check($case);
 
-
     my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
@@ -83,6 +85,28 @@ sub warp_atlas_labels_vbm {  # Main code
 	symbolic_link_cleanup($current_path,$PM);
     }
  
+    my @jobs_2;
+    if ($convert_labels_to_RAS == 1){
+	foreach my $runno (@array_of_runnos) {
+	    ($job) = convert_labels_to_RAS($runno);
+	    
+	    if ($job > 1) {
+		push(@jobs_2,$job);
+	    }
+	} 
+
+	if (cluster_check()) {
+	    my $interval = 2;
+	    my $verbose = 1;
+	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_2);
+	    
+	    if ($done_waiting) {
+		print STDOUT  " RAS label sets have been created from the ${label_atlas_name} atlas labels for all runnos; moving on to next step.\n";
+	    }
+	}
+    }
+
+
 }
 
 
@@ -279,6 +303,77 @@ sub apply_mdt_warp_to_labels {
 
 
 # ------------------
+sub convert_labels_to_RAS {
+# ------------------
+    my ($runno) = @_;
+    my ($cmd);
+    my ($out_file,$input_labels,$work_file);
+    my $final_ROIs_dir = "${final_results_dir}/${runno}_ROIs/";
+
+    if (! -e $final_ROIs_dir) {
+	mkdir ($final_ROIs_dir,$permissions);
+    }
+
+    if ($group eq 'MDT') {
+	$out_file = "${final_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+	$input_labels = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
+	$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+    }else {
+	$out_file = "${final_results_dir}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
+	$input_labels = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
+	$work_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
+    }
+
+    my $jid_2 = 0;
+
+    print "out_file = ${out_file}\n\n";
+
+    if (data_double_check($out_file)) {
+	my $current_vorder = 'ALS';
+	my $desired_vorder = 'RAS';
+	if (data_double_check($work_file)) {
+	    $cmd = $cmd."${make_ROIs_executable_path} ${matlab_path} ${input_labels}  ${final_ROIs_dir} ${current_vorder} ${desired_vorder};\n";	
+	}
+
+	$cmd =$cmd."cp ${work_file} ${out_file}";
+ 
+	my $go_message =  "$PM: converting ${label_atlas_name} label set for ${runno} to RAS orientation";
+	my $stop_message = "$PM: could not convert ${label_atlas_name} label set for ${runno} to RAS orientation:\n${cmd}\n";
+	
+	
+	my @test=(0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
+	
+	my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+	my $go_2 = 1;
+	if (cluster_check) {
+	    my $home_path = $current_path;
+	    my $Id= "converting_${label_atlas_name}_labels_for_${runno}_to_RAS_orientation";
+	    my $verbose = 2; # Will print log only for work done.
+	    $jid_2 = cluster_exec($go_2, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+	    if (! $jid_2) {
+		error_out($stop_message);
+	    }
+	} else {
+	    my @cmds = ($cmd);
+	    if (! execute($go_2, $go_message, @cmds) ) {
+		error_out($stop_message);
+	    }
+	}
+	
+	if ((!-e $out_file) && ($jid_2 == 0)) {
+	    error_out("$PM: missing RAS version of ${label_atlas_name} label set for ${runno}: ${out_file}");
+	}
+	print "** $PM created ${out_file}\n";
+    }
+    
+    return($jid_2,$out_file);
+}
+
+
+# ------------------
 sub warp_atlas_labels_vbm_Init_check {
 # ------------------
 
@@ -346,6 +441,23 @@ sub warp_atlas_labels_vbm_Runtime_check {
     }
     
     print " $PM: current path is ${current_path}\n";
+
+    $results_dir = $Hf->get_value('results_dir');
+
+    $convert_labels_to_RAS=$Hf->get_value('convert_labels_to_RAS');
+
+    if (($convert_labels_to_RAS ne 'NO_KEY')&& ($convert_labels_to_RAS == 1)) {
+	$final_results_dir = "${results_dir}/labels";
+	if (! -e $final_results_dir) {
+	    mkdir ($final_results_dir,$permissions);
+	}
+	$Hf->set_value('final_label_results_dir',$final_results_dir);
+
+	#$final_ROIs_dir = "${final_results_dir}/ROIs";
+	#if (! -e $final_ROIs_dir) {
+	#    mkdir ($final_ROIs_dir,$permissions);
+	#}
+    }
 
     $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
     if ($group ne 'MDT') {

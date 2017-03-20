@@ -414,7 +414,11 @@ if ($create_labels) {
     $Hf->set_value('label_space',$label_space);
 }
 $Hf->set_value('create_labels',$create_labels);
-
+if (defined $convert_labels_to_RAS) {
+    $Hf->set_value('convert_labels_to_RAS',$convert_labels_to_RAS);
+} else {
+    $Hf->set_value('convert_labels_to_RAS',0);
+}
 
 $Hf->set_value('skull_strip_contrast',$skull_strip_contrast);
 $Hf->set_value('pre_masked',$pre_masked);

@@ -383,6 +383,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               compare_comma_list  
                               complete_comma_list
                               channel_comma_list
+                              convert_labels_to_RAS
                               create_labels
                               group_1_runnos
                               group_2_runnos
@@ -400,7 +401,9 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               last_headfile_checkpoint
                               mdt_diffeo_path
                               number_of_nodes_used
+                              original_rigid_atlas_path 
                               predictor_id
+                              rerun_init_check
                               rd_channel_added
                               smoothing_comma_list
                               stats_file

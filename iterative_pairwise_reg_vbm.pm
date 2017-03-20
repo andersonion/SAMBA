@@ -794,6 +794,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               compare_comma_list  
                               complete_comma_list
                               channel_comma_list
+                              convert_labels_to_RAS
                               create_labels
                               group_1_runnos
                               group_2_runnos
@@ -820,6 +821,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               number_of_nodes_used
                               original_rigid_atlas_path
                               predictor_id
+                              rerun_init_check
                               rd_channel_added
                               smoothing_comma_list
                               stats_file

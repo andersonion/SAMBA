@@ -168,6 +168,7 @@ $reference_path
 $create_labels
 $label_space
 $label_reference
+$convert_labels_to_RAS
 
 $vbm_reference_space
 
@@ -238,6 +239,7 @@ $image_dimensions
     $create_labels=1;
     $label_space='pre_rigid';
 #$label_reference
+    $convert_labels_to_RAS = 1;
     $vbm_reference_space='native';
 
 ## Add tensor preprocessing here...pulling in all data including nii4D and bvecs and ECC affine matrices
