@@ -71,6 +71,8 @@ if (! defined($RADISH_PERL_LIB)) {
     print STDERR "Cannot find good perl directories, quitting\n";
     exit;
 }
+my $custom_pipeline_utilities_path ="${WORKSTATION_HOME}/shared/cluster_pipeline_utilities/";
+$RADISH_PERL_LIB=$custom_pipeline_utilities_path.':'.$RADISH_PERL_LIB;
 use lib split(':',$RADISH_PERL_LIB);
 
 # require ...
