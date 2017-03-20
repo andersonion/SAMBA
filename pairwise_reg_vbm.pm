@@ -10,7 +10,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $intermediate_affine $dims $ants_verbosity $nodes $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $intermediate_affine $dims $ants_verbosity $reservation $nodes $permissions);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -248,7 +248,6 @@ sub create_pairwise_warps {
 	"rm ${out_affine};\n";
     my @test = (0);
     my $node = '';
-   # print "t1 = $test[0]\n\nt2=$test[1]\n\n";
 
     if ($fixed_runno eq $moving_runno) {
 	$pairwise_cmd = "cp ${id_warp} ${new_warp}";
@@ -260,25 +259,10 @@ sub create_pairwise_warps {
 	if ($job_count > $jobs_in_first_batch){
 	    $mem_request = $mem_request_2;
 	}
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
     }
-
-# ##  This code was supposed to optimize the node distribution of jobs for McNamara 10/10 run--didn't work as well as hoped!
-# 	$counter=$counter+1;
-# 	if ($counter=~ /^(19|32|35|9|29|21|31|22|10|37|18|45|24)$/) {
-# 	    $node = "civmcluster1-02"; #-01
-# 	    $mem_request = memory_estimator(13,1);
-# 	} elsif ($counter =~ /^(4|33|28|43|1|2|5|38|27|12|25|6)$/) { # Moved "13" to last node 
-# 	    $node = "civmcluster1-05"; #-02
-# 	    $mem_request = memory_estimator(13,1);
-# 	} elsif ($counter =~ /^(26|20|40|8|23|14|3|16|7|41|36|34)$/) {
-# 	    $node = "civmcluster1-04"; #-03
-# 	    $mem_request = memory_estimator(12,1);
-# 	} elsif ($counter =~ /^(30|17|39|15|11|42|44|13)$/){ #Imported "13" from 2nd node
-# 	    $node = "civmcluster1"; #-04
-# 	    $mem_request = memory_estimator(10,1); #(7,1)
-# 	}
-# 	@test=(0,$node);
-#     }
 
     my $jid = 0;
     if (cluster_check) {

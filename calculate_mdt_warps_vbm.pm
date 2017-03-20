@@ -10,7 +10,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $forward_xform_hash $inverse_xform_hash $test_mode $intermediate_affine $permissions $broken);
+use vars qw($Hf $BADEXIT $GOODEXIT $forward_xform_hash $inverse_xform_hash $test_mode $reservation $intermediate_affine $permissions $broken);
 require Headfile;
 require pipeline_utilities;
 
@@ -207,13 +207,20 @@ sub calculate_average_mdt_warp {
 #	}
     }
  
-
+    print "reservation = $reservation\n\n;";
+    my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+    #die;
+    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+    my $go_message = "$PM: create ${dir_string} MDT warp for ${runno}";
     my $jid = 0;
     if (cluster_check()) {
 	my $home_path = $current_path;
 	my $Id= "${runno}_calculate_${dir_string}_MDT_warp";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, "$PM: create ${dir_string} MDT warp for ${runno}", $cmd ,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);    
 	if (! $jid) {
 	    error_out("$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n");
 	}

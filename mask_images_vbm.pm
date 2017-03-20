@@ -17,7 +17,7 @@ use strict;
 use warnings;
 #no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $dims $ants_verbosity);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $reservation $dim $ants_verbosity);
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
@@ -250,12 +250,21 @@ sub port_atlas_mask_vbm {
     my $go_message =  "$PM: Creating port atlas mask for ${runno}\n";
     my $stop_message = "$PM: Unable to create port atas mask for ${runno}:  $cmd\n";
     
+    my @test = (0);
+    my $node = '';
+    
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+
+
+
     my $jid = 0;
     if (cluster_check) {
 	my ($dummy1,$home_path,$dummy2) = fileparts($port_mask);
 	my $Id= "${runno}_create_port_atlas_mask";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,'',@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}
@@ -292,6 +301,12 @@ sub mask_one_image {
     my $go_message = "$PM: Applying mask created by ${template_contrast} image of runno $runno" ;
     my $stop_message = "$PM: could not apply ${template_contrast} mask to ${centered_path}:\n${apply_cmd}\n" ;
     
+    my @test = (0);
+    my $node = '';
+    
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
     
     my $jid = 0;
     if (cluster_check) {
@@ -302,7 +317,7 @@ sub mask_one_image {
 	my $home_path = $current_path;
 	my $Id= "${runno}_${ch}_apply_${template_contrast}_mask";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose);     
+	$jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose,'',@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}
