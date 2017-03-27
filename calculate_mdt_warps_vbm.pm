@@ -385,12 +385,14 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               channel_comma_list
                               convert_labels_to_RAS
                               create_labels
+                              do_mask
                               group_1_runnos
                               group_2_runnos
                               label_atlas_dir
                               label_atlas_name
                               label_atlas_path
                               label_reference_path
+                              label_input_reference_path
                               label_reference_space
                               label_refname
                               label_refspace
@@ -403,15 +405,18 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               number_of_nodes_used
                               original_rigid_atlas_path 
                               predictor_id
+                              pre_masked
                               rerun_init_check
                               rd_channel_added
                               smoothing_comma_list
                               stats_file
                               template_name
                               template_work_dir
-                              threshold_hash_ref
+                              threshold_hash_rxef
+                              update_step_size
                               vba_analysis_software
-                              vba_contrast_comma_list ); # affine_target_image will need to be removed from this list once we fully support it.
+                              vba_contrast_comma_list
+                              vbm_input_reference_path ); # affine_target_image will need to be removed from this list once we fully support it.
 
 
 	for (my $i=0; $template_match== 0; $i++) {

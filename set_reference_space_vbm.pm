@@ -702,7 +702,7 @@ sub set_reference_path_vbm {
 	if ($input_ref_path =~ /[\n]+/) {
 	    $rerun_init_flag = $Hf->get_value('rerun_init_check');
 	    if (($rerun_init_flag ne 'NO_KEY') && ($rerun_init_flag == 1)) {
-		$error_message =  "Unable to find any input image for $runno in folder(s): ${preprocess_dir}\nnor in ${pristine_in_folder}.\n";
+		$error_message =  "Unable to find any input image for ${ref_runno} in folder(s): ${preprocess_dir}\nnor in ${pristine_in_folder}.\n";
 	    } else {
 		$input_ref_path =  'rerun_init_check_later';
 		print "Will need to rerun the initialization protocol for ${PM} later...\n\n";

@@ -829,7 +829,8 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               template_work_dir
                               threshold_hash_ref
                               vba_analysis_software
-                              vba_contrast_comma_list ); # affine_target_image will need to be removed from this list once we fully support it.
+                              vba_contrast_comma_list
+                              vbm_input_reference_path ); # affine_target_image will need to be removed from this list once we fully support it.
 
 	#$temp_template_name = $template_name;
 	$max_iterations = $Hf->get_value('mdt_iterations');

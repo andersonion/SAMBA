@@ -235,10 +235,10 @@ $image_dimensions
 #$diffeo_smoothing_sigmas
 #$diffeo_sampling_options
 
-#$reference_path
+#$reference_path -- DEFUNCT?
     $create_labels=1;
     $label_space='pre_rigid';
-#$label_reference
+    #$label_reference
     $convert_labels_to_RAS = 1;
     $vbm_reference_space='native';
 

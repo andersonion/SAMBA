@@ -14,7 +14,7 @@ my $obrien = 0;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
-my $mcnamara = 1;
+my $mcnamara = 0;
 my $premont = 0;
 my $premont_ct = 0;
 my $dave = 0;
@@ -23,7 +23,7 @@ my $bj_group = 0;
 my $agoston = 0;
 my $apoe = 0;
 my $christmas_rat = 0;
-my $mg_enhanced =0;
+my $mg_enhanced =1;
 my $mg_enhanced_youngmice =0;
 my $john_multicoil=0;
 my $nian_connectome = 0;
@@ -1433,12 +1433,12 @@ dummy
 	$create_labels = 1;
 	
 	@control_group = qw(B04120 B04123 B04126 B04129 B04132 B04093 B04096 B04026 B04029 B04032 B04035 B04038 B04050);
-	@compare_group = qw(B04114 B04117 B04076 B04079 B04081 B04084 B04087 B04090 B04020 B04023 B04040 B04044 B04047);
+	@compare_group = qw(B04114 B04076 B04081 B04084 B04087 B04090 B04020 B04023 B04040 B04044 B04047); #B04079 B04117
 
 	@group_1 = qw(B04120 B04123 B04126 B04129 B04132 B04093 B04096 B04026 B04029 B04032 B04035 B04038 B04050);
 	@group_2 = qw(B04114 B04076 B04081 B04084 B04087 B04090 B04020 B04023 B04040 B04044 B04047); #B04117  B04079
 
-	@channel_array = qw(T2 T2star X);
+	@channel_array = qw(T2 T2star X mGRE);
 #	@channel_array = qw(T2star X);
 
     
@@ -1477,9 +1477,9 @@ dummy
 
 	$skull_strip_contrast = 'T2';
 	$threshold_code = 4;
-	$do_mask = 0; #1
+	$do_mask = 1; #1
 	$port_atlas_mask = 0; #1    
-	$pre_masked = 1; #0	
+	$pre_masked = 0; #0	
     } elsif ($mg_enhanced_youngmice)
     
     {
