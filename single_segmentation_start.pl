@@ -23,7 +23,7 @@ use vars qw($Hf $runno $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine 
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
-$ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
+#$ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
@@ -279,7 +279,8 @@ sub pull_data_for_connectivity {
 #---------------------
     my $complete_runno_list=$Hf->get_value('complete_comma_list');
     my @array_of_runnos = split(',',$complete_runno_list);
-    my $inputs_dir = $Hf->get_value('pristine_inputs_dir');
+    my $inputs_dir = $Hf->get_value('pristine_input_dir');
+    print "inputs_dir = ${inputs_dir}\n\n";
     foreach my $runno(@array_of_runnos) {
        
 	my $nii4D = get_nii_from_inputs($inputs_dir,$runno,'nii4D');
@@ -288,8 +289,8 @@ sub pull_data_for_connectivity {
 	    $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
 	    if ($orig_nii4D =~ /[\n]+/) {
 	   # print "Unable to find input image for $runno and $ch in folder: ${inputs_dir}.\n";
-	    my $cmd = `puller_simple ${recon_machine} /tensor${runno}*-DTI-results/ ${inputs_dir}/`;
-	    `$cmd`;
+	    my $cmd = `puller_simple -or ${recon_machine} tensor${runno}*-DTI-results/ ${inputs_dir}/`;
+	   
 	    `mv ${inputs_dir}/tensor${runno}*-DTI-results/*  ${inputs_dir}/`;
 	    `rm -r  ${inputs_dir}/tensor${runno}*-DTI-results/`;
 	    $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
@@ -298,7 +299,7 @@ sub pull_data_for_connectivity {
 	    if ($orig_nii4D =~ /'.gz'/) {
 		$new_nii4D = $new_nii4D.'.gz';
 	    }
-	    `ln -s ${orig_nii4D} ${new_nii4D}`;
+	    `mv ${orig_nii4D} ${new_nii4D}`;
 	}
     }
     die;#

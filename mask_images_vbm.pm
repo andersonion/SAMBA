@@ -261,7 +261,7 @@ sub port_atlas_mask_vbm {
 
     my $jid = 0;
     if (cluster_check) {
-	my ($dummy1,$home_path,$dummy2) = fileparts($port_mask);
+	my ($home_path,$dummy1,$dummy2) = fileparts($port_mask,2);
 	my $Id= "${runno}_create_port_atlas_mask";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,'',@test);     
@@ -369,11 +369,11 @@ sub mask_images_vbm_Init_check {
 	if ($port_atlas_mask_path eq 'NO_KEY') {
 	    my ($dummy1,$rigid_dir,$dummy2);
 	    if (! data_double_check($rigid_atlas_path)){
-		($dummy1,$rigid_dir,$dummy2) = fileparts($rigid_atlas_path);
+		($rigid_dir,$dummy1,$dummy2) = fileparts($rigid_atlas_path,2);
 		$port_atlas_mask_path = get_nii_from_inputs($rigid_dir,'','mask');
 		if ($port_atlas_mask_path =~ /[\n]+/) {
 		    my ($dummy1,$original_rigid_dir,$dummy2);
-		    ($dummy1,$original_rigid_dir,$dummy2) = fileparts($original_rigid_atlas_path);
+		    ($original_rigid_dir,$dummy1,$dummy2) = fileparts($original_rigid_atlas_path,2);
 		    $port_atlas_mask_path = get_nii_from_inputs($original_rigid_dir,'','mask');
 		    if ($port_atlas_mask_path =~ /[\n]+/) {
 			$port_atlas_mask_path=$default_mask;  # Use default mask

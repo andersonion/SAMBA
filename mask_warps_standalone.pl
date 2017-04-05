@@ -220,7 +220,7 @@ if (($case == 0) || ($case == 2)){
 #  for each file
 foreach my $in_warp (@work_list) {
 #    harvest relevant runnos
-    my ($name,$path,$ext)= fileparts($in_warp);
+    my ($path,$name,$ext)= fileparts($in_warp,2);
     my @name_parts = split('_to_',$name);
     my $runno_1 = shift(@name_parts);
     #print "Runno 1 = ${runno_1}\n";
@@ -389,7 +389,7 @@ foreach my $in_warp (@work_list) {
     my $ph_test_before = `PrintHeader ${in_warp} | head -8`;
 
     if ($in_warp =~ s/.gz$//) {$suffix='.gz';}
-    my ($name,$path,$ext)= fileparts($in_warp);
+    my ($path,$name,$ext)= fileparts($in_warp,2);
     #print "Name = $name\n\n";
     my $masked_warp = "${folder}/${name}_masked.nii.gz"; 
     if (! -e $masked_warp) {

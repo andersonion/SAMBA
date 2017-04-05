@@ -76,14 +76,14 @@ sub vbm_analysis_vbm {
 		my (@group_1_files,@group_2_files); 
 		foreach my $runno (@group_1_runnos) {
 		    my $file = get_nii_from_inputs($smooth_inputs,$runno,$contrast);
-		    my ($name,$in_path,$ext) = fileparts($file);
+		    my ($in_path,$name,$ext) = fileparts($file,2);
 		    my $file_no_path = $name.$ext;
 		    push(@group_1_files,$file_no_path);
 		}
 		
 		foreach my $runno (@group_2_runnos) {
 		    my $file = get_nii_from_inputs($smooth_inputs,$runno,$contrast);
-		    my ($name,$in_path,$ext) = fileparts($file);
+		    my ($in_path,$name,$ext) = fileparts($file,2);
 		    my $file_no_path = $name.$ext;
 		    push(@group_2_files,$file_no_path);
 		}
@@ -297,7 +297,7 @@ sub surfstat_analysis_vbm {
     my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
     my $exec_testing =1;
     if ($exec_testing) {
-	my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
+	my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
 	my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
 	my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
 	
@@ -521,7 +521,7 @@ sub vbm_analysis_vbm_Runtime_check {
 	    my $local_folder_name  = $directory_prefix.'/'.$template_name.'_'.$folder_suffix;
 	    my ($local_inputs,$local_work,$local_results,$local_Hf)=make_process_dirs($local_folder_name);
 	    foreach my $file (@files_to_link) {
-		my ($file_name,$file_path,$file_ext) = fileparts($file);
+		my ($file_path,$file_name,$file_ext) = fileparts($file,2);
 		my $linked_file = $local_inputs."/".$file_name.$file_ext;
 		#`ln -f $file ${linked_file}`;  # Using -f will "force" the link to refresh with the most recent data.
 		link($file,$linked_file);
