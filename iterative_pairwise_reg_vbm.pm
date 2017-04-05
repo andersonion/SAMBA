@@ -372,7 +372,7 @@ sub iterative_pairwise_reg_vbm_Init_check {
 
 	my $initial_template = $Hf->get_value('initial_template');
 	if (! data_double_check($initial_template))  {
-	   my($name,$path,$suffix)= fileparts($initial_template);
+	   my($path,$name,$suffix)= fileparts($initial_template,2);
 	   if ($name =~ s/(_i)([0-9]+)$//) {
 	       my $starting_iteration = (1+$2);
 	       $Hf->set_value('starting_iteration_for_template_creation',$starting_iteration);
@@ -737,7 +737,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
 
     if (! data_double_check($initial_template)){
 	my $initial_source_iteration=0;
-	my($name,$path,$suffix)= fileparts($initial_template);
+	my($path,$name,$suffix)= fileparts($initial_template,2);
 	if ((defined $starting_iteration) && ($starting_iteration > 0)) { # This runs the danger of being defined as "NO_KEY", etc.
 	    $initial_source_iteration = $starting_iteration - 1;
 	    $name="${name}_i0";

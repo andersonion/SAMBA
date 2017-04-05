@@ -310,10 +310,7 @@ sub create_affine_transform_vbm {
 
     my $jid = 0;
     if (cluster_check) {
-	my ($dummy1,$home_path,$dummy2) = fileparts($result_transform_path_base);
-#      my ($home_base,$dummy3,$dummy4) = fileparts($B_path);
-#      my @home_base = split(/[_-]+/,$home_base);
-#      my $Id_base = $home_base[0];
+	my ($home_path,$dummy1,$dummy2) = fileparts($result_transform_path_base,2);
 	my $Id= "${moving_runno}_create_affine_registration";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);

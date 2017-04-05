@@ -86,7 +86,7 @@ sub set_reference_space_vbm {  # Main code
      
 	 my $array_ref = $hashish{$V_or_L};
 	 foreach my $out_file (@$array_ref) {
-	     my ($in_name,$dumdum,$in_ext) = fileparts($out_file);
+	     my ($dumdum,$in_name,$in_ext) = fileparts($out_file,2);
 	     my $in_file = "${preprocess_dir}/${in_name}${in_ext}";
 	     ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
 	     if ($job > 1) {
@@ -267,7 +267,7 @@ sub apply_new_reference_space_vbm {
     if ($do_registration) {
 	$translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
 	if (! compare_two_reference_spaces($in_file,$ref_file)) {	  
-	    my ($dummy_1,$out_path,$dummy_2) = fileparts($out_file);
+	    my ($out_path,$dummy_1,$dummy_2) = fileparts($out_file,2);
 	    if (! -d $out_path ) {
 		mkdir ($out_path,$permissions);
 	    }
@@ -303,13 +303,12 @@ sub apply_new_reference_space_vbm {
 	    my $runno;
 	    my $gz = '';
 	    if ($out_file =~ s/(\.gz)$//) {$gz = '.gz';}
-	    my ($out_name,$out_path,$dummy_2) = fileparts($out_file);
+	    my ($out_path,$out_name,$dummy_2) = fileparts($out_file,2);
 	    $out_file = $out_file.'.gz';
 	    if ($out_name =~ s/(_masked)//i) {}
 	    if ($out_name =~ /([^\.]+)_[^_\.]+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016
 		$runno = $1;
 	    }
-	    #my ($dummy_1,$out_path,$dummy_2) = fileparts($out_file);
 
 	    $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
 	    $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform};\n"; 
@@ -333,7 +332,7 @@ sub apply_new_reference_space_vbm {
     my $jid = 0;
     if ($cmd){
 	if (cluster_check) {
-	    my ($dummy1,$home_path,$dummy2) = fileparts($out_file);
+	    my ($home_path,$dummy1,$dummy2) = fileparts($out_file,2);
 	    my $Id= "${short_filename}_reference_to_proper_space";
 	    my $verbose = 2; # Will print log only for work done.
 	    $jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);     
@@ -560,7 +559,7 @@ sub set_reference_space_vbm_Init_check {
 	    if ($runno_list =~ /[,]*${rigid_target}[,]*}/) {
 		$this_path=get_nii_from_inputs($preprocess_dir,$rigid_target,$rigid_contrast);
 		if ($this_path !~ /[\n]+/) {
-		   my ($this_name,$dumdum,$this_ext)= fileparts($this_path);
+		   my ($dumdum,$this_name,$this_ext)= fileparts($this_path,2);
 		   my $that_path = "${inputs_dir}/${this_name}${this_ext}";
 		   #$Hf->set_value('rigid_atlas_path',$that_path);
 		   $Hf->set_value('original_rigid_atlas_path',$that_path); #Updated 1 September 2016
@@ -591,7 +590,7 @@ sub set_reference_space_vbm_Init_check {
 
 	    my $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast); #Added 14 March 2017
 	    if ($test_path =~ s/\.gz//) {} # Strip '.gz', 15 March 2017
-	    my ($rigid_atlas_filename,$dumdum,$rigid_atlas_ext)= fileparts($test_path);
+	    my ($dumdum,$rigid_atlas_filename,$rigid_atlas_ext)= fileparts($test_path,2);
 	    #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
 	    $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_filename}${rigid_atlas_ext}"; #Updated 14 March 2017
 
@@ -655,7 +654,7 @@ sub set_reference_path_vbm {
     my $ref_folder= $refspace_folder_hash{${which_space}};    
 
     if (! data_double_check($ref_option)) {
-	my ($r_name,$r_path,$r_extension) = fileparts($ref_option);
+	my ($r_path,$r_name,$r_extension) = fileparts($ref_option,2);
 	if ($r_extension =~ m/^[.]{1}(hdr|img|nii|nii\.gz)$/) {
 	    $log_msg=$log_msg."\tThe selected ${which_space} reference space is an [acceptable] arbitrary file: ${ref_option}\n";
 	    $input_ref_path=$ref_option;

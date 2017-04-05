@@ -140,7 +140,7 @@ sub smooth_images_Output_check {
     my $missing_files_message = '';
     
     foreach my $input_file (@files_to_check) {
-	my ($file_name,$file_path,$file_ext) = fileparts($input_file);
+	my ($file_path,$file_name,$file_ext) = fileparts($input_file,2);
 #	if ($file_path =~ s/(\.[A-Za-z0-9]*)$//) {
 #	    $file_ext = $1.$file_ext;
 #	}
@@ -205,7 +205,7 @@ sub smooth_images {
     
     my $last_in_file;
     foreach my $in_file (@in_files) {
-	my ($file_name,$file_path,$file_ext) = fileparts($in_file);
+	my ($file_path,$file_name,$file_ext) = fileparts($in_file,2);
 #	if ($file_path =~ s/(\.[A-Za-z0-9]*)$//) {
 #	    $file_ext = $1.$file_ext;
 #	}
