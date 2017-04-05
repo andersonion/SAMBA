@@ -386,6 +386,8 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               convert_labels_to_RAS
                               create_labels
                               do_mask
+                              do_connectivity
+                              eddy_current_correction
                               group_1_runnos
                               group_2_runnos
                               label_atlas_dir

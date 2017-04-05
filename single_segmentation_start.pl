@@ -40,6 +40,18 @@ $test_mode = 0;
 
 $runno = shift(@ARGV);
 
+my @runnos = split(',',$runno);  # 04 April 2017, BJA -- I am currently cheating how we supply inputs: runno can be followed by andros if comma delimited.
+
+$runno = $runnos[0];
+
+my $recon_machine;
+
+if ($#runnos > 0) {
+    $recon_machine = $runnos[1];
+}
+
+
+
 $reservation=shift(@ARGV);
 
 if (! defined $nodes) {
@@ -77,7 +89,8 @@ use lib split(':',$RADISH_PERL_LIB);
 
 # require ...
 require vbm_pipeline_workflow;
-# require Headfile;
+require apply_warps_to_bvecs;
+require Headfile;
 # require retrieve_archived_data;
 # require study_variables_vbm;
 
@@ -168,7 +181,12 @@ $reference_path
 $create_labels
 $label_space
 $label_reference
+
+$transform_nii4d
 $convert_labels_to_RAS
+$eddy_current_correction
+$do_connectivity
+$recon_machine
 
 $vbm_reference_space
 
@@ -178,8 +196,8 @@ $image_dimensions
 
 #study_variables_vbm();
 {
-
-    $flip_z = 1;
+    $flip_x = 1; # Normally zero for nian's code.
+    #$flip_z = 1; # Normally zero for nian's code.
     $atlas_name='chass_symmetric2';
     $label_atlas_name=$atlas_name;
     $threshold_code=4;
@@ -237,17 +255,52 @@ $image_dimensions
 
 #$reference_path -- DEFUNCT?
     $create_labels=1;
+    #$label_space='post_rigid';
     $label_space='pre_rigid';
     #$label_reference
     $convert_labels_to_RAS = 1;
     $vbm_reference_space='native';
+    $do_connectivity = 1;
+
+
 
 ## Add tensor preprocessing here...pulling in all data including nii4D and bvecs and ECC affine matrices
-
-vbm_pipeline_workflow();
+    vbm_pipeline_workflow();
 
 ## Add any tensory postprocessing here for nii4D and bvecs
+    apply_mdt_warps_vbm('nii4D',"f",'all'); #
+    apply_warps_to_bvecs();
 
 } #end main
 
     
+#---------------------
+sub pull_data_for_connectivity {
+#---------------------
+    my $complete_runno_list=$Hf->get_value('complete_comma_list');
+    my @array_of_runnos = split(',',$complete_runno_list);
+    my $inputs_dir = $Hf->get_value('pristine_inputs_dir');
+    foreach my $runno(@array_of_runnos) {
+       
+	my $nii4D = get_nii_from_inputs($inputs_dir,$runno,'nii4D');
+	my $orig_nii4D;
+	if ($nii4D =~ /[\n]+/) {
+	    $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
+	    if ($orig_nii4D =~ /[\n]+/) {
+	   # print "Unable to find input image for $runno and $ch in folder: ${inputs_dir}.\n";
+	    my $cmd = `puller_simple ${recon_machine} /tensor${runno}*-DTI-results/ ${inputs_dir}/`;
+	    `$cmd`;
+	    `mv ${inputs_dir}/tensor${runno}*-DTI-results/*  ${inputs_dir}/`;
+	    `rm -r  ${inputs_dir}/tensor${runno}*-DTI-results/`;
+	    $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
+	    }
+	    my $new_nii4D = "${inputs_dir}/${runno}_nii4D.nii";
+	    if ($orig_nii4D =~ /'.gz'/) {
+		$new_nii4D = $new_nii4D.'.gz';
+	    }
+	    `ln -s ${orig_nii4D} ${new_nii4D}`;
+	}
+    }
+    die;#
+}
+   

@@ -275,7 +275,17 @@ sub apply_new_reference_space_vbm {
 	    #$translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
 	    my $excess_transform =  "${out_file}1Translation.mat" ;
 	    if (data_double_check($translation_transform)) {
-		my $translation_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file};\n";
+
+		my $test_dim =  `PrintHeader ${in_file} 2`;
+		my @dim_array = split('x',$test_dim);
+		my $real_dim = $#dim_array +1;
+		my $opt_e_string='';
+		if ($real_dim == 4) {
+		    $opt_e_string = ' -e 3 ';
+		}
+
+
+		my $translation_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ${opt_e_string} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file};\n";
 		my $remove_cmd = "rm ${excess_transform};\n";
 		$cmd = $translation_cmd.$remove_cmd;
 		@cmds = ($translation_cmd,$remove_cmd);

@@ -170,6 +170,11 @@ $label_reference
 
 $do_vba
 
+$transform_nii4d
+$eddy_current_correction
+$do_connectivity
+$recon_machine
+
 $vba_contrast_comma_list
 $vba_analysis_software
 $smoothing_comma_list
@@ -243,7 +248,7 @@ my @all_runnos = uniq(@control_group,@compare_group);
 my $control_comma_list = join(',',uniq(@control_group));
 my $compare_comma_list = join(',',uniq(@compare_group));
 #my $complete_comma_list = $control_comma_list.','.$compare_comma_list;
-my $complete_comma_list =join(',',@all_runnos);
+my $complete_comma_list =join(',',uniq(@all_runnos));
 my $channel_comma_list = join(',',uniq(@channel_array));
 
 if ($do_vba) {
@@ -380,6 +385,14 @@ if (defined $smoothing_comma_list) {
     $Hf->set_value('smoothing_comma_list',$smoothing_comma_list);
 }
 
+if (defined $eddy_current_correction) {
+    $Hf->set_value('eddy_current_correction',$eddy_current_correction);
+}
+
+if (defined $do_connectivity) {
+    $Hf->set_value('do_connectivity',$do_connectivity);
+}
+
 $Hf->set_value('rigid_atlas_name',$atlas_name);
 $Hf->set_value('rigid_contrast',$rigid_contrast);
 
@@ -497,9 +510,13 @@ if (defined $vba_analysis_software) {
     $Hf->set_value('vba_analysis_software',$vba_analysis_software);
 }
 
+if (defined $transform_nii4d) {
+    $Hf->set_value('transform_nii4d',$transform_nii4d);
+}
+
 #maincode
 
-    print STDOUT " Running the main code of $PM. \n";
+print STDOUT " Running the main code of $PM. \n";
 
 
 ## Initilization code starts here.
@@ -531,6 +548,7 @@ if (defined $vba_analysis_software) {
      warp_atlas_labels_vbm
      calculate_jacobians_vbm
      vbm_analysis_vbm
+     apply_warps_to_bvecs
       );
 #     smooth_images_vbm
 #     );
@@ -578,23 +596,62 @@ if (defined $vba_analysis_software) {
     if ($import_data) { 
 	load_study_data_vbm(); #$PM_code = 11
     }
-# Gather all needed data and put in inputs directory
-    convert_all_to_nifti_vbm(); #$PM_code = 12
-    sleep($interval);
 
-    if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
-	push(@channel_array,'rd');
-	$channel_comma_list = $channel_comma_list.',rd';
-	$Hf->set_value('channel_comma_list',$channel_comma_list);
-    }
+my $nii4D = 0;
+if ($do_connectivity) {
+    $nii4D = 1;
+    pull_data_for_connectivity();
+}
+
+
+# Need to pass the nii4D flag in a more elegant manner...
+#my $nii4D = 1;
+my $original_channel_comma_list = $channel_comma_list;
+my @original_channel_array = @channel_array;
+
+if ($nii4D) {
+    push(@channel_array,'nii4D');
+    $channel_comma_list = $channel_comma_list.',nii4D';
+    $Hf->set_value('channel_comma_list',$channel_comma_list);
+}
+# Gather all needed data and put in inputs directory
+convert_all_to_nifti_vbm(); #$PM_code = 12
+sleep($interval);
+
+if ($nii4D) {
+    @channel_array = @original_channel_array;
+    $channel_comma_list = $original_channel_comma_list;
+    $Hf->set_value('channel_comma_list',$channel_comma_list);
+}
+
+
+if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
+    push(@channel_array,'rd');
+    push(@original_channel_array,'rd');
+    $original_channel_comma_list = $original_channel_comma_list.',rd';
+    $channel_comma_list = $original_channel_comma_list;
+    $Hf->set_value('channel_comma_list',$channel_comma_list);
+}
     sleep($interval);
-    ###die; #####
+ 
     mask_images_vbm(); #$PM_code = 14
     sleep($interval);
 
+if ($nii4D) {
+    push(@channel_array,'nii4D');
+    $channel_comma_list = $channel_comma_list.',nii4D';
+    $Hf->set_value('channel_comma_list',$channel_comma_list);
+}
     set_reference_space_vbm(); #$PM_code = 15
     sleep($interval);
- 
+
+if ($nii4D) {
+    @channel_array = @original_channel_array;
+    $channel_comma_list = $original_channel_comma_list;
+    $Hf->set_value('channel_comma_list',$channel_comma_list);
+}
+
+
 # Register all to atlas
     my $do_rigid = 1;   
     create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 21

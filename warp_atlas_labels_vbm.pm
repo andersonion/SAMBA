@@ -35,6 +35,10 @@ my $group='all';
 my ($label_atlas,$atlas_label_dir,$atlas_label_path);
 my ($convert_labels_to_RAS,$final_ROI_path);
 
+my $final_MDT_results_dir;
+my $almost_results_dir;
+my $almost_MDT_results_dir;
+
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 my $make_ROIs_executable_path = "/glusterspace/BJ/run_Labels_to_ROIs_exec.sh";
 
@@ -86,7 +90,7 @@ sub warp_atlas_labels_vbm {  # Main code
     }
  
     my @jobs_2;
-    if ($convert_labels_to_RAS == 1){
+    if ($convert_labels_to_RAS == 1) {
 	foreach my $runno (@array_of_runnos) {
 	    ($job) = convert_labels_to_RAS($runno);
 	    
@@ -308,20 +312,23 @@ sub convert_labels_to_RAS {
     my ($runno) = @_;
     my ($cmd);
     my ($out_file,$input_labels,$work_file);
-    my $final_ROIs_dir = "${final_results_dir}/${runno}_ROIs/";
-
-    if (! -e $final_ROIs_dir) {
-	mkdir ($final_ROIs_dir,$permissions);
-    }
+ 
+    my $final_ROIs_dir;
 
     if ($group eq 'MDT') {
-	$out_file = "${final_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+	$out_file = "${final_MDT_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
 	$input_labels = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
 	$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+	$final_ROIs_dir = "${final_MDT_results_dir}/MDT_${label_atlas_name}_RAS_ROIs/";
     }else {
 	$out_file = "${final_results_dir}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
 	$input_labels = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
 	$work_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
+	$final_ROIs_dir = "${final_results_dir}/${runno}_ROIs/";
+    }
+
+   if (! -e $final_ROIs_dir) {
+	mkdir ($final_ROIs_dir,$permissions);
     }
 
     my $jid_2 = 0;
@@ -425,6 +432,8 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	}
     }
 
+    #$ROI_path_substring="${label_space}_${label_refname}_space/${label_atlas}";
+
     $current_path = $Hf->get_value('label_results_dir');
 
     if ($current_path eq 'NO_KEY') {
@@ -446,12 +455,34 @@ sub warp_atlas_labels_vbm_Runtime_check {
 
     $convert_labels_to_RAS=$Hf->get_value('convert_labels_to_RAS');
 
-    if (($convert_labels_to_RAS ne 'NO_KEY')&& ($convert_labels_to_RAS == 1)) {
-	$final_results_dir = "${results_dir}/labels";
+    if (($convert_labels_to_RAS ne 'NO_KEY') && ($convert_labels_to_RAS == 1)) {
+	#$almost_MDT_results_dir = "${results_dir}/labels/";
+	$almost_MDT_results_dir = "${results_dir}/connectomics/";
+	if (! -e $almost_MDT_results_dir) {
+	    mkdir ($almost_MDT_results_dir,$permissions);
+	}
+
+	#$final_MDT_results_dir = "${almost_MDT_results_dir}/${label_atlas}/";
+	$final_MDT_results_dir = "${almost_MDT_results_dir}/MDT/";
+	if (! -e $final_MDT_results_dir) {
+	    mkdir ($final_MDT_results_dir,$permissions);
+	}
+
+	#$almost_results_dir = "${results_dir}/labels/${label_space}_${label_refname}_space/";
+	$almost_results_dir = "${results_dir}/connectomics/";
+	if (! -e $almost_results_dir) {
+	    mkdir ($almost_results_dir,$permissions);
+	}
+
+	#$final_results_dir = "${almost_results_dir}/${label_atlas}/";
+
+	$final_results_dir = "${almost_results_dir}/${label_space}_${label_refname}_space/";
 	if (! -e $final_results_dir) {
 	    mkdir ($final_results_dir,$permissions);
 	}
-	$Hf->set_value('final_label_results_dir',$final_results_dir);
+	#$Hf->set_value('final_label_results_dir',$final_results_dir);
+	$Hf->set_value('final_connectomics_results_dir',$final_results_dir);
+
 
 	#$final_ROIs_dir = "${final_results_dir}/ROIs";
 	#if (! -e $final_ROIs_dir) {

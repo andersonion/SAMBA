@@ -30,6 +30,14 @@ my (%go_hash);
 my $go = 1;
 my $job;
 
+my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
+my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
+
+
+my $convert_images_to_RAS;
+
+my ($results_dir,$final_MDT_results_dir,$almost_results_dir,$almost_MDT_results_dir,$median_images_path, $final_results_dir);
+
 my ($current_contrast,$group,$gid,$affine_target);
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
@@ -107,6 +115,28 @@ sub apply_mdt_warps_vbm {  # Main code
 	    }
 	}
     }
+    
+    my @jobs_2;
+    if (($convert_images_to_RAS == 1) && ($gid == 2)){
+	foreach my $runno (@array_of_runnos) {
+	    ($job) = convert_images_to_RAS($runno,$current_contrast);
+	    
+	    if ($job > 1) {
+		push(@jobs_2,$job);
+	    }
+	} 
+	
+	if (cluster_check()) {
+	    my $interval = 2;
+	    my $verbose = 1;
+	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_2);
+	    
+	    if ($done_waiting) {
+		print STDOUT  " RAS images have been created for all runnos; moving on to next step.\n";
+	    }
+	}
+    }
+
  
 }
 
@@ -265,7 +295,15 @@ sub apply_mdt_warp {
 	$reference_image=$reference_image.'.gz';
     }
 
-    $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";  
+    my $test_dim =  `PrintHeader ${image_to_warp} 2`;
+    my @dim_array = split('x',$test_dim);
+    my $real_dim = $#dim_array +1;
+    my $opt_e_string='';
+    if ($real_dim == 4) {
+	$opt_e_string = ' -e 3 ';
+    }
+
+    $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} ${opt_e_string} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";  
  
 
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
@@ -301,6 +339,83 @@ sub apply_mdt_warp {
   
     return($jid,$out_file);
 }
+
+
+
+# ------------------
+sub convert_images_to_RAS {
+# ------------------
+    my ($runno,$contrast) = @_;
+    my ($cmd);
+    my ($out_file,$input_image,$work_file);
+    my $final_images_dir;
+
+    if ($group eq 'MDT') {
+	#$out_file = "${final_MDT_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+	$input_image = "${median_images_path}/${runno}_${contrast}.nii.gz";
+	#$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+	#$final_images_dir = "${final_MDT_results_dir}/${runno}_images/";
+	$final_images_dir = "${final_MDT_results_dir}/";
+	$out_file = "${final_images_dir}/MDT_${contrast}_RAS.nii.gz";
+    }else {
+	#$out_file = "${final_results_dir}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
+	$input_image = "${current_path}/${runno}_${contrast}.nii.gz";
+	#$work_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
+	#$final_images_dir = "${final_results_dir}/${runno}_images/";
+	$final_images_dir = "${final_results_dir}/${runno}/";
+	$out_file = "${final_images_dir}/${runno}_${contrast}_RAS.nii.gz";
+    }
+
+   if (! -e $final_images_dir) {
+	mkdir ($final_images_dir,$permissions);
+    }
+
+    my $jid_2 = 0;
+
+    #print "out_file = ${out_file}\n\n";
+
+    if (data_double_check($out_file)) {
+	my $current_vorder = 'ALS';
+	my $desired_vorder = 'RAS';
+	$cmd = $cmd."${img_transform_executable_path} ${matlab_path} ${input_image} ${current_vorder} ${desired_vorder} ${final_images_dir};\n";	
+
+	#$cmd =$cmd."cp ${work_file} ${out_file}";
+ 
+	my $go_message =  "$PM: converting ${runno}_${contrast} image to RAS orientation";
+	my $stop_message = "$PM: could not convert ${runno}_${contrast} image to RAS orientation:\n${cmd}\n";
+	
+	
+	my @test=(0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
+	
+	my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+	my $go_2 = 1;
+	if (cluster_check) {
+	    my $home_path = $current_path;
+	    my $Id= "converting_${runno}_${contrast}_image_to_RAS_orientation";
+	    my $verbose = 2; # Will print log only for work done.
+	    $jid_2 = cluster_exec($go_2, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+	    if (! $jid_2) {
+		error_out($stop_message);
+	    }
+	} else {
+	    my @cmds = ($cmd);
+	    if (! execute($go_2, $go_message, @cmds) ) {
+		error_out($stop_message);
+	    }
+	}
+	
+	if ((!-e $out_file) && ($jid_2 == 0)) {
+	    error_out("$PM: missing RAS version of ${label_atlas_name} label set for ${runno}: ${out_file}");
+	}
+	print "** $PM created ${out_file}\n";
+    }
+    
+    return($jid_2,$out_file);
+}
+
 
 
 # ------------------
@@ -392,7 +507,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 
 	$current_path=$Hf->get_value('label_images_dir');
 
-
+	$median_images_path = $Hf->get_value('median_images_path');
 
 	my $intermediary_path = "${label_path}/${label_space}_${label_refname}_space";
 
@@ -406,6 +521,40 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	#}
 	if (! -e $current_path) {
 	    mkdir ($current_path,$permissions);
+	}
+
+	$results_dir = $Hf->get_value('results_dir');
+
+	$convert_images_to_RAS=$Hf->get_value('convert_labels_to_RAS');
+
+	if (($convert_images_to_RAS ne 'NO_KEY') && ($convert_images_to_RAS == 1)) {
+
+	    #$almost_MDT_results_dir = "${results_dir}/labels/";
+	    $almost_MDT_results_dir = "${results_dir}/connectomics/";
+	    if (! -e $almost_MDT_results_dir) {
+		mkdir ($almost_MDT_results_dir,$permissions);
+	    }
+	    
+	    #$final_MDT_results_dir = "${almost_MDT_results_dir}/${label_atlas}/";
+	    $final_MDT_results_dir = "${almost_MDT_results_dir}/MDT/";
+	    if (! -e $final_MDT_results_dir) {
+		mkdir ($final_MDT_results_dir,$permissions);
+	    }
+	    
+	    #$almost_results_dir = "${results_dir}/labels/${label_space}_${label_refname}_space/";
+	    $almost_results_dir = "${results_dir}/connectomics/";
+	    if (! -e $almost_results_dir) {
+		mkdir ($almost_results_dir,$permissions);
+	    }
+	    
+	    #$final_results_dir = "${almost_results_dir}/${label_atlas}/";
+	    
+	    $final_results_dir = "${almost_results_dir}/${label_space}_${label_refname}_space/";
+	    if (! -e $final_results_dir) {
+		mkdir ($final_results_dir,$permissions);
+	    }
+	    #$Hf->set_value('final_label_results_dir',$final_results_dir);
+	    #$Hf->set_value('final_connectomics_results_dir',$final_results_dir);
 	}
 
 	$runlist = $Hf->get_value('complete_comma_list');
