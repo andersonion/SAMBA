@@ -23,7 +23,7 @@ use List::Util qw(max);
 
 my $do_inverse_bool = 0;
 my ($runlist,$rigid_path,$current_path,$write_path_for_Hf);
-my ($inputs_dir,$mdt_creation_strategy);
+my ($pristine_inputs_dir,$inputs_dir,$mdt_creation_strategy);
 my ($interp,$template_path, $template_name, $diffeo_path,$work_done,$vbm_reference_path,$label_reference_path,$label_refname,$label_results_path,$label_path);
 my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
 my (%go_hash);
@@ -33,7 +33,7 @@ my ($orientation,$ALS_to_RAS,$native_to_ALS,$ecc_string,$ecc_affine_xform,$nifti
 my ($results_dir,$final_MDT_results_dir,$almost_results_dir,$almost_MDT_results_dir,$median_images_path, $final_results_dir);
 
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
-my $bvec_transform_executable_path = "/nas4/rja20/bvec_transform_executable/AE/run_transform_bvecs.sh";
+my $bvec_transform_executable_path = "/nas4/rja20/bvec_transform_executable/AL/run_transform_bvecs.sh";
 
 
 my ($current_contrast,$group,$gid,$affine_target);
@@ -202,20 +202,34 @@ sub apply_affine_rotation {
 	    $stop=3;
 	}
     }
-  
+    my $RAS_results_dir;
+    if ($convert_labels_to_RAS) {
+	$RAS_results_dir = "${final_results_dir}/${runno}/";
+	if (! -e  $RAS_results_dir) {
+	    mkdir ( $RAS_results_dir,$permissions);
+	}
+    }
+
 
     # my $image_to_warp = get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
-    my $original_bvecs = $Hf->get_value("${runno}_original_bvecs");
-	my $exes_from_zeros;
+    my $original_bvecs = $Hf->get_value("original_bvecs_${runno}");
+    my $max_bval_test = $Hf->get_value("max_bvalue_${runno}");
+    my $bval_string = '';
+    if ($max_bval_test ne 'NO_KEY') {
+	$bval_string = " -b ${max_bval_test} ";
+    }
+
+    my $exes_from_zeros;
+  
     if ($eddy_current_correction) {
 	my $zero_tester = '1';
-	my $test_ecc_affine_xform = "${inputs_dir}/xform_${runno}_m${zero_tester}.nii0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
+	my $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${runno}_m${zero_tester}.nii0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
 	if (data_double_check($test_ecc_affine_xform)) {
 	    $zero_tester = '01';
-	    $test_ecc_affine_xform = "${inputs_dir}/xform_${runno}_m${zero_tester}.nii0GenericAffine.mat";
+	    $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${runno}_m${zero_tester}.nii0GenericAffine.mat";
 	    if (data_double_check($test_ecc_affine_xform)) {
 		$zero_tester = '001';
-		$test_ecc_affine_xform = "${inputs_dir}/xform_${runno}_m${zero_tester}.nii0GenericAffine.mat";
+		$test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${runno}_m${zero_tester}.nii0GenericAffine.mat";
 		if (data_double_check($test_ecc_affine_xform)) {
 		    $eddy_current_correction=0; 
 		} else {
@@ -229,9 +243,9 @@ sub apply_affine_rotation {
 	    $exes_from_zeros = 'X';
 	}
     }
-
+ 
     if ($eddy_current_correction) {
-	$ecc_affine_xform = "${inputs_dir}/xform_${runno}_m${exes_from_zeros}.nii0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
+	$ecc_affine_xform = "${pristine_inputs_dir}/xform_${runno}_m${exes_from_zeros}.nii0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
 	$ecc_string = '_ecc';
     } else {
 	$ecc_affine_xform = '';
@@ -250,8 +264,16 @@ sub apply_affine_rotation {
 
     my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
 
-    $cmd = "${bvec_transform_executable_path} ${matlab_path} ${original_bvecs} -o ${out_file_prefix} ${ALS_to_RAS} ${warp_train} ${native_to_ALS} ${ecc_affine_xform} ${nifti_flip} ${scanner_flip}";  
+    $cmd = "${bvec_transform_executable_path} ${matlab_path} ${original_bvecs} -o ${out_file_prefix} ${bval_string} ${ALS_to_RAS} ${warp_train} ${native_to_ALS} ${ecc_affine_xform} ${nifti_flip} ${scanner_flip};\n";  
  
+    if ($convert_labels_to_RAS){
+	my $copy_bvecs_cmd= "cp ${out_file} ${RAS_results_dir};\n";
+	   $cmd=$cmd.$copy_bvecs_cmd;
+	if ($out_file =~ s/(bvecs\.txt)$/bvals\.txt/) {
+	    my $copy_bvals_cmd= "cp ${out_file} ${RAS_results_dir};\n";
+	    $cmd=$cmd.$copy_bvals_cmd;
+	}
+    }
 
     my $go_message =  "$PM: apply ${direction_string} affine rotations to bvecs for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} affine rotations to bvecs  for  ${runno}:\n${cmd}\n";
@@ -313,7 +335,7 @@ sub apply_warps_to_bvecs_Init_check {
     # } 
 
 	$eddy_current_correction = $Hf->get_value('eddy_current_correction');
-	$Hf->get_value("${runno}_original_bvecs");
+	#$Hf->get_value("original_bvecs_${runno}");
 
 
 	if ($init_error_msg ne '') {
@@ -332,6 +354,7 @@ sub apply_warps_to_bvecs_Runtime_check {
 # # Set up work
 
     $inputs_dir = $Hf->get_value('inputs_dir');
+    $pristine_inputs_dir = $Hf->get_value('pristine_input_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');
 
     $template_path = $Hf->get_value('template_work_dir');
