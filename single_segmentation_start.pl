@@ -198,8 +198,8 @@ $image_dimensions
 
 #study_variables_vbm();
 {
-    $flip_x = 1; # Normally zero for nian's code.
-    $flip_z = 1; # Normally one for nian's code.
+    #$flip_x = 1; 
+    $flip_z = 1;
     $atlas_name='chass_symmetric2';
     $label_atlas_name=$atlas_name;
     $threshold_code=4;
