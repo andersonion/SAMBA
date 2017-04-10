@@ -302,7 +302,7 @@ sub pull_data_for_connectivity {
 	# Look for more then two xform_$runno...mat files (ecc affine transforms)
 	if ((defined $eddy_current_correction) && ($eddy_current_correction == 1)) {
 	    my $temp_runno = $runno;
-	    if ($temp_runno =~ s/(\_m[0]+)?//){}
+	    if ($temp_runno =~ s/(\_m[0]+)$//){}
 	    my $number_of_ecc_xforms =  `ls ${inputs_dir}/xform_${temp_runno}*.mat | wc -l`;
 	    
 	    print "number_of_ecc_xforms = ${number_of_ecc_xforms}\n\n";
