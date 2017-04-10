@@ -301,20 +301,22 @@ sub pull_data_for_connectivity {
 
 	# Look for more then two xform_$runno...mat files (ecc affine transforms)
 	if ((defined $eddy_current_correction) && ($eddy_current_correction == 1)) {
-	   my $number_of_ecc_xforms =  `ls ${inputs_dir}/xform_${runno}*.mat | wc -l`;
-	   
-	   print "number_of_ecc_xforms = ${number_of_ecc_xforms}\n\n";
-	   if ($number_of_ecc_xforms < 6) { # For DTI, the minimum number of non-b0's is 6!
-	       $tmp_log_msg = `puller_simple  -or ${recon_machine} tensor${runno}*-DTI-results/ ${local_folder}/`;
-	       $log_msg = $log_msg.$tmp_log_msg;
-	       $tmp_log_msg = `mv ${local_folder}/xform*mat ${inputs_dir}`;
-	       $log_msg = $log_msg.$tmp_log_msg;
-	       $look_in_local_folder = 1;
-	   }
-	   
+	    my $temp_runno = $runno;
+	    if ($temp_runno =~ s/(_m[0]+)?//){}
+	    my $number_of_ecc_xforms =  `ls ${inputs_dir}/xform_${temp_runno}*.mat | wc -l`;
+	    
+	    print "number_of_ecc_xforms = ${number_of_ecc_xforms}\n\n";
+	    if ($number_of_ecc_xforms < 6) { # For DTI, the minimum number of non-b0's is 6!
+		$tmp_log_msg = `puller_simple  -or ${recon_machine} tensor${runno}*-DTI-results/ ${local_folder}/`;
+		$log_msg = $log_msg.$tmp_log_msg;
+		$tmp_log_msg = `mv ${local_folder}/xform*mat ${inputs_dir}`;
+		$log_msg = $log_msg.$tmp_log_msg;
+		$look_in_local_folder = 1;
+	    }
+	    
 	}
 
-
+x
 	# get any specified "traditional" dti images
 	foreach my $contrast (@array_of_channels) {
 	    my $test_file =  get_nii_from_inputs($inputs_dir,$runno,$contrast);
