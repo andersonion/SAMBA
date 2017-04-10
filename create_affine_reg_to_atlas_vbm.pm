@@ -31,6 +31,7 @@ my ($do_rigid,$affine_target,$q_string,$r_string,$other_xform_suffix,$mdt_to_atl
 my $ants_affine_suffix = "0GenericAffine.mat";
 my $mem_request;
 my $log_msg;
+my $swap_fixed_and_moving=0;
 
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
@@ -54,13 +55,21 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     foreach my $runno (@array_of_runnos) {
 	my $to_xform_path;
 	my $result_path_base;
+	my $alt_result_path_base;
 	if ($mdt_to_atlas){
 	    $mdt_path = $Hf->get_value('median_images_path');
 	    $to_xform_path = $mdt_path.'/'.$runno.'.nii.gz'; #added .gz 22 October 2015
 	    $result_path_base = "${current_path}/${runno}_to_${label_atlas}_";
+	    if ($swap_fixed_and_moving) {
+		$alt_result_path_base = "${current_path}/${label_atlas}_to_${runno}_";
+	    } else {
+		$alt_result_path_base = "${current_path}/${runno}_to_${label_atlas}_";
+	    }
+
 	} else {
 	    $to_xform_path=get_nii_from_inputs($inputs_dir,$runno,$contrast);
 	    $result_path_base = "${current_path}/${runno}_";
+	    $alt_result_path_base = "${current_path}/${runno}_";
 	}
 	
 	$go = $go_hash{$runno};
@@ -71,7 +80,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 		my $affine_identity = $Hf->get_value('affine_identity_matrix');
 		`cp ${affine_identity} ${pipeline_name}`;
 	    } else {
-		($xform_path,$job) = create_affine_transform_vbm($to_xform_path,  $result_path_base, $runno);
+		($xform_path,$job) = create_affine_transform_vbm($to_xform_path,  $alt_result_path_base, $runno);
 		# We are setting atlas as fixed and current runno as moving...this is opposite of what happens in seg_pipe_mc, 
 		# when you are essential passing around the INVERSE of that registration to atlas step,
 		# but accounting for it by setting "-i 1" with $do_inverse_bool.
@@ -79,7 +88,13 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 		if ($job > 1) {
 		    push(@jobs,$job);
 		}
-		`ln -s ${xform_path}  ${pipeline_name}`;
+		if ($swap_fixed_and_moving) {
+		    my $alt_pipeline_name = $alt_result_path_base.$xform_suffix;
+		    `ln -s ${xform_path}  ${alt_pipeline_name}`;
+		    create_explicit_inverse_of_ants_affine_transform($alt_pipeline_name,$pipeline_name); 
+		} else {
+		    `ln -s ${xform_path}  ${pipeline_name}`;
+		}
 	    }
 	}
 	my $mdt_flag = 0;
@@ -248,19 +263,41 @@ sub create_affine_transform_vbm {
 	$r_string = "${current_path}/${moving_runno}_${other_xform_suffix}";
     }
     
+
+    if ($swap_fixed_and_moving){
+	my $tmp_string = $q_string;
+	$q_string=$r_string;
+	$r_string=$tmp_string;
+    } 
     if ((defined $q_string) && ($q_string ne '')) {
 	$q = "-q $q_string";
     }
     if ((defined $r_string) && ($r_string ne '')) {
 	$r = "-r $r_string";
     }
-    my $metric_1 = " -m ${affine_metric}[${atlas_path},${B_path},1,${affine_radius},${affine_sampling_options}]"; #random,0.3
-    my $metric_2 = '';
+
+    my ($fixed,$moving);
+    if ($swap_fixed_and_moving){
+	$moving = $atlas_path;
+	$fixed = $B_path;
+    } else {
+	$fixed = $atlas_path;
+	$moving = $B_path;
+    }
+
+    my ($metric_1,$metric_2);
+
+    $metric_1 = " -m ${affine_metric}[${fixed},${moving},1,${affine_radius},${affine_sampling_options}]";
+    $metric_2 = '';
     
     if (($mdt_to_atlas) && ($mdt_contrast_2 ne '')) {
 	my $fixed_2 = $Hf->get_value ('label_atlas_path_2');; 
 	my $moving_2 =  $mdt_path."/MDT_${mdt_contrast_2}.nii.gz"; # added .gz 22 October 2015
-	$metric_2 = " -m ${affine_metric}[ ${fixed_2},${moving_2},1,{$affine_radius},${affine_sampling_options}]"; #random,0.3
+	if ($swap_fixed_and_moving) {
+	    $metric_2 = " -m ${affine_metric}[ ${moving_2},${fixed_2},1,{$affine_radius},${affine_sampling_options}]"
+	} else {
+	    $metric_2 = " -m ${affine_metric}[ ${fixed_2},${moving_2},1,{$affine_radius},${affine_sampling_options}]"; #random,0.3
+	}
     }
     
     
@@ -273,7 +310,7 @@ sub create_affine_transform_vbm {
 	# 	      " -u 1 -z $collapse -l 1 -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4"; 
 	
 	# } else {
-	$cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -r [$atlas_path,$B_path,1] ". 
+	$cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -r [${fixed},${moving},1] ". 
 	    " ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ".
 	    " -s ${affine_smoothing_sigmas} -f ${affine_shrink_factors}  ". #-f 6x4x2x1
 	    " $q $r -u 1 -z 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
@@ -728,6 +765,13 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
     $inputs_dir = $Hf->get_value('inputs_dir');
     if ($mdt_to_atlas) {
 
+	my $fifmtar = $Hf->get_value('fixed_image_for_mdt_to_atlas_registratation');
+	
+	if ((defined $fifmtar) && ($fifmtar ne 'NO_KEY')) {
+	    if ($fifmtar eq 'mdt') {
+		$swap_fixed_and_moving=1;
+	    }
+	}
 
 	$label_atlas = $Hf->get_value('label_atlas_name');
 	$work_path = $Hf->get_value('regional_stats_dir');

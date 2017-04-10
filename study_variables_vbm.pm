@@ -23,10 +23,13 @@ my $bj_group = 0;
 my $agoston = 0;
 my $apoe = 0;
 my $christmas_rat = 0;
-my $mg_enhanced =1;
+my $mg_enhanced =0;
 my $mg_enhanced_youngmice =0;
 my $john_multicoil=0;
 my $nian_connectome = 0;
+
+my $spectrin = 1;
+
 use strict;
 use warnings;
 
@@ -1657,6 +1660,60 @@ elsif ($nian_connectome)
 	$do_mask = 1; #1
 	$port_atlas_mask = 0;#1
 	$pre_masked = 0;	
+    }  elsif ($spectrin) 
+
+    {
+	$project_name = "16.bennett.03";
+	$create_labels = 1; # Turning this off for phantom analysis -- will turn back on if needed.
+	$mdt_creation_strategy = 'iterative';
+	$mdt_iterations = 6; #6
+	#$mdt_convergence_threshold # Need to figure out how to use this!
+
+
+	$diffeo_transform_parameters = "0.25,3,0.5"; # control #all  #phantom #Fantom #Xantom #Vantom #Xall
+	$diffeo_iterations = '3000x3000x3000x80';
+
+	$vbm_reference_space = 'native';
+	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
+	$label_space = "pre_affine";
+	
+	
+	@control_group = qw(N54435 N54441 N54443 N54451 N54453 N54455 N54431 N54433 N54437 N54439 N54445 N54447 N54449 );
+	@compare_group = @control_group;
+	$template_predictor = 'all';
+
+	@group_1 = qw(N54435 N54441 N54443 N54451 N54453 N54455);
+	@group_2 = qw(N54431 N54433 N54437 N54439 N54445 N54447 N54449);
+	$custom_predictor_string = "WT_vs_spectrinKO";
+
+	
+#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+    	@channel_array = qw(dwi fa); #Just these two for now so we don't overload glusterspace
+
+#	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+
+	$vba_analysis_software = 'surfstat';
+
+
+
+	$flip_x = 0;
+	$flip_z = 1;
+	
+        $optional_suffix='spectrin';
+	$atlas_name = 'chass_symmetric2';
+	$label_atlas_name = 'chass_symmetric2';
+	$rigid_contrast = 'dwi';
+	$affine_contrast = 'dwi';
+	$mdt_contrast = 'fa';
+	$skull_strip_contrast = 'dwi';
+	$threshold_code = 4; #4 didn't seem to work...
+	$do_mask = 1;
+    
+	$pre_masked = 0;
+
+	$port_atlas_mask = 0;
+
+	
     }
 }
 sub  load_study_data_vbm {

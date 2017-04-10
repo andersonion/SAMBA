@@ -418,7 +418,8 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               update_step_size
                               vba_analysis_software
                               vba_contrast_comma_list
-                              vbm_input_reference_path ); # affine_target_image will need to be removed from this list once we fully support it.
+                              vbm_input_reference_path
+                              fixed_image_for_mdt_to_atlas_registratation ); # affine_target_image will need to be removed from this list once we fully support it.
 
 
 	for (my $i=0; $template_match== 0; $i++) {
