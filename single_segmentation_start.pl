@@ -316,7 +316,7 @@ sub pull_data_for_connectivity {
 	    
 	}
 
-x
+
 	# get any specified "traditional" dti images
 	foreach my $contrast (@array_of_channels) {
 	    my $test_file =  get_nii_from_inputs($inputs_dir,$runno,$contrast);
