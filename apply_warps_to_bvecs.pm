@@ -220,16 +220,18 @@ sub apply_affine_rotation {
     }
 
     my $exes_from_zeros;
-  
+    my $temp_runno = $runno;
+
     if ($eddy_current_correction) {
 	my $zero_tester = '1';
-	my $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${runno}_m${zero_tester}.nii0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
+	if ($temp_runno =~ s/(\_m[0]+)$//){}
+	my $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.nii0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
 	if (data_double_check($test_ecc_affine_xform)) {
 	    $zero_tester = '01';
-	    $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${runno}_m${zero_tester}.nii0GenericAffine.mat";
+	    $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.nii0GenericAffine.mat";
 	    if (data_double_check($test_ecc_affine_xform)) {
 		$zero_tester = '001';
-		$test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${runno}_m${zero_tester}.nii0GenericAffine.mat";
+		$test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.nii0GenericAffine.mat";
 		if (data_double_check($test_ecc_affine_xform)) {
 		    $eddy_current_correction=0; 
 		} else {
@@ -245,7 +247,7 @@ sub apply_affine_rotation {
     }
  
     if ($eddy_current_correction) {
-	$ecc_affine_xform = "${pristine_inputs_dir}/xform_${runno}_m${exes_from_zeros}.nii0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
+	$ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${exes_from_zeros}.nii0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
 	$ecc_string = '_ecc';
     } else {
 	$ecc_affine_xform = '';
