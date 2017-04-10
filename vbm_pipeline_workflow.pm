@@ -170,10 +170,11 @@ $label_reference
 
 $do_vba
 
-$transform_nii4d
 $eddy_current_correction
 $do_connectivity
 $recon_machine
+
+$fixed_image_for_mdt_to_atlas_registratation
 
 $vba_contrast_comma_list
 $vba_analysis_software
@@ -412,7 +413,11 @@ if (defined $mdt_convergence_threshold) {
 }
 
 if (defined $initial_template) {
- $Hf->set_value('initial_template',$initial_template);
+    $Hf->set_value('initial_template',$initial_template);
+}
+
+if (defined $fixed_image_for_mdt_to_atlas_registratation) {
+    $Hf->set_value('fixed_image_for_mdt_to_atlas_registratation',$fixed_image_for_mdt_to_atlas_registratation);
 }
 
 $Hf->set_value('number_of_nodes_used',$nodes);
@@ -510,9 +515,6 @@ if (defined $vba_analysis_software) {
     $Hf->set_value('vba_analysis_software',$vba_analysis_software);
 }
 
-if (defined $transform_nii4d) {
-    $Hf->set_value('transform_nii4d',$transform_nii4d);
-}
 
 #maincode
 

@@ -182,11 +182,13 @@ $create_labels
 $label_space
 $label_reference
 
-$transform_nii4d
 $convert_labels_to_RAS
 $eddy_current_correction
 $do_connectivity
 $recon_machine
+
+$fixed_image_for_mdt_to_atlas_registratation
+
 
 $vbm_reference_space
 
@@ -197,7 +199,7 @@ $image_dimensions
 #study_variables_vbm();
 {
     $flip_x = 1; # Normally zero for nian's code.
-    #$flip_z = 1; # Normally zero for nian's code.
+    $flip_z = 1; # Normally one for nian's code.
     $atlas_name='chass_symmetric2';
     $label_atlas_name=$atlas_name;
     $threshold_code=4;
@@ -263,6 +265,8 @@ $image_dimensions
     $do_connectivity = 1;
 
     $eddy_current_correction = 1;
+
+   # $fixed_image_for_mdt_to_atlas_registratation;
 
 
 ## Add tensor preprocessing here...pulling in all data including nii4D and bvecs and ECC affine matrices

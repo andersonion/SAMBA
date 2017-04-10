@@ -173,6 +173,12 @@ $label_reference
 
 $do_vba
 
+$convert_labels_to_RAS
+$eddy_current_correction
+$do_connectivity
+$fixed_image_for_mdt_to_atlas_registratation
+
+
 $vba_contrast_comma_list
 $vba_analysis_software
 $smoothing_comma_list

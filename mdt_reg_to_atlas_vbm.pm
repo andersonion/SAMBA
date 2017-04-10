@@ -30,6 +30,7 @@ my $go = 1;
 my $job;
 my ($log_msg);
 my ($mem_request);
+my $swap_fixed_and_moving=0;
 
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
@@ -183,6 +184,11 @@ sub mdt_reg_to_atlas {
     my $pre_affined = $intermediate_affine;
     # Set to "1" for using results of apply_affine_reg_to_atlas module, 
     # "0" if we decide to skip that step.  It appears the latter is easily the superior option.
+    if ($swap_fixed_and_moving) {
+	$warp_suffix = "0Warp.nii.gz";
+	$inverse_suffix = "0InverseWarp.nii.gz";
+	$affine_suffix = "0GenericAffine.mat";
+    }
 
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
     my $out_file =  "${current_path}/MDT_to_${label_atlas}_"; # Same
@@ -211,11 +217,25 @@ sub mdt_reg_to_atlas {
     $moving_affine = shift(@moving_warps); # We are assuming that the most recent affine xform will incorporate any preceding xforms.
 
     if (defined $moving_affine) {
-	$r_string = " -r ${moving_affine} ";
+	if ($swap_fixed_and_moving) {
+	    $r_string = " -q ${moving_affine} ";
+	} else {
+	    $r_string = " -r ${moving_affine} ";
+	}
     } else {
 	$r_string = '';
     }
     
+    ## swap moving and fixed here if so desired --> fixed: atlas, moving: mdt is the default.
+    
+    
+    if ($swap_fixed_and_moving) {
+	my $temp_string = $moving;
+	$moving = $fixed;
+	$fixed = $temp_string;	
+    }
+
+
     $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
 	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${r_string} -u;\n";
 
@@ -235,11 +255,20 @@ sub mdt_reg_to_atlas {
 	    "ln -s ${out_warp} ${new_warp};\n".
 	    "ln -s ${out_inverse} ${new_inverse};\n".
 	    "rm ${out_affine};\n";
+	if ($swap_fixed_and_moving) {
+	    $rename_cmd ="". 
+	    "ln -s ${out_warp} ${new_inverse};\n".
+	    "ln -s ${out_inverse} ${new_warp};\n".
+	    "rm ${out_affine};\n";
+	}
     
 	my $cmd = $pairwise_cmd.$rename_cmd;
 	
 	my $home_path = $current_path;
 	my $Id= "MDT_to_${label_atlas}_create_warp";
+	if ($swap_fixed_and_moving) {
+	    $Id= "${label_atlas}_to_MDT_create_warp";
+	}
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
@@ -292,6 +321,37 @@ sub mdt_reg_to_atlas_vbm_Init_check {
 	    "\tValid metrics are: ${valid_metrics}\n";
     }
 
+    # Options for deciding which space will be used for mdt to atlas registration added 7 April 2017, BJ Anderson
+
+    my $fixed_image_for_mdt_to_atlas_registratation = $Hf->get_value('fixed_image_for_mdt_to_atlas_registratation');
+    my $fifmtar = $fixed_image_for_mdt_to_atlas_registratation; # abbreviate 
+    # Current or future options: 'mdt/MDT', 'atlas', 'largest_array', 'smallest_array', 'highest_resolution', 'lowest_resolution'
+    # Need to make sure code jives with affine registration module
+
+    my $fifmtar_default = 'atlas'; # "Business as usual" up to 7 April 2017 at least.
+
+    if ((defined $fifmtar) && ($fifmtar ne 'NO_KEY')) {
+	if ($fifmtar =~ /mdt/i) {
+	    $fifmtar = 'mdt';
+	} elsif ($fifmtar =~ /atlas/i) {
+	    $fifmtar = 'atlas';
+	#} elsif ($fifmtar =~ /largest/i) {
+	#    $fifmtar = 'largest_array'; # Should we determine here whether the right answer is 'mdt' or 'atlas'?
+	#} elsif ($fifmtar =~ /smallest/i) {
+	#    $fifmtar = 'smallest_array';
+	#} elsif ($fifmtar =~ /highest/i) {
+	#    $fifmtar = 'highest_resolution';
+	#} elsif ($fifmtar =~ /lowest/i) {
+	#    $fifmtar = 'lowest_resolution';
+	} else {
+	    $fifmtar= $fifmtar_default;
+	}
+    } else {
+	$fifmtar= $fifmtar_default;
+    }
+    $Hf->set_value('fixed_image_for_mdt_to_atlas_registratation',$fifmtar);
+    #$log_msg=$log_msg."\t \n"; #Maybe add a log message later?
+
     if ($log_msg ne '') {
 	log_info("${message_prefix}${log_msg}");
     }
@@ -316,6 +376,11 @@ sub mdt_reg_to_atlas_vbm_Runtime_check {
     $diffeo_convergence_window = $Hf->get_value('diffeo_convergence_window');
     $diffeo_smoothing_sigmas = $Hf->get_value('diffeo_smoothing_sigmas');
     $diffeo_sampling_options = $Hf->get_value('diffeo_sampling_options');
+
+    my $fifmtar = $Hf->get_value('fixed_image_for_mdt_to_atlas_registratation');
+    if ($fifmtar eq 'mdt') {
+	$swap_fixed_and_moving=1;
+    }
 
     #$dims=$Hf->get_value('image_dimensions');
     $label_atlas = $Hf->get_value('label_atlas_name');
