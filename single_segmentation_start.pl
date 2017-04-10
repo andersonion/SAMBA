@@ -414,8 +414,8 @@ sub pull_data_for_connectivity {
 	# 10 April 2017, BJA: it's too much of a hassle to pull the bvecs file then try to figure out how to incorporate the bvals...
 	#     From now on we'll process these ourselves from the tensor headfile.
 
-	# my $original_gradient_location = $current_Hf->get_value('dti-recon-gradmat-file'); ## Unsure if this will work for Bruker...
-	# my ($o_grad_path,$grad_filename,$grad_ext) = fileparts($original_gradient_location,2);
+	my $original_gradient_location = $current_Hf->get_value('dti-recon-gradmat-file'); ## Unsure if this will work for Bruker...
+        my ($o_grad_path,$grad_filename,$grad_ext) = fileparts($original_gradient_location,2);
 	my $gradient_file = "${inputs_dir}/${runno}_${grad_filename}${grad_ext}";
 	# if (data_double_check($gradient_file)) { # Try pulling from tensor work folder first
 	#     my $bvec_machine;
