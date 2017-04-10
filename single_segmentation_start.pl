@@ -421,8 +421,8 @@ sub pull_data_for_connectivity {
 		$bvec_machine = $recon_machine;
 	    }
 	    my $pull_bvecs_cmd = "puller_simple -f file -or ${bvec_machine} ${o_grad_path}/${grad_filename}${grad_ext} ${inputs_dir};";
-	    my $rename_bvecs_cmd ="mv ${inputs_dir}/${grad_filename}${grad_ext} ${gradient_file}"
-	    $tmp_log_msg = `${pull_bvecs_cmd}`;
+	    my $rename_bvecs_cmd ="mv ${inputs_dir}/${grad_filename}${grad_ext} ${gradient_file};";
+	    $tmp_log_msg = `${pull_bvecs_cmd} ${rename_bvecs_cmd}`;
 	    $log_msg = $log_msg.$tmp_log_msg;
 	}
 	
