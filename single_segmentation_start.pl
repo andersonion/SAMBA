@@ -410,21 +410,25 @@ sub pull_data_for_connectivity {
 	#my $current_Hf = read_headfile($current_headfile);
 	my $current_Hf = new Headfile ('rw', $current_headfile);
 	$current_Hf->read_headfile;
-	my $original_gradient_location = $current_Hf->get_value('dti-recon-gradmat-file'); ## Unsure if this will work for Bruker...
-	my ($o_grad_path,$grad_filename,$grad_ext) = fileparts($original_gradient_location,2);
+	
+	# 10 April 2017, BJA: it's too much of a hassle to pull the bvecs file then try to figure out how to incorporate the bvals...
+	#     From now on we'll process these ourselves from the tensor headfile.
+
+	# my $original_gradient_location = $current_Hf->get_value('dti-recon-gradmat-file'); ## Unsure if this will work for Bruker...
+	# my ($o_grad_path,$grad_filename,$grad_ext) = fileparts($original_gradient_location,2);
 	my $gradient_file = "${inputs_dir}/${runno}_${grad_filename}${grad_ext}";
-	if (data_double_check($gradient_file)) { # Try pulling from tensor work folder first
-	    my $bvec_machine;
-	    if ($o_grad_path =~ s/^(\/){1}([A-Za-z1-9]*)(space\/)//){
-		$bvec_machine = $2;
-	    } else {
-		$bvec_machine = $recon_machine;
-	    }
-	    my $pull_bvecs_cmd = "puller_simple -f file -or ${bvec_machine} ${o_grad_path}/${grad_filename}${grad_ext} ${inputs_dir};";
-	    my $rename_bvecs_cmd ="mv ${inputs_dir}/${grad_filename}${grad_ext} ${gradient_file};";
-	    $tmp_log_msg = `${pull_bvecs_cmd} ${rename_bvecs_cmd}`;
-	    $log_msg = $log_msg.$tmp_log_msg;
-	}
+	# if (data_double_check($gradient_file)) { # Try pulling from tensor work folder first
+	#     my $bvec_machine;
+	#     if ($o_grad_path =~ s/^(\/){1}([A-Za-z1-9]*)(space\/)//){
+	# 	$bvec_machine = $2;
+	#     } else {
+	# 	$bvec_machine = $recon_machine;
+	#     }
+	#     my $pull_bvecs_cmd = "puller_simple -f file -or ${bvec_machine} ${o_grad_path}/${grad_filename}${grad_ext} ${inputs_dir};";
+	#     my $rename_bvecs_cmd ="mv ${inputs_dir}/${grad_filename}${grad_ext} ${gradient_file};";
+	#     $tmp_log_msg = `${pull_bvecs_cmd} ${rename_bvecs_cmd}`;
+	#     $log_msg = $log_msg.$tmp_log_msg;
+	# }
 	
 	if (data_double_check($gradient_file)) { #If unable to pull in from tensor work folder, create bvecs from info in headfile 
 	    # This code is based on the shenanigans of tensor_create, as found in main_tensor.pl
