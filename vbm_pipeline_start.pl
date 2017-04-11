@@ -71,8 +71,8 @@ if (! defined($RADISH_PERL_LIB)) {
     print STDERR "Cannot find good perl directories, quitting\n";
     exit;
 }
-my $custom_pipeline_utilities_path ="${WORKSTATION_HOME}/shared/cluster_pipeline_utilities/";
-$RADISH_PERL_LIB=$custom_pipeline_utilities_path.':'.$RADISH_PERL_LIB;
+#my $custom_pipeline_utilities_path ="${WORKSTATION_HOME}/shared/cluster_pipeline_utilities/"; #11 April 2017, BJA: I think this was to avoid having to reconcile our pipeline_utility functions. We might be able to delete that whole folder.
+#$RADISH_PERL_LIB=$custom_pipeline_utilities_path.':'.$RADISH_PERL_LIB;
 use lib split(':',$RADISH_PERL_LIB);
 
 # require ...

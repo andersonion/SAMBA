@@ -28,8 +28,8 @@ my $mg_enhanced_youngmice =0;
 my $john_multicoil=0;
 my $nian_connectome = 0;
 
-my $spectrin = 1;
-my $ankB = 0;
+my $spectrin = 0;
+my $ankB = 1;
 
 use strict;
 use warnings;
@@ -1736,6 +1736,7 @@ elsif ($nian_connectome)
 
 	$do_connectivity = 1;
 	$recon_machine = 'piper';
+	$eddy_current_correction = 1;
 
 	$diffeo_transform_parameters = "0.25,3,0.5"; # control #all  #phantom #Fantom #Xantom #Vantom #Xall
 	$diffeo_iterations = '3000x3000x3000x80';
