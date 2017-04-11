@@ -834,7 +834,8 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               vba_analysis_software
                               vba_contrast_comma_list
                               vbm_input_reference_path
-                              fixed_image_for_mdt_to_atlas_registratation); # affine_target_image will need to be removed from this list once we fully support it.
+                              fixed_image_for_mdt_to_atlas_registratation
+                              original_bvecs_ ); # affine_target_image will need to be removed from this list once we fully support it.
 
 	#$temp_template_name = $template_name;
 	$max_iterations = $Hf->get_value('mdt_iterations');
