@@ -29,6 +29,7 @@ my $john_multicoil=0;
 my $nian_connectome = 0;
 
 my $spectrin = 1;
+my $ankB = 0;
 
 use strict;
 use warnings;
@@ -100,6 +101,14 @@ $create_labels
 $label_space
 $label_reference
 
+$do_vba
+
+$eddy_current_correction
+$do_connectivity
+$recon_machine
+
+$fixed_image_for_mdt_to_atlas_registratation
+
 $vba_contrast_comma_list
 $vba_analysis_software
 $smoothing_comma_list
@@ -115,7 +124,7 @@ sub study_variables_vbm {
     #$affine_target = "NO_KEY"; # If not specified, will follow default behaviour of selecting first listed control runno.
     #$affine_contrast = "NO_KEY";
     $vbm_reference_space = "native";# "native"; # Options: "native", "<atlas_name>","<full path to an arbitrary image>"
-    
+    $do_vba=1;
     $create_labels = 1;
     $label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine". 
     # Note: pre_affine/post_rigid is not available with $combined_rigid_and_affine =1 & $old_ants = 1.
@@ -1669,6 +1678,8 @@ elsif ($nian_connectome)
 	$mdt_iterations = 6; #6
 	#$mdt_convergence_threshold # Need to figure out how to use this!
 
+	$do_connectivity = 1;
+	$recon_machine = 'atlasdb';
 
 	$diffeo_transform_parameters = "0.25,3,0.5"; # control #all  #phantom #Fantom #Xantom #Vantom #Xall
 	$diffeo_iterations = '3000x3000x3000x80';
@@ -1707,6 +1718,62 @@ elsif ($nian_connectome)
 	$mdt_contrast = 'fa';
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4; #4 didn't seem to work...
+	$do_mask = 1;
+    
+	$pre_masked = 0;
+
+	$port_atlas_mask = 0;
+
+	
+    } elsif ($ankB) 
+
+    {
+	$project_name = "16.bennett.03";
+	$create_labels = 1; # Turning this off for phantom analysis -- will turn back on if needed.
+	$mdt_creation_strategy = 'iterative';
+	$mdt_iterations = 6; #6
+	#$mdt_convergence_threshold # Need to figure out how to use this!
+
+	$do_connectivity = 1;
+	$recon_machine = 'piper';
+
+	$diffeo_transform_parameters = "0.25,3,0.5"; # control #all  #phantom #Fantom #Xantom #Vantom #Xall
+	$diffeo_iterations = '3000x3000x3000x80';
+
+	$vbm_reference_space = 'native';
+	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
+	$label_space = "pre_affine";
+	
+	
+	@control_group = qw(N54703 N54694 N54695 N54696 N54697 N54643 N54645 N54647 N54649 N54698 N54701 N54702 );
+	@compare_group = @control_group;
+	$template_predictor = 'all';
+
+	@group_1 = qw(N54703 N54694 N54695 N54696 N54697);
+	@group_2 = qw(N54643 N54645 N54647 N54649 N54698 N54701 N54702 );
+	$custom_predictor_string = "WT_vs_ankB";
+
+	
+#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+    	@channel_array = qw(dwi fa); #Just these two for now so we don't overload glusterspace
+
+#	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+
+	$vba_analysis_software = 'surfstat';
+
+
+
+	$flip_x = 0;
+	$flip_z = 1;
+	
+        $optional_suffix='ankB';
+	$atlas_name = 'chass_symmetric2';
+	$label_atlas_name = 'chass_symmetric2';
+	$rigid_contrast = 'dwi';
+	$affine_contrast = 'dwi';
+	$mdt_contrast = 'fa';
+	$skull_strip_contrast = 'dwi';
+	$threshold_code = 4;
 	$do_mask = 1;
     
 	$pre_masked = 0;
