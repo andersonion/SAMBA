@@ -620,11 +620,11 @@ if ($nii4D) {
 convert_all_to_nifti_vbm(); #$PM_code = 12
 sleep($interval);
 
-if ($nii4D) {
-    @channel_array = @original_channel_array;
-    $channel_comma_list = $original_channel_comma_list;
-    $Hf->set_value('channel_comma_list',$channel_comma_list);
-}
+# if ($nii4D) {  # Not needed if we are going to mask the nii4D along with other contrasts
+#     @channel_array = @original_channel_array;
+#     $channel_comma_list = $original_channel_comma_list;
+#     $Hf->set_value('channel_comma_list',$channel_comma_list);
+# }
 
 
 if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
@@ -635,15 +635,15 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
     $Hf->set_value('channel_comma_list',$channel_comma_list);
 }
     sleep($interval);
- 
+    # Before 11 April 2017: nii4Ds were not masked; After 11 April 2017: nii4Ds are masked for processing/storage/reading/writing efficiency
     mask_images_vbm(); #$PM_code = 14
     sleep($interval);
 
-if ($nii4D) {
-    push(@channel_array,'nii4D');
-    $channel_comma_list = $channel_comma_list.',nii4D';
-    $Hf->set_value('channel_comma_list',$channel_comma_list);
-}
+# if ($nii4D) {  # Not needed if we are going to mask the nii4D along with other contrasts
+#     push(@channel_array,'nii4D');
+#     $channel_comma_list = $channel_comma_list.',nii4D';
+#     $Hf->set_value('channel_comma_list',$channel_comma_list);
+# }
     set_reference_space_vbm(); #$PM_code = 15
     sleep($interval);
 
