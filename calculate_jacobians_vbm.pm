@@ -30,8 +30,8 @@ my (%go_hash);
 my $go = 1;
 my $job;
 
-my ($new_contrast,$group,$gid,$affine_target);
-
+my ($new_contrast,$group,$gid);
+my $include_affine;
 
 # ------------------
 sub calculate_jacobians_vbm {  # Main code
