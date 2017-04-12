@@ -252,7 +252,7 @@ sub port_atlas_mask_vbm {
     
     my @test = (0);
     my $node = '';
-    my $mem = 60000; # 12 April 2017, BJA: added higher memory request because of nii4Ds...may need to even go higher, but really should do this smartly.
+    my $mem_request = 60000; # 12 April 2017, BJA: added higher memory request because of nii4Ds...may need to even go higher, but really should do this smartly.
     if (defined $reservation) {
 	@test =(0,$reservation);
     }
@@ -264,7 +264,7 @@ sub port_atlas_mask_vbm {
 	my ($home_path,$dummy1,$dummy2) = fileparts($port_mask,2);
 	my $Id= "${runno}_create_port_atlas_mask";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,'',@test);     
+	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}
