@@ -252,7 +252,7 @@ sub port_atlas_mask_vbm {
     
     my @test = (0);
     my $node = '';
-    
+    my $mem = 60000; # 12 April 2017, BJA: added higher memory request because of nii4Ds...may need to even go higher, but really should do this smartly.
     if (defined $reservation) {
 	@test =(0,$reservation);
     }
