@@ -94,8 +94,8 @@ sub mask_images_vbm {
 		print STDOUT  "  All port_atlas_mask jobs have completed; moving on to next step.\n";
 	    }
 	}
-    }
-
+     }
+    @jobs=(); # Reset job array;
 ## Apply masks to all images in each runno set.
     foreach my $runno (@array_of_runnos) {
 	if ($make_hash{$runno}) {
