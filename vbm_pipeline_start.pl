@@ -78,6 +78,8 @@ use lib split(':',$RADISH_PERL_LIB);
 # require ...
 require study_variables_vbm;
 require vbm_pipeline_workflow;
+require apply_warps_to_bvecs;
+require Headfile;
 # require Headfile;
 # require retrieve_archived_data;
 # require study_variables_vbm;
@@ -190,6 +192,12 @@ $image_dimensions
     study_variables_vbm();
     $do_vba = 1;
     vbm_pipeline_workflow();
+## Add any tensory postprocessing here for nii4D and bvecs
+    if ($do_connectivity){
+	apply_mdt_warps_vbm('nii4D',"f",'all'); #
+	apply_warps_to_bvecs();
+    }
+
 
 } #end main
 
