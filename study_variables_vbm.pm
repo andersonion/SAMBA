@@ -28,8 +28,8 @@ my $mg_enhanced_youngmice =0;
 my $john_multicoil=0;
 my $nian_connectome = 0;
 
-my $spectrin = 0;
-my $ankB = 1;
+my $spectrin = 1;
+my $ankB = 0;
 
 use strict;
 use warnings;
@@ -103,6 +103,7 @@ $label_reference
 
 $do_vba
 
+$convert_labels_to_RAS
 $eddy_current_correction
 $do_connectivity
 $recon_machine
@@ -1680,6 +1681,7 @@ elsif ($nian_connectome)
 
 	$do_connectivity = 1;
 	$recon_machine = 'atlasdb';
+	$convert_labels_to_RAS = 1;
 
 	$diffeo_transform_parameters = "0.25,3,0.5"; # control #all  #phantom #Fantom #Xantom #Vantom #Xall
 	$diffeo_iterations = '3000x3000x3000x80';
@@ -1698,8 +1700,8 @@ elsif ($nian_connectome)
 	$custom_predictor_string = "WT_vs_spectrinKO";
 
 	
-#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
-    	@channel_array = qw(dwi fa); #Just these two for now so we don't overload glusterspace
+	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+    	#@channel_array = qw(dwi fa); #Just these two for now so we don't overload glusterspace
 
 #	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 

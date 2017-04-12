@@ -169,7 +169,7 @@ $label_space
 $label_reference
 
 $do_vba
-
+$convert_labels_to_RAS
 $eddy_current_correction
 $do_connectivity
 $recon_machine
@@ -897,7 +897,7 @@ sub pull_data_for_connectivity {
 
 	# Look for more then two xform_$runno...mat files (ecc affine transforms)
 	if ($do_connectivity){
-	    if ((defined $eddy_current_correction) && ($eddy_current_correction == 1)) {
+	    if ((defined $eddy_current_correction) && ($eddy_current_correction ne 'NO_KEY') && ($eddy_current_correction == 1)) {
 		my $temp_runno = $runno;
 		if ($temp_runno =~ s/(\_m[0]+)$//){}
 		my $number_of_ecc_xforms =  `ls ${inputs_dir}/xform_${temp_runno}*.mat | wc -l`;
