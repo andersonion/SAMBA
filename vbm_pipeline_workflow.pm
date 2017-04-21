@@ -89,7 +89,6 @@ require iterative_pairwise_reg_vbm;
 require pairwise_reg_vbm;
 require calculate_mdt_warps_vbm;
 require iterative_calculate_mdt_warps_vbm;
-require iterative_apply_mdt_warps_vbm;
 require apply_mdt_warps_vbm;
 require calculate_mdt_images_vbm;
 require compare_reg_to_mdt_vbm;
@@ -542,7 +541,6 @@ print STDOUT " Running the main code of $PM. \n";
      calculate_mdt_warps_vbm
      iterative_calculate_mdt_warps_vbm
      apply_mdt_warps_vbm
-     iterative_apply_mdt_warps_vbm
      calculate_mdt_images_vbm
      mask_for_mdt_vbm
      compare_reg_to_mdt_vbm
@@ -792,15 +790,27 @@ if ($nii4D) {
 	}
 	print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
 
+	my @label_spaces = split(',',$label_space);
+
 	warp_atlas_labels_vbm('MDT'); #$PM_code = 63
 	sleep($interval);
 
-	warp_atlas_labels_vbm(); #$PM_code = 63
-	sleep($interval);
+	#warp_atlas_labels_vbm(); #$PM_code = 63
+	#sleep($interval);
+	cluck "\$label_space = ${label_space}";
+	$group_name = "all";
+	foreach my $a_label_space (@label_spaces) {
+	    cluck "\$a_label_space = ${a_label_space}";
+	    warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
+	    sleep($interval);
+	    foreach my $a_contrast (@channel_array) {
+		apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
+	    }
 
-	$group_name = "all";    
-	foreach my $a_contrast (@channel_array) {
-	    apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 64
+	    if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
+		apply_mdt_warps_vbm('nii4D',"f",'all',$a_label_space); #
+		apply_warps_to_bvecs($a_label_space);	
+	    }
 	}
 	sleep($interval);
 	
@@ -894,6 +904,7 @@ sub pull_data_for_connectivity {
 	} else {
 	    $machine_suffix = "-DTI-results"
 	}
+
 
 	# Look for more then two xform_$runno...mat files (ecc affine transforms)
 	if ($do_connectivity){

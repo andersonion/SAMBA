@@ -136,7 +136,7 @@ sub mask_images_vbm {
 	    `rm ${work_dir}/*.m`;
 	}
 	if (`ls ${work_dir} | grep -E /matlab/`) {
-	    `rm ${work_dir}/*matlab*`;
+ 	    `rm ${work_dir}/*matlab*`;
 	}
     }
 }

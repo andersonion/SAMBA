@@ -18,6 +18,7 @@ use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $permi
 require Headfile;
 require pipeline_utilities;
 
+use Carp qw(cluck confess);
 use List::Util qw(max);
 
 
@@ -35,33 +36,21 @@ my ($results_dir,$final_MDT_results_dir,$almost_results_dir,$almost_MDT_results_
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 my $bvec_transform_executable_path = "/nas4/rja20/bvec_transform_executable/AL/run_transform_bvecs.sh";
 
+my ($current_contrast,$affine_target);
+my $label_space;
 
-my ($current_contrast,$group,$gid,$affine_target);
+
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
 # ------------------
 sub apply_warps_to_bvecs {  # Main code
 # ------------------
+    ($label_space) = @_;
     my $direction='f';
-    $group = 'all';
-    #($direction,$group) = @_;
     my $start_time = time;
+    my $PM_code = 74; # 74 is an arbitrary code (70s for connectivity stuff?), need to set this in a more thoughtful manner.
 
-    my $PM_code;
-
-    if ($group =~ /(control|mdt|template)/i) {
-	$gid = 1;
-	$PM_code = 43;
-    } elsif ($group eq "compare") {
-	$gid = 0;
-	$PM_code = 52;
-    } elsif ($group eq "all"){
-	$gid = 2;
-	$PM_code = 64;
-    }else {
-	error_out("$PM: invalid group of runnos specified.  Please consult your local coder and have them fix their problem.");
-    }
 
     apply_warps_to_bvecs_Runtime_check($direction);
 
@@ -83,7 +72,7 @@ sub apply_warps_to_bvecs {  # Main code
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
 	
 	if ($done_waiting) {
-	    print STDOUT  "  affine rotations have been applied to the b-vectors for all ${group} runnos; moving on to next step.\n";
+	    print STDOUT  "  affine rotations have been applied to the b-vectors for all runnos; moving on to next step.\n";
 	}
     }
     my $case = 2;
@@ -365,73 +354,82 @@ sub apply_warps_to_bvecs_Runtime_check {
     $affine_target = $Hf->get_value('affine_target_image');
     $vbm_reference_path = $Hf->get_value('vbm_reference_path');
 
-    if ($gid == 1) {
-	$diffeo_path = $Hf->get_value('mdt_diffeo_path');   
-	#$current_path = $Hf->get_value('mdt_images_path');
-	#if ($current_path eq 'NO_KEY') {
-	   # $current_path = "${predictor_path}/MDT_images";
-	    $current_path = "${template_path}/MDT_images";
-	    $Hf->set_value('mdt_images_path',$current_path);
-	#}
-#	$runlist = $Hf->get_value('control_comma_list');
-	$runlist = $Hf->get_value('template_comma_list');
+#     if ($gid == 1) {
+# 	$diffeo_path = $Hf->get_value('mdt_diffeo_path');   
+# 	#$current_path = $Hf->get_value('mdt_images_path');
+# 	#if ($current_path eq 'NO_KEY') {
+# 	   # $current_path = "${predictor_path}/MDT_images";
+# 	    $current_path = "${template_path}/MDT_images";
+# 	    $Hf->set_value('mdt_images_path',$current_path);
+# 	#}
+# #	$runlist = $Hf->get_value('control_comma_list');
+# 	$runlist = $Hf->get_value('template_comma_list');
 
-	if ($runlist eq 'NO_KEY') {
-	    $runlist = $Hf->get_value('control_comma_list');
-	    $Hf->set_value('template_comma_list',$runlist); # 1 Feb 2016, just added these. If bug, then check here.
-	}
+# 	if ($runlist eq 'NO_KEY') {
+# 	    $runlist = $Hf->get_value('control_comma_list');
+# 	    $Hf->set_value('template_comma_list',$runlist); # 1 Feb 2016, just added these. If bug, then check here.
+# 	}
 	
-    } elsif ($gid == 0) {
-	$diffeo_path = $Hf->get_value('reg_diffeo_path');   
-	#$current_path = $Hf->get_value('reg_images_path');
-	#if ($current_path eq 'NO_KEY') {
-	 #  $current_path = "${predictor_path}/reg_images";
-	    $current_path = "${template_path}/reg_images";
-	    $Hf->set_value('reg_images_path',$current_path);
-	#}
-	# $runlist = $Hf->get_value('compare_comma_list');
-	$runlist = $Hf->get_value('nontemplate_comma_list');
+#     } elsif ($gid == 0) {
+# 	$diffeo_path = $Hf->get_value('reg_diffeo_path');   
+# 	#$current_path = $Hf->get_value('reg_images_path');
+# 	#if ($current_path eq 'NO_KEY') {
+# 	 #  $current_path = "${predictor_path}/reg_images";
+# 	    $current_path = "${template_path}/reg_images";
+# 	    $Hf->set_value('reg_images_path',$current_path);
+# 	#}
+    # 	# $runlist = $Hf->get_value('compare_comma_list');
+    # 	$runlist = $Hf->get_value('nontemplate_comma_list');
 
-	if ($runlist eq 'NO_KEY') {
-	    $runlist = $Hf->get_value('compare_comma_list');
-	    $Hf->set_value('nontemplate_comma_list',$runlist);  # 1 Feb 2016, just added these. If bug, then check here.
-	}
+    # 	if ($runlist eq 'NO_KEY') {
+    # 	    $runlist = $Hf->get_value('compare_comma_list');
+    # 	    $Hf->set_value('nontemplate_comma_list',$runlist);  # 1 Feb 2016, just added these. If bug, then check here.
+    # 	}
 
 
-    } elsif ($gid == 2) {
-	$inputs_dir = $Hf->get_value('label_refspace_folder');
-	$label_reference = $Hf->get_value('label_reference');
-	$label_reference_path = $Hf->get_value('label_reference_path');
-	$label_refname = $Hf->get_value('label_refname');
-
+    # } elsif ($gid == 2) {
+    $inputs_dir = $Hf->get_value('label_refspace_folder');
+    $label_reference = $Hf->get_value('label_reference');
+    $label_reference_path = $Hf->get_value('label_reference_path');
+    $label_refname = $Hf->get_value('label_refname');
+    
+    if (! defined $label_space) {
+	cluck "\$label_space not explicitly defined. Checking Headfile...";
 	$label_space = $Hf->get_value('label_space');
-	$label_path=$Hf->get_value('labels_dir');
-	$label_results_path=$Hf->get_value('label_results_path');
-   
-
-	$current_path=$Hf->get_value('label_images_dir');
-
-
-
-	my $intermediary_path = "${label_path}/${label_space}_${label_refname}_space";
-
-	if (! -e  $intermediary_path) {
-	    mkdir ( $intermediary_path,$permissions);
-	}
-
-	#if ($current_path eq 'NO_KEY') {
-	    $current_path = "${intermediary_path}/images";
-	    $Hf->set_value('label_images_dir',$current_path);
-	#}
-	if (! -e $current_path) {
-	    mkdir ($current_path,$permissions);
-	}
-
-	$runlist = $Hf->get_value('complete_comma_list');
     } else {
-	print " ERROR: Invalid group ID in $PM.  Dying now...\n";
-	die;
+	cluck "label_space has been explicitly set to: ${label_space}";
     }
+    $label_space = $Hf->get_value('label_space');
+    $label_path=$Hf->get_value('labels_dir');
+    $label_results_path=$Hf->get_value('label_results_path');
+   
+    
+    $current_path=$Hf->get_value('label_images_dir');
+
+
+
+
+    
+    
+    my $intermediary_path = "${label_path}/${label_space}_${label_refname}_space";
+    
+    if (! -e  $intermediary_path) {
+	mkdir ( $intermediary_path,$permissions);
+    }
+    
+    #if ($current_path eq 'NO_KEY') {
+    $current_path = "${intermediary_path}/images";
+    $Hf->set_value('label_images_dir',$current_path);
+    #}
+    if (! -e $current_path) {
+	mkdir ($current_path,$permissions);
+    }
+    
+    $runlist = $Hf->get_value('complete_comma_list');
+    # } else {
+    # 	print " ERROR: Invalid group ID in $PM.  Dying now...\n";
+    # 	die;
+    # }
     
     $results_dir = $Hf->get_value('results_dir');
 

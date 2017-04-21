@@ -12,12 +12,13 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
+#no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $reference_path $verbosity $intermediate_affine $reservation);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $reference_path $ants_verbosity $intermediate_affine $reservation);
 require Headfile;
 require pipeline_utilities;
 
+use Carp qw(cluck confess);
 use List::Util qw(max);
 
 
@@ -34,6 +35,8 @@ my $group='all';
 
 my ($label_atlas,$atlas_label_dir,$atlas_label_path);
 my ($convert_labels_to_RAS,$final_ROI_path);
+if (! defined $ants_verbosity) {$ants_verbosity = 1;}
+
 
 my $final_MDT_results_dir;
 my $almost_results_dir;
@@ -42,10 +45,12 @@ my $almost_MDT_results_dir;
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 my $make_ROIs_executable_path = "/glusterspace/BJ/run_Labels_to_ROIs_exec.sh";
 
+my $current_label_space; # 21 April 2017 -- BJA: Previously this wasn't initialized, but was still imported from the calling .pl (or at least that's my theory).
+
 # ------------------
 sub warp_atlas_labels_vbm {  # Main code
 # ------------------
-    ($group) = @_;
+    ($group,$current_label_space) = @_; # Now we can call a specific label space from the calling function (in case we want to loop over several spaces without rerunning entire script).
     if (! defined $group) {
 	$group = 'all';
     }
@@ -134,7 +139,8 @@ sub warp_atlas_labels_Output_check {
      #my $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
      foreach my $runno (@array_of_runnos) {
 	 if ($group eq 'MDT') {
-	     $out_file = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
+	     #$out_file = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
+	     $out_file = "${current_path}/MDT_labels_${label_atlas_name}.nii.gz";
 	 }else {
 	     $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
 	 }
@@ -183,7 +189,8 @@ sub apply_mdt_warp_to_labels {
     my ($cmd);
     my $out_file;
     if ($group eq 'MDT') {
-	$out_file = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
+	#$out_file = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
+	$out_file = "${current_path}/MDT_labels_${label_atlas_name}.nii.gz";
     }else {
 	$out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
     }
@@ -235,18 +242,18 @@ sub apply_mdt_warp_to_labels {
 	    $warp_string=$Hf->get_value("mdt_inverse_xforms_${runno}")
 	}
 	$stop=3;
-	if ($label_space eq 'pre_rigid') {
+	if ($current_label_space eq 'pre_rigid') {
 	    if ($combined_rigid_and_affine) {
 		$start=2;
 	    } else {
 		$start=1;
 	    }
-	} elsif (($label_space eq 'pre_affine') || ($label_space eq 'post_rigid')) {
+	} elsif (($current_label_space eq 'pre_affine') || ($current_label_space eq 'post_rigid')) {
 	    $start=2;
 	    if ($combined_rigid_and_affine) {
 		$additional_warp = " -t [${raw_warp},0] ";  
 	    } 
-	} elsif ($label_space eq 'post_affine') {
+	} elsif ($current_label_space eq 'post_affine') {
 	    $start= 3;	
 	}
 	$warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
@@ -256,7 +263,7 @@ sub apply_mdt_warp_to_labels {
     
     $warp_train=$additional_warp.' '.$warp_train.' '.$mdt_warp_train;
     
-    $create_cmd = "antsApplyTransforms --float -v $verbosity -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n NearestNeighbor ${warp_train};\n";
+    $create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n NearestNeighbor ${warp_train};\n";
 
     my $smoothing_sigma = 1;
     my $smooth_cmd = "SmoothImage 3 ${out_file} ${smoothing_sigma} ${out_file} 0 1;\n";
@@ -317,8 +324,10 @@ sub convert_labels_to_RAS {
 
     if ($group eq 'MDT') {
 	$out_file = "${final_MDT_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
-	$input_labels = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
-	$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+	#$input_labels = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
+	$input_labels = "${current_path}/MDT_labels_${label_atlas_name}.nii.gz";
+	#$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+	$work_file = "${current_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
 	$final_ROIs_dir = "${final_MDT_results_dir}/MDT_${label_atlas_name}_RAS_ROIs/";
     }else {
 	$out_file = "${final_results_dir}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
@@ -333,7 +342,7 @@ sub convert_labels_to_RAS {
 
     my $jid_2 = 0;
 
-    print "out_file = ${out_file}\n\n";
+    print "out_file = ${out_file}\n\n"; ### COMMENT THIS ASAP
 
     if (data_double_check($out_file)) {
 	my $current_vorder = 'ALS';
@@ -393,9 +402,9 @@ sub warp_atlas_labels_vbm_Runtime_check {
 # ------------------
     my ($direction)=@_;
  
-    if ($group eq 'MDT') {
-	$median_images_path = $Hf->get_value('median_images_path');
-    }
+#    if ($group eq 'MDT') {
+# 	$median_images_path = $Hf->get_value('median_images_path');
+#    }
 # # Set up work
     $label_atlas = $Hf->get_value('label_atlas_name');
     $atlas_label_dir   = $Hf->get_value('label_atlas_dir');   
@@ -421,9 +430,11 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	$do_byte = 1;
     }
 
-    print "Convert labels to Byte = ${do_byte}\n";
+    #print "Convert labels to Byte = ${do_byte}\n";
     
     $label_path = $Hf->get_value('labels_dir');
+    $work_path = $Hf->get_value('regional_stats_dir');
+
     if ($label_path eq 'NO_KEY') {
 	$label_path = "${work_path}/labels";
 	$Hf->set_value('labels_dir',$label_path);
@@ -431,30 +442,41 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	    mkdir ($label_path,$permissions);
 	}
     }
-
-    #$ROI_path_substring="${label_space}_${label_refname}_space/${label_atlas}";
-
-    $current_path = $Hf->get_value('label_results_dir');
-
-    if ($current_path eq 'NO_KEY') {
-	$current_path = "${label_path}/${label_space}_${label_refname}_space/${label_atlas}";
-	$Hf->set_value('label_results_dir',$current_path);
-    }
-    my $intermediary_path = "${label_path}/${label_space}_${label_refname}_space";
-    if (! -e $intermediary_path) {
-	mkdir ($intermediary_path,$permissions);
-    }
-
-    if (! -e $current_path) {
-	mkdir ($current_path,$permissions);
-    }
     
+    if ($group eq 'MDT') {
+	$current_path = $Hf->get_value('median_images_path');
+    } else {
+	if (! defined $current_label_space) {
+	    cluck "\$current_label_space not explicitly defined. Checking Headfile...";
+	    $current_label_space = $Hf->get_value('label_space');
+	} else {
+	    cluck "current_label_space has been explicitly set to: ${current_label_space}";
+	}
+	
+	#$ROI_path_substring="${current_label_space}_${label_refname}_space/${label_atlas}";
+	
+	$current_path = $Hf->get_value('label_results_dir');
+	
+	if ($current_path eq 'NO_KEY') {
+	    $current_path = "${label_path}/${current_label_space}_${label_refname}_space/${label_atlas}";
+	    $Hf->set_value('label_results_dir',$current_path);
+	}
+	my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
+	if (! -e $intermediary_path) {
+	    mkdir ($intermediary_path,$permissions);
+	}
+	
+	if (! -e $current_path) {
+	    mkdir ($current_path,$permissions);
+	}
+    }
+	
     print " $PM: current path is ${current_path}\n";
-
+    
     $results_dir = $Hf->get_value('results_dir');
-
+    
     $convert_labels_to_RAS=$Hf->get_value('convert_labels_to_RAS');
-
+    
     if (($convert_labels_to_RAS ne 'NO_KEY') && ($convert_labels_to_RAS == 1)) {
 	#$almost_MDT_results_dir = "${results_dir}/labels/";
 	$almost_MDT_results_dir = "${results_dir}/connectomics/";
@@ -468,7 +490,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	    mkdir ($final_MDT_results_dir,$permissions);
 	}
 
-	#$almost_results_dir = "${results_dir}/labels/${label_space}_${label_refname}_space/";
+	#$almost_results_dir = "${results_dir}/labels/${current_label_space}_${label_refname}_space/";
 	$almost_results_dir = "${results_dir}/connectomics/";
 	if (! -e $almost_results_dir) {
 	    mkdir ($almost_results_dir,$permissions);
@@ -476,7 +498,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
 
 	#$final_results_dir = "${almost_results_dir}/${label_atlas}/";
 
-	$final_results_dir = "${almost_results_dir}/${label_space}_${label_refname}_space/";
+	$final_results_dir = "${almost_results_dir}/${current_label_space}_${label_refname}_space/";
 	if (! -e $final_results_dir) {
 	    mkdir ($final_results_dir,$permissions);
 	}

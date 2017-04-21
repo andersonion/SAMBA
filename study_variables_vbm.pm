@@ -28,8 +28,8 @@ my $mg_enhanced_youngmice =0;
 my $john_multicoil=0;
 my $nian_connectome = 0;
 
-my $spectrin = 1;
-my $ankB = 0;
+my $spectrin = 0;
+my $ankB = 1;
 
 use strict;
 use warnings;
@@ -1688,8 +1688,9 @@ elsif ($nian_connectome)
 
 	$vbm_reference_space = 'native';
 	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
-	$label_space = "pre_affine";
-	
+	#$label_space = "pre_affine";
+	#$label_space = "post_rigid";
+	$label_space = "post_affine";
 	
 	@control_group = qw(N54435 N54441 N54443 N54451 N54453 N54455 N54431 N54433 N54437 N54439 N54445 N54447 N54449 );
 	@compare_group = @control_group;
@@ -1738,14 +1739,17 @@ elsif ($nian_connectome)
 
 	$do_connectivity = 1;
 	$recon_machine = 'piper';
-	$eddy_current_correction = 1;
+	$eddy_current_correction = 0; # Was 1, but want to be consistent with spectrin for now...
+	$convert_labels_to_RAS = 1;
 
 	$diffeo_transform_parameters = "0.25,3,0.5"; # control #all  #phantom #Fantom #Xantom #Vantom #Xall
 	$diffeo_iterations = '3000x3000x3000x80';
 
 	$vbm_reference_space = 'native';
 	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
-	$label_space = "pre_affine";
+	#$label_space = "pre_affine";
+	#$label_space = "post_affine";
+	$label_space = 'pre_rigid,post_rigid';
 	
 	
 	@control_group = qw(N54703 N54694 N54695 N54696 N54697 N54643 N54645 N54647 N54649 N54698 N54701 N54702 );
