@@ -88,7 +88,6 @@ require iterative_pairwise_reg_vbm;
 require pairwise_reg_vbm;
 require calculate_mdt_warps_vbm;
 require iterative_calculate_mdt_warps_vbm;
-require iterative_apply_mdt_warps_vbm;
 require apply_mdt_warps_vbm;
 require calculate_mdt_images_vbm;
 require compare_reg_to_mdt_vbm;
@@ -517,7 +516,6 @@ if (defined $vba_analysis_software) {
      calculate_mdt_warps_vbm
      iterative_calculate_mdt_warps_vbm
      apply_mdt_warps_vbm
-     iterative_apply_mdt_warps_vbm
      calculate_mdt_images_vbm
      mask_for_mdt_vbm
      compare_reg_to_mdt_vbm

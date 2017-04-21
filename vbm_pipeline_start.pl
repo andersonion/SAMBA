@@ -16,6 +16,8 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
+use Carp qw(cluck confess);
+
 use Cwd qw(abs_path);
 use File::Basename;
 use List::MoreUtils qw(uniq);
@@ -80,30 +82,6 @@ require study_variables_vbm;
 require vbm_pipeline_workflow;
 require apply_warps_to_bvecs;
 require Headfile;
-# require Headfile;
-# require retrieve_archived_data;
-# require study_variables_vbm;
-
-# require convert_all_to_nifti_vbm;
-# require set_reference_space_vbm;
-# require create_rd_from_e2_and_e3_vbm;
-# require mask_images_vbm;
-# require create_affine_reg_to_atlas_vbm;
-# require apply_affine_reg_to_atlas_vbm;
-# require iterative_pairwise_reg_vbm;
-# require pairwise_reg_vbm;
-# require calculate_mdt_warps_vbm;
-# require iterative_calculate_mdt_warps_vbm;
-# require iterative_apply_mdt_warps_vbm;
-# require apply_mdt_warps_vbm;
-# require calculate_mdt_images_vbm;
-# require compare_reg_to_mdt_vbm;
-# require mdt_reg_to_atlas_vbm;
-# require warp_atlas_labels_vbm;
-# require mask_for_mdt_vbm;
-# require calculate_jacobians_vbm;
-# require smooth_images_vbm;
-# require vbm_analysis_vbm;
 
 # Temporary hardcoded variables
 
@@ -193,10 +171,10 @@ $image_dimensions
     $do_vba = 1;
     vbm_pipeline_workflow();
 ## Add any tensory postprocessing here for nii4D and bvecs
-    if ($do_connectivity){
-	apply_mdt_warps_vbm('nii4D',"f",'all'); #
-	apply_warps_to_bvecs();
-    }
+    # if ($do_connectivity){ # 21 April 2017, BJA: Moved this code to vbm_pipeline_workflow.pm
+    # 	apply_mdt_warps_vbm('nii4D',"f",'all'); #
+    # 	apply_warps_to_bvecs();
+    # }
 
 
 } #end main

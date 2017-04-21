@@ -18,6 +18,7 @@ use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $permi
 require Headfile;
 require pipeline_utilities;
 
+use Carp qw(cluck confess);
 use List::Util qw(max);
 
 
@@ -33,6 +34,7 @@ my $job;
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
 
+my $current_label_space;
 
 my $convert_images_to_RAS;
 
@@ -46,7 +48,7 @@ if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 sub apply_mdt_warps_vbm {  # Main code
 # ------------------
     my $direction;
-    ($current_contrast,$direction,$group) = @_;
+   ($current_contrast,$direction,$group,$current_label_space) = @_; # added optional current_label_space
     my $start_time = time;
 
     $interp = "Linear"; # Hardcode this here for now...may need to make it a soft variable.
@@ -237,14 +239,14 @@ sub apply_mdt_warp {
 
 	if ($direction eq 'f') {
 	    $direction_string = 'forward';
-	    if ($label_space eq 'pre_rigid') {
+	    if ($current_label_space eq 'pre_rigid') {
 		$start=0;
 		$stop=0;
 		$option_letter = '';
-	    } elsif (($label_space eq 'pre_affine') ||($label_space eq 'post_rigid')) {
+	    } elsif (($current_label_space eq 'pre_affine') ||($current_label_space eq 'post_rigid')) {
 		$start=3;
 		$stop=3;
-	    } elsif ($label_space eq 'post_affine') {
+	    } elsif ($current_label_space eq 'post_affine') {
 		if ($combined_rigid_and_affine) {
 		    $start= 2;
 		    $stop=2;
@@ -430,10 +432,10 @@ sub apply_mdt_warps_vbm_Init_check {
     my $message_prefix="$PM:\n";
     # my $rigid_plus_affine = $Hf->get_value('combined_rigid_and_affine');
     # my $do_labels = $Hf->get_value('create_labels');
-    # $label_space = $Hf->get_value('label_space');
-    # if ($label_space eq ('post_rigid' || 'pre_affine' || 'postrigid' || 'preaffine')) {
+    # $current_label_space = $Hf->get_value('current_label_space');
+    # if ($current_label_space eq ('post_rigid' || 'pre_affine' || 'postrigid' || 'preaffine')) {
     # 	if (($do_labels == 1) && ($rigid_plus_affine) && ($old_ants)) {
-    # 	    $init_error_msg = $init_error_msg."Label space of ${label_space} is not compatible with combined rigid and affine transforms using old ants.\n".
+    # 	    $init_error_msg = $init_error_msg."Label space of ${current_label_space} is not compatible with combined rigid and affine transforms using old ants.\n".
     # 		"Please consider setting label space to either \"pre_rigid\" or \"post_affine\".\n";
     # 	}
     # } 
@@ -500,7 +502,12 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	$label_reference_path = $Hf->get_value('label_reference_path');
 	$label_refname = $Hf->get_value('label_refname');
 
-	$label_space = $Hf->get_value('label_space');
+	if (! defined $current_label_space) {
+	    cluck "\$current_label_space not explicitly defined. Checking Headfile...";
+	    $current_label_space = $Hf->get_value('label_space');
+	} else {
+	    cluck "current_label_space has been explicitly set to: ${current_label_space}";
+	}
 	$label_path=$Hf->get_value('labels_dir');
 	$label_results_path=$Hf->get_value('label_results_path');
    
@@ -509,7 +516,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 
 	$median_images_path = $Hf->get_value('median_images_path');
 
-	my $intermediary_path = "${label_path}/${label_space}_${label_refname}_space";
+	my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
 
 	if (! -e  $intermediary_path) {
 	    mkdir ( $intermediary_path,$permissions);
@@ -541,7 +548,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 		mkdir ($final_MDT_results_dir,$permissions);
 	    }
 	    
-	    #$almost_results_dir = "${results_dir}/labels/${label_space}_${label_refname}_space/";
+	    #$almost_results_dir = "${results_dir}/labels/${current_label_space}_${label_refname}_space/";
 	    $almost_results_dir = "${results_dir}/connectomics/";
 	    if (! -e $almost_results_dir) {
 		mkdir ($almost_results_dir,$permissions);
@@ -549,7 +556,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	    
 	    #$final_results_dir = "${almost_results_dir}/${label_atlas}/";
 	    
-	    $final_results_dir = "${almost_results_dir}/${label_space}_${label_refname}_space/";
+	    $final_results_dir = "${almost_results_dir}/${current_label_space}_${label_refname}_space/";
 	    if (! -e $final_results_dir) {
 		mkdir ($final_results_dir,$permissions);
 	    }
