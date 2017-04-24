@@ -879,6 +879,27 @@ sub some_subroutine {
 #---------------------
 sub pull_data_for_connectivity {
 #---------------------
+
+    my @recon_machines = qw(gluster
+        atlasdb
+        andros
+        piper
+        delos
+        vidconfmac
+        crete
+        sifnos
+        milos
+        naxos
+        panorama
+        rhodos
+        syros
+        tinos
+        wheezy);
+    if ((defined $recon_machine) && ($recon_machine ne 'NO_KEY') && ($recon_machine ne '')) {
+	unshift(@recon_machines,$recon_machine);
+    }
+    @recon_machines = uniq(@recon_machines);
+    
     my $complete_runno_list=$Hf->get_value('complete_comma_list');
     my @array_of_runnos = split(',',$complete_runno_list);
 
@@ -889,130 +910,149 @@ sub pull_data_for_connectivity {
     my $message_prefix="single_segmentation_start::pull_data_for_connectivity:\n";
     my $message_body;
 
+
     foreach my $runno(@array_of_runnos) {
-	my $local_message_prefix="Attempting to retrieve data for runno: ${runno}\n";
-	my $log_msg;
-	my $tmp_log_msg;
-	my $look_in_local_folder = 0;
-	my $local_folder = "${inputs_dir}/tmp_folder/";
-	my $number_of_headfiles;
-
-	my $archive_prefix = '';
-	my $machine_suffix = '';
-	if ($recon_machine eq 'atlasdb') {
-	    $archive_prefix = "${project_name}/research/";
-	} else {
-	    $machine_suffix = "-DTI-results"
-	}
-
-
-	# Look for more then two xform_$runno...mat files (ecc affine transforms)
-	if ($do_connectivity){
-	    if ((defined $eddy_current_correction) && ($eddy_current_correction ne 'NO_KEY') && ($eddy_current_correction == 1)) {
-		my $temp_runno = $runno;
-		if ($temp_runno =~ s/(\_m[0]+)$//){}
-		my $number_of_ecc_xforms =  `ls ${inputs_dir}/xform_${temp_runno}*.mat | wc -l`;
-		
-		print "number_of_ecc_xforms = ${number_of_ecc_xforms}\n\n";
-		if ($number_of_ecc_xforms < 6) { # For DTI, the minimum number of non-b0's is 6!
-		    $tmp_log_msg = `puller_simple  -or ${recon_machine} ${archive_prefix}tensor${runno}*${machine_suffix}/ ${local_folder}/`;
-		    $log_msg = $log_msg.$tmp_log_msg;
-		    $tmp_log_msg = `mv ${local_folder}/xform*mat ${inputs_dir}`;
-		    $log_msg = $log_msg.$tmp_log_msg;
-		    $look_in_local_folder = 1;
-		}
-		
-	    }
-	}
-
-	# get any specified "traditional" dti images
-	foreach my $contrast (@array_of_channels) {
-	    my $test_file =  get_nii_from_inputs($inputs_dir,$runno,$contrast);
-	    my $pull_file_cmd = "puller_simple -f file -or ${recon_machine} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
+	    my $log_msg;
+	    my $tmp_log_msg;
+	    my $local_message_prefix="Attempting to retrieve data for runno: ${runno}\n";
+	foreach my $current_recon_machine (@recon_machines) { #24 April 2017, BJA: automatically check all possible recon machines, instead of requiring user to specify
+	    #my $local_message_prefix="Attempting to retrieve data from ${current_recon_machine} for runno: ${runno}\n";
+	    my $look_in_local_folder = 0;
+	    my $local_folder = "${inputs_dir}/tmp_folder/";
+	    my $number_of_headfiles;
 	    
-	    if ($test_file =~ /[\n]+/) {
-		if ($look_in_local_folder) {
-		    $test_file =  get_nii_from_inputs($local_folder,$runno,$contrast);
-		    if ($test_file =~ /[\n]+/) {
-			$tmp_log_msg = `${pull_file_cmd}`;
+	    my $archive_prefix = '';
+	    my $machine_suffix = '';
+	    if ($current_recon_machine eq 'atlasdb') {
+		$archive_prefix = "${project_name}/research/";
+	    } else {
+		$machine_suffix = "-DTI-results"
+	    }
+	    
+	    
+	    # Look for more then two xform_$runno...mat files (ecc affine transforms)
+	    if ($do_connectivity){
+		if ((defined $eddy_current_correction) && ($eddy_current_correction ne 'NO_KEY') && ($eddy_current_correction == 1)) {
+		    my $temp_runno = $runno;
+		    if ($temp_runno =~ s/(\_m[0]+)$//){}
+		    my $number_of_ecc_xforms =  `ls ${inputs_dir}/xform_${temp_runno}*.mat | wc -l`;
+		    
+		    print "number_of_ecc_xforms = ${number_of_ecc_xforms}\n\n";
+		    if ($number_of_ecc_xforms < 6) { # For DTI, the minimum number of non-b0's is 6!
+			if ($recon_machine eq 'gluster') {
+			    $tmp_log_msg = `cp /glusterspace/${archive_prefix}tensor${runno}*${machine_suffix}/* ${local_folder}/`;
+			} else {
+			    $tmp_log_msg = `puller_simple  -or ${current_recon_machine} ${archive_prefix}tensor${runno}*${machine_suffix}/ ${local_folder}/`;
+			}
 			$log_msg = $log_msg.$tmp_log_msg;
-		    } else {
-			$tmp_log_msg = `mv ${test_file} ${inputs_dir}`;
+			$tmp_log_msg = `mv ${local_folder}/xform*mat ${inputs_dir}`;
 			$log_msg = $log_msg.$tmp_log_msg;
+			$look_in_local_folder = 1;
 		    }
-		} else {
-		    $tmp_log_msg = `${pull_file_cmd}`;
-		    $log_msg = $log_msg.$tmp_log_msg;
+		    
 		}
 	    }
-	}
-	
-	if ($do_connectivity){
-	    # get nii4D
-	    my $nii4D = get_nii_from_inputs($inputs_dir,$runno,'nii4D');
-	    my $orig_nii4D;
-	    if ($nii4D =~ /[\n]+/) {
-		$orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
-		if ($orig_nii4D =~ /[\n]+/) {
-		    my $pull_nii4D_cmd = `puller_simple -f file -or ${recon_machine} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/`; #Removed * after .nii so we don't accidentally pull fiber tracking results.  Let's just hope what we want is uncompressed. 11 April 2017, BJA
+
+	    # get any specified "traditional" dti images
+	    foreach my $contrast (@array_of_channels) {
+		my $test_file =  get_nii_from_inputs($inputs_dir,$runno,$contrast);
+		my $pull_file_cmd = "puller_simple -f file -or ${current_recon_machine} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
+		
+		if ($test_file =~ /[\n]+/) {
 		    if ($look_in_local_folder) {
-			my $test_file =  get_nii_from_inputs($local_folder,'nii4D',$runno);
+			$test_file =  get_nii_from_inputs($local_folder,$runno,$contrast);
 			if ($test_file =~ /[\n]+/) {
-			    $tmp_log_msg = `${pull_nii4D_cmd}`;
+			    if ($recon_machine eq 'gluster') {
+				$tmp_log_msg = `cp ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/`;
+			    } else {
+				$tmp_log_msg = `${pull_file_cmd}`;
+			    }
 			    $log_msg = $log_msg.$tmp_log_msg;
 			} else {
 			    $tmp_log_msg = `mv ${test_file} ${inputs_dir}`;
 			    $log_msg = $log_msg.$tmp_log_msg;
 			}
 		    } else {
-			$tmp_log_msg = `${pull_nii4D_cmd}`;
+			$tmp_log_msg = `${pull_file_cmd}`;
 			$log_msg = $log_msg.$tmp_log_msg;
 		    }
 		}
-		$orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
-		
-		my $new_nii4D = "${inputs_dir}/${runno}_nii4D.nii";
-		if ($orig_nii4D =~ /'.gz'/) {
-		    $new_nii4D = $new_nii4D.'.gz';
-		}
-		$tmp_log_msg = `mv ${orig_nii4D} ${new_nii4D}`;
-		$log_msg = $log_msg.$tmp_log_msg;
 	    }
-	
-	
-	    # get headfile
-	    my $head_file = "${inputs_dir}/tensor${runno}*.headfile";
-	    $number_of_headfiles =  `ls ${head_file} | wc -l`;
-	    if ($number_of_headfiles < 1) {
-		my $pull_headfile_cmd = "puller_simple -f file -or ${recon_machine} ${archive_prefix}tensor${runno}*${machine_suffix}/tensor${runno}*headfile ${inputs_dir}/";
-		if ($look_in_local_folder) {
-		    $head_file = "${local_folder}/tensor${runno}*.headfile";
-		    $number_of_headfiles =  `ls ${head_file} | wc -l`;
-		    if ($number_of_headfiles < 1) {
-			$tmp_log_msg = `${pull_headfile_cmd}`;
-			$log_msg = $log_msg.$tmp_log_msg;
-		    } else {
-			$tmp_log_msg = `mv ${head_file} ${inputs_dir}`;
-			$log_msg = $log_msg.$tmp_log_msg;
+	    
+	    if ($do_connectivity){
+		# get nii4D
+		my $nii4D = get_nii_from_inputs($inputs_dir,$runno,'nii4D');
+		my $orig_nii4D;
+		if ($nii4D =~ /[\n]+/) {
+		    $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
+		    if ($orig_nii4D =~ /[\n]+/) {
+			my $pull_nii4D_cmd = `puller_simple -f file -or ${current_recon_machine} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/`; #Removed * after .nii so we don't accidentally pull fiber tracking results.  Let's just hope what we want is uncompressed. 11 April 2017, BJA
+			if ($look_in_local_folder) {
+			    my $test_file =  get_nii_from_inputs($local_folder,'nii4D',$runno);
+			    if ($test_file =~ /[\n]+/) {
+				if ($recon_machine eq 'gluster') {
+				    $tmp_log_msg = `cp ${archive_prefix}tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;
+				} else {
+				    $tmp_log_msg = `${pull_nii4D_cmd}`;
+				}
+				$log_msg = $log_msg.$tmp_log_msg;
+			    } else {
+				$tmp_log_msg = `mv ${test_file} ${inputs_dir}`;
+				$log_msg = $log_msg.$tmp_log_msg;
+			    }
+			} else {
+			    $tmp_log_msg = `${pull_nii4D_cmd}`;
+			    $log_msg = $log_msg.$tmp_log_msg;
+			}
 		    }
-		} else {
-		    $tmp_log_msg = `${pull_headfile_cmd}`;
+		    $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
+		    
+		    my $new_nii4D = "${inputs_dir}/${runno}_nii4D.nii";
+		    if ($orig_nii4D =~ /'.gz'/) {
+			$new_nii4D = $new_nii4D.'.gz';
+		    }
+		    $tmp_log_msg = `mv ${orig_nii4D} ${new_nii4D}`;
 		    $log_msg = $log_msg.$tmp_log_msg;
 		}
 		
+	
+		# get headfile
+		my $head_file = "${inputs_dir}/tensor${runno}*.headfile";
+		$number_of_headfiles =  `ls ${head_file} | wc -l`;
+		if ($number_of_headfiles < 1) {
+		    my $pull_headfile_cmd = "puller_simple -f file -or ${current_recon_machine} ${archive_prefix}tensor${runno}*${machine_suffix}/tensor${runno}*headfile ${inputs_dir}/";
+		    if ($look_in_local_folder) {
+			$head_file = "${local_folder}/tensor${runno}*.headfile";
+			$number_of_headfiles =  `ls ${head_file} | wc -l`;
+			if ($number_of_headfiles < 1) {
+			    if ($recon_machine eq 'gluster') {
+				$tmp_log_msg = `cp ${archive_prefix}tensor${runno}*${machine_suffix}//tensor${runno}*headfile ${inputs_dir}/`;
+			    } else {
+				$tmp_log_msg = `${pull_headfile_cmd}`;
+			    }
+			    $log_msg = $log_msg.$tmp_log_msg;
+			} else {
+			    $tmp_log_msg = `mv ${head_file} ${inputs_dir}`;
+			    $log_msg = $log_msg.$tmp_log_msg;
+			}
+		    } else {
+			$tmp_log_msg = `${pull_headfile_cmd}`;
+			$log_msg = $log_msg.$tmp_log_msg;
+		    }
+		    
+		}
+	    }
+	    # Clean up temporary results folder
+	    if ($look_in_local_folder) {
+		#my $temp_folder = "${inputs_dir}/tensor${runno}*${machine_suffix}/";
+		#my $number_of_temp_results_folders =  `ls -d ${head_file} | wc -l`; # Not sure what I was doing with this...
+		if ($number_of_headfiles > 0) {
+		    $tmp_log_msg = `rm -r ${local_folder}`;
+		    $log_msg = $log_msg.$tmp_log_msg;
+		}
 	    }
 	}
-	# Clean up temporary results folder
-	if ($look_in_local_folder) {
-	    #my $temp_folder = "${inputs_dir}/tensor${runno}*${machine_suffix}/";
-	    #my $number_of_temp_results_folders =  `ls -d ${head_file} | wc -l`; # Not sure what I was doing with this...
-	    if ($number_of_headfiles > 0) {
-		$tmp_log_msg = `rm -r ${local_folder}`;
-		$log_msg = $log_msg.$tmp_log_msg;
-	    }
-	}
-
-
+	
 	if ($do_connectivity) {
 	    # Figure out which bvecs/bvals file to get
 	    my @headfiles = `ls ${inputs_dir}/tensor${runno}*headfile`;
@@ -1033,7 +1073,7 @@ sub pull_data_for_connectivity {
 	    #     if ($o_grad_path =~ s/^(\/){1}([A-Za-z1-9]*)(space\/)//){
 	    # 	$bvec_machine = $2;
 	    #     } else {
-	    # 	$bvec_machine = $recon_machine;
+	    # 	$bvec_machine = $current_recon_machine;
 	    #     }
 	    #     my $pull_bvecs_cmd = "puller_simple -f file -or ${bvec_machine} ${o_grad_path}/${grad_filename}${grad_ext} ${inputs_dir};";
 	    #     my $rename_bvecs_cmd ="mv ${inputs_dir}/${grad_filename}${grad_ext} ${gradient_file};";
@@ -1119,4 +1159,5 @@ sub pull_data_for_connectivity {
     if ($message_body ne '') {
 	log_info("${message_prefix}${message_body}");
     }
+    `rm ${inputs_dir}/._*`;
 }
