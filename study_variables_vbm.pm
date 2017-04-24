@@ -12,7 +12,7 @@ my $NAME = "In lieu of commandline functionality, here is the place to define va
 
 my $obrien = 0;
 my $obrien_invivo=0;
-my $colton = 0;
+my $colton = 1;
 my $colton_invivo = 0;
 my $mcnamara = 0;
 my $premont = 0;
@@ -29,7 +29,7 @@ my $john_multicoil=0;
 my $nian_connectome = 0;
 
 my $spectrin = 0;
-my $ankB = 1;
+my $ankB = 0;
 
 use strict;
 use warnings;
@@ -636,12 +636,14 @@ sub study_variables_vbm {
     {
 	$project_name = "13.colton.01";
 	$custom_predictor_string = "nos2_vs_cvn";
-	$optional_suffix = '2016analysis'; #'aTest6'
+	#$optional_suffix = '2016analysis'; #'aTest6'
+	$optional_suffix='April2017analysis';
 	$diffeo_transform_parameters = "0.5,3,0.5";  #"0.5,3,1"
  	$combined_rigid_and_affine = 0; #1 # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1;
-	$label_space = "pre_affine";
+	#$label_space = "pre_affine";
+	$label_space = "post_rigid";
 
 	if ($test_mode) {
 	    @control_group = qw(N51386 N51211 N51221);# N51406);
@@ -657,13 +659,14 @@ sub study_variables_vbm {
 	    $affine_target = 'N51383';
 	}	
 
-	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+	#@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
     
 	$flip_x = 1;
 	$flip_z = 0;
 	
 	
-	$atlas_name = 'DTI101b';
+	#$atlas_name = 'DTI101b';
+	$atlas_name = 'chass_symmetric2';
 	$label_atlas_name = 'chass_symmetric2';#'DTI101b';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
@@ -671,7 +674,8 @@ sub study_variables_vbm {
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
 	$do_mask = 1;
-	$port_atlas_mask = 1;
+	#$port_atlas_mask = 1;
+	$port_atlas_mask = 0;
 	$pre_masked = 0;
     
 	$vba_analysis_software = 'antsr';
