@@ -12,7 +12,7 @@ my $NAME = "In lieu of commandline functionality, here is the place to define va
 
 my $obrien = 0;
 my $obrien_invivo=0;
-my $colton = 1;
+my $colton = 0;
 my $colton_invivo = 0;
 my $mcnamara = 0;
 my $premont = 0;
@@ -30,6 +30,8 @@ my $nian_connectome = 0;
 
 my $spectrin = 0;
 my $ankB = 0;
+
+my $connectomics_control_test = 1;
 
 use strict;
 use warnings;
@@ -645,6 +647,10 @@ sub study_variables_vbm {
 	#$label_space = "pre_affine";
 	$label_space = "post_rigid";
 
+	$mdt_creation_strategy = 'iterative';
+	$mdt_iterations = 6;
+	$do_connectivity = 1;
+
 	if ($test_mode) {
 	    @control_group = qw(N51386 N51211 N51221);# N51406);
 	    @compare_group = qw(N51136 N51201);# N51234 N51392);
@@ -652,16 +658,29 @@ sub study_variables_vbm {
 	    $affine_target = 'N51211';
 	    $label_reference = "";
 	} else {
-	    @control_group = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406 N51193);#N51193-exclude N51404,N51383,N51386-manually z-roll and recalc tensors
-	    @compare_group = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388 N51124 N51130 
+	    #@control_group = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406 N51193);#N51193-exclude N51404,N51383,N51386-manually z-roll and recalc tensors
+	    #@compare_group = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388 N51124 N51130 
+            #  N51131 N51164 N51182 N51151 N51622 N51620 N51617);
+
+#N51131 does not need any z-flipping, will delete and process manually, and manually edit the sign of the z-component of its bvectors
+
+	    @control_group = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406 N51193
+                                N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388 N51124 N51130 
+                                N51131 N51164 N51182 N51151 N51622 N51620 N51617);
+	    @compare_group = @control_group;
+
+
+	    @group_1 = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406 N51193);#N51193-exclude N51404,N51383,N51386-manually z-roll and recalc tensors
+	    @group_2 = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388 N51124 N51130 
               N51131 N51164 N51182 N51151 N51622 N51620 N51617);
+
 	    @channel_array = qw(adc dwi e1 e2 e3 fa);
 	    $affine_target = 'N51383';
 	}	
 
 	#@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
     
-	$flip_x = 1;
+	$flip_x = 1;  # Only for N51131 !!!, 1 otherwise
 	$flip_z = 0;
 	
 	
@@ -1752,8 +1771,10 @@ elsif ($nian_connectome)
 	$vbm_reference_space = 'native';
 	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
 	#$label_space = "pre_affine";
-	#$label_space = "post_affine";
-	$label_space = 'pre_rigid,post_rigid';
+	$label_space = "post_affine,post_rigid,MDT"; #Revisiting this idea after fixing stray $label_space -> $current_label_space
+	#$label_space = 'pre_rigid,post_rigid'; # 28 April 2017: Still haven't got this multiple label_space thing perfected...will need to come back to it.
+	#$label_space = 'atlas';
+	#$label_space= 'pre_rigid';
 	
 	
 	@control_group = qw(N54703 N54694 N54695 N54696 N54697 N54643 N54645 N54647 N54649 N54698 N54701 N54702 );
@@ -1792,6 +1813,70 @@ elsif ($nian_connectome)
 	$port_atlas_mask = 0;
 
 	
+    } elsif ($connectomics_control_test)
+  {
+	$project_name = "16.gaj.38";
+	$create_labels = 1; # Turning this off for phantom analysis -- will turn back on if needed.
+	$mdt_creation_strategy = 'iterative';
+	$mdt_iterations = 6; #6
+	#$mdt_convergence_threshold # Need to figure out how to use this!
+
+	$do_connectivity = 1;
+	#$recon_machine = 'piper';
+	$eddy_current_correction = 0; # Was 1, but want to be consistent with spectrin for now...
+	$convert_labels_to_RAS = 1;
+
+	$diffeo_transform_parameters = "0.25,3,0.5"; # control #all  #phantom #Fantom #Xantom #Vantom #Xall
+	$diffeo_iterations = '3000x3000x3000x80';
+
+	$vbm_reference_space = 'native';
+	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
+	#$label_space = "pre_affine";
+	#$label_space = "post_affine";
+	#$label_space = 'MDT';
+	$label_space = 'pre_rigid,atlas,post_rigid,MDT,pre_affine,post_affine';
+	
+	#$recon_machine = "atlasdb";	
+
+	@control_group = qw(N54730 N54732 N54734 N54737 N54742 N54744);
+	@compare_group = (@control_group,qw(N54776 N54777 N54779 N54781));
+	#@compare_group = @control_group;
+	#
+	$template_predictor = 'controls';
+	$template_predictor = 'all';
+	if (1) {
+	    @group_1 = qw(N54730 N54732 N54734 N54737 N54742 N54744);
+	    @group_2 = qw(N54776 N54777 N54779 N54781);
+	    $custom_predictor_string = "C57_vs_DB2";
+	} else {
+	    $do_vba = 0;
+	}
+	
+#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+    	@channel_array = qw(dwi fa); #Just these two for now so we don't overload glusterspace
+
+#	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
+
+#	$vba_analysis_software = 'surfstat';
+
+
+
+	$flip_x = 0;
+	$flip_z = 1;
+	
+        $optional_suffix='connectomics';
+	$atlas_name = 'chass_symmetric2';
+	$label_atlas_name = 'chass_symmetric2';
+	$rigid_contrast = 'dwi';
+	$affine_contrast = 'dwi';
+	$mdt_contrast = 'fa';
+	$skull_strip_contrast = 'dwi';
+	$threshold_code = 4;
+	$do_mask = 1;
+    
+	$pre_masked = 0;
+
+	$port_atlas_mask = 0;	
     }
 }
 sub  load_study_data_vbm {

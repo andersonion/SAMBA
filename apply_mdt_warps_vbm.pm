@@ -230,8 +230,11 @@ sub apply_mdt_warp {
     my $out_file = '';
     my $direction_string = '';
     my ($start,$stop);
-    my $reference_image;
+    my $reference_image;  ## 28 April 2017: NEED TO FURTHER INVESTIGATE WHAT REF IMAGE WE WANT OR NEED FOR MASS CONNECTIVITY COMPARISONS...!
     my $option_letter = "t";
+
+    my $mdt_warp_string = $Hf->get_value('forward_label_xforms');
+    my $mdt_warp_train;
 
     if ($gid == 2 ) {
 	$out_file = "${current_path}/${runno}_${current_contrast}.nii.gz"; # Added '.gz', 2 September 2015
@@ -247,13 +250,11 @@ sub apply_mdt_warp {
 		$start=3;
 		$stop=3;
 	    } elsif ($current_label_space eq 'post_affine') {
-		if ($combined_rigid_and_affine) {
-		    $start= 2;
-		    $stop=2;
-		} else {
-		    $start=2;
-		    $stop=3;
-		}
+		$start=2;
+		$stop=3;
+	    } elsif (($current_label_space eq 'MDT') || ($current_label_space eq 'atlas')) {
+		$start=1;
+		$stop=3;
 	    }
 	} else { # No known use for inverting for label purposes yet...would make sense if this code had been generalized enough to handle label warping.
 	    $direction_string = 'inverse';
@@ -292,6 +293,13 @@ sub apply_mdt_warp {
     }
 
     my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
+##
+    if ($current_label_space eq 'atlas') {
+	$mdt_warp_train=format_transforms_for_command_line($mdt_warp_string,$option_letter);
+	$warp_train= $mdt_warp_train.' '.$warp_train;
+    }
+###
+   # my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
 
     if (data_double_check($reference_image)) {
 	$reference_image=$reference_image.'.gz';
@@ -432,7 +440,7 @@ sub apply_mdt_warps_vbm_Init_check {
     my $message_prefix="$PM:\n";
     # my $rigid_plus_affine = $Hf->get_value('combined_rigid_and_affine');
     # my $do_labels = $Hf->get_value('create_labels');
-    # $current_label_space = $Hf->get_value('current_label_space');
+    # $current_label_space = $Hf->get_value('label_space');
     # if ($current_label_space eq ('post_rigid' || 'pre_affine' || 'postrigid' || 'preaffine')) {
     # 	if (($do_labels == 1) && ($rigid_plus_affine) && ($old_ants)) {
     # 	    $init_error_msg = $init_error_msg."Label space of ${current_label_space} is not compatible with combined rigid and affine transforms using old ants.\n".
@@ -517,9 +525,11 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	$median_images_path = $Hf->get_value('median_images_path');
 
 	my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
+	print "\$intermediary_path = ${intermediary_path}\n\n";
 
 	if (! -e  $intermediary_path) {
 	    mkdir ( $intermediary_path,$permissions);
+	    print "Whether you like it or not, making directory: ${intermediary_path}\n\n";  
 	}
 
 	#if ($current_path eq 'NO_KEY') {

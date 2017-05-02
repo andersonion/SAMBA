@@ -37,7 +37,7 @@ my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 my $bvec_transform_executable_path = "/nas4/rja20/bvec_transform_executable/AL/run_transform_bvecs.sh";
 
 my ($current_contrast,$affine_target);
-my $label_space;
+my $current_label_space;
 
 
 if (! defined $dims) {$dims = 3;}
@@ -46,7 +46,7 @@ if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 # ------------------
 sub apply_warps_to_bvecs {  # Main code
 # ------------------
-    ($label_space) = @_;
+    ($current_label_space) = @_;
     my $direction='f';
     my $start_time = time;
     my $PM_code = 74; # 74 is an arbitrary code (70s for connectivity stuff?), need to set this in a more thoughtful manner.
@@ -175,21 +175,29 @@ sub apply_affine_rotation {
     my $reference_image;
     my $option_letter = "t";
 
+    my $mdt_warp_string = $Hf->get_value('forward_label_xforms');
+    my $mdt_warp_train;
+
     $out_file = "${current_path}/${runno}_${orientation}${ecc_string}_bvecs.txt";
     
     if ($direction eq 'f') {
 	$direction_string = 'forward';
-	if ($label_space eq 'pre_rigid') {
+	if ($current_label_space eq 'pre_rigid') {
 	    $start=0;
 	    $stop=0;
 	    $option_letter = '';
-	} elsif (($label_space eq 'pre_affine') ||($label_space eq 'post_rigid')) {
+	} elsif (($current_label_space eq 'pre_affine') ||($current_label_space eq 'post_rigid')) {
 	    $start=3;
 	    $stop=3;
-	} elsif ($label_space eq 'post_affine') {
+	} elsif ($current_label_space eq 'post_affine') {
 	    $start=2;
 	    $stop=3;
+	} elsif (($current_label_space eq 'MDT') || ($current_label_space eq 'atlas')) {
+		$start=1;
+		$stop=3;
 	}
+
+
     }
     my $RAS_results_dir;
     if ($convert_labels_to_RAS) {
@@ -254,6 +262,11 @@ sub apply_affine_rotation {
     }
 
     my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
+    
+    if ($current_label_space eq 'atlas') {
+	$mdt_warp_train=format_transforms_for_command_line($mdt_warp_string);
+	$warp_train= $mdt_warp_train.' '.$warp_train;
+    }
 
     $cmd = "${bvec_transform_executable_path} ${matlab_path} ${original_bvecs} -o ${out_file_prefix} ${bval_string} ${ALS_to_RAS} ${warp_train} ${native_to_ALS} ${ecc_affine_xform} ${nifti_flip} ${scanner_flip};\n";  
  
@@ -317,10 +330,10 @@ sub apply_warps_to_bvecs_Init_check {
     if (($do_connectivity ne 'NO_KEY') && ($do_connectivity == 1)) {
     # my $rigid_plus_affine = $Hf->get_value('combined_rigid_and_affine');
     # my $do_labels = $Hf->get_value('create_labels');
-    # $label_space = $Hf->get_value('label_space');
-    # if ($label_space eq ('post_rigid' || 'pre_affine' || 'postrigid' || 'preaffine')) {
+    # $current_label_space = $Hf->get_value('label_space');
+    # if ($current_label_space eq ('post_rigid' || 'pre_affine' || 'postrigid' || 'preaffine')) {
     # 	if (($do_labels == 1) && ($rigid_plus_affine) && ($old_ants)) {
-    # 	    $init_error_msg = $init_error_msg."Label space of ${label_space} is not compatible with combined rigid and affine transforms using old ants.\n".
+    # 	    $init_error_msg = $init_error_msg."Label space of ${current_label_space} is not compatible with combined rigid and affine transforms using old ants.\n".
     # 		"Please consider setting label space to either \"pre_rigid\" or \"post_affine\".\n";
     # 	}
     # } 
@@ -354,52 +367,18 @@ sub apply_warps_to_bvecs_Runtime_check {
     $affine_target = $Hf->get_value('affine_target_image');
     $vbm_reference_path = $Hf->get_value('vbm_reference_path');
 
-#     if ($gid == 1) {
-# 	$diffeo_path = $Hf->get_value('mdt_diffeo_path');   
-# 	#$current_path = $Hf->get_value('mdt_images_path');
-# 	#if ($current_path eq 'NO_KEY') {
-# 	   # $current_path = "${predictor_path}/MDT_images";
-# 	    $current_path = "${template_path}/MDT_images";
-# 	    $Hf->set_value('mdt_images_path',$current_path);
-# 	#}
-# #	$runlist = $Hf->get_value('control_comma_list');
-# 	$runlist = $Hf->get_value('template_comma_list');
-
-# 	if ($runlist eq 'NO_KEY') {
-# 	    $runlist = $Hf->get_value('control_comma_list');
-# 	    $Hf->set_value('template_comma_list',$runlist); # 1 Feb 2016, just added these. If bug, then check here.
-# 	}
-	
-#     } elsif ($gid == 0) {
-# 	$diffeo_path = $Hf->get_value('reg_diffeo_path');   
-# 	#$current_path = $Hf->get_value('reg_images_path');
-# 	#if ($current_path eq 'NO_KEY') {
-# 	 #  $current_path = "${predictor_path}/reg_images";
-# 	    $current_path = "${template_path}/reg_images";
-# 	    $Hf->set_value('reg_images_path',$current_path);
-# 	#}
-    # 	# $runlist = $Hf->get_value('compare_comma_list');
-    # 	$runlist = $Hf->get_value('nontemplate_comma_list');
-
-    # 	if ($runlist eq 'NO_KEY') {
-    # 	    $runlist = $Hf->get_value('compare_comma_list');
-    # 	    $Hf->set_value('nontemplate_comma_list',$runlist);  # 1 Feb 2016, just added these. If bug, then check here.
-    # 	}
-
-
-    # } elsif ($gid == 2) {
     $inputs_dir = $Hf->get_value('label_refspace_folder');
     $label_reference = $Hf->get_value('label_reference');
     $label_reference_path = $Hf->get_value('label_reference_path');
     $label_refname = $Hf->get_value('label_refname');
     
-    if (! defined $label_space) {
-	cluck "\$label_space not explicitly defined. Checking Headfile...";
-	$label_space = $Hf->get_value('label_space');
+    if (! defined $current_label_space) {
+	cluck "\$current_label_space not explicitly defined. Checking Headfile...";
+	$current_label_space = $Hf->get_value('label_space');
     } else {
-	cluck "label_space has been explicitly set to: ${label_space}";
+	cluck "current_label_space has been explicitly set to: ${current_label_space}";
     }
-    $label_space = $Hf->get_value('label_space');
+
     $label_path=$Hf->get_value('labels_dir');
     $label_results_path=$Hf->get_value('label_results_path');
    
@@ -411,7 +390,7 @@ sub apply_warps_to_bvecs_Runtime_check {
 
     
     
-    my $intermediary_path = "${label_path}/${label_space}_${label_refname}_space";
+    my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
     
     if (! -e  $intermediary_path) {
 	mkdir ( $intermediary_path,$permissions);
@@ -464,7 +443,7 @@ sub apply_warps_to_bvecs_Runtime_check {
 	mkdir ($almost_results_dir,$permissions);
     }
 
-    $final_results_dir = "${almost_results_dir}/${label_space}_${label_refname}_space/";
+    $final_results_dir = "${almost_results_dir}/${current_label_space}_${label_refname}_space/";
     if (! -e $final_results_dir) {
 	mkdir ($final_results_dir,$permissions);
     }
