@@ -196,7 +196,7 @@ sub apply_mdt_warp_to_labels {
     }
     my ($start,$stop);
     my $image_to_warp = $atlas_label_path;# get label set from atlas #get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
-    my $reference_image;
+    my $reference_image; ## 28 April 2017: NEED TO FURTHER INVESTIGATE WHAT REF IMAGE WE WANT OR NEED FOR MASS CONNECTIVITY COMPARISONS...!
 
     # if (! $native_reference_space) {
     # 	$reference_image = $image_to_warp;
@@ -209,10 +209,11 @@ sub apply_mdt_warp_to_labels {
     # 	    $reference_image =get_nii_from_inputs($median_images_path,$runno,$some_valid_contrast);
     # 	}
     # }
-    my @mdt_warp_array = split(',',$Hf->get_value('inverse_label_xforms'));
+    #my @mdt_warp_array = split(',',$Hf->get_value('inverse_label_xforms')); # This appears to be extraneous; commenting out on 28 April 2017
     my $mdt_warp_string = $Hf->get_value('inverse_label_xforms');
     my $mdt_warp_train;
-    my ($warp_train,$warp_string,@warp_array);
+    my $warp_train;
+    my $warp_string;
     my $create_cmd;
     my $option_letter = "t";
     my $additional_warp='';
@@ -225,8 +226,8 @@ sub apply_mdt_warp_to_labels {
 	    $add_warp_string=$Hf->get_value("mdt_forward_xforms_${runno}")
 	}
     
-	my @add_warp_array = split(',',$add_warp_string);
-	$raw_warp = pop(@add_warp_array);
+	#my @add_warp_array = split(',',$add_warp_string);
+	#$raw_warp = pop(@add_warp_array);
     }
  
     $reference_image = $label_reference_path;
@@ -235,30 +236,31 @@ sub apply_mdt_warp_to_labels {
 	$reference_image=$reference_image.'.gz';
     }
 
-    $mdt_warp_train=format_transforms_for_command_line($mdt_warp_string);
-    if ($runno ne 'MDT') {
-	$warp_string = $Hf->get_value("inverse_xforms_${runno}");
-	if ($warp_string eq 'NO_KEY') {
-	    $warp_string=$Hf->get_value("mdt_inverse_xforms_${runno}")
-	}
-	$stop=3;
-	if ($current_label_space eq 'pre_rigid') {
-	    if ($combined_rigid_and_affine) {
-		$start=2;
-	    } else {
-		$start=1;
-	    }
-	} elsif (($current_label_space eq 'pre_affine') || ($current_label_space eq 'post_rigid')) {
-	    $start=2;
-	    if ($combined_rigid_and_affine) {
-		$additional_warp = " -t [${raw_warp},0] ";  
-	    } 
-	} elsif ($current_label_space eq 'post_affine') {
-	    $start= 3;	
-	}
-	$warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
+    if ($current_label_space eq 'atlas') {
+	$mdt_warp_train = '-${option_letter} ';
     } else {
-	$warp_train = "-${option_letter} ";
+	$mdt_warp_train=format_transforms_for_command_line($mdt_warp_string,$option_letter);
+    }
+
+    if (($current_label_space ne 'MDT') && ($current_label_space ne 'atlas')) {
+	if ($runno ne 'MDT'){
+	    $warp_string = $Hf->get_value("inverse_xforms_${runno}");
+	    if ($warp_string eq 'NO_KEY') {
+		$warp_string=$Hf->get_value("mdt_inverse_xforms_${runno}")
+	    }
+	    $stop=3;
+	    if ($current_label_space eq 'pre_rigid') {
+		$start=1;
+	    } elsif (($current_label_space eq 'pre_affine') || ($current_label_space eq 'post_rigid')) {
+		$start=2;
+	    } elsif ($current_label_space eq 'post_affine') {
+		$start= 3;	
+	    } 
+	    
+	    $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
+	} else {
+	    $warp_train = "-${option_letter} "; # Should be equivalent to $current_label_space eq 'atlas'
+	}
     }
     
     $warp_train=$additional_warp.' '.$warp_train.' '.$mdt_warp_train;
@@ -455,12 +457,12 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	
 	#$ROI_path_substring="${current_label_space}_${label_refname}_space/${label_atlas}";
 	
-	$current_path = $Hf->get_value('label_results_dir');
+	#$current_path = $Hf->get_value('label_results_dir');
 	
-	if ($current_path eq 'NO_KEY') {
+	#if ($current_path eq 'NO_KEY') {
 	    $current_path = "${label_path}/${current_label_space}_${label_refname}_space/${label_atlas}";
 	    $Hf->set_value('label_results_dir',$current_path);
-	}
+	#}
 	my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
 	if (! -e $intermediary_path) {
 	    mkdir ($intermediary_path,$permissions);

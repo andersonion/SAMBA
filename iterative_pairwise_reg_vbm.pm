@@ -798,6 +798,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               create_labels
                               do_mask
                               do_connectivity
+                              do_vba
                               eddy_current_correction
                               group_1_runnos
                               group_2_runnos

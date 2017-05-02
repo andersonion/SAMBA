@@ -168,7 +168,9 @@ $image_dimensions
 
 {
     study_variables_vbm();
-    $do_vba = 1;
+    if (! defined $do_vba) {
+	$do_vba = 1;
+    }
     vbm_pipeline_workflow();
 ## Add any tensory postprocessing here for nii4D and bvecs
     # if ($do_connectivity){ # 21 April 2017, BJA: Moved this code to vbm_pipeline_workflow.pm
