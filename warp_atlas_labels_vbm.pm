@@ -343,8 +343,6 @@ sub convert_labels_to_RAS {
 
     my $jid_2 = 0;
 
-    print "out_file = ${out_file}\n\n"; ### COMMENT THIS ASAP
-
     if (data_double_check($out_file)) {
 	my $current_vorder = 'ALS';
 	my $desired_vorder = 'RAS';
