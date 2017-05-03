@@ -231,7 +231,9 @@ sub apply_mdt_warp {
     my $direction_string = '';
     my ($start,$stop);
     my $reference_image;  ## 28 April 2017: NEED TO FURTHER INVESTIGATE WHAT REF IMAGE WE WANT OR NEED FOR MASS CONNECTIVITY COMPARISONS...!
-    my $option_letter = "t";
+   # my $option_letter = "t";
+    my $option_letter = '';
+    my $warp_prefix= '-t '; # Moved all creation of "-t" to here to avoid "-t -t ..." fiasco. 3 May 2017, BJA
 
     my $mdt_warp_string = $Hf->get_value('forward_label_xforms');
     my $mdt_warp_train;
@@ -300,6 +302,8 @@ sub apply_mdt_warp {
     }
 ###
    # my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
+
+    $warp_train = $warp_prefix.$warp_train;
 
     if (data_double_check($reference_image)) {
 	$reference_image=$reference_image.'.gz';

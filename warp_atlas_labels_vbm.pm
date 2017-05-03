@@ -213,10 +213,12 @@ sub apply_mdt_warp_to_labels {
     my $mdt_warp_string = $Hf->get_value('inverse_label_xforms');
     my $mdt_warp_train;
     my $warp_train;
+    my $warp_prefix= '-t '; # Moved all creation of "-t" to here to avoid "-t -t ..." fiasco. 3 May 2017, BJA
     my $warp_string;
     my $create_cmd;
-    my $option_letter = "t";
-    my $additional_warp='';
+    #my $option_letter = "t";
+    my $option_letter = '';
+    #my $additional_warp='';
     my $raw_warp;
 
     if ($runno ne 'MDT') {
@@ -236,10 +238,8 @@ sub apply_mdt_warp_to_labels {
 	$reference_image=$reference_image.'.gz';
     }
 
-    if ($current_label_space eq 'atlas') {
-	$mdt_warp_train = '-${option_letter} ';
-    } else {
-	$mdt_warp_train=format_transforms_for_command_line($mdt_warp_string,$option_letter);
+    if ($current_label_space ne 'atlas') {
+	$mdt_warp_train=format_transforms_for_command_line($mdt_warp_string);
     }
 
     if (($current_label_space ne 'MDT') && ($current_label_space ne 'atlas')) {
@@ -258,12 +258,11 @@ sub apply_mdt_warp_to_labels {
 	    } 
 	    
 	    $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
-	} else {
-	    $warp_train = "-${option_letter} "; # Should be equivalent to $current_label_space eq 'atlas'
 	}
     }
     
-    $warp_train=$additional_warp.' '.$warp_train.' '.$mdt_warp_train;
+    #$warp_train=$additional_warp.' '.$warp_train.' '.$mdt_warp_train; # Removing additional_warp...vestigial from combined_rigid_and_affine; 3 May 2017, BJA
+    $warp_train=$warp_prefix.$warp_train.' '.$mdt_warp_train;
     
     $create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n NearestNeighbor ${warp_train};\n";
 
