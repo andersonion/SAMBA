@@ -211,8 +211,8 @@ sub apply_mdt_warp_to_labels {
     # }
     #my @mdt_warp_array = split(',',$Hf->get_value('inverse_label_xforms')); # This appears to be extraneous; commenting out on 28 April 2017
     my $mdt_warp_string = $Hf->get_value('inverse_label_xforms');
-    my $mdt_warp_train;
-    my $warp_train;
+    my $mdt_warp_train='';
+    my $warp_train='';
     my $warp_prefix= '-t '; # Moved all creation of "-t" to here to avoid "-t -t ..." fiasco. 3 May 2017, BJA
     my $warp_string;
     my $create_cmd;
@@ -262,8 +262,10 @@ sub apply_mdt_warp_to_labels {
     }
     
     #$warp_train=$additional_warp.' '.$warp_train.' '.$mdt_warp_train; # Removing additional_warp...vestigial from combined_rigid_and_affine; 3 May 2017, BJA
-    $warp_train=$warp_prefix.$warp_train.' '.$mdt_warp_train;
-    
+    if (($warp_train ne '') || ($mdt_warp_train ne '')) {
+	$warp_train=$warp_prefix.$warp_train.' '.$mdt_warp_train;
+    }
+
     $create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n NearestNeighbor ${warp_train};\n";
 
     my $smoothing_sigma = 1;
@@ -497,13 +499,14 @@ sub warp_atlas_labels_vbm_Runtime_check {
 
 	#$final_results_dir = "${almost_results_dir}/${label_atlas}/";
 
-	$final_results_dir = "${almost_results_dir}/${current_label_space}_${label_refname}_space/";
-	if (! -e $final_results_dir) {
-	    mkdir ($final_results_dir,$permissions);
+	if (defined $current_label_space) {
+	    $final_results_dir = "${almost_results_dir}/${current_label_space}_${label_refname}_space/";
+	    if (! -e $final_results_dir) {
+		mkdir ($final_results_dir,$permissions);
+	    }
+	    #$Hf->set_value('final_label_results_dir',$final_results_dir);
+	    $Hf->set_value('final_connectomics_results_dir',$final_results_dir);
 	}
-	#$Hf->set_value('final_label_results_dir',$final_results_dir);
-	$Hf->set_value('final_connectomics_results_dir',$final_results_dir);
-
 
 	#$final_ROIs_dir = "${final_results_dir}/ROIs";
 	#if (! -e $final_ROIs_dir) {

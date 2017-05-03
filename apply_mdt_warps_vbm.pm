@@ -303,7 +303,9 @@ sub apply_mdt_warp {
 ###
    # my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
 
-    $warp_train = $warp_prefix.$warp_train;
+    if ($warp_train ne '') {
+	$warp_train = $warp_prefix.$warp_train;
+    }
 
     if (data_double_check($reference_image)) {
 	$reference_image=$reference_image.'.gz';
