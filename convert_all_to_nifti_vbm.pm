@@ -28,6 +28,10 @@ my (@array_of_runnos,@channel_array);
 my (%go_hash,%go_mask,%mask_hash);
 my $skip=0;
 
+my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
+my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
+
+
 # ------------------
 sub convert_all_to_nifti_vbm {
 # ------------------

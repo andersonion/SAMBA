@@ -12,7 +12,7 @@ my $NAME = "In lieu of commandline functionality, here is the place to define va
 
 my $obrien = 0;
 my $obrien_invivo=0;
-my $colton = 0;
+my $colton = 1;
 my $colton_invivo = 0;
 my $mcnamara = 0;
 my $premont = 0;
@@ -31,7 +31,7 @@ my $nian_connectome = 0;
 my $spectrin = 0;
 my $ankB = 0;
 
-my $connectomics_control_test = 1;
+my $connectomics_control_test = 0;
 
 use strict;
 use warnings;
@@ -645,7 +645,10 @@ sub study_variables_vbm {
 	$vbm_reference_space = "native";
 	$create_labels = 1;
 	#$label_space = "pre_affine";
-	$label_space = "post_rigid";
+	$label_space = "pre_rigid";
+	$convert_labels_to_RAS = 1;
+
+
 
 	$mdt_creation_strategy = 'iterative';
 	$mdt_iterations = 6;
@@ -1834,26 +1837,26 @@ elsif ($nian_connectome)
 	#$label_space = "pre_affine";
 	#$label_space = "post_affine";
 	#$label_space = 'MDT';
-	$label_space = 'pre_rigid,atlas,post_rigid,MDT,pre_affine,post_affine';
+	$label_space = 'MDT';#'pre_rigid,atlas,post_rigid,MDT,pre_affine,post_affine';
 	
 	#$recon_machine = "atlasdb";	
 
 	@control_group = qw(N54730 N54732 N54734 N54737 N54742 N54744);
-	@compare_group = (@control_group,qw(N54776 N54777 N54779 N54781));
+	@compare_group = (@control_group);#,qw(N54776 N54777 N54779 N54781));
 	#@compare_group = @control_group;
 	#
 	$template_predictor = 'controls';
 	$template_predictor = 'all';
 	if (1) {
 	    @group_1 = qw(N54730 N54732 N54734 N54737 N54742 N54744);
-	    @group_2 = qw(N54776 N54777 N54779 N54781);
+	    @group_2 = ();# qw(N54776 N54777 N54779 N54781);
 	    $custom_predictor_string = "C57_vs_DB2";
 	} else {
 	    $do_vba = 0;
 	}
 	
 #	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
-    	@channel_array = qw(dwi fa); #Just these two for now so we don't overload glusterspace
+    	@channel_array = qw(dwi fa tensor); #Just these two for now so we don't overload glusterspace
 
 #	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 
@@ -1862,11 +1865,11 @@ elsif ($nian_connectome)
 
 
 	$flip_x = 0;
-	$flip_z = 1;
+	$flip_z = 1; #1
 	
         $optional_suffix='connectomics';
 	$atlas_name = 'chass_symmetric2';
-	$label_atlas_name = 'chass_symmetric2';
+	$label_atlas_name = 'chass_ALS_whole';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
 	$mdt_contrast = 'fa';
