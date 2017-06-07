@@ -317,6 +317,8 @@ sub apply_mdt_warp {
     my $opt_e_string='';
     if ($real_dim == 4) {
 	$opt_e_string = ' -e 3 ';
+    } elsif ($image_to_warp =~ /tensor/) {
+	$opt_e_string = ' -e 2 ';
     }
 
     $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} ${opt_e_string} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";  

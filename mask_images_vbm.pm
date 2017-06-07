@@ -294,7 +294,12 @@ sub mask_one_image {
     my $out_path = "${current_path}/${runno}_${ch}_masked.nii.gz"; # 12 Feb 2016: Added .gz
     my $centered_path = get_nii_from_inputs($current_path,$runno,$ch);
     my $apply_cmd = "fslmaths ${centered_path} -mas ${runno_mask} ${out_path} -odt \"input\";"; # 7 March 2016, Switched from ants ImageMath command to fslmaths, as fslmaths should be able to automatically handle color_fa images. (dim =4 instead of 3).
+    my $im_a_real_tensor = '';
+    if ($centered_path =~ /tensor/){
+	$im_a_real_tensor = '1';
+    }
    # my $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};\n";
+    my $copy_hd_cmd = "CopyImageHeaderInformation ${centered_path} ${out_path} ${out_path} 1 1 1 ${im_a_real_tensor};\n";
     my $remove_cmd = "rm ${centered_path};\n";
     my $go_message = "$PM: Applying mask created by ${template_contrast} image of runno $runno" ;
     my $stop_message = "$PM: could not apply ${template_contrast} mask to ${centered_path}:\n${apply_cmd}\n" ;
@@ -312,7 +317,7 @@ sub mask_one_image {
     if (cluster_check) {
 
     
-	my $cmd = $apply_cmd.$remove_cmd;
+	my $cmd = $apply_cmd.$copy_hd_cmd.$remove_cmd;
 	
 	my $home_path = $current_path;
 	my $Id= "${runno}_${ch}_apply_${template_contrast}_mask";
