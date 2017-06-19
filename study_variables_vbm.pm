@@ -674,11 +674,11 @@ sub study_variables_vbm {
 
 
 	    @group_1 = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406 N51193);#N51193-exclude N51404,N51383,N51386-manually z-roll and recalc tensors
-	    @group_2 = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388 N51124 N51130 
-              N51131 N51164 N51182 N51151 N51622 N51620 N51617);
+	    @group_2 = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388 N51124 N51130); 
+             # N51131 N51164 N51182 N51151 N51622 N51620 N51617);
 
-	    @channel_array = qw(adc dwi e1 e2 e3 fa);
-	    #@channel_array = qw(dwi fa);
+	    #@channel_array = qw(adc dwi e1 e2 e3 fa);
+	    @channel_array = qw(dwi fa);
 	    $affine_target = 'N51383';
 	}	
 

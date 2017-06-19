@@ -21,7 +21,7 @@ my ($current_path, $image_dir,$work_dir,$runlist,$ch_runlist,$in_folder,$out_fol
 my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_atlas,$label_path);
 my (@array_of_runnos,@channel_array);
 #my ($predictor_id); # SAVE FOR LAST ROUND OF LABEL STATS CODE
-my (@jobs);
+my @jobs=();
 my (%go_hash,%go_mask,%results_dir_hash,%work_dir_hash);
 my $log_msg='';
 my $skip=0;
