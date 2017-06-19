@@ -1,10 +1,10 @@
 #!/usr/local/pipeline-link/perl
 
-#  label_comparisons_between_two_groups_vbm.pm 
+#  label_stat_comparisons_between_groups_vbm.pm 
 
 #  2017/06/19  Created by BJ Anderson, CIVM.
 
-my $PM = " label_comparisons_between_two_groups_vbm.pm";
+my $PM = " label_stat_comparisons_between_groups_vbm.pm";
 my $VERSION = "2017/06/16";
 my $NAME = "Calculate label-wide statistics for all contrast, for an individual runno.";
 
@@ -17,24 +17,26 @@ require Headfile;
 require pipeline_utilities;
 use List::MoreUtils qw(uniq);
 
-my ($current_path, $image_dir,$work_dir,$runlist,$ch_runlist,$in_folder,$out_folder);
-my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_atlas,$label_path);
-my ($individual_stat_dir);
+my ($current_path,$work_dir,$in_folder,$out_folder);
+my ($channel_comma_list,$space_string,$current_label_space,$label_atlas,$label_path);
+my ($studywide_stats_dir);
 my (@array_of_runnos,@channel_array,@initial_channel_array);
-#my ($predictor_id); # SAVE FOR LAST ROUND OF LABEL STATS CODE
-my (@jobs);
+my ($predictor_id);
+my @jobs=();
 my (%go_hash,%go_mask,%results_dir_hash,%work_dir_hash);
+my ($group_1_name,$group_2_name,$group_1_runnos,$group_2_runnos,$num_g1,$num_g2);
+my (@group_1_runnos,@group_2_runnos);
 my $log_msg='';
 my $skip=0;
 my $go = 1;
 my $job;
-my $PM_code = 66;
+my $PM_code = 67;
 
 
 my $pipe_home = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/";
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";  #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
-my $compilation_date = "20170619_1151";
-my $tabulate_study_stats_executable_path = "${pipe_home}label_stats_executables/study_stats_by_contrast_executable/${compilation_date}/run_study_stats_by_contrast_exec.sh"; 
+my $compilation_date = "20170619_1420";
+my $compare_group_stats_executable_path = "${pipe_home}label_stats_executables/compare_group_stats_executable/${compilation_date}/run_compare_group_stats_exec.sh"; 
 
 
 #if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
@@ -42,18 +44,18 @@ my $tabulate_study_stats_executable_path = "${pipe_home}label_stats_executables/
 #if (! defined $dims) {$dims = 3;}
 
 # ------------------
-sub  label_comparisons_between_two_groups_vbm {
+sub  label_stat_comparisons_between_groups_vbm {
 # ------------------
  
     ($current_label_space,@initial_channel_array) = @_;
     my $start_time = time;
-    label_comparisons_between_two_groups_Runtime_check();
+    label_stat_comparisons_between_groups_Runtime_check();
 
     
     foreach my $contrast (@channel_array) {
 	$go = $go_hash{$contrast};
 	if ($go) {
-	    ($job) = label_comparisons_between_two_groups($contrast);
+	    ($job) = label_stat_comparisons_between_groups($contrast);
 
 	    if ($job > 1) {
 		push(@jobs,$job);
@@ -67,11 +69,11 @@ sub  label_comparisons_between_two_groups_vbm {
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
 	
 	if ($done_waiting) {
-	    print STDOUT  " study-wide ${label_space} label statistics has been calculated for all contrasts; moving on to next step.\n";
+	    print STDOUT  " study-wide ${current_label_space} label statistics has been calculated for all contrasts; moving on to next step.\n";
 	}
     }
     my $case = 2;
-    my ($dummy,$error_message)=label_comparisons_between_two_groups_Output_check($case);
+    my ($dummy,$error_message)=label_stat_comparisons_between_groups_Output_check($case);
 
     my $real_time = write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
@@ -91,7 +93,7 @@ sub  label_comparisons_between_two_groups_vbm {
 
 
 # ------------------
-sub label_comparisons_between_two_groups_Output_check {
+sub label_stat_comparisons_between_groups_Output_check {
 # ------------------
 
     my ($case) = @_;
@@ -114,20 +116,18 @@ sub label_comparisons_between_two_groups_Output_check {
 	my $sub_existing_files_message='';
 	my $sub_missing_files_message='';
 	
-	my $file_1 = "${current_path}/studywide_stats_for_${contrast}.txt" ;
+	my $file_1 = "${current_path}/${contrast}_group_stats_${group_1_name}_n${num_g1}_vs_${group_2_name}_n${num_g2}.txt";
 #	print "${file_1}\n\n\n";
 	if (data_double_check($file_1)) {
 	    $go_hash{$contrast}=1;
 	    push(@file_array,$file_1);
 	    $sub_missing_files_message = $sub_missing_files_message."\t$contrast";
 	} else {
-	    my $header_string = `head -1 ${file_1}`;
-	    #my @c_array_1 = split('=',$header_string);
-	    #my @completed_contrasts = split(',',$c_array_1[1]);
-	    #my $completed_contrasts_string = join(' ',@completed_contrasts);
+	    ## Check the first 2 lines of the found file (header lines)
 	    my $missing_runnos = 0;
-	    my @runno_array = split(',',$runlist);
-	    foreach my $runno (@runno_array) {
+	    ## Check group 1
+	    my $header_string = `head -1 ${file_1}`;
+	    foreach my $runno (@group_1_runnos) {
 		if (! $missing_runnos) {
 		    #if ($completed_contrasts_string !~ /($ch)/) {
 		    if ($header_string !~ /($runno)/) {
@@ -135,6 +135,19 @@ sub label_comparisons_between_two_groups_Output_check {
 		    }
 		}
 	    }
+
+	    ## Check group 2...
+	    $header_string ='';
+	    $header_string = `head -2 ${file_1} | tail -1`;
+	    foreach my $runno (@group_2_runnos) {
+		if (! $missing_runnos) {
+		    #if ($completed_contrasts_string !~ /($ch)/) {
+		    if ($header_string !~ /($runno)/) {
+			$missing_runnos = 1;
+		    }
+		}
+	    }
+
 	    if ($missing_runnos) {
 		$go_hash{$contrast}=1;
 		push(@file_array,$file_1);
@@ -166,15 +179,14 @@ sub label_comparisons_between_two_groups_Output_check {
 
 
 # ------------------
-sub label_comparisons_between_two_groups {
+sub label_stat_comparisons_between_groups {
 # ------------------
     my ($current_contrast) = @_;
+    my $input_stats_file = "${studywide_stats_dir}/studywide_stats_for_${current_contrast}.txt";
+    my $exec_args ="${input_stats_file} ${current_contrast} ${group_1_name} ${group_2_name} ${group_1_runnos} ${group_2_runnos} ${current_path}";
 
-    #my $exec_args_ ="${runno} {contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";# Save for part 3..
-    my $exec_args ="${individual_stat_dir} ${current_contrast} ${runlist} ${current_path}";
-
-    my $go_message = "$PM: Tabulating study-wide label statistics for contrast: ${current_contrast}\n" ;
-    my $stop_message = "$PM: Failed to properly tabulate study_wide label statistics for contrast: ${current_contrast} \n" ;
+    my $go_message = "$PM: Comparing label statistics of ${group_1_name} vs. ${group_2_name} for contrast: ${current_contrast}\n" ;
+    my $stop_message = "$PM: Failed to properly compare label statistics for groups: ${group_1_name} and ${group_2_name}, and contrast: ${current_contrast} \n" ;
     
     my @test=(0);
     if (defined $reservation) {
@@ -184,10 +196,10 @@ sub label_comparisons_between_two_groups {
     my $jid = 0;
     if (cluster_check) {
 	my $go =1;	    
-	my $cmd = "${tabulate_study_stats_executable_path} ${matlab_path} ${exec_args}";
+	my $cmd = "${compare_group_stats_executable_path} ${matlab_path} ${exec_args}";
 	
 	my $home_path = $current_path;
-	my $Id= "${current_contrast}_label_comparisons_between_two_groups";
+	my $Id= "${current_contrast}_label_stat_comparisons_between_groups_${group_1_name}_and_${group_2_name}";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
@@ -199,7 +211,7 @@ sub label_comparisons_between_two_groups {
 } 
 
 # ------------------
-sub  label_comparisons_between_two_groups_Init_check {
+sub  label_stat_comparisons_between_groups_Init_check {
 # ------------------
    my $init_error_msg='';
    my $message_prefix="$PM initialization check:\n";
@@ -217,10 +229,10 @@ sub  label_comparisons_between_two_groups_Init_check {
 }
 
 # ------------------
-sub  label_comparisons_between_two_groups_Runtime_check {
+sub  label_stat_comparisons_between_groups_Runtime_check {
 # ------------------
     
-    #$mdt_contrast = $Hf->get_value('mdt_contrast');
+
     $label_atlas = $Hf->get_value('label_atlas_name');
 
     if (! defined $current_label_space) {
@@ -247,68 +259,59 @@ sub  label_comparisons_between_two_groups_Runtime_check {
     $label_path = $Hf->get_value('labels_dir');
     my $label_refname = $Hf->get_value('label_refname');
     my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
-    #$image_dir = "${intermediary_path}/images/";
+
     $work_dir="${intermediary_path}/${label_atlas}/";
 
     my $stat_path = "${work_dir}/stats/";
-    $individual_stat_dir = "${stat_path}/individual_label_statistics/";
+    $studywide_stats_dir = "${stat_path}/studywide_label_statistics/";
 
-    $current_path = "${stat_path}/studywide_label_statistics/";
+    $current_path = "${stat_path}/label_statistic_comparisons/";
     if (! -e $current_path) {
 	mkdir ($current_path,$permissions);
     }
 
-    $runlist = $Hf->get_value('all_groups_comma_list');
-    if ($runlist eq 'NO_KEY') {
-	$runlist = $Hf->get_value('complete_comma_list');
+
+    $predictor_id = $Hf->get_value('predictor_id');
+    if ($predictor_id eq 'NO_KEY') {
+    	$group_1_name = 'control';
+    	$group_2_name = 'treated';	
+    } else {	
+    	if ($predictor_id =~ /([^_]+)_(''|vs_|VS_|Vs_){1}([^_]+)/) {
+    	    $group_1_name = $1;
+    	    if (($3 ne '') || (defined $3)) {
+    		$group_2_name = $3;
+    	    } else {
+    		$group_2_name = 'others';
+    	    }
+    	}
     }
 
-    #@array_of_runnos = split(',',$runlist);
- 
+    $group_1_runnos = $Hf->get_value('group_1_runnos');
+    if ($group_1_runnos eq 'NO_KEY') {
+    	$group_1_runnos = $Hf->get_value('control_comma_list');
+    }
+    @group_1_runnos = uniq(split(',',$group_1_runnos));
+    $num_g1= $#group_1_runnos + 1;
 
-    # $predictor_id = $Hf->get_value('predictor_id'); # SAVE THIS FOR PART TRES OF LABEL STATS! REMOVE OTHERWISE!
-    # if ($predictor_id eq 'NO_KEY') {
-    # 	$group_1_name = 'control';
-    # 	$group_2_name = 'treated';
-	
-    # } else {	
-    # 	if ($predictor_id =~ /([^_]+)_(''|vs_|VS_|Vs_){1}([^_]+)/) {
-    # 	    $group_1_name = $1;
-    # 	    if (($3 ne '') || (defined $3)) {
-    # 		$group_2_name = $3;
-    # 	    } else {
-    # 		$group_2_name = 'others';
-    # 	    }
-    # 	}
-    # }
 
-    # my $group_1_runnos = $Hf->get_value('group_1_runnos');
-    # if ($group_1_runnos eq 'NO_KEY') {
-    # 	$group_1_runnos = $Hf->get_value('control_comma_list');
-    # }
-    # @group_1_runnos = split(',',$group_1_runnos);
-
-    # my $group_2_runnos = $Hf->get_value('group_2_runnos');
-    # if ($group_2_runnos eq 'NO_KEY'){ 
-    # 	$group_2_runnos = $Hf->get_value('compare_comma_list');
-    # }
-    # @group_2_runnos = split(',',$group_2_runnos);
-
- 
-    #$ch_runlist = $Hf->get_value('channel_comma_list');
-    #my @initial_channel_array = split(',',$ch_runlist);
+    $group_2_runnos = $Hf->get_value('group_2_runnos');
+    if ($group_2_runnos eq 'NO_KEY'){ 
+    	$group_2_runnos = $Hf->get_value('compare_comma_list');
+    }
+    @group_2_runnos = uniq(split(',',$group_2_runnos));
+    $num_g2= $#group_2_runnos + 1;
 
     foreach my $contrast (@initial_channel_array) {
 	if ($contrast !~ /^(ajax|jac|nii4D)/) {
 	    push(@channel_array,$contrast);
 	}
     }
+    push(@channel_array,'volume');
     @channel_array=uniq(@channel_array);
 
-    #$channel_comma_lis_2 = join(',',@channel_array);
 
     my $case = 1;
-    my ($dummy,$skip_message)=label_comparisons_between_two_groups_Output_check($case);
+    my ($dummy,$skip_message)=label_stat_comparisons_between_groups_Output_check($case);
  
     if ($skip_message ne '') {
 	print "${skip_message}";

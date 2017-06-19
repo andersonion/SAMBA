@@ -809,7 +809,7 @@ if ($nii4D) {
 
 	#warp_atlas_labels_vbm(); #$PM_code = 63
 	#sleep($interval);
-	cluck "\$label_space = ${label_space}";
+	#cluck "\$label_space = ${label_space}";
 	$group_name = "all";
 
 	my @current_channel_array = @channel_array;
@@ -822,7 +822,7 @@ if ($nii4D) {
 
 
 	foreach my $a_label_space (@label_spaces) {
-	    cluck "\$a_label_space = ${a_label_space}";
+	    #cluck "\$a_label_space = ${a_label_space}";
 	    warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
 	    sleep($interval);
 
@@ -832,7 +832,7 @@ if ($nii4D) {
 	    
 	    calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
 	    tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
-	    label_stat_comparisons_between_groups_vbm($a_label_space); #$PM_code = 67
+	    label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
 
 	    if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
 		#apply_mdt_warps_vbm('nii4D',"f",'all',$a_label_space); #
