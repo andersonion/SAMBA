@@ -99,7 +99,7 @@ for cc = 1:length(contrast_or_contrasts_cell)
         
         if action_code < 2
             T=table();
-            T=readtable(mystatsfile,'HeaderLines',3,'Delimiter','\t');
+            T=readtable(mystatsfile,'HeaderLines',4,'Delimiter','\t');
             
             def_vol = 'volume_mm3_';
             if strcmp(contrast,'volume')
@@ -127,14 +127,6 @@ for cc = 1:length(contrast_or_contrasts_cell)
     
     writetable(master_T,out_file,'Delimiter','\t')
 end
-%dlmwrite([path_out,'vol.txt'], vol, 'delimiter', '\t', 'precision', '%10.8f'); %, '-append','roffset', 1);
-%dlmwrite([path_out,'dwi.txt'], dwi, 'delimiter', '\t', 'precision', '%10.8f'); %, '-append','roffset', 1);
-%dlmwrite([path_out,'fa.txt'], fa, 'delimiter', '\t', 'precision', '%10.8f'); %, '-append','roffset', 1);
-%dlmwrite([path_out,'e1.txt'], e1, 'delimiter', '\t', 'precision', '%10.8f'); %, '-append','roffset', 1);
-%dlmwrite([path_out,'e2.txt'], e2, 'delimiter', '\t', 'precision', '%10.8f'); %, '-append','roffset', 1);
-%dlmwrite([path_out,'e3.txt'], e3, 'delimiter', '\t', 'precision', '%10.8f'); %, '-append','roffset', 1);
-%dlmwrite([path_out,'rd.txt'], rd, 'delimiter', '\t', 'precision', '%10.8f'); %, '-append','roffset', 1);
-%dlmwrite([path_out,'adc.txt'], adc, 'delimiter', '\t', 'precision', '%10.8f'); %, '-append','roffset', 1);
 
 
 if figure_support

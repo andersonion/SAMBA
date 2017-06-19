@@ -1,5 +1,5 @@
 %compile mev
-script_name = 'write_corrected_stats';
+script_name = 'write_individual_stats';
 version = 1;
 
 if (version == 1)
@@ -8,6 +8,12 @@ elseif (version > 1)
     v_string = ['_v' num2str(version)];
 end
 
+source_dir='/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats/';
+source_filename = ['write_individual_stats_exec' v_string '.m'];
+source_file = [source_dir source_filename]
+
+include_string =[];
+include_files = {};
 
 matlab_path = '/cm/shared/apps/MATLAB/R2015b/';
 master_dir = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats_executables/';
@@ -24,13 +30,6 @@ compile_time=sprintf('%04i%02i%02i_%02i%02i%02i',ts(1:5));
 my_dir = [main_dir compile_time '/']
 mkdir(my_dir)
 eval(['!chmod a+rwx ' my_dir]);
-
-source_dir='/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats/';
-source_filename = ['write_corrected_stats_exec' v_string '.m'];
-source_file = [source_dir source_filename]
-
-include_string =[];
-include_files = {};
 
 for ff = 1:length(include_files)
     include_string = [include_string ' -a ' include_files{ff} ' '];

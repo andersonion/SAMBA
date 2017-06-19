@@ -7,7 +7,17 @@ function write_corrected_stats_exec(runno,label_file,contrast_list,image_dir,out
 % output_dir
 % space: 'native','rigid','affine','mdt', or atlas'; used in header
 % atlas_id: used in header; may be used for pulling label names in the future.
-
+%
+% A header is written at the top of the file listing on their own line:
+%   --contrasts for which label stats have been calculated (this is to
+%       faciliate checking for previous work, in case a new contrast is to be
+%       added to the file.
+%   --runno
+%   --atlas from which the labels were derived
+%   --space (native, rigid, affine, MDT, or atlas); Note that for MDT or
+%       atlas spaces, all the volumes should/will be the same for all
+%       runnos
+  
 expected_output_subfolder='stats';
 
 if ~isdeployed
@@ -93,78 +103,73 @@ else
     
 end
 
-%write stats
-% taking
-% cell array of niftis
-%    first is the label file to be loaded the rest are all the volumes to
-%    measure based on the labels
-% output labels
-%    label file output, we ... renormalize the label field in processing
-% output stats, path to write a text file to
-% atlas id, which of the atlases was used to create labels
-%    this is useful for writing out the correct label names, not that we do
-%    much with it yet.
-
 % Need label_names! label_names=['Exterior',	'Cerebral_cortex	', 'Brainstem	', 'Cerebellum	   '	]; %et cetera, et cetera, et cetera
 
 contrasts = strsplit(contrast_list,',');
 
-%label_hdr
 output_name=[runno '_' atlas_id '_labels_in_' space '_space'];
 output_stats = [output_dir output_name '_stats.txt'];
-header_info = {runno atlas_id space};
-header_key = {'runno' 'atlas' 'space'};
 
-label_hdr = 'ROI';
-myheader={label_hdr , 'voxels',  'volume(mm3)'} ;
-
-for i=1:length(contrasts)
-    myheader=[myheader,contrasts{i}];
-end
-fprintf('Header on output \n>\t%s\n',strjoin(myheader,','));
 
 label_orig=load_untouch_nii(label_file);
 voxel_vol=label_orig.hdr.dime.pixdim(2)*label_orig.hdr.dime.pixdim(3)*label_orig.hdr.dime.pixdim(4);
 labelim=label_orig.img;
+ROI=unique(labelim);
+n=length(ROI);
+edges = ROI-0.5;
+edges = [edges' (max(edges(:))+1)]';
+[voxels, ~] =  histcounts(labelim,edges);
+voxels = voxels';
+% Calculate volume in mm^3
+volume_mm3=voxels*voxel_vol;
 
-label_test=label_orig;
-val1=unique(labelim);
-L=(length(contrasts)+1); % extra one is for volume
-n=length(val1)
-ar1=1:n;
-volumes=zeros(size(ar1));
-mystats=zeros([n,L]);
-ind_mask=find(labelim);%check if used
+if exist(output_stats,'file')
+   working_table = readtable(output_stats,'HeaderLines',4,'Delimiter','\t'); % Change 3 to 4 before production!
+else
+   working_table = table(ROI,voxels,volume_mm3);
+end
 
-label_test.hdr=label_orig.hdr;
 
-%%%
+previous_work=zeros(size(contrasts));
+contrast_list=working_table.Properties.VariableNames;
+
 for ii=1:length(contrasts)
     contrast = contrasts{ii};
-    i = ii + 1;
-    %get index for each region
-    %get fa values, e1 values, e2 values etc for each region
-    filenii_i=[image_dir runno '_' contrast '.nii'];
-    if ~exist(filenii_i,'file')
-        filenii_i = [filenii_i '.gz'];
-    end
-    fprintf('load nii %s\n',filenii_i);
-    imnii_i=load_untouch_nii(filenii_i);
-    for ind=1:numel(val1)
-        fprintf('For contrast "%s" (%i/%i), processing region %i of %i (ROI %i)...\n',contrast,ii,length(contrasts),ind,numel(val1),val1(ind));
-        volumes(ind)=numel(find(labelim==val1(ind)));
-        regionindex=find(labelim==val1(ind));
-        mystats(ind,1)=mean(labelim(regionindex));
-        mystats(ind,i)=mean(imnii_i.img(regionindex));
+    previous_work(ii) = ~isempty(find(strcmp(contrast,contrast_list),1));
+    if ~previous_work(ii)
+        contrast_list{length(contrast_list)+1} = contrast;
     end
 end
 
 
-%% Calculate volume in mm^3
 
-volumes_unit=volumes*voxel_vol;
+
+fprintf('Header on output \n>\t%s\n',strjoin(contrast_list,',')); % Right place for this?
+
+for ii=1:length(contrasts)
+    if ~previous_work(ii)
+        contrast_stats=zeros([n,1]);
+        filenii_i=[image_dir runno '_' contrast '.nii']; % Does not yet support '_RAS' suffix, etc yet.
+        if ~exist(filenii_i,'file')
+            filenii_i = [filenii_i '.gz'];
+        end
+        fprintf('load nii %s\n',filenii_i);
+        imnii_i=load_untouch_nii(filenii_i);
+        for ind=1:numel(ROI)
+            fprintf('For contrast "%s" (%i/%i), processing region %i of %i (ROI %i)...\n',contrast,ii,length(contrasts),ind,numel(ROI),ROI(ind));
+            %regionindex=find(labelim==val1(ind));
+            contrast_stats(ind)=mean(imnii_i.img(labelim==ROI(ind)));
+        end
+        eval_cmd = ['working_table.' contrast '=contrast_stats'];
+        eval(eval_cmd);
+    end
+end
 
 %% Write to file
+headers = working_table.Properties.VariableNames;
+final_contrast_list = strjoin(working_table.Properties.VariableNames(2:end),',');
+header_info = {final_contrast_list runno atlas_id space};
+header_key = {'contrasts' 'runno' 'atlas' 'space'};
 
 fid = fopen(output_stats, 'w');
 for LL = 1:length(header_info)
@@ -182,19 +187,21 @@ label_key=['General label key support not implemented yet.'];
 disp(label_key);
 %end
 
+mystats = table2array(working_table);
+
 fid = fopen(output_stats, 'a');
-fprintf(fid, '%s', myheader{:,1});
-for row=2:length(myheader)
-    fprintf(fid, '\t%s', myheader{:,row});
+fprintf(fid, '%s', headers{:,1});
+for row=2:length(headers)
+    fprintf(fid, '\t%s', headers{:,row});
 end
 fprintf(fid, '\n');
 
-for c_row=1:length(val1)
+for c_row=1:length(ROI)
 
-    fprintf(fid, '%i\t%i\t%10.8f', val1(c_row),volumes(c_row),volumes_unit(c_row));
+    fprintf(fid, '%i\t%i\t%10.8f', mystats(c_row,(1:3)));
 
-    for cc=1:length(contrasts)
-        fprintf(fid, '\t%10.8f', mystats(c_row,(cc+1)));
+    for cc=4:length(headers)
+        fprintf(fid, '\t%10.8f', mystats(c_row,cc));
     end
     fprintf(fid, '\n');
 end

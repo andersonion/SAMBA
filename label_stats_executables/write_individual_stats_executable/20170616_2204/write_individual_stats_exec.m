@@ -1,14 +1,24 @@
-function write_corrected_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,space,atlas_id) % (contrast,average_mask,inputs_directory,results_directory,group_1_name,group_2_name,group_1_filenames,group_2_filenames)
+function write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,space,atlas_id) % (contrast,average_mask,inputs_directory,results_directory,group_1_name,group_2_name,group_1_filenames,group_2_filenames)
 % New inputs:
 % runno: run number of interest
 % label_file: Full path to labels
-% contrast_list: comma-delimited (no spaces) string of contrasts\
+% contrast_list: comma-delimited (no spaces) string of contrasts
 % image_dir: Directory containing all the contrast images
 % output_dir
 % space: 'native','rigid','affine','mdt', or atlas'; used in header
 % atlas_id: used in header; may be used for pulling label names in the future.
-
-expected_output_subfolder='stats';
+%
+% A header is written at the top of the file listing on their own line:
+%   --contrasts for which label stats have been calculated (this is to
+%       faciliate checking for previous work, in case a new contrast is to be
+%       added to the file.
+%   --runno
+%   --atlas from which the labels were derived
+%   --space (native, rigid, affine, MDT, or atlas); Note that for MDT or
+%       atlas spaces, all the volumes should/will be the same for all
+%       runnos
+  
+expected_output_subfolder='individual_label_statistics';
 
 if ~isdeployed
     % Default test variables:
@@ -41,12 +51,12 @@ if ~isdeployed
    end
     
 else
-    if exist(output_dir)
-        
-        output_dir='/glusterspace/VBM_13colton01_chass_symmetric2_April2017analysis-work/dwi/SyN_0p5_3_0p5_fa/faMDT_nos2_n28_i6/stats_by_region/labels/post_rigid_native_space/chass_symmetric2/stats/';
-        folder_cell = strsplit(output_dir,'/');
+    if (exist(output_dir,'dir') && (~exist('space','var') || ~exist('atlas_id','var')))
+        %output_dir='/glusterspace/VBM_13colton01_chass_symmetric2_April2017analysis-work/dwi/SyN_0p5_3_0p5_fa/faMDT_nos2_n28_i6/stats_by_region/labels/post_rigid_native_space/chass_symmetric2/stats/';  
+        folder_cell = strsplit(strjoin(strsplit(output_dir,'//'),'/'),'/');
         folder_cell=folder_cell(~cellfun('isempty',folder_cell));
         if strcmp(folder_cell{end},expected_output_subfolder)
+            folder_cell(end)=[];
             folder_cell(end)=[];
         end
         
@@ -85,12 +95,12 @@ else
     end
     
     if ~exist('atlas_id','var')
-        atlas_id=default_atlas_id;
+        if exist('default_atlas_id','var')           
+            atlas_id=default_atlas_id;
+        else
+           atlas_id='chass_symmetric2'; 
+        end
     end
-    
-    
-    
-    
 end
 
 % Need label_names! label_names=['Exterior',	'Cerebral_cortex	', 'Brainstem	', 'Cerebellum	   '	]; %et cetera, et cetera, et cetera
@@ -121,24 +131,25 @@ end
 
 
 previous_work=zeros(size(contrasts));
-contrast_list=working_table.Properties.VariableNames;
+contrast_list2=working_table.Properties.VariableNames;
 
 for ii=1:length(contrasts)
     contrast = contrasts{ii};
-    previous_work(ii) = ~isempty(find(strcmp(contrast,contrast_list),1));
+    previous_work(ii) = ~isempty(find(strcmp(contrast,contrast_list2),1));
     if ~previous_work(ii)
-        contrast_list{length(contrast_list)+1} = contrast;
+        contrast_list2{length(contrast_list2)+1} = contrast;
     end
 end
 
 
 
 
-fprintf('Header on output \n>\t%s\n',strjoin(contrast_list,',')); % Right place for this?
+fprintf('Header on output \n>\t%s\n',strjoin(contrast_list2,',')); % Right place for this?
 
 for ii=1:length(contrasts)
     if ~previous_work(ii)
-        contrast_stats=zeros([n,1]);
+        contrast = contrasts{ii};
+        contrast_stats=zeros(size(volume_mm3));
         filenii_i=[image_dir runno '_' contrast '.nii']; % Does not yet support '_RAS' suffix, etc yet.
         if ~exist(filenii_i,'file')
             filenii_i = [filenii_i '.gz'];
@@ -150,7 +161,7 @@ for ii=1:length(contrasts)
             %regionindex=find(labelim==val1(ind));
             contrast_stats(ind)=mean(imnii_i.img(labelim==ROI(ind)));
         end
-        eval_cmd = ['working_table.' contrast '=contrast_stats'];
+        eval_cmd = ['working_table.' contrast '=contrast_stats;'];
         eval(eval_cmd);
     end
 end
@@ -177,8 +188,8 @@ label_key=['General label key support not implemented yet.'];
 disp(label_key);
 %end
 
-mystats = table2array(working_table);
-
+%mystats = table2array(double(working_table));
+%mystats= double(working_table{:,:})
 fid = fopen(output_stats, 'a');
 fprintf(fid, '%s', headers{:,1});
 for row=2:length(headers)
@@ -188,10 +199,11 @@ fprintf(fid, '\n');
 
 for c_row=1:length(ROI)
 
-    fprintf(fid, '%i\t%i\t%10.8f', mystats(c_row,(1:3)));
-
-    for cc=4:length(headers)
-        fprintf(fid, '\t%10.8f', mystats(c_row,cc));
+    fprintf(fid, '%i\t%i', working_table.ROI(c_row),working_table.voxels(c_row));
+    for cc=3:length(headers)
+        c_contrast = working_table.Properties.VariableNames{cc};
+        eval_cmd =  ['working_table.' c_contrast '(c_row)'];
+        fprintf(fid, '\t%10.8f',eval(eval_cmd));
     end
     fprintf(fid, '\n');
 end
