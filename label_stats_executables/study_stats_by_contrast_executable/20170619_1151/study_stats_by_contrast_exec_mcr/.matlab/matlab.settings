@@ -109,8 +109,13 @@
             </key>
             <key name="History">
                 <string minArraySize="0" maxArraySize="500">
-                    <value><![CDATA[/home/rja20/cluster_code/workstation_code/shared/civm_matlab_common_utils]]></value>
+                    <value><![CDATA[/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats]]></value>
+                    <value><![CDATA[/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe]]></value>
+                    <value><![CDATA[/home/rja20/cluster_code/workstation_code/analysis]]></value>
+                    <value><![CDATA[/home/rja20/cluster_code/workstation_code]]></value>
+                    <value><![CDATA[/home/rja20/cluster_code]]></value>
                     <value><![CDATA[/home/rja20/cluster_code/workstation_code/shared]]></value>
+                    <value><![CDATA[/home/rja20/cluster_code/workstation_code/shared/civm_matlab_common_utils]]></value>
                     <value><![CDATA[/home/rmd22/Documents/MATLAB/MATLAB_scripts_rmd/CS]]></value>
                     <value><![CDATA[/home/rmd22/Documents/MATLAB/MATLAB_scripts_rmd]]></value>
                     <value><![CDATA[/home/rmd22/Documents/MATLAB]]></value>
@@ -119,16 +124,11 @@
                     <value><![CDATA[/home]]></value>
                     <value><![CDATA[/]]></value>
                     <value><![CDATA[/home/rja20]]></value>
-                    <value><![CDATA[/home/rja20/cluster_code]]></value>
-                    <value><![CDATA[/home/rja20/cluster_code/workstation_code]]></value>
                     <value><![CDATA[/home/rmd22/Documents/MATLAB/MATLAB_scripts_rmd/CS/Wavelab850]]></value>
                     <value><![CDATA[/cm/shared/workstation_code_dev/recon/CS/Wavelab850]]></value>
                     <value><![CDATA[/cm/shared/workstation_code_dev/recon/CS]]></value>
                     <value><![CDATA[/cm/shared/workstation_code_dev/recon]]></value>
                     <value><![CDATA[/cm/shared/workstation_code_dev]]></value>
-                    <value><![CDATA[/cm/shared]]></value>
-                    <value><![CDATA[/cm]]></value>
-                    <value><![CDATA[/cm/shared/workstation_code_dev/shared]]></value>
                 </string>
             </key>
             <key name="HistorySize">
@@ -170,7 +170,7 @@
                     <string minArraySize="0" maxArraySize="100000">
                         <value><![CDATA[40]]></value>
                         <value><![CDATA[215]]></value>
-                        <value><![CDATA[49]]></value>
+                        <value><![CDATA[50]]></value>
                         <value><![CDATA[0]]></value>
                         <value><![CDATA[0]]></value>
                         <value><![CDATA[0]]></value>

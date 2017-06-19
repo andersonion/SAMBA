@@ -16,12 +16,12 @@ if ~isdeployed
     end
     
     if ~exist('input_path','var')
-        input_path='/glusterspace/VBM_13colton01_chass_symmetric2_April2017analysis-work/dwi/SyN_0p5_3_0p5_fa/faMDT_nos2_n28_i6/stats_by_region/labels/post_rigid_native_space/chass_symmetric2/stats/';
+        input_path='/glusterspace/VBM_13colton01_chass_symmetric2_April2017analysis-work/dwi/SyN_0p5_3_0p5_fa/faMDT_nos2_n28_i6/stats_by_region/labels/post_affine_native_space/chass_symmetric2/stats/individual_label_statistics/';
     end
     
-    %if ~exist('out_file','var')
-    %    out_file=['/glusterspace/VBM_13colton01_chass_symmetric2_April2017analysis-work/dwi/SyN_0p5_3_0p5_fa/faMDT_nos2_n28_i6/stats_by_region/labels/post_rigid_native_space/chass_symmetric2/stats/studywide_stats_for_' contrast_or_contrasts '.txt'];
-    %end
+    if ~exist('output_path','var')
+        output_path=['/glusterspace/VBM_13colton01_chass_symmetric2_April2017analysis-work/dwi/SyN_0p5_3_0p5_fa/faMDT_nos2_n28_i6/stats_by_region/labels/post_affine_native_space/chass_symmetric2/stats/studywide_label_statistcs/studywide_stats_for_' contrast_or_contrasts '.txt'];
+    end
     
     if ~exist('string_of_runnos','var')
         string_of_runnos = 'N51211,N51221,N51231,N51383,N51386,N51404,N51406,N51193,N51136,N51201,N51234,N51241,N51252,N51282,N51390,N51392,N51393,N51133,N51388,N51124,N51130,N51131,N51164,N51182,N51151,N51622,N51620,N51617';
@@ -33,7 +33,9 @@ if exist('output_path','var')
     if ~exist(output_path,'dir')
         output_path = input_path;
     else
-        out_file2=output_path;
+        if ~strcmp('/',output_path(end))
+            out_file2=output_path;
+        end
     end
 else
     output_path = input_path;
@@ -82,45 +84,49 @@ for cc = 1:length(contrast_or_contrasts_cell)
         potential_files= dir([input_path '/' runno '*stats.txt']);
         %potential_files= dir([input_path '/*stats.txt']);
         % Find most recent files, if somehow there are multiple
-        for tt = 1:length(potential_files)
-            time_stamps(tt) = potential_files(tt).datenum;
-        end
-        t_idx=find(time_stamps==max(time_stamps(:)));
-        c_timestamp = time_stamps(t_idx);
-        mystatsfile=[input_path '/' potential_files(t_idx).name];
-        
-        if action_code
-            % Is runno stats file older than studywide stats file?
-            if c_timestamp < master_timestamp
-                action_code = 2; % skip if runno file is older
-                fprintf('Data for %s already found; skipping...\n',runno)
-            end % else update/replace data
-        end
-        
-        if action_code < 2
-            T=table();
-            T=readtable(mystatsfile,'HeaderLines',4,'Delimiter','\t');
+        if isempty(potential_files)
+            fprintf('Potential error: no input files found for runno: %s; will continue tabulating statistics anyways.\n',runno);
+        else
+            for tt = 1:length(potential_files)
+                time_stamps(tt) = potential_files(tt).datenum;
+            end
+            t_idx=find(time_stamps==max(time_stamps(:)));
+            c_timestamp = time_stamps(t_idx);
+            mystatsfile=[input_path '/' potential_files(t_idx).name];
             
-            def_vol = 'volume_mm3_';
-            if strcmp(contrast,'volume')
-                contrast=def_vol;
+            if action_code
+                % Is runno stats file older than studywide stats file?
+                if c_timestamp < master_timestamp
+                    action_code = 2; % skip if runno file is older
+                    fprintf('Data for %s already found; skipping...\n',runno)
+                end % else update/replace data
             end
             
-            if strcmp(contrast,'vol')
-                contrast=def_vol;
+            if action_code < 2
+                T=table();
+                T=readtable(mystatsfile,'HeaderLines',4,'Delimiter','\t');
+                
+                def_vol = 'volume_mm3';
+                if strcmp(contrast,'volume')
+                    contrast=def_vol;
+                end
+                
+                if strcmp(contrast,'vol')
+                    contrast=def_vol;
+                end
+                
+                if strcmp(contrast,'volume (mm3)')
+                    contrast=def_vol;
+                end
+                
+                c_data = eval(['T.' contrast]);
+                if ~current_width;
+                    master_T.ROI = T.ROI;
+                    current_width = 1;
+                end
+                master_T.(runno)=c_data;
+                
             end
-            
-            if strcmp(contrast,'volume (mm3)')
-                contrast=def_vol;
-            end
-            
-            c_data = eval(['T.' contrast]);
-            if ~current_width;
-                master_T.ROI = T.ROI;
-                current_width = 1;
-            end
-            master_T.(runno)=c_data;
-            
         end
     end
     %%
