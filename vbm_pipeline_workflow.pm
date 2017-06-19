@@ -98,7 +98,7 @@ require mdt_reg_to_atlas_vbm;
 require warp_atlas_labels_vbm;
 require calculate_individual_label_statistics_vbm;
 require	tabulate_label_statistics_by_contrast_vbm;
-#require label_stat_comparisons_between_groups_vbm;
+require label_stat_comparisons_between_groups_vbm;
 require mask_for_mdt_vbm;
 require calculate_jacobians_vbm;
 require smooth_images_vbm;
@@ -558,12 +558,12 @@ print STDOUT " Running the main code of $PM. \n";
      mdt_reg_to_atlas_vbm
      warp_atlas_labels_vbm
      tabulate_label_statistics_by_contrast_vbm
+     label_stat_comparisons_between_groups_vbm
      calculate_individual_label_statistics_vbm
      calculate_jacobians_vbm
      vbm_analysis_vbm
      apply_warps_to_bvecs
       );
-    # label_stat_comparisons_between_groups_vbm
     
     my $checkCall; # Using camelCase here to avoid the potential need for playing the escape character game when calling command with backticks, etc.
     my $Init_suffix = "_Init_check()";
@@ -832,7 +832,7 @@ if ($nii4D) {
 	    
 	    calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
 	    tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
-	    #label_stat_comparisons_between_groups_vbm($a_label_space); #$PM_code = 67
+	    label_stat_comparisons_between_groups_vbm($a_label_space); #$PM_code = 67
 
 	    if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
 		#apply_mdt_warps_vbm('nii4D',"f",'all',$a_label_space); #
