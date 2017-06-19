@@ -1,7 +1,7 @@
 function compare_group_stats_exec(stats_file,contrast,group_1_name,group_2_name,group_1_runno_string,group_2_runno_string,out_dir,skip_first_row)
 % Calculates various statistical tests with a binary model between two groups
 %
-% stats_file: the input headerless, tab-delimited .txt file; first entry must be 'ROI', and the various runnos filling out the rest of the first row
+% stats_file: the headerless, tab-delimited input .txt file; first entry must be 'ROI', and the various runnos filling out the rest of the first row
 %            Note that the global volume will be appended to the end of the
 %            file, labeled as ROI '0' (zero), replacing the exterior.
 % contrast: which quantitative contrast to compare; 'vol','volume', and  'volume_mm3_' are all recognized as volume, and will be normalized by the global volumes.
@@ -10,6 +10,10 @@ function compare_group_stats_exec(stats_file,contrast,group_1_name,group_2_name,
 % out_dir: [optional] directory which to write the output; dafault is to put it in the same dir as the stats_file.
 % skip_first_row: [optional] binary flag, indicator whether or not to EXCLUDE the exterior; default: 1
 %
+% Note that a two-line header is written in the form of:
+%   {group_1_name}(n={n_specimens_in_group_1}):{comma_delimited_string_of_group_1_runnos}
+%   {group_2_name}(n={n_specimens_in_group_2}):{comma_delimited_string_of_group_2_runnos}
+
 vols=0;
 
 if ~isdeployed
@@ -56,17 +60,20 @@ switch contrast
         vols=0;
 end
 
-out_file=[out_dir '/' contrast '_group_stats_' group_1_name '_vs_' group_2_name '.txt'];
-
 group_1_runnos = strsplit(group_1_runno_string,',');
 group_2_runnos = strsplit(group_2_runno_string,',');
+
+num_g1 = length(group_1_runnos);
+num_g2 = length(group_2_runnos);
+
+out_file=[out_dir '/' contrast '_group_stats_' group_1_name '_n' num2str(num_g1) '_vs_' group_2_name '_n' num2str(num_g2) '.txt'];
+
 
 % Load stats file as a table
 stats_table = readtable(stats_file,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t');
 
 num_labels = size(stats_table,1)-skip_first_row; % We are assuming ROI "0" is the exterior
-num_g1 = length(group_1_runnos);
-num_g2 = length(group_2_runnos);
+
 ROIs = stats_table.ROI((skip_first_row+1):end);
 fprintf('Comparing %s of groups: %s (n = %i) vs. %s (n = %i) for %i labels...\n',contrast,group_1_name,num_g1,group_2_name,num_g2,num_labels)
 
@@ -159,16 +166,22 @@ mystats=[ROIs'; mean(g2_array'); mean(g1_array') ;std(g2_array'); std(g1_array')
 myheader={'ROI', ['mean_' group_2_name ], ['mean_' group_1_name ], ['std_' group_2_name ], ['std_' group_1_name ], ['sem_' group_2_name ], ['sem_' group_1_name ], ['ci1_' group_2_name ],['ci2_' group_2_name ],['ci1_' group_1_name ],['ci2_' group_1_name ], 'hypothesis', 'p_value', 'ppermute', 'P_FDR_0p05_BH', 'CI_1', 'CI_2', 't_stats', 'cohen_d' ,'difference'};
 
 out_table = array2table(mystats','VariableNames',myheader);
-
+out_file_head=[out_file '.hd'];
+[of_dir,of_name,of_ext]=fileparts(out_file);
+out_file_temp=[of_dir '/' of_name '.tmp' of_ext];
 fprintf('\nWriting table to file:\n%s\n',out_file)
-writetable(out_table,out_file,'Delimiter','\t')
-% fid = fopen(fileout, 'a');
-% for row=1:length(myheader)
-%     fprintf(fid, '%s %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n', myheader{:,row});
-% end
-% fclose (fid);
-% 
-% 
-% 
-% dlmwrite(fileout, mystats', 'delimiter', '\t', 'precision', '%10.8f', '-append','roffset', 1);
+writetable(out_table,out_file_temp,'Delimiter','\t')
+
+fid = fopen(out_file_head, 'a');
+fprintf(fid, '%s(n=%i):%s\n',group_1_name,num_g1,group_1_runno_string);
+fprintf(fid, '%s(n=%i):%s\n',group_2_name,num_g2,group_2_runno_string);
+fclose (fid);
+
+cat_cmd = ['cat ' out_file_head ' ' out_file_temp ' > ' out_file];
+system(cat_cmd);
+rm_cmd_1 = ['rm ' out_file_head];
+rm_cmd_2 = ['rm ' out_file_temp];
+system(rm_cmd_1);
+system(rm_cmd_2);
+
 end

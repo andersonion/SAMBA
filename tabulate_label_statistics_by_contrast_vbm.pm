@@ -22,7 +22,7 @@ my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$curre
 my ($individual_stat_dir);
 my (@array_of_runnos,@channel_array,@initial_channel_array);
 #my ($predictor_id); # SAVE FOR LAST ROUND OF LABEL STATS CODE
-my (@jobs);
+my @jobs=();
 my (%go_hash,%go_mask,%results_dir_hash,%work_dir_hash);
 my $log_msg='';
 my $skip=0;
@@ -67,7 +67,7 @@ sub  tabulate_label_statistics_by_contrast_vbm {
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
 	
 	if ($done_waiting) {
-	    print STDOUT  " study-wide ${label_space} label statistics has been calculated for all contrasts; moving on to next step.\n";
+	    print STDOUT  " study-wide ${current_label_space} label statistics has been calculated for all contrasts; moving on to next step.\n";
 	}
     }
     my $case = 2;
@@ -303,6 +303,7 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
 	    push(@channel_array,$contrast);
 	}
     }
+    push(@channel_array,'volume');
     @channel_array=uniq(@channel_array);
 
     #$channel_comma_lis_2 = join(',',@channel_array);
