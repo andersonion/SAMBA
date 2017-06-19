@@ -645,14 +645,14 @@ sub study_variables_vbm {
 	$vbm_reference_space = "native";
 	$create_labels = 1;
 	#$label_space = "pre_affine";
-	$label_space = "pre_rigid";
+	$label_space = "pre_rigid,post_affine";
 	$convert_labels_to_RAS = 1;
 
 
 
 	$mdt_creation_strategy = 'iterative';
 	$mdt_iterations = 6;
-	$do_connectivity = 1;
+	$do_connectivity = 0;
 
 	if ($test_mode) {
 	    @control_group = qw(N51386 N51211 N51221);# N51406);
@@ -678,6 +678,7 @@ sub study_variables_vbm {
               N51131 N51164 N51182 N51151 N51622 N51620 N51617);
 
 	    @channel_array = qw(adc dwi e1 e2 e3 fa);
+	    #@channel_array = qw(dwi fa);
 	    $affine_target = 'N51383';
 	}	
 

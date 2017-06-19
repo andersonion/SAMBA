@@ -533,7 +533,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	$median_images_path = $Hf->get_value('median_images_path');
 
 	my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
-	print "\$intermediary_path = ${intermediary_path}\n\n";
+	#print "\$intermediary_path = ${intermediary_path}\n\n";
 
 	if (! -e  $intermediary_path) {
 	    mkdir ( $intermediary_path,$permissions);
