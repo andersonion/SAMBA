@@ -152,6 +152,7 @@ $label_space
 $label_reference
 
 $do_vba
+$do_nonparametric_testing
 
 $convert_labels_to_RAS
 $eddy_current_correction
