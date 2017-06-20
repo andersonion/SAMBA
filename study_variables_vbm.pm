@@ -653,6 +653,7 @@ sub study_variables_vbm {
 	$mdt_creation_strategy = 'iterative';
 	$mdt_iterations = 6;
 	$do_connectivity = 0;
+	$do_nonparametric_testing = 1;
 
 	if ($test_mode) {
 	    @control_group = qw(N51386 N51211 N51221);# N51406);

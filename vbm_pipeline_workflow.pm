@@ -175,6 +175,8 @@ $label_space
 $label_reference
 
 $do_vba
+$do_nonparametric_testing
+
 $convert_labels_to_RAS
 $eddy_current_correction
 $do_connectivity
@@ -195,6 +197,9 @@ if (! defined $do_vba) {
     $do_vba = 0;
 }
 
+if (! defined $do_nonparametric_testing) {
+    $do_nonparametric_testing = 0;
+}
 
 # $label_reference_path
 
@@ -298,6 +303,10 @@ if ($label_reference ne '') {
 
 if (defined $do_vba) {
     $Hf->set_value('do_vba',$do_vba);
+}
+
+if (defined $do_nonparametric_testing) {
+    $Hf->set_value('do_nonparametric_testing',$do_nonparametric_testing);
 }
 
 $Hf->set_value('control_comma_list',$control_comma_list);
@@ -845,7 +854,7 @@ if ($nii4D) {
 	## sleep($interval);
     }   
 
-if ($do_vba) {
+if (($do_vba) || ($do_nonparametric_testing)) { # Smoothing is done as part of vbm_analysis, an input for nonparametric_testing, thus the latter requires the former
 #    my $new_contrast = calculate_jacobians_vbm('i','compare'); #$PM_code = 53 # Nope, this is bad--26 July 2016
     my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53 # BAD code. Don't this unless trying to prove a point. # JK Kidding this code is right believe it or not.
     
@@ -853,12 +862,24 @@ if ($do_vba) {
     $channel_comma_list = $channel_comma_list.','.$new_contrast;
     $Hf->set_value('channel_comma_list',$channel_comma_list);
     sleep($interval);
-#    die;####
+
     vbm_analysis_vbm(); #$PM_code = 72
     sleep($interval);
+    
+    # smooth_images_vbm(); #$PM_code = 71 (now called from vbm_analysis_vbm)
+    #sleep($interval);
+    
+    if ($do_nonparametric_testing) {
+	nonparametric_prep_vbm(); #$PM_code = 81
+	sleep($interval);
 
-   # smooth_images_vbm(); #$PM_code = 71 (now called from vbm_analysis_vbm)
-    sleep($interval);
+	nonparametric_permutations_vbm(); #$PM_code = 82
+	sleep($interval);
+	
+	nonparametric_postprocessing_vbm(); #$PM_code = 83
+	sleep($interval);
+    }
+
 }
 
     $Hf->write_headfile($result_headfile);
