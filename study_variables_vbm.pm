@@ -653,7 +653,6 @@ sub study_variables_vbm {
 	$mdt_creation_strategy = 'iterative';
 	$mdt_iterations = 6;
 	$do_connectivity = 0;
-	$do_nonparametric_testing = 1;
 
 	if ($test_mode) {
 	    @control_group = qw(N51386 N51211 N51221);# N51406);
@@ -675,8 +674,8 @@ sub study_variables_vbm {
 
 
 	    @group_1 = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406 N51193);#N51193-exclude N51404,N51383,N51386-manually z-roll and recalc tensors
-	    @group_2 = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388 N51124 N51130 
-              N51131 N51164 N51182 N51151 N51622 N51620 N51617);
+	    @group_2 = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390);# N51392 N51393 N51133 N51388 N51124 N51130
+             # N51131 N51164 N51182 N51151 N51622 N51620 N51617);
 
 	    @channel_array = qw(adc dwi e1 e2 e3 fa);
 	    #@channel_array = qw(dwi fa);
@@ -702,7 +701,7 @@ sub study_variables_vbm {
 	$port_atlas_mask = 0;
 	$pre_masked = 0;
     
-	$vba_analysis_software = 'antsr';
+	$vba_analysis_software = 'fsl';
 
 #custom thresholds for Colton study
 	$thresh_ref = {

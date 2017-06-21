@@ -4,16 +4,18 @@
 
 #  2015/08/06  Added SurfStat support
 #  2015/12/23  Added basic SPM support
+#  2017/06/20  Added fsl non-parametric testing support
+
 
 my $PM = "vbm_analysis_vbm.pm";
-my $VERSION = "2015/12/07";
+my $VERSION = "2017/06/20";
 my $NAME = "Run vbm analysis with software of choice.";
 
 use strict;
 use warnings;
 no warnings qw(bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $valid_formats_string $permissions $reservation);
+use vars qw($Hf $BADEXIT $GOODEXIT $valid_formats_string $permissions $reservation);
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
@@ -21,13 +23,13 @@ require pipeline_utilities;
 my $use_Hf;
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$flip_x,$flip_z,$do_mask);
 my ($smoothing_comma_list,$software_list,$channel_comma_list,$template_path,$template_name,$average_mask);
-my $min_cluster_size;
+my $min_cluster_size='';
 my (@array_of_runnos,@channel_array,@smoothing_params,@software_array);
 my ($predictor_id);
 my (@group_1_runnos,@group_2_runnos);
 my (%go_hash,%go_mask,%smooth_pool_hash,%results_dir_hash,%work_dir_hash);
-my $log_msg;
-my $supported_vbm_software = '(surfstat|spm|ANTsR)';
+my $log_msg='';
+my $supported_vbm_software = '(surfstat|spm|ANTsR|fsl|nonparametric)';
 my $skip=0;
 
 my ($group_1_name,$group_2_name,$group_1_files,$group_2_files);
@@ -98,6 +100,8 @@ sub vbm_analysis_vbm {
 		    spm_analysis_vbm($contrast,$smooth_inputs,$software_work_path);
 		} elsif ($software eq 'antsr') {
 		    antsr_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+		} elsif ($software eq 'fsl') {
+		    fsl_nonparametric_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
 		} else {
 		    print "I'm sorry, but VBM software \"$software\" is currently not supported :( \n";
 		}
@@ -328,63 +332,304 @@ sub surfstat_analysis_vbm {
     }
     return();
 }
+
+# ------------------
+sub fsl_nonparametric_analysis_vbm {
+# ------------------
+    my ($contrast,$input_path,$results_master_path) = @_;
+    fsl_nonparametric_analysis_prep($contrast,$input_path,$results_master_path);
+
+
+
+#     my $contrast_path = "${results_master_path}/${contrast}/";
+#     if (! -e $contrast_path) {
+# 	mkdir ($contrast_path,$permissions);
+#     }
+
+
+
+    
+#     my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
+#     my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
+#     my $exec_testing =1;
+#     if ($exec_testing) {
+# 	my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
+# 	my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
+# 	my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
+	
+# 	my @test=(0);
+# 	if (defined $reservation) {
+# 	    @test =(0,$reservation);
+# 	}
+# 	my $mem_request = '10000';
+# 	my $jid = 0;
+# 	if (cluster_check) {
+# 	    my $go =1;	    
+# #	my $cmd = $pairwise_cmd.$rename_cmd;
+# 	    my $cmd = "${executable_path} ${matlab_path} ${surfstat_args_2}";
+	    
+# 	    my $home_path = $current_path;
+# 	    my $Id= "${contrast}_surfstat_VBA_for_${group_1_name}_vs_${group_2_name}";
+# 	    my $verbose = 2; # Will print log only for work done.
+# 	    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+# 	    if (! $jid) {
+# 		error_out($stop_message);
+# 	    }
+# 	}
+#     } else {
+# 	my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
+# 	print "surfstat command = ${surfstat_command}\n";
+# 	my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
+# 	print "Current state = $state\n";
+#     }
+    return();
+}
+
+# ------------------
+sub fsl_nonparametric_analysis_prep {
+# ------------------
+    my ($contrast,$input_path,$results_master_path) = @_;
+
+    my @d_array= split('/',$input_path);
+    pop(@d_array); 
+    push(@d_array,'fsl');
+    my $fsl_local_work_directory = join('/',@d_array);
+   
+    if (! -e $fsl_local_work_directory ) {
+	mkdir ($fsl_local_work_directory,$permissions);
+    }
+    my $n1 = $#group_1_runnos + 1;
+    my $n2 = $#group_2_runnos + 1;
+    my $local_sub_name = "groups_of_${n1}_and_${n2}";
+    my $local_work_dir = "${fsl_local_work_directory}/${local_sub_name}/";
+    if (! -e $local_work_dir ) {
+	mkdir ($local_work_dir,$permissions);
+    }
+
+    my $setup_cmds='';
+
+    my $local_prefix = "${local_work_dir}${local_sub_name}";
+    my $con_file = "${local_prefix}.con";
+    my $mat_file = "${local_prefix}.mat";
+    my $m_flag=''; # else $m_flag = ' -m ';
+    if (data_double_check($con_file,$mat_file)) {
+	my $con_mat_cmd = "design_ttest2 ${local_prefix} ${n1} ${n2} ${m_flag};\n";
+	$setup_cmds=$setup_cmds.$con_mat_cmd.';\n';
+    }
+
+    my $nii4D = "${local_work_dir}${local_sub_name}_nii4D_${contrast}.nii.gz";
+    if (data_double_check($nii4D)) {
+	my $dim_plus = $dims + 1;
+	my $make_nii4D_cmd = "ImageMath ${dim_plus} ${nii4D} TimeSeriesAssemble 1 0";
+	for my $current_name_ext (split(',',$group_1_files)) {
+	    my $current_file = "${input_path}/${current_name_ext}";
+	    $make_nii4D_cmd = "${make_nii4D_cmd} ${current_file}";
+	}
+	
+	for my $current_name_ext (split(',',$group_2_files)) {
+	    my $current_file = "${input_path}/${current_name_ext}";
+	    $make_nii4D_cmd = "${make_nii4D_cmd} ${current_file}";
+	}
+	$setup_cmds=$setup_cmds.$make_nii4D_cmd.';\n';
+    }
+
+    my $go_message = "$PM: Setting up fsl nonparametric testing \n" ;
+    my $stop_message = "$PM: Failed to properly setup data for fsl nonparametric testing in folder: ${local_work_dir}  \n" ;
+    
+
+    if ($setup_cmds ne '') {
+	my @test=(0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
+	my $mem_request = '100000';
+	my $jid = 0;
+	if (cluster_check) {
+	    my $go =1;	    
+	    my $home_path = $local_work_dir;
+	    my $Id= "setup_for_fsl_nonparametric_testing_with_n${n1}_and_n${n2}";
+	    my $verbose = 2; # Will print log only for work done.
+	    $jid = cluster_exec($go,$go_message , $setup_cmds,$home_path,$Id,$verbose,$mem_request,@test);     
+
+	    return($jid);
+	}
+    }
+
+   # if ($jid > 1) {
+
+  #  } else {
+#	return('-1');
+    #}
+
+
+
+    #fsl_nonparametric_analysis_Output_check();
+
+
+
+#     my $contrast_path = "${results_master_path}/${contrast}/";
+#     if (! -e $contrast_path) {
+# 	mkdir ($contrast_path,$permissions);
+#     }
+
+
+
+    
+#     my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
+#     my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
+#     my $exec_testing =1;
+#     if ($exec_testing) {
+# 	my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
+# 	my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
+# 	my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
+	
+# 	my @test=(0);
+# 	if (defined $reservation) {
+# 	    @test =(0,$reservation);
+# 	}
+# 	my $mem_request = '10000';
+# 	my $jid = 0;
+# 	if (cluster_check) {
+# 	    my $go =1;	    
+# #	my $cmd = $pairwise_cmd.$rename_cmd;
+# 	    my $cmd = "${executable_path} ${matlab_path} ${surfstat_args_2}";
+	    
+# 	    my $home_path = $current_path;
+# 	    my $Id= "${contrast}_surfstat_VBA_for_${group_1_name}_vs_${group_2_name}";
+# 	    my $verbose = 2; # Will print log only for work done.
+# 	    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+# 	    if (! $jid) {
+# 		error_out($stop_message);
+# 	    }
+# 	}
+#     } else {
+# 	my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
+# 	print "surfstat command = ${surfstat_command}\n";
+# 	my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
+# 	print "Current state = $state\n";
+#     }
+#     return();
+}
+
+
+# # ------------------
+# sub vbm_analysis_Output_check {
+# # ------------------
+
+#     my ($case) = @_;
+#     my $message_prefix ='';
+#     my ($file_1);
+#     my @file_array=();
+
+#     my $existing_files_message = '';
+#     my $missing_files_message = '';
+
+    
+#     if ($case == 1) {
+# 	$message_prefix = "  Prepared niftis have been found for the following runnos and will not be re-prepared:\n";
+#     } elsif ($case == 2) {
+# 	 $message_prefix = "  Unable to properly prepare niftis for the following runnos and channels:\n";
+#     }   # For Init_check, we could just add the appropriate cases.
+    
+#     foreach my $runno (@array_of_runnos) {
+# 	my $sub_existing_files_message='';
+# 	my $sub_missing_files_message='';
+	
+# 	foreach my $ch (@channel_array) {
+# 	    $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
+# 	    if ((data_double_check($file_1) ) || ((! $do_mask) &&  ($file_1 =~ /.*masked\.nii / ))) {
+# 		$go_hash{$runno}{$ch}=1;
+# 		push(@file_array,$file_1);
+# 		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
+# 	    } else {
+# 		$go_hash{$runno}{$ch}=0;
+# 		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
+# 	    }
+# 	}
+# 	if (($sub_existing_files_message ne '') && ($case == 1)) {
+# 	    $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
+# 	} elsif (($sub_missing_files_message ne '') && ($case == 2)) {
+# 	    $missing_files_message =$missing_files_message. $runno."\t".$sub_missing_files_message."\n";
+# 	}
+#     }
+     
+#     my $error_msg='';
+    
+#     if (($existing_files_message ne '') && ($case == 1)) {
+# 	$error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
+#     } elsif (($missing_files_message ne '') && ($case == 2)) {
+# 	$error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
+#     }
+     
+#     my $file_array_ref = \@file_array;
+#     return($file_array_ref,$error_msg);
+# }
+
+
+
+
+
+
 # ------------------
 sub vbm_analysis_vbm_Init_check {
 # ------------------
-   my $init_error_msg='';
-   my $message_prefix="$PM initialization check:\n";
-
+    my $init_error_msg='';
+    my $message_prefix="$PM initialization check:\n";
     $software_list = $Hf->get_value('vba_analysis_software');
     if ($software_list eq 'NO_KEY') {
 	$software_list = "surfstat"; 
 	$Hf->set_value('vba_analysis_software',$software_list);
     }
-   @software_array = split(',',$software_list);
+    @software_array = split(',',$software_list);
+    
+    $software_list = '';
+    my @temp_software_array;
+    my $cluster_stats=0;
+    
+    foreach my $software (@software_array) {
+	if ($software =~ /${supported_vbm_software}/i) {
+	    if ($software =~ /^surfstat$/i) {
+		$software = 'surfstat';
+	    } elsif ($software =~ /^spm$/i) {
+		$software = 'spm';
+	    } elsif ($software =~ /^antsr$/i) {
+		$software = 'antsr';
+		$cluster_stats = 1;
+	    } elsif ($software =~ /^fsl$/i) {
+		$software = 'fsl';
+		$log_msg = $log_msg."\t${software} will be used for performing non-parametric testing. \n";
+	    } elsif ($software =~ /^nonparametric$/i) {
+		$software = 'fsl';
+		$log_msg = $log_msg."\t${software} will be used for performing non-parametric testing. \n";
+	    }
+	    
+	    push(@temp_software_array,$software);
+	    
+	    $log_msg = $log_msg."\tVBA will be performed with software: ${software} \n";   
+	} else {
+	    $init_error_msg=$init_error_msg."I'm sorry, but VBM software \"${software}\" is currently not supported :( \n";
+	}
+    }
 
-   $software_list = '';
-   my @temp_software_array;
-   my $cluster_stats=0;
-
-   foreach my $software (@software_array) {
-       if ($software =~ /^${supported_vbm_software}$/i) {
-	   if ($software =~ /^surfstat$/i) {
-	       $software = 'surfstat';
-	   } elsif ($software =~ /^spm$/i) {
-	       $software = 'spm';
-	   } elsif ($software =~ /^antsr$/i) {
-	       $software = 'antsr';
-	       $cluster_stats = 1;
-	   }
-	   push(@temp_software_array,$software);
-
-	   $log_msg = $log_msg."\tVBA will be performed with software: ${software} \n";
-	   
-       } else {
-	   $init_error_msg=$init_error_msg."I'm sorry, but VBM software \"${software}\" is currently not supported :( \n";
-       }
-       
-   }
-#   print "cluster_stats = ${cluster_stats}\n";
- 
-   $software_list = join(',',@temp_software_array);
-   $Hf->set_value('vba_analysis_software',$software_list);
-
-   $min_cluster_size = get_value('minimum_vba_cluster_size');
+    $software_list = join(',',@temp_software_array);
+    $Hf->set_value('vba_analysis_software',$software_list);
+    $min_cluster_size = $Hf->get_value('minimum_vba_cluster_size');
     if (($min_cluster_size eq 'NO_KEY') && ($cluster_stats)) {
 	$min_cluster_size = 200; 
 	$Hf->set_value('minimum_vba_cluster_size',$min_cluster_size);
 	$log_msg = $log_msg."\tMinimum cluster size for ANTsR VBA cluster analysis not specified; using default of 200.\n";
+	print "min_cluster_size = ${min_cluster_size}\n";
     }
-   print "min_cluster_size = ${min_cluster_size}\n";
-   if ($log_msg ne '') {
-       log_info("${message_prefix}${log_msg}");
-   }
-   
-   if ($init_error_msg ne '') {
-       $init_error_msg = $message_prefix.$init_error_msg;
-   }
-       
-   return($init_error_msg);
+
+    if ($log_msg ne '') {
+	log_info("${message_prefix}${log_msg}");
+    }
+
+    if ($init_error_msg ne '') {
+	$init_error_msg = $message_prefix.$init_error_msg;
+    }
+    
+    return($init_error_msg);
 }
 
 # ------------------
