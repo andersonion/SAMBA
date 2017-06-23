@@ -8,11 +8,11 @@ Additional code is needed for the pipeline to even think about functioning.  Thi
 https://github.com/jamesjcook/pipeline_utilities/blob/master/pipeline_utilities.pm
 
 which in turn needs:
+
 https://github.com/jamesjcook/pipeline_utilities/blob/master/civm_simple_util.pm
 
 For the current version, the data is setup in:
-study_variables.pm
-Plenty of examples abound.
+study_variables.pm, where plenty of examples abound.
 
 The pipeline is initiated by running:
 vbm_pipeline_start.pl
