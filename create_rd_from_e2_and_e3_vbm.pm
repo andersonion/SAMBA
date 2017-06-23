@@ -1,5 +1,9 @@
 #!/usr/local/pipeline-link/perl
 # create_rd_from_e2_and_e3_vbm.pm 
+#
+#  2015/02/25: original version
+#  2017/06/23: Added reservation and backup_job support
+
 
 my $PM = "create_rd_from_e2_and_e3_vbm.pm";
 my $VERSION = "2015/02/25";
@@ -10,13 +14,14 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT);
+use vars qw($Hf $BADEXIT $GOODEXIT $reservation $schedule_backup_jobs);
 require Headfile;
 require pipeline_utilities;
 
 
 my ($channel_comma_list,$runlist,$work_path,$current_path,$inputs_dir);
-my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
+my (@array_of_runnos,@files_to_create,@files_needed);
+my @jobs=();
 my (%go_hash);
 my $create_rd;
 my $go = 1;
@@ -33,7 +38,7 @@ sub create_rd_from_e2_and_e3_vbm {  # Main code
 	    if ($go) {
 		($job) =  average_e2_and_e3_images($runno);
 		
-		if ($job > 1) {
+		if ($job) {
 		    push(@jobs,$job);
 		}
 	    }
@@ -145,13 +150,19 @@ sub average_e2_and_e3_images {
     my $go_message =  "$PM: create rd image for ${runno}";
     my $stop_message = "$PM: could not create rd image for ${runno}:\n${cmd}\n";
 
+    my $mem_request = 8000;
+    my @test = (0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+
     my $jid = 0;
     if (cluster_check()) {
 	my $home_path = $current_path;
 	my $Id= "${runno}_create_rd_image";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose);     
-	if (! $jid) {
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+	if (not $jid) {
 	    error_out($stop_message);
 	}
     } else {
@@ -161,7 +172,7 @@ sub average_e2_and_e3_images {
 	}
     }
 
-    if ((data_double_check($out_file)) && ($jid == 0)) {
+    if ((data_double_check($out_file)) && ( not $jid)) {
 	error_out("$PM: missing rd image for ${runno}: ${out_file}");
     }
     print "** $PM created ${out_file}\n";

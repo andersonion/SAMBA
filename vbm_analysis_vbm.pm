@@ -13,9 +13,12 @@ my $NAME = "Run vbm analysis with software of choice.";
 
 use strict;
 use warnings;
+use Scalar::Util qw(looks_like_number);
 no warnings qw(bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $valid_formats_string $permissions $reservation);
+use Env qw(PIPELINE_PATH);
+use vars qw($Hf $BADEXIT $GOODEXIT $valid_formats_string $permissions $reservation $schedule_backup_jobs);
+$schedule_backup_jobs = 1; # Will probably want to make this universal eventually...
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
@@ -31,12 +34,15 @@ my (%go_hash,%go_mask,%smooth_pool_hash,%results_dir_hash,%work_dir_hash);
 my $log_msg='';
 my $supported_vbm_software = '(surfstat|spm|ANTsR|fsl|nonparametric)';
 my $skip=0;
-
+my ($job);
+my @jobs=();
 my ($group_1_name,$group_2_name,$group_1_files,$group_2_files);
 
 my $use_template_images;
 
-
+my ($nonparametric_permutations,$number_of_nonparametric_seeds,$number_of_test_contrasts,$nii4D,$con_file,$mat_file,$fsl_cluster_size,$tfce_extent,$variance_smoothing_kernal_in_mm,$randomise_options,$default_nonparametric_job_size,$local_work_dir,$local_sub_name); # Nonparametric testing variables.
+my ($cmbt_analysis,$tfce_analysis);
+my $randomise_cleanup_script="${PIPELINE_PATH}/support/fsl_randomise_parallel_cleanup_bash_script.txt";
 if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
 if (! defined $dims) {$dims = 3;}
@@ -337,58 +343,218 @@ sub surfstat_analysis_vbm {
 sub fsl_nonparametric_analysis_vbm {
 # ------------------
     my ($contrast,$input_path,$results_master_path) = @_;
-    fsl_nonparametric_analysis_prep($contrast,$input_path,$results_master_path);
+
+    my $contrast_path = "${results_master_path}/${contrast}/";
+    if (! -e $contrast_path) {
+	mkdir ($contrast_path,$permissions);
+    }
+
+    fsl_nonparametric_analysis_prep($contrast,$input_path);
+
+    $number_of_test_contrasts=`head -2 $con_file | tail -1 | cut -d ' ' -f 2`;
+
+    my $prefix = "${contrast}_nonparametric_testing";
+    my $remaining_permutations = $nonparametric_permutations;
+    my $master_job_name="fsl_nonparametric_testing_for_${local_sub_name}_${contrast}";
+    my $seed;
+    my %cleanup_string;
+
+    for ($seed = 1; $remaining_permutations > 0 ;$seed++) {
+	# ($seed,$num_of_perms,$output_path,$prefix,$contrast_number)
+	my $c_permutations = $default_nonparametric_job_size;
+	$c_permutations =  min($c_permutations,$remaining_permutations);
+	$remaining_permutations = $remaining_permutations - $c_permutations;
+
+	for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
+	    my $expected_perms = $c_permutations;
+	    if ($seed > 1) {$expected_perms++;} 
+	    my $cfix = "${local_work_dir}/${prefix}_SEED${seed}x${expected_perms}_";
+	    my $cfix2 = "tstat${test_contrast}.nii.gz";
+	    my $c_file;
+	    my @expected_p_outputs=();
+	    if ($seed == 1) {
+		$c_file="${cfix}${cfix2}";
+		push(@expected_p_outputs,$c_file);
+		#$cleanup_string{'raw'} = $cleanup_string{'raw'}.' '.$c_file; Need to move to final prefix_ttest2
+	    }
+
+	    if ($randomise_options =~ /\ -T\ / ) { # $tfce_analysis
+		if ($seed == 1) {$cleanup_string{'tfce'}{$test_contrast}='';}
+		$c_file="${cfix}tfce_${cfix2}";
+		push(@expected_p_outputs,$c_file);
+		$cleanup_string{'tfce'}{$test_contrast}  = $cleanup_string{'tfce'}{$test_contrast}.' '.$c_file;
+
+		if ($seed == 1) {$cleanup_string{'tfce_p'}{$test_contrast}='';}
+		$c_file="${cfix}tfce_p_${cfix2}";
+		push(@expected_p_outputs,$c_file);
+		$cleanup_string{'tfce_p'}{$test_contrast}  = $cleanup_string{'tfce_p'}{$test_contrast}.' '.$c_file;
+
+		if ($seed == 1) {$cleanup_string{'tfce_corrp'}{$test_contrast}='';}
+		$c_file="${cfix}tfce_corrp_${cfix2}";
+		push(@expected_p_outputs,$c_file);
+		$cleanup_string{'tfce_corrp'}{$test_contrast}  = $cleanup_string{'tfce_corrp'}{$test_contrast}.' '.$c_file;
+	    }
+	    if (($cmbt_analysis) && ($seed == 1))  { # $cmbt_analysis
+
+		$c_file="${cfix}clusterm_${cfix2}";
+		push(@expected_p_outputs,$c_file);
+		#$cleanup_string{'clusterm'}{$test_contrast}  = $cleanup_string{'clusterm'}{$test_contrast}.' '.$c_file;
+
+		$c_file="${cfix}clusterm_corrp_${cfix2}";
+		push(@expected_p_outputs,$c_file);
+		#$cleanup_string{'clusterm_corrp'}{$test_contrast}  = $cleanup_string{'clusterm_corrp'}{$test_contrast}.' '.$c_file;
+
+	    }
+
+	    if ($randomise_options =~ /\ -x\ /) { # voxelwise p-values
+		if ($seed == 1) {$cleanup_string{'vox_corrp'}{$test_contrast}='';}
+		$c_file="${cfix}vox_corrp_${cfix2}";
+		push(@expected_p_outputs,$c_file);
+		$cleanup_string{'vox_corrp'}{$test_contrast}  = $cleanup_string{'vox_corrp'}{$test_contrast}.' '.$c_file;
+		
+		if ($seed == 1) {$cleanup_string{'vox_p'}{$test_contrast}='';}
+		$c_file="${cfix}vox_p_${cfix2}";
+		push(@expected_p_outputs,$c_file);
+		$cleanup_string{'vox_p'}{$test_contrast} = $cleanup_string{'vox_p'}{$test_contrast}.' '.$c_file;
+	    }
+
+	   # for my $tts (@expected_p_outputs) {
+	#	print "ls -arlth ${tts}\n";
+	   # }
+	   # my $rez = data_double_check(@expected_p_outputs);
+	   # print "rez = ${rez}\n\n";
+	    # die;
 
 
+	    if (data_double_check(@expected_p_outputs)) { # If any one of the expected outputs is missing, the work will be performed.
+		($job) = parallelized_randomise($seed,$c_permutations,$local_work_dir,$prefix,$contrast,$master_job_name,$test_contrast);
+		my @j_array = split(',',$job);
+		if ($j_array[0] > 1) {
+		    push(@jobs,$job);
+		}
+	    }
+	}
+    }
+ 
+    my $number_of_jobs = scalar(@jobs);
+    print " Number of jobs = ${number_of_jobs}\n";
+    my $jobs=join(',',@jobs);
+    
+    my $defrag_cmd='';
+    my $scale =  $default_nonparametric_job_size/$nonparametric_permutations;
+    for my $key1 (keys %cleanup_string) {
+	#print "key = $key1\n\n";
+	for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
+	    my $cfix2 = "tstat${test_contrast}.nii.gz";
+	    my $result_file = "${contrast_path}/${prefix}_${key1}_${cfix2}";
+	    my $new_string =  join(' -add ',split(' ',$cleanup_string{$key1}{$test_contrast}));
+	    if (! -e $result_file) {
+		$defrag_cmd= $defrag_cmd."fslmaths + ${new_string} -mul ${scale} ${result_file};\n";
+	    }
+	    
+	}
+	    #print "	$cleanup_string{$key1}{1}\n\n";
+	#print "	$cleanup_string{$key1}{2}\n\n";
+    }
+    #die;
+    # Schedule defragmentation...
+    
+#    my $defrag_cmd = "nseeds=${seed};\nworkpath=${local_work_dir};\nprefix_string=${prefix};\noutpath=${contrast_path};\nbatch_size=${default_nonparametric_job_size};\n";
+    
+    #$defrag_cmd=$defrag_cmd.`cat ${randomise_cleanup_script}`;
 
-#     my $contrast_path = "${results_master_path}/${contrast}/";
-#     if (! -e $contrast_path) {
-# 	mkdir ($contrast_path,$permissions);
-#     }
 
-
+    # And add the fdr and masking jobs...sure, why not?
 
     
-#     my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
-#     my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
-#     my $exec_testing =1;
-#     if ($exec_testing) {
-# 	my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
-# 	my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
-# 	my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
+    my @test=(0,0,'singleton');
+    if (defined $reservation) {
+	@test =(0,$reservation,'singleton');
+    }
+    
+    my $go_message = "$PM: Cleaning up fsl nonparametric testing for contrast: ${contrast}\n" ;
+    my $stop_message = "$PM: Failed to properly clean up data for fsl nonparametric testing in folder: ${local_work_dir}  \n" ;
+    
+    
+    my $mem_request = '17600';
+    my $cleanup_jid = 0;
+    if (cluster_check) {
+	my $go =1;	    
+	my $home_path = $local_work_dir;
+	my $Id= $master_job_name;
+	my $verbose = 2; # Will print log only for work done.
+	$cleanup_jid = cluster_exec($go,$go_message , $defrag_cmd,$home_path,$Id,$verbose,$mem_request,@test);     
+    } else {
+	`${defrag_cmd}`;
+    }
+    
+    print STDOUT "SLURM: Waiting for jobs $jobs to complete via singleton job dependency of ${cleanup_jid}.\n";
+    
+    if (cluster_check()) {
+	my $interval = 2;
+	my $verbose = 1;
+	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($cleanup_jid));
 	
-# 	my @test=(0);
-# 	if (defined $reservation) {
-# 	    @test =(0,$reservation);
-# 	}
-# 	my $mem_request = '10000';
-# 	my $jid = 0;
-# 	if (cluster_check) {
-# 	    my $go =1;	    
-# #	my $cmd = $pairwise_cmd.$rename_cmd;
-# 	    my $cmd = "${executable_path} ${matlab_path} ${surfstat_args_2}";
-	    
-# 	    my $home_path = $current_path;
-# 	    my $Id= "${contrast}_surfstat_VBA_for_${group_1_name}_vs_${group_2_name}";
-# 	    my $verbose = 2; # Will print log only for work done.
-# 	    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-# 	    if (! $jid) {
-# 		error_out($stop_message);
-# 	    }
-# 	}
-#     } else {
-# 	my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
-# 	print "surfstat command = ${surfstat_command}\n";
-# 	my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
-# 	print "Current state = $state\n";
-#     }
+	if ($done_waiting) {
+	    print STDOUT  " Clean up is complete for fsl nonparametric testing of ${contrast} for ${local_sub_name}; moving on to next step.\n";
+	}
+    }
+
+    
     return();
 }
 
 # ------------------
 sub fsl_nonparametric_analysis_prep {
 # ------------------
-    my ($contrast,$input_path,$results_master_path) = @_;
+    my ($contrast,$input_path) = @_;
+    
+    if (defined $Hf) { 
+	$use_Hf = 1;
+    } elsif (! defined $Hf) {
+	$use_Hf = 0;
+    } else {
+	print "\$Hf is confusing.  This shouldn't be happening.\n";
+    }
+    if ($use_Hf) {
+	$nonparametric_permutations = $Hf->get_value('nonparametric_permutations');
+	$number_of_nonparametric_seeds = $Hf->get_value('number_of_nonparametric_seeds');	
+    }
+
+    ## Begin randomise command options.
+
+    # Threshold-Free Cluster Enhancement business...
+    $tfce_analysis = 1; # Initially will default to always on...just creating the code in case of future optionalization.
+    $tfce_extent = 0.8; # Hardcoding this as a default for now...but is a module-wide variable which eventually can be accessed via $Hf.
+    my $tfce_options='';
+
+    if ($tfce_analysis) {
+	$tfce_options = " -T --tfce_E=${tfce_extent} ";
+    }
+
+    # Cluster-mass-based thresholding business...
+    $cmbt_analysis = 1; # Initially will default to always on...just creating the code in case of future optionalization.
+    $fsl_cluster_size = 100 ; # Hardcoding this as a default for now...but is a module-wide variable which eventually can be accessed via $Hf.
+    # $cmbt_options='';
+
+    # if ($cmbt_analysis) {
+    # 	$cmbt_options = " -C ${fsl_cluster_size} ";
+    # }
+
+    # Variance smoothing business...
+    my $variance_smoothing = 1;  # Initially will default to always on...just creating the code in case of future optionalization.
+    $variance_smoothing_kernal_in_mm =  0.2; # Hardcoding this as a default for now...but is a module-wide variable which eventually can be accessed via $Hf.
+    my $v_smoothing_options='';
+
+    if ($variance_smoothing) {
+	$v_smoothing_options  = " -v ${variance_smoothing_kernal_in_mm} ";
+    }
+
+    my $output_options = " -x -P -R "; # Originally  --glm_output and -R was here, but it is only needed for the first (or any) seed, as it is derived from the unpermuted case.
+
+    $randomise_options = " ${output_options} ${tfce_options} ${v_smoothing_options} ";
+    ## End randomise command options.
+
 
     my @d_array= split('/',$input_path);
     pop(@d_array); 
@@ -400,8 +566,8 @@ sub fsl_nonparametric_analysis_prep {
     }
     my $n1 = $#group_1_runnos + 1;
     my $n2 = $#group_2_runnos + 1;
-    my $local_sub_name = "groups_of_${n1}_and_${n2}";
-    my $local_work_dir = "${fsl_local_work_directory}/${local_sub_name}/";
+    $local_sub_name = "groups_of_${n1}_and_${n2}";
+    $local_work_dir = "${fsl_local_work_directory}/${local_sub_name}/";
     if (! -e $local_work_dir ) {
 	mkdir ($local_work_dir,$permissions);
     }
@@ -409,15 +575,15 @@ sub fsl_nonparametric_analysis_prep {
     my $setup_cmds='';
 
     my $local_prefix = "${local_work_dir}${local_sub_name}";
-    my $con_file = "${local_prefix}.con";
-    my $mat_file = "${local_prefix}.mat";
+    $con_file = "${local_prefix}.con";
+    $mat_file = "${local_prefix}.mat";
     my $m_flag=''; # else $m_flag = ' -m ';
     if (data_double_check($con_file,$mat_file)) {
 	my $con_mat_cmd = "design_ttest2 ${local_prefix} ${n1} ${n2} ${m_flag};\n";
 	$setup_cmds=$setup_cmds.$con_mat_cmd.';\n';
     }
 
-    my $nii4D = "${local_work_dir}${local_sub_name}_nii4D_${contrast}.nii.gz";
+    $nii4D = "${local_work_dir}${local_sub_name}_nii4D_${contrast}.nii.gz";
     if (data_double_check($nii4D)) {
 	my $dim_plus = $dims + 1;
 	my $make_nii4D_cmd = "ImageMath ${dim_plus} ${nii4D} TimeSeriesAssemble 1 0";
@@ -433,17 +599,17 @@ sub fsl_nonparametric_analysis_prep {
 	$setup_cmds=$setup_cmds.$make_nii4D_cmd.';\n';
     }
 
-    my $go_message = "$PM: Setting up fsl nonparametric testing \n" ;
-    my $stop_message = "$PM: Failed to properly setup data for fsl nonparametric testing in folder: ${local_work_dir}  \n" ;
+    my $go_message = "$PM: Setting up fsl nonparametric testing for contrast: ${contrast}\n" ;
+    my $stop_message = "$PM: Failed to properly set up data for fsl nonparametric testing in folder: ${local_work_dir}  \n" ;
     
-
+    my $jid = 0;
     if ($setup_cmds ne '') {
 	my @test=(0);
 	if (defined $reservation) {
 	    @test =(0,$reservation);
 	}
-	my $mem_request = '100000';
-	my $jid = 0;
+	my $mem_request = '17600'; #
+	#my $jid = 0;
 	if (cluster_check) {
 	    my $go =1;	    
 	    my $home_path = $local_work_dir;
@@ -451,64 +617,68 @@ sub fsl_nonparametric_analysis_prep {
 	    my $verbose = 2; # Will print log only for work done.
 	    $jid = cluster_exec($go,$go_message , $setup_cmds,$home_path,$Id,$verbose,$mem_request,@test);     
 
-	    return($jid);
+	    #return($jid);
+	} else {
+	    `${setup_cmds}`;
+	   # return(1);
 	}
     }
 
-   # if ($jid > 1) {
-
-  #  } else {
-#	return('-1');
-    #}
-
-
+    if (cluster_check() && ($jid)){
+	my $interval = 2;
+	my $verbose = 1;
+	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($jid));
+	
+	if ($done_waiting) {
+	    print STDOUT  " Set up is complete for fsl nonparametric testing for ${local_sub_name} ; moving on to next step.\n";
+	}
+    }
 
     #fsl_nonparametric_analysis_Output_check();
 
+}
 
+# ------------------
+sub parallelized_randomise {
+# ------------------
+    my ($seed,$num_of_perms,$output_path,$prefix,$contrast,$job_name,$contrast_number) = @_;
 
-#     my $contrast_path = "${results_master_path}/${contrast}/";
-#     if (! -e $contrast_path) {
-# 	mkdir ($contrast_path,$permissions);
-#     }
+    if (! defined $contrast_number) {$contrast_number = 1;}
+    my $output=$output_path.'/'.$prefix;
+    my $glm_option = '';
+    my $cmbt_options='';
+    if ($seed == 1) {
+	$glm_option = ' --glm_output ';
+	$cmbt_options='';
+	if ($cmbt_analysis) {
+	    $cmbt_options = " -C ${fsl_cluster_size} ";
+	}
+    } else {
+	$num_of_perms = $num_of_perms + 1;
+    }
 
-
-
+    # check for expected output first? -- should, but will have to add later, once I have a better idea of what that looks like...
+    my $cmd = "randomise -i ${nii4D} -m ${average_mask} -d ${mat_file} -t ${con_file} ${randomise_options} ${glm_option} ${cmbt_options} -n ${num_of_perms} -o ${output}_SEED${seed}x${num_of_perms} --seed=${seed} --skipTo=${contrast_number}";
+    my $go_message ="$PM: Running fsl nonparametric testing for contrast: ${contrast}\n" ;
+    my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
     
-#     my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
-#     my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
-#     my $exec_testing =1;
-#     if ($exec_testing) {
-# 	my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
-# 	my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
-# 	my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
+    my $mem_request = '7600'; # Processes appear to be single-threaded...trying to stuff as many jobs onto a node as there are [virtual?] cores...
+    my $jid = 0;
+    if (cluster_check) {
+	my $go =1;	    
+	my $home_path = $local_work_dir;
+	my $Id= $job_name;
+	my $verbose = 2; # Will print log only for work done.
+	$jid = cluster_exec($go,$go_message , $cmd,$home_path,$Id,$verbose,$mem_request,@test);     
 	
-# 	my @test=(0);
-# 	if (defined $reservation) {
-# 	    @test =(0,$reservation);
-# 	}
-# 	my $mem_request = '10000';
-# 	my $jid = 0;
-# 	if (cluster_check) {
-# 	    my $go =1;	    
-# #	my $cmd = $pairwise_cmd.$rename_cmd;
-# 	    my $cmd = "${executable_path} ${matlab_path} ${surfstat_args_2}";
-	    
-# 	    my $home_path = $current_path;
-# 	    my $Id= "${contrast}_surfstat_VBA_for_${group_1_name}_vs_${group_2_name}";
-# 	    my $verbose = 2; # Will print log only for work done.
-# 	    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-# 	    if (! $jid) {
-# 		error_out($stop_message);
-# 	    }
-# 	}
-#     } else {
-# 	my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
-# 	print "surfstat command = ${surfstat_command}\n";
-# 	my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
-# 	print "Current state = $state\n";
-#     }
-#     return();
+	return($jid);
+    } else {
+	`${cmd}`;
+	return(0);
+    }
 }
 
 
@@ -597,15 +767,48 @@ sub vbm_analysis_vbm_Init_check {
 		$cluster_stats = 1;
 	    } elsif ($software =~ /^fsl$/i) {
 		$software = 'fsl';
-		$log_msg = $log_msg."\t${software} will be used for performing non-parametric testing. \n";
+		$log_msg = $log_msg."\tNon-parametric testing will be performed with: ${software}. \n";
 	    } elsif ($software =~ /^nonparametric$/i) {
 		$software = 'fsl';
-		$log_msg = $log_msg."\t${software} will be used for performing non-parametric testing. \n";
+		$log_msg = $log_msg."\tNon-parametric testing will be performed with: ${software}. \n";
 	    }
 	    
 	    push(@temp_software_array,$software);
+
+	    if ($software eq 'fsl') {
+		$default_nonparametric_job_size = 25; # We expect to keep this hardcoded...might we need to decrease this for large data sets?
+		my $default_nonparametric_permutations = 5000;
+		$default_nonparametric_permutations = $default_nonparametric_job_size*(ceil($default_nonparametric_permutations/$default_nonparametric_job_size));
+		my $minimum_nonparametric_permutations = 1500;
+		$minimum_nonparametric_permutations = $default_nonparametric_job_size*(ceil($minimum_nonparametric_permutations/$default_nonparametric_job_size));
+
+		my $requested_permutations = $Hf->get_value('nonparametric_permutations');
+		if ($requested_permutations eq 'NO_KEY') {
+		    $nonparametric_permutations = $default_nonparametric_permutations;
+		    $log_msg = $log_msg."\tNo number of non-parametric testing permutations specified; using default (${nonparametric_permutations}). \n";
+		} elsif (! looks_like_number($requested_permutations)) {
+		    $nonparametric_permutations = $default_nonparametric_permutations;
+		    $log_msg = $log_msg."\tAn invalid value of non-parametric testing permutations has been requested (${requested_permutations}); using default (${nonparametric_permutations}). \n";
+		} elsif ($requested_permutations < $minimum_nonparametric_permutations) {
+		    $nonparametric_permutations = $minimum_nonparametric_permutations;
+		    $log_msg = $log_msg."\tThe requested number of non-parametric testing permutations (${requested_permutations}) is less than the minimum (${minimum_nonparametric_permutations}); using ${nonparametric_permutations}. \n";
+		} elsif ($requested_permutations >= $minimum_nonparametric_permutations) {
+		    $nonparametric_permutations = $default_nonparametric_job_size*(ceil($requested_permutations/$default_nonparametric_job_size));
+		    #$nonparametric_permutations = floor($requested_permutations);
+		    $log_msg = $log_msg."\tUsing the specified [integer-esque] number of non-parametric testing permutations (${nonparametric_permutations}). (The requested number of non-parametric testing permutations was ${requested_permutations}.)  \n";
+		} else {
+		    $nonparametric_permutations = $default_nonparametric_permutations;
+		    $log_msg = $log_msg."\tAn invalid value of non-parametric testing permutations has been requested (${requested_permutations}); using default (${nonparametric_permutations}). \n";
+		}
+
+		$Hf->set_value('nonparametric_permutations',$nonparametric_permutations);
+		$number_of_nonparametric_seeds = ceil($nonparametric_permutations/$default_nonparametric_job_size);
+		$Hf->set_value('number_of_nonparametric_seeds',$number_of_nonparametric_seeds);
+$log_msg = $log_msg."\tThis will be performed in ${number_of_nonparametric_seeds} parallel jobs per design contrast (typically 2), featuring ${default_nonparametric_job_size} permutations each. \n";
+	    }
+
 	    
-	    $log_msg = $log_msg."\tVBA will be performed with software: ${software} \n";   
+	    $log_msg = $log_msg."\n\tVBA will be performed with software: ${software} \n";   
 	} else {
 	    $init_error_msg=$init_error_msg."I'm sorry, but VBM software \"${software}\" is currently not supported :( \n";
 	}

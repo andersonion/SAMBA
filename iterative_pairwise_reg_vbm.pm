@@ -18,7 +18,8 @@ require pipeline_utilities;
 my ($mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$rigid_path,$mdt_path,$current_path,$inputs_dir);
 my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_levels,$diffeo_transform_parameters);
 my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options);
-my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
+my (@array_of_runnos,@sorted_runnos,@files_to_create,@files_needed,@mdt_contrasts);
+my @jobs=();
 my (%go_hash);
 my $go = 1;
 my ($job,$job_count);
@@ -87,7 +88,7 @@ sub iterative_pairwise_reg_vbm {  # Main code
 	   if ($current_iteration) {
 	       ($job) = create_iterative_pairwise_warps($moving_runno);
 	       #	sleep(0.25);
-	       if ($job > 1) {
+	       if ($job) {
 		   push(@jobs,$job);
 	       }
 	   } else {
@@ -836,7 +837,9 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               vba_contrast_comma_list
                               vbm_input_reference_path
                               fixed_image_for_mdt_to_atlas_registratation
-                              original_bvecs_ ); # affine_target_image will need to be removed from this list once we fully support it.
+                              original_bvecs_ 
+                              nonparametric_permutations
+                              number_of_nonparametric_seeds); # affine_target_image will need to be removed from this list once we fully support it.
 
 	#$temp_template_name = $template_name;
 	$max_iterations = $Hf->get_value('mdt_iterations');

@@ -18,7 +18,8 @@ require pipeline_utilities;
 my ($mdt_contrast,$mdt_contrast_string,$compare_contrast_string,$mdt_contrast_2, $runlist,$rigid_path,$mdt_path,$template_path,$median_images_path,$current_path,$inputs_dir);
 my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_transform_parameters);
 my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options,$diffeo_levels);
-my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
+my (@array_of_runnos,@sorted_runnos,@files_to_create,@files_needed,@mdt_contrasts);
+my @jobs=();
 my (%go_hash);
 my $go = 1;
 my ($job,$job_count);
@@ -79,7 +80,7 @@ sub compare_reg_to_mdt_vbm {  # Main code
 	if ($go) {
 	    ($job,$f_xform_path,$i_xform_path) = reg_to_mdt($runno);
 	    #	sleep(0.25);
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} else {

@@ -24,7 +24,8 @@ my ($mdt_path,$pairwise_path,$template_match);
 
 my ($template_predictor,$template_path,$template_name);
 
-my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed);
+my (@array_of_runnos,@sorted_runnos,@files_to_create,@files_needed);
+my @jobs=();
 my (%go_hash);
 #my (%convert_hash);
 my $go = 1;
@@ -50,7 +51,7 @@ sub calculate_mdt_warps_vbm {  # Main code
 	if ($go) {
 	    ($job,$xform_path) = calculate_average_mdt_warp($runno,$direction);
 	   
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} else {
@@ -421,7 +422,9 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               vba_contrast_comma_list
                               vbm_input_reference_path
                               fixed_image_for_mdt_to_atlas_registratation
-                              original_bvecs_ ); # affine_target_image will need to be removed from this list once we fully support it.
+                              original_bvecs_
+                              nonparametric_permutations
+                              number_of_nonparametric_seeds); # affine_target_image will need to be removed from this list once we fully support it.
 
 
 	for (my $i=0; $template_match== 0; $i++) {

@@ -24,7 +24,8 @@ require pipeline_utilities;
 my $do_inverse_bool = 0; # Reset to 0...This is the opposite of how seg_pipe_mc handles it...be careful!
 my ($atlas,$rigid_contrast,$moving_contrast, $runlist,$work_path,$current_path);
 my ($xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
-my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
+my (@array_of_runnos,@files_to_create,@files_needed);
+my @jobs=();
 my (%go_hash);
 my $go = 1;
 my $job;
@@ -51,7 +52,7 @@ sub apply_affine_reg_to_atlas_vbm {  # Main code
 
 	($job) = apply_affine_transform($go,$to_xform_path, $result_path,$do_inverse_bool,$xform_path, $domain_path,'','',$PM,$native_reference_space);
 
-	if ($job > 1) {
+	if ($job) {
 	    push(@jobs,$job);
 	}
     }

@@ -23,7 +23,8 @@ if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 if (! defined $dims) {$dims = 3;}
 
 my ($runlist,$work_path,$current_path,$write_path_for_Hf);
-my (@array_of_runnos,@jobs,@files_to_check,@files_to_process);
+my (@array_of_runnos,@files_to_check,@files_to_process);
+my @jobs=();
 my ($smoothing_parameter,$smoothing_radius,$destination_directory,$suffix,@input_files_or_directories);
 my $job;
 my $go = 1;
@@ -68,7 +69,7 @@ sub smooth_images_vbm {  # Main code
 	if (($count_up == $batch_size) || (! $count_down)) {
 	    ($job) = smooth_images($smoothing_parameter,$suffix,$destination_directory,$batch_number,@current_file_list);
 	    
-	    if ($job > 1) {
+	    if ($job) {
 		    push(@jobs,$job);
 	    } 
 	    $count_up = 0;
@@ -232,7 +233,7 @@ sub smooth_images {
 	my $Id= "smooth_image_with_sigma_${smoothing_param}${units}_${batch_number}";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (! $jid) {
+	if (not $jid) {
 	    error_out($stop_message);
 	}
     } else {
@@ -242,7 +243,7 @@ sub smooth_images {
 	}
     }
 
-    if ((!-e $last_in_file) && ($jid == 0)) {
+    if ((!-e $last_in_file) && (not $jid)) {
 	error_out("$PM: missing smoothed image: ${last_in_file} (and probably others from the same batch)");
     }
     print "** $PM created ${last_in_file}\n";

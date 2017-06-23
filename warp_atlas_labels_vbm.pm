@@ -27,7 +27,8 @@ my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$curre
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir,$results_dir,$final_results_dir,$median_images_path);
 my ($mdt_path,$template_name, $diffeo_path,$work_done);
 my ($label_path,$label_reference_path,$label_refname,$do_byte);
-my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
+my (@array_of_runnos,@files_to_create,@files_needed);
+my @jobs=();
 my (%go_hash);
 my $go = 1;
 my $job;
@@ -63,7 +64,7 @@ sub warp_atlas_labels_vbm {  # Main code
 	if ($go) {
 	    ($job) = apply_mdt_warp_to_labels($runno);
 
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} 
@@ -99,7 +100,7 @@ sub warp_atlas_labels_vbm {  # Main code
 	foreach my $runno (@array_of_runnos) {
 	    ($job) = convert_labels_to_RAS($runno);
 	    
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs_2,$job);
 	    }
 	} 
@@ -297,7 +298,7 @@ sub apply_mdt_warp_to_labels {
 	my $Id= "create_${label_atlas_name}_labels_for_${runno}";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (! $jid) {
+	if (not $jid) {
 	    error_out($stop_message);
 	}
     } else {
@@ -307,7 +308,7 @@ sub apply_mdt_warp_to_labels {
 	}
     }
 
-    if ((!-e $out_file) && ($jid == 0)) {
+    if ((!-e $out_file) && (not $jid)) {
 	error_out("$PM: missing ${label_atlas_name} label set for ${runno}: ${out_file}");
     }
     print "** $PM created ${out_file}\n";

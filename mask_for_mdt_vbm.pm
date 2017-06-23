@@ -66,7 +66,7 @@ sub mask_for_mdt_vbm {
     }
 
     
-    if (cluster_check() && ($job > 1)) {
+    if (cluster_check() && ($job)) {
 	my $interval = 1;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$job);
@@ -79,7 +79,7 @@ sub mask_for_mdt_vbm {
     my ($dummy,$error_message)=mask_for_mdt_Output_check($case);
 
     my $real_time;
-    if ($job > 0) {
+    if ($job) {
 	$real_time = write_stats_for_pm($PM,$Hf,$start_time,$job);
     } else {
 	$real_time = write_stats_for_pm($PM,$Hf,$start_time);

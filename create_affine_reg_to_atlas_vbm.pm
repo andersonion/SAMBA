@@ -23,7 +23,8 @@ my ($rigid_atlas,$contrast, $runlist,$work_path,$current_path,$label_atlas,$labe
 my ($affine_metric,$affine_shrink_factors,$affine_iterations,$affine_gradient_step,$affine_convergence_thres);
 my ($affine_convergence_window,$affine_smoothing_sigmas,$affine_sampling_options,$affine_radius);
 my ($xform_code,$xform_path,$xform_suffix,$atlas_dir,$atlas_path,$inputs_dir);
-my (@array_of_runnos,@array_of_control_runnos,@jobs,@mdt_contrasts);
+my (@array_of_runnos,@array_of_control_runnos,@mdt_contrasts);
+my @jobs=();
 my (%go_hash,%create_output);
 my $go = 1;
 my $job;
@@ -85,7 +86,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 		# when you are essential passing around the INVERSE of that registration to atlas step,
 		# but accounting for it by setting "-i 1" with $do_inverse_bool.
 	    
-		if ($job > 1) {
+		if ($job) {
 		    push(@jobs,$job);
 		}
 		if ($swap_fixed_and_moving) {
