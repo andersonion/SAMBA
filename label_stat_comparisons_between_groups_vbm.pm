@@ -57,7 +57,7 @@ sub  label_stat_comparisons_between_groups_vbm {
 	if ($go) {
 	    ($job) = label_stat_comparisons_between_groups($contrast);
 
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} 

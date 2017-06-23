@@ -53,13 +53,13 @@ sub  calculate_individual_label_statistics_vbm {
 	if ($go) {
 	    ($job) = calculate_label_statistics($runno);
 
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} 
     }
 
-    if (cluster_check() && ($jobs[0] ne '')) {
+    if (cluster_check() && (scalar(@jobs)>0)) {
 	my $interval = 2;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);

@@ -116,6 +116,8 @@ $vba_contrast_comma_list
 $vba_analysis_software
 $smoothing_comma_list
 
+$nonparametric_permutations
+
 $image_dimensions
 ); # Need to replace $native_reference_space with $reference_space
 
@@ -674,11 +676,11 @@ sub study_variables_vbm {
 
 
 	    @group_1 = qw(N51211 N51221 N51231 N51383 N51386 N51404 N51406 N51193);#N51193-exclude N51404,N51383,N51386-manually z-roll and recalc tensors
-	    @group_2 = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390);# N51392 N51393 N51133 N51388 N51124 N51130
-             # N51131 N51164 N51182 N51151 N51622 N51620 N51617);
+	    @group_2 = qw(N51136 N51201 N51234 N51241 N51252 N51282 N51390 N51392 N51393 N51133 N51388 N51124 N51130
+              N51131 N51164 N51182 N51151 N51622 N51620 N51617);
 
-	    @channel_array = qw(adc dwi e1 e2 e3 fa);
-	    #@channel_array = qw(dwi fa);
+	    #@channel_array = qw(adc dwi e1 e2 e3 fa);
+	    @channel_array = qw(dwi fa);
 	    $affine_target = 'N51383';
 	}	
 
@@ -702,6 +704,7 @@ sub study_variables_vbm {
 	$pre_masked = 0;
     
 	$vba_analysis_software = 'fsl';
+	$nonparametric_permutations = 1770;
 
 #custom thresholds for Colton study
 	$thresh_ref = {
@@ -1790,8 +1793,8 @@ elsif ($nian_connectome)
 	$custom_predictor_string = "WT_vs_ankB";
 
 	
-#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
-    	@channel_array = qw(dwi fa); #Just these two for now so we don't overload glusterspace
+	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+#    	@channel_array = qw(dwi fa); #Just these two for now so we don't overload glusterspace
 
 #	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 

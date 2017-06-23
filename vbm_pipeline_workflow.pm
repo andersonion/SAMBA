@@ -22,7 +22,7 @@ use File::Basename;
 use List::Util qw(min max reduce);
 use List::MoreUtils qw(uniq);
 use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $valid_formats_string $nodes $reservation $broken  $mdt_to_reg_start_time);
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 $ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
@@ -186,6 +186,8 @@ $fixed_image_for_mdt_to_atlas_registratation
 $vba_contrast_comma_list
 $vba_analysis_software
 $smoothing_comma_list
+
+$nonparametric_permutations
 
 $image_dimensions
  );
@@ -526,6 +528,10 @@ if (defined $vba_contrast_comma_list) {
 
 if (defined $vba_analysis_software) {
     $Hf->set_value('vba_analysis_software',$vba_analysis_software);
+}
+
+if (defined $nonparametric_permutations) {
+    $Hf->set_value('nonparametric_permutations',$nonparametric_permutations);
 }
 
 

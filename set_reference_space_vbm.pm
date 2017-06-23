@@ -27,7 +27,8 @@ my ($log_msg);
 my $split_string = ",,,";
 my (%file_array_ref,@spaces);
 my ($work_to_do_HoA);
-my (@jobs_1,@jobs_2);
+my @jobs_1=();
+my @jobs_2=();
 my $go = 1;
 my $job;
 my %runno_hash_vba;
@@ -68,7 +69,7 @@ sub set_reference_space_vbm {  # Main code
 	     my $in_file = $runno_hash{$runno};
 	     my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
 	     ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
-	     if ($job > 1) {
+	     if ($job) {
 		 push(@jobs_1,$job);
 	     }   
 	 }
@@ -89,7 +90,7 @@ sub set_reference_space_vbm {  # Main code
 	     my ($dumdum,$in_name,$in_ext) = fileparts($out_file,2);
 	     my $in_file = "${preprocess_dir}/${in_name}${in_ext}";
 	     ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
-	     if ($job > 1) {
+	     if ($job) {
 		 push(@jobs_2,$job);
 	     }
 	 }

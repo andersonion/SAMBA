@@ -26,7 +26,8 @@ my $do_inverse_bool = 0;
 my ($runlist,$rigid_path,$current_path,$write_path_for_Hf);
 my ($pristine_inputs_dir,$inputs_dir,$mdt_creation_strategy);
 my ($interp,$template_path, $template_name, $diffeo_path,$work_done,$vbm_reference_path,$label_reference_path,$label_refname,$label_results_path,$label_path);
-my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
+my (@array_of_runnos,@files_to_create,@files_needed);
+my @jobs=();
 my (%go_hash);
 my $go = 1;
 my $job;
@@ -59,7 +60,7 @@ sub apply_warps_to_bvecs {  # Main code
 	if ($go) {
 	    ($job) = apply_affine_rotation($runno,$direction);
 
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} 

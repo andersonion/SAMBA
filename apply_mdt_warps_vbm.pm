@@ -26,7 +26,8 @@ my $do_inverse_bool = 0;
 my ($runlist,$rigid_path,$current_path,$write_path_for_Hf);
 my ($inputs_dir,$mdt_creation_strategy);
 my ($interp,$template_path, $template_name, $diffeo_path,$work_done,$vbm_reference_path,$label_reference_path,$label_refname,$label_results_path,$label_path);
-my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
+my (@array_of_runnos,@files_to_create,@files_needed);
+my @jobs=();
 my (%go_hash);
 my $go = 1;
 my $job;
@@ -78,7 +79,7 @@ sub apply_mdt_warps_vbm {  # Main code
 	if ($go) {
 	    ($job) = apply_mdt_warp($runno,$direction);
 
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} 
@@ -123,7 +124,7 @@ sub apply_mdt_warps_vbm {  # Main code
 	foreach my $runno (@array_of_runnos) {
 	    ($job) = convert_images_to_RAS($runno,$current_contrast);
 	    
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs_2,$job);
 	    }
 	} 
@@ -340,7 +341,7 @@ sub apply_mdt_warp {
 	my $Id= "${runno}_${current_contrast}_apply_${direction_string}_MDT_warp";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (! $jid) {
+	if (not $jid) {
 	    error_out($stop_message);
 	}
     } else {
@@ -350,7 +351,7 @@ sub apply_mdt_warp {
 	}
     }
 
-    if ((!-e $out_file) && ($jid == 0)) {
+    if ((!-e $out_file) && (not $jid)) {
 	error_out("$PM: missing ${current_contrast} image with ${direction_string} MDT warp(s) applied for ${runno}: ${out_file}");
     }
     print "** $PM created ${out_file}\n";
@@ -415,7 +416,7 @@ sub convert_images_to_RAS {
 	    my $Id= "converting_${runno}_${contrast}_image_to_RAS_orientation";
 	    my $verbose = 2; # Will print log only for work done.
 	    $jid_2 = cluster_exec($go_2, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	    if (! $jid_2) {
+	    if (not $jid_2) {
 		error_out($stop_message);
 	    }
 	} else {
@@ -425,7 +426,7 @@ sub convert_images_to_RAS {
 	    }
 	}
 	
-	if ((!-e $out_file) && ($jid_2 == 0)) {
+	if ((!-e $out_file) && (not $jid_2)) {
 	    error_out("$PM: missing RAS version of ${label_atlas_name} label set for ${runno}: ${out_file}");
 	}
 	print "** $PM created ${out_file}\n";

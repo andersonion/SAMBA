@@ -20,7 +20,8 @@ use List::Util qw(max);
 my $do_inverse_bool = 0;
 my ($inputs_dir,$mdt_contrast,$runlist,$current_path,$write_path_for_Hf);
 my ($template_path,$template_name,$mdt_images_path,$work_done,$reference_image,$master_template_dir);
-my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed);
+my (@array_of_runnos,@sorted_runnos,@files_to_create,@files_needed);
+my @jobs=();
 my (%go_hash,%int_go_hash);
 my $go = 1;
 my $job;
@@ -52,7 +53,7 @@ sub calculate_mdt_images_vbm {  # Main code
 	if ($go) {
 	    ($job) = calculate_average_mdt_image($contrast);
 
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} 

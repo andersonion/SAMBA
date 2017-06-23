@@ -25,7 +25,8 @@ require pipeline_utilities;
 
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$do_mask,$mask_dir,$template_contrast);
 my ($thresh_ref,$mask_threshold,$default_mask_threshold,$num_morphs,$morph_radius,$dim_divisor, $status_display_level);
-my (@array_of_runnos,@channel_array,@jobs);
+my (@array_of_runnos,@channel_array);
+my @jobs=();
 my (%go_hash,%make_hash,%mask_hash);
 my $go=1;
 my ($port_atlas_mask_path,$port_atlas_mask);
@@ -77,7 +78,7 @@ sub mask_images_vbm {
 		my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii.gz';
 		if (data_double_check($ported_mask)) {
 		    ($job) = port_atlas_mask_vbm($runno,$atlas_mask,$ported_mask);
-		    if ($job > 1) {
+		    if ($job) {
 			push(@jobs,$job);
 		    }
 		}
@@ -103,7 +104,7 @@ sub mask_images_vbm {
 		my $go = $go_hash{$runno}{$ch};
 		if ($go) {
 		    my ($job) = mask_one_image($runno,$ch);
-		    if ($job > 1) {
+		    if ($job) {
 			push(@jobs,$job);
 		    }
 		}
@@ -334,7 +335,7 @@ sub mask_one_image {
 	}
     }
 
-    if ((data_double_check($out_path)) && ($jid == 0)) {
+    if ((data_double_check($out_path)) && (not $jid)) {
 	error_out("$PM: missing masked image: ${out_path}");
     }
     print "** $PM created ${out_path}\n";

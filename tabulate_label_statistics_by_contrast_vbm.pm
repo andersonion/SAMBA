@@ -55,7 +55,7 @@ sub  tabulate_label_statistics_by_contrast_vbm {
 	if ($go) {
 	    ($job) = tabulate_label_statistics_by_contrast($contrast);
 
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} 

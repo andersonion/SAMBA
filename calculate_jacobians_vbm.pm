@@ -25,7 +25,8 @@ my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path);
 my ($mask_path,$template_name,$template_path, $diffeo_path,$space_string);
-my (@array_of_runnos,@jobs,@files_to_create,@files_needed);
+my (@array_of_runnos,@files_to_create,@files_needed);
+my @jobs=();
 my (%go_hash);
 my $go = 1;
 my $job;
@@ -65,7 +66,7 @@ sub calculate_jacobians_vbm {  # Main code
 	if ($go) {
 	    ($job) = calculate_jacobian($runno,$direction);
 
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} 

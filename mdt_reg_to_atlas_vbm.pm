@@ -24,7 +24,8 @@ my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path);
 my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_transform_parameters);
 my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options);
 my ($label_path);
-my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create,@files_needed,@mdt_contrasts);
+my (@array_of_runnos,@sorted_runnos,@files_to_create,@files_needed,@mdt_contrasts);
+my @jobs=();
 my (%go_hash);
 my $go = 1;
 my $job;
@@ -79,7 +80,7 @@ sub mdt_reg_to_atlas_vbm {  # Main code
 	if ($go) {
 	    ($job,$f_xform_path,$i_xform_path) = mdt_reg_to_atlas($runno);
 	    #	sleep(0.25);
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} else {

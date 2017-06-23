@@ -16,16 +16,22 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
+require pipeline_utilities;
+
 use Carp qw(cluck confess);
 
 use Cwd qw(abs_path);
 use File::Basename;
 use List::MoreUtils qw(uniq);
 use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $valid_formats_string $nodes $reservation $broken  $mdt_to_reg_start_time);
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
+
+my $full_pipeline_path = abs_path($0);
+my ($pipeline_path,$dummy1,$dummy2) = fileparts($full_pipeline_path,2);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 $ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
+$ENV{'PIPELINE_PATH'}=$pipeline_path;
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;

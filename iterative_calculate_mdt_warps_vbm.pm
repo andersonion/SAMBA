@@ -19,7 +19,8 @@ use List::Util qw(max);
 my ($runlist,$work_path,$current_path,$write_path_for_Hf);
 my ($mdt_path,$template_match);
 my ($template_predictor,$template_path,$template_name);
-my (@array_of_runnos,@sorted_runnos,@jobs,@files_to_create);
+my (@array_of_runnos,@sorted_runnos,@files_to_create);
+my @jobs=();
 my (%go_hash);
 my $go = 1;
 my $job;
@@ -44,7 +45,7 @@ sub iterative_calculate_mdt_warps_vbm {  # Main code
     my $do_average_warps = $go_hash{'average_warp'};
     if ($go) {
 	($job,$last_update_warp) = iterative_calculate_average_mdt_warp($do_average_warps);
-	    if ($job > 1) {
+	    if ($job) {
 		push(@jobs,$job);
 	    }
     } else {
