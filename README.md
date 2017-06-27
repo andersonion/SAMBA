@@ -1,10 +1,10 @@
 # vba_pipeline
 An HPC cluster-based pipeline for atlas creation, voxel- and label-based analysis (and more!)
 
-The only guarantee that can be made for this code is that it will most assuredly NOT work outside of the Center for In Vivo Microscopy (CIVM) ecosystem.
+This code was designed and tested to function within the data ecosystem of the Center for In Vivo Microscopy (CIVM), and may need adaptation for local use.  Feel free to download and modify as needed to meet your needs (or even better, generalize and commit those modified parts and lower the bar of entry for other potential users).
 Perhaps future versions will be supportive of external use.
 
-Additional code is needed for the pipeline to even think about functioning.  This code can be found at:
+There is some critical support code that is needed for the pipeline function.  This code can be found at:
 https://github.com/jamesjcook/pipeline_utilities/blob/master/pipeline_utilities.pm
 
 which in turn needs:
