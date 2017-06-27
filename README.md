@@ -13,7 +13,7 @@ which in turn needs:
 
 https://github.com/jamesjcook/pipeline_utilities/blob/master/civm_simple_util.pm
 
-For the current version, the data is setup in:
+For the current version, a pipeline run is setup in:
 study_variables.pm, where plenty of examples abound.
 
 The pipeline is initiated by running:
