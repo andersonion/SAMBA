@@ -14,7 +14,7 @@ use strict;
 use warnings;
 #no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $reference_path $ants_verbosity $intermediate_affine $reservation);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $reference_path $ants_verbosity $reservation $dev_mode); # dev_mode added to control clucking and confessing, 25 June 2017
 require Headfile;
 require pipeline_utilities;
 
@@ -54,6 +54,10 @@ sub warp_atlas_labels_vbm {  # Main code
     ($group,$current_label_space) = @_; # Now we can call a specific label space from the calling function (in case we want to loop over several spaces without rerunning entire script).
     if (! defined $group) {
 	$group = 'all';
+    }
+
+    if (! defined $current_label_space) {
+	$current_label_space = '';
     }
 
     my $start_time = time;
@@ -231,7 +235,7 @@ sub apply_mdt_warp_to_labels {
     
 	#my @add_warp_array = split(',',$add_warp_string);
 	#$raw_warp = pop(@add_warp_array);
-    }
+    } 
  
     $reference_image = $label_reference_path;
 
@@ -262,7 +266,6 @@ sub apply_mdt_warp_to_labels {
 	}
     }
     
-    #$warp_train=$additional_warp.' '.$warp_train.' '.$mdt_warp_train; # Removing additional_warp...vestigial from combined_rigid_and_affine; 3 May 2017, BJA
     if (($warp_train ne '') || ($mdt_warp_train ne '')) {
 	$warp_train=$warp_prefix.$warp_train.' '.$mdt_warp_train;
     }
@@ -449,10 +452,20 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	$current_path = $Hf->get_value('median_images_path');
     } else {
 	if (! defined $current_label_space) {
-	    cluck "\$current_label_space not explicitly defined. Checking Headfile...";
+	    my $msg = "\$current_label_space not explicitly defined. Checking Headfile...";
+	    if ($dev_mode) {
+		cluck $msg;
+	    } else {
+		print $msg;
+	    }
 	    $current_label_space = $Hf->get_value('label_space');
 	} else {
-	    cluck "current_label_space has been explicitly set to: ${current_label_space}";
+	    my $msg = "current_label_space has been explicitly set to: ${current_label_space}";
+	    if ($dev_mode) {
+		cluck $msg;
+	    } else {
+		print $msg;
+	    }
 	}
 	
 	#$ROI_path_substring="${current_label_space}_${label_refname}_space/${label_atlas}";

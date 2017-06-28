@@ -10,7 +10,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $intermediate_affine $dims $ants_verbosity $reservation $nodes $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $dims $ants_verbosity $reservation $nodes $permissions);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -35,15 +35,11 @@ if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
-# if (! $intermediate_affine) {
-   $warp_suffix = "1Warp.nii.gz";
-   $inverse_suffix = "1InverseWarp.nii.gz";
-   $affine_suffix = "0GenericAffine.mat";
-# } else {
-#     $warp_suffix = "0Warp.nii.gz";
-#     $inverse_suffix = "0InverseWarp.nii.gz";
-#     $affine_suffix = "0GenericAffine.mat";
-# }
+
+$warp_suffix = "1Warp.nii.gz";
+$inverse_suffix = "1InverseWarp.nii.gz";
+$affine_suffix = "0GenericAffine.mat";
+
 
 my $affine = 0;
 
@@ -174,10 +170,6 @@ sub pairwise_reg_Input_check {
 sub create_pairwise_warps {
 # ------------------
     my ($moving_runno,$fixed_runno) = @_;
-    my $pre_affined = $intermediate_affine;
-
-    # Set to "1" for using results of apply_affine_reg_to_atlas module, 
-    # "0" if we decide to skip that step.  It appears the latter is easily the superior option.
 
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
     my $out_file =  "${current_path}/${moving_runno}_to_${fixed_runno}_"; # Same
@@ -203,37 +195,22 @@ sub create_pairwise_warps {
     }	
 
     my $stop = 2;
-    my $start;
-    if ($combined_rigid_and_affine) {
-	$start = 2;
-    } else {
-	$start = 1;
-    }
+    my $start = 1;
+   
     $q_string = format_transforms_for_command_line($fixed_string,"q",$start,$stop);
     $r_string = format_transforms_for_command_line($moving_string,"r",$start,$stop);
     
-    if ($pre_affined) {
-	$fixed = $rigid_path."/${fixed_runno}_${mdt_contrast}.nii";
-	$moving = $rigid_path."/${moving_runno}_${mdt_contrast}.nii";
-	if ($mdt_contrast_2 ne '') {
-	    $fixed_2 = $rigid_path."/${fixed_runno}_${mdt_contrast_2}.nii" ;
-	    $moving_2 =$rigid_path."/${moving_runno}_${mdt_contrast_2}.nii" ;
-	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
-	}
-	$pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
-	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n";
-    } else {
-	$fixed = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast);
-	$moving = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
-	if ($mdt_contrast_2 ne '') {
-	  $fixed_2 = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast_2) ;
-	  $moving_2 = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast_2) ;
-	  $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
-	}
-
-	$pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
-	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n" 
+    $fixed = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast);
+    $moving = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
+    if ($mdt_contrast_2 ne '') {
+	$fixed_2 = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast_2) ;
+	$moving_2 = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast_2) ;
+	$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
     }
+    
+    $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
+	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n"; 
+    
 
     if (-e $new_warp) { unlink($new_warp);}
     if (-e $new_inverse) { unlink($new_inverse);}

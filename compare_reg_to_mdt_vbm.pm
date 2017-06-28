@@ -10,7 +10,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $combined_rigid_and_affine $nodes $ants_verbosity $permissions $dims $reservation);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode  $nodes $ants_verbosity $permissions $dims $reservation);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -33,15 +33,10 @@ my $batch_folder;
 my ($match_registration_levels_to_iteration,$mdt_creation_strategy);
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
-if (! $intermediate_affine) {
-   $warp_suffix = "1Warp.nii.gz";
-   $inverse_suffix = "1InverseWarp.nii.gz";
-   $affine_suffix = "0GenericAffine.mat";
-} else {
-    $warp_suffix = "0Warp.nii.gz";
-    $inverse_suffix = "0InverseWarp.nii.gz";
-    $affine_suffix = "0GenericAffine.mat";
-}
+
+$warp_suffix = "1Warp.nii.gz";
+$inverse_suffix = "1InverseWarp.nii.gz";
+$affine_suffix = "0GenericAffine.mat";
 
 my $affine = 0;
 my $expected_number_of_jobs=0;
@@ -196,10 +191,7 @@ sub compare_reg_to_mdt_Input_check {
 sub reg_to_mdt {
 # ------------------
     my ($runno) = @_;
-    my $pre_affined = $intermediate_affine;
-    # Set to "1" for using results of apply_affine_reg_to_atlas module, 
-    # "0" if we decide to skip that step.  It appears the latter is easily the superior option.
-    
+
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
     my $out_file =  "${current_path}/${runno}_to_MDT_"; # Same
     my $new_warp = "${current_path}/${runno}_to_MDT_warp.nii.gz"; # none 
@@ -223,12 +215,7 @@ sub reg_to_mdt {
 	$moving_string = join(',',@moving_array);
     }
     my $stop = 2;
-    my $start;
-    if ($combined_rigid_and_affine) {
-	$start = 2;
-    } else {
-	$start = 1;
-    }
+    my $start = 1;
 
     $r_string = format_transforms_for_command_line($moving_string,"r",$start,$stop);
     
@@ -237,29 +224,15 @@ sub reg_to_mdt {
 	$fixed_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii.gz";
     }
     
-    if ($pre_affined) {
-
-	$moving = $rigid_path."/${runno}_${mdt_contrast}.nii.gz";
-	if ($mdt_contrast_2 ne '') {
-	    
-	    $moving_2 =$rigid_path."/${runno}_${mdt_contrast_2}.nii.gz" ;
-	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
-	}
-	$pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ". 
-	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n";
-    } else {
-	$moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
-	if ($mdt_contrast_2 ne '') {
-	 
-	    $moving_2 = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast_2) ;
-	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius}${diffeo_sampling_options}] ";
-	}
-#	my $fixed_affine = $rigid_path."/${fixed_runno}_${xform_suffix}"; 
-#	my $moving_affine =  $rigid_path."/${runno}_${xform_suffix}";
-	$pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
-	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n"
+    $moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
+    if ($mdt_contrast_2 ne '') {
+	$moving_2 = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast_2) ;
+	$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius}${diffeo_sampling_options}] ";
     }
-
+    
+    $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
+	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n";
+	
     my @test = (0);
 
     my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;

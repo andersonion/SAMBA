@@ -36,7 +36,7 @@ my $connectomics_control_test = 0;
 use strict;
 use warnings;
 
-use vars qw($test_mode $combined_rigid_and_affine);
+use vars qw($test_mode);
 
 use vars qw(
 $project_name 
@@ -132,10 +132,8 @@ sub study_variables_vbm {
     $do_vba=1;
     $create_labels = 1;
     $label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine". 
-    # Note: pre_affine/post_rigid is not available with $combined_rigid_and_affine =1 & $old_ants = 1.
     $port_atlas_mask =0; # This is just setting the default.
-    $combined_rigid_and_affine = 0; # Will eventually always be "0" (and hardcoded accordingly)
-    $mdt_creation_strategy = 'pairwise'; # Options: 'pairwise (old Kochonov method)and 'iterative' (SyGN) Will eventually move to 'iterative'.
+    $mdt_creation_strategy = 'iterative'; # Options: 'pairwise (old Kochonov method)and 'iterative' (SyGN) Will eventually move to 'iterative'.
 ## Study variables for O'Brien
     if ($obrien) {
 	
@@ -143,7 +141,6 @@ sub study_variables_vbm {
 	$custom_predictor_string = "Control_vs_Reacher";
 	#$custom_predictor_string = "Control_vs_Phantom";
 	$diffeo_transform_parameters = "0.5,3,0.5";#1";
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1; #1
 	#$label_space = "pre_rigid";
@@ -218,44 +215,6 @@ sub study_variables_vbm {
         phantomWinter2012_9
         );
 	} else {
-	# @compare_group = qw(
-        # controlLRSpring2013_4
-        # controlLRSpring2013_7
-        # controlLRSpring2013_8
-        # controlLRSpring2013_9
-        # controlLRSpring2013_10
-        # controlLRSpring2013_11
-        # controlLRSummer2012_1
-        # controlLRSummer2012_5
-        # controlLRSummer2012_8
-        # controlLRWinter2012_1
-        # controlLRWinter2012_6
-        # controlLRWinter2012_9
-        # reacherSpring2013_1
-        # reacherSpring2013_2
-        # reacherSpring2013_3
-        # reacherSpring2013_5
-        # reacherSpring2013_6
-        # reacherSummer2012_2
-        # reacherSummer2012_3
-        # reacherSummer2012_5
-        # reacherWinter2012_3
-        # reacherWinter2012_5
-        # reacherWinter2012_7
-        # reacherWinter2012_8
-        # reacherLRSpring2013_1
-        # reacherLRSpring2013_2
-        # reacherLRSpring2013_3
-        # reacherLRSpring2013_5
-        # reacherLRSpring2013_6
-        # reacherLRSummer2012_2
-        # reacherLRSummer2012_3
-        # reacherLRSummer2012_5
-        # reacherLRWinter2012_3
-        # reacherLRWinter2012_5
-        # reacherLRWinter2012_7
-        # reacherLRWinter2012_8
-        # );
 
 	@compare_group = qw(
 	reacherSpring2013_1
@@ -287,217 +246,7 @@ sub study_variables_vbm {
         reacherWinter2012_8
         );
 	}
-	# @compare_group = qw(
-	#     BCS10
-	#     BCS11
-	#     BCS4
-	#     BCS7
-	#     BCS8
-	#     BCS9
-	#     BCU1
-	#     BCU7
-        #     BCW1
-        #     BCW4
-        #     BCW6
-        #     BCW9      
-	#     BRS1
-	#     BRS2
-	#     BRS3
-	#     BRS5
-	#     BRS6
-	#     BRU2
-	#     BRU3
-        #     BRU5
-        #     BRW3
-        #     BRW5
-        #     BRW7
-        #     BRW8
-	#     ICS10
-	#     ICS11
-	#     ICS4
-	#     ICS7
-	#     ICS8
-	#     ICS9
-	#     ICU1
-	#     ICU7
-        #     ICW1
-        #     ICW4
-        #     ICW6
-        #     ICW9
-	#     IRS1
-	#     IRS2
-	#     IRS3
-	#     IRS5
-	#     IRS6
-	#     IRU2
-	#     IRU3
-        #     IRU5
-        #     IRW3
-        #     IRW5
-        #     IRW7
-        #     IRW8
-	#     TCS10
-	#     TCS11
-	#     TCS4
-	#     TCS7
-	#     TCS8
-	#     TCS9
-	#     TCU1
-	#     TCU7
-	#     TRS1
-	#     TRS2
-	#     TRS3
-	#     TRS5
-	#     TRS6
-	#     TRU2
-	#     TRU3
-        #     TRU5
-        #     TCW1
-        #     TCW4
-        #     TCW6
-        #     TCW9
-        #     TRW3
-        #     TRW5
-        #     TRW7
-        #     TRW8
-       
-        # reacherSpring2013_1
-        # reacherSpring2013_2
-        # reacherSpring2013_3
-        # reacherSpring2013_5
-        # reacherSpring2013_6
-        # reacherSummer2012_2
-        # reacherSummer2012_3
-        # reacherSummer2012_5
-        # reacherWinter2012_3
-        # reacherWinter2012_5
-        # reacherWinter2012_7
-        # reacherWinter2012_8
-        # );
-	# @compare_group = qw(
-	#     BCS10
-	#     BCS11
-	#     BCS4
-	#     BCS7
-	#     BCS8
-	#     BCS9
-	#     BCU1
-	#     BCU7
-        #     BCW1
-        #     BCW4
-        #     BCW6
-        #     BCW9      
-	#     BRS1
-	#     BRS2
-	#     BRS3
-	#     BRS5
-	#     BRS6
-	#     BRU2
-	#     BRU3
-        #     BRU5
-        #     BRW3
-        #     BRW5
-        #     BRW7
-        #     BRW8
-	#     ICS10
-	#     ICS11
-	#     ICS4
-	#     ICS7
-	#     ICS8
-	#     ICS9
-	#     ICU1
-	#     ICU7
-        #     ICW1
-        #     ICW4
-        #     ICW6
-        #     ICW9
-	#     IRS1
-	#     IRS2
-	#     IRS3
-	#     IRS5
-	#     IRS6
-	#     IRU2
-	#     IRU3
-        #     IRU5
-        #     IRW3
-        #     IRW5
-        #     IRW7
-        #     IRW8
-	#     TCS10
-	#     TCS11
-	#     TCS4
-	#     TCS7
-	#     TCS8
-	#     TCS9
-	#     TCU1
-	#     TCU7
-	#     TRS1
-	#     TRS2
-	#     TRS3
-	#     TRS5
-	#     TRS6
-	#     TRU2
-	#     TRU3
-        #     TRU5
-        #     TCW1
-        #     TCW4
-        #     TCW6
-        #     TCW9
-        #     TRW3
-        #     TRW5
-        #     TRW7
-        #     TRW8
-        # controlSpring2013_4
-        # controlSpring2013_7
-        # controlSpring2013_8
-        # controlSpring2013_9
-        # controlSpring2013_10
-        # controlSpring2013_11
-        # controlSummer2012_1
-        # controlSummer2012_5
-        # controlSummer2012_8
-        # controlWinter2012_1
-        # controlWinter2012_6
-        # controlWinter2012_9
-        # reacherSpring2013_1
-        # reacherSpring2013_2
-        # reacherSpring2013_3
-        # reacherSpring2013_5
-        # reacherSpring2013_6
-        # reacherSummer2012_2
-        # reacherSummer2012_3
-        # reacherSummer2012_5
-        # reacherWinter2012_3
-        # reacherWinter2012_5
-        # reacherWinter2012_7
-        # reacherWinter2012_8
-        # );
-	# @compare_group = qw(
-        # controlSpring2013_4
-        # controlSpring2013_7
-        # controlSpring2013_8
-        # controlSpring2013_9
-        # controlSpring2013_10
-        # controlSpring2013_11
-        # controlSummer2012_1
-        # controlSummer2012_5
-        # controlSummer2012_8
-        # controlWinter2012_1
-        # controlWinter2012_6
-        # controlWinter2012_9
-        # reacherSpring2013_1
-        # reacherSpring2013_2
-        # reacherSpring2013_3
-        # reacherSpring2013_5
-        # reacherSpring2013_6
-        # reacherSummer2012_2
-        # reacherSummer2012_3
-        # reacherSummer2012_5
-        # reacherWinter2012_3
-        # reacherWinter2012_5
-        # reacherWinter2012_7
-        # reacherWinter2012_8
-        # );
+
 
 	@channel_array = qw(dwi fa adc); 
 #	@channel_array = qw(dwi fa);
@@ -529,7 +278,6 @@ sub study_variables_vbm {
 	$project_name = "14.obrien.02";
 	$custom_predictor_string = "Control_vs_Reacher";
 	$diffeo_transform_parameters = "0.5,3,1";
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1;
 	$label_space = "pre_affine";
@@ -643,7 +391,6 @@ sub study_variables_vbm {
 	#$optional_suffix = '2016analysis'; #'aTest6'
 	$optional_suffix='April2017analysis';
 	$diffeo_transform_parameters = "0.5,3,0.5";  #"0.5,3,1"
- 	$combined_rigid_and_affine = 0; #1 # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1;
 	#$label_space = "pre_affine";
@@ -704,7 +451,7 @@ sub study_variables_vbm {
 	$pre_masked = 0;
     
 	$vba_analysis_software = 'fsl';
-	$nonparametric_permutations = 1770;
+	$nonparametric_permutations = 1995;
 
 #custom thresholds for Colton study
 	$thresh_ref = {
@@ -747,7 +494,6 @@ sub study_variables_vbm {
 	$custom_predictor_string = "nos2_vs_cvn";
 	$optional_suffix = 'invivo';
 	$diffeo_transform_parameters = "0.5,3,1";
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$vbm_reference_space = "native";
 	$create_labels = 1;
 	$label_space = "pre_affine";
@@ -819,7 +565,7 @@ B03248);
 
 #	$template_name = 'faMDT_Control_n10';
 	my $all =1;
-	my $phantom_run =1;
+	my $phantom_run =0;
 	my $phantom_version = 6;
 
 	# Combinations of SyN parameters: SyN: 0.5,0.25,0.1, reg1: 5,3, reg2: 0.5,0
@@ -835,15 +581,14 @@ B03248);
 
 	#$diffeo_transform_parameters = "0.1,5,0.5"; # control  # all #phantom #Fantom #Zantom #Yantom #Xantom #Vantom #Xall 
 	#$diffeo_transform_parameters = "0.1,5,0"; # control # all #Fantom #Xantom  #Vantom #Xall (missing labels - progress)
-       	$diffeo_transform_parameters = "0.1,3,0.5"; # control # all #phantom #Fantom #Xantom #Vantom # Xall - active (missing labels)
-	#$diffeo_transform_parameters = "0.1,3,0"; # control  # all #phantom #Xantom #Xall (missing labels-in progress)
+       	###$diffeo_transform_parameters = "0.1,3,0.5"; # control # all #phantom #Fantom #Xantom #Vantom # Xall - active (missing labels)
+	$diffeo_transform_parameters = "0.1,3,0"; # control  # all #phantom #Xantom #Xall (missing labels-in progress)
 
 
 	#$diffeo_transform_parameters = "0.5,3,1"; # For use with producing chass_symmetric2 labels which can be manually corrected.
 
 	#$vbm_reference_space = "/glusterspace/VBM_13mcnamara02_DTI101b_quick-inputs/y_padded.nii";#"DTI101b";
 	$vbm_reference_space ="/glusterspace/VBM_13mcnamara02_DTI101b_zippy-work/preprocess/base_images/reference_file_c_ypadded.nii.gz";
-	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
 	#$label_space = "pre_affine"; # options are "pre_rigid","pre_affine"/"post_rigid","post_affine".
 	$label_space = "pre_affine";
 	
@@ -932,12 +677,6 @@ B03248);
 	
 
 
-#	@control_group = qw(S64944 S64953 S64959 S64962 S64968 S64974 S65394 S65408 S65411 S65414);
-# 	@compare_group = qw(W64944 W64953 W64959 W64962 W64968 W64974 W65394 W65408 W65411 W65414);
-#	@compare_group = qw(S64781);
-#	@compare_group = qw(S64745 S64763 S64766 S64769 S64772 S64775 S64778 S64781 S65142 S65145 S65148 S65151 S65154);
-	
-
 #	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
     	@channel_array = qw(dwi fa); #Just these two for now so we don't overload glusterspace
 
@@ -977,8 +716,6 @@ B03248);
 	$project_name = "11.premont.01";
 	$custom_predictor_string = "WT_vs_KO";
 	$vbm_reference_space = "glusterspace/VBM_11premont01_whs-work/base_images/N38709_T2star.nii.gz";
-	# $diffeo_transform_parameters = ?;
-	$combined_rigid_and_affine = 1; # We want to eventually have this set to zero and remove this variable from the code.
 
 	@control_group = qw(N38845 N38851 N38761 N38721 N38714 N38709);
 	@compare_group = qw(N38848 N38767 N38764 N38717 N38693 N38699);
@@ -1005,8 +742,6 @@ B03248);
      $project_name = "11.premont.01";
      $custom_predictor_string = "WT_vs_KO";
      $vbm_reference_space = "WT_111004_3"; #/glusterspace/VBM_11premont01_whs-work/base_images/N38709_T2star.nii.gz";
-     # $diffeo_transform_parameters = ?;
-     $combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
      $create_labels = 0;
 
      @control_group = qw(
@@ -1047,7 +782,6 @@ GIT1_111024_5);
 	$project_name = "12.provenzale.02";
 	$custom_predictor_string = "control_vs_diseased";
 	$vbm_reference_space = "native";
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 0;
 
 	@control_group = qw(S65469 S65519 S65531);
@@ -1099,7 +833,6 @@ GIT1_111024_5);
 	$custom_predictor_string = "intra_specimen";
 	$vbm_reference_space = "native";
 	$diffeo_transform_parameters = '0.5,3,1';
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 0;
  
 	my $specimen = 6;
@@ -1283,8 +1016,6 @@ N52863
 	$custom_predictor_string = "inter_specimen";
 	$vbm_reference_space = "native";
 	$diffeo_transform_parameters = '0.5,3,1';
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
-
 
 	@control_group = qw(
 spec1
@@ -1326,7 +1057,6 @@ dummy
 	$template_predictor = "sham";
 
 	$vbm_reference_space = "native";
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 1;
 	
 	@control_group = qw(S65456 S65459 S65466 S65521 S65530 S65533 S65537 S65541);
@@ -1381,7 +1111,6 @@ dummy
 	$project_name = "10.sullivan.01";
 	$custom_predictor_string = "control_vs_ApoE";
 	$vbm_reference_space = "native";
-	$combined_rigid_and_affine = 0;
 
 	@control_group = qw(N33818 N33819 N33820 N33821 N33965 N33968);
 	@compare_group = qw(N33823 N33824 N33825 N33964 N33966 N33967);
@@ -1411,7 +1140,6 @@ dummy
 	$project_name = "15.gaj.36";
 
 	$vbm_reference_space = "native";
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 1;
 	$template_predictor = 'UNDEFINED';
 
@@ -1472,7 +1200,6 @@ dummy
 
 
 	$vbm_reference_space = "native";
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 1;
 	
 	@control_group = qw(B04120 B04123 B04126 B04129 B04132 B04093 B04096 B04026 B04029 B04032 B04035 B04038 B04050);
@@ -1534,7 +1261,6 @@ dummy
 	$mdt_iterations = 6;
 
 	$vbm_reference_space = "native";
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 1;
 	
 	@control_group =  qw(B03680 B03729 B03734 B03739 B03818 B03852 B03858 B03864 B03870);#qw(B03704 B03709 B03714 B03724 B03719 B03823 B03828 B03834 B03616);
@@ -1593,7 +1319,6 @@ elsif ($john_multicoil)
 	$custom_predictor_string = "isocenter_vs_offcenter";
 	$vbm_reference_space = "native";
 	#$vbm_reference_space="/glusterspace/VBM_16gaj38_DTI101b-work/preprocess/base_images/reference_image_native_N54470.nii.gz";
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 1;
 
 	@control_group = qw(B05111);
@@ -1651,7 +1376,6 @@ elsif ($nian_connectome)
 	#$vbm_reference_space="/glusterspace/VBM_16gaj38_DTI101b-work/preprocess/base_images/reference_image_native_N54470.nii.gz";
 	#$vbm_reference_space="/glusterspace/VBM_16gaj38_DTI101b_42p5um-work/preprocess/base_images/reference_image_native_N54538.nii.gz";
 	$vbm_reference_space='/glusterspace/VBM_16gaj38_DTI101b_45p4um-work/preprocess/base_images/reference_image_native_N54633.nii.gz';
-	$combined_rigid_and_affine = 0; # We want to eventually have this set to zero and remove this variable from the code.
 	$create_labels = 1;
 
 	@control_group = qw(chass_symmetric2);
@@ -1717,9 +1441,6 @@ elsif ($nian_connectome)
 	$diffeo_iterations = '3000x3000x3000x80';
 
 	$vbm_reference_space = 'native';
-	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
-	#$label_space = "pre_affine";
-	#$label_space = "post_rigid";
 	$label_space = "post_affine";
 	
 	@control_group = qw(N54435 N54441 N54443 N54451 N54453 N54455 N54431 N54433 N54437 N54439 N54445 N54447 N54449 );
@@ -1776,8 +1497,6 @@ elsif ($nian_connectome)
 	$diffeo_iterations = '3000x3000x3000x80';
 
 	$vbm_reference_space = 'native';
-	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
-	#$label_space = "pre_affine";
 	$label_space = "post_affine,post_rigid,MDT"; #Revisiting this idea after fixing stray $label_space -> $current_label_space
 	#$label_space = 'pre_rigid,post_rigid'; # 28 April 2017: Still haven't got this multiple label_space thing perfected...will need to come back to it.
 	#$label_space = 'atlas';
@@ -1837,10 +1556,6 @@ elsif ($nian_connectome)
 	$diffeo_iterations = '3000x3000x3000x80';
 
 	$vbm_reference_space = 'native';
-	$combined_rigid_and_affine = 0; # Was 1 for January 2015 runs.  We want to eventually have this set to zero and remove this variable from the code.
-	#$label_space = "pre_affine";
-	#$label_space = "post_affine";
-	#$label_space = 'MDT';
 	$label_space = 'MDT';#'pre_rigid,atlas,post_rigid,MDT,pre_affine,post_affine';
 	
 	#$recon_machine = "atlasdb";	

@@ -351,111 +351,149 @@ sub fsl_nonparametric_analysis_vbm {
 
     fsl_nonparametric_analysis_prep($contrast,$input_path);
 
-    $number_of_test_contrasts=`head -2 $con_file | tail -1 | cut -d ' ' -f 2`;
+    my $local_results_path = "${contrast_path}/${local_sub_name}_${nonparametric_permutations}_perms";
+    if (! -e $local_results_path) {
+	mkdir ($local_results_path,$permissions);
+    }
 
+
+    $number_of_test_contrasts=`head -2 $con_file | tail -1 | cut -d ' ' -f 2`;
+    
     my $prefix = "${contrast}_nonparametric_testing";
-    my $remaining_permutations = $nonparametric_permutations;
     my $master_job_name="fsl_nonparametric_testing_for_${local_sub_name}_${contrast}";
+    my @expected_outputs = ();
+    
+    
+    my $remaining_permutations = $nonparametric_permutations;
     my $seed;
     my %cleanup_string;
+    my @output_key_list = ('_','_glm_cope_','_glm_pe_','_glm_sigmasqr_','_glm_varcope_'); # This corresponds to the raw ttest and glm  outputs.
+    
+    if ($randomise_options =~ /\ -T\ / ) { # $tfce_analysis
+	my @t_keys = ('_tfce_','_tfce_p_','_tfce_corrp_');
+	push(@output_key_list,@t_keys);
+    }
+    
+    if ($cmbt_analysis)  { # $cmbt_analysis
+	my @c_keys = ('_clusterm_','_clusterm_corrp_');
+	push(@output_key_list,@c_keys);
+    }
+    
+    if ($randomise_options =~ /\ -x\ /) {
+	my @x_keys = ('_vox_p_','_vox_corrp_');
+	push(@output_key_list,@x_keys);
+    }
 
+   if ($randomise_options =~ /\ -P\ /) {
+	my @P_keys = ('_perm_');
+	push(@output_key_list,@P_keys);
+    }
+    
+    
     for ($seed = 1; $remaining_permutations > 0 ;$seed++) {
 	# ($seed,$num_of_perms,$output_path,$prefix,$contrast_number)
 	my $c_permutations = $default_nonparametric_job_size;
 	$c_permutations =  min($c_permutations,$remaining_permutations);
 	$remaining_permutations = $remaining_permutations - $c_permutations;
-
+	
 	for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
 	    my $expected_perms = $c_permutations;
 	    if ($seed > 1) {$expected_perms++;} 
-	    my $cfix = "${local_work_dir}/${prefix}_SEED${seed}x${expected_perms}_";
+	    my $rfix = "${local_results_path}/${prefix}"; # ...${key1}_${cfix2}";
+	    my $cfix = "${local_work_dir}/${prefix}_SEED${seed}x${expected_perms}";
 	    my $cfix2 = "tstat${test_contrast}.nii.gz";
-	    my $c_file;
-	    my @expected_p_outputs=();
-	    if ($seed == 1) {
-		$c_file="${cfix}${cfix2}";
-		push(@expected_p_outputs,$c_file);
-		#$cleanup_string{'raw'} = $cleanup_string{'raw'}.' '.$c_file; Need to move to final prefix_ttest2
-	    }
+	    my $c_file; #current file
+	    my $r_file; #results file 
+	    my @expected_p_outputs=(); # The expected outputs of each parallel process
+	    
+	    for my $output_key (@output_key_list) {
+		if ($output_key !~ /_perm_/) { 
+		    $c_file="${cfix}${output_key}${cfix2}";
+		    $r_file = "${rfix}${output_key}${cfix2}";
+		    
+		    if ( ($output_key =~ /^_$/) || ($output_key =~ /^_cluster/) || ($output_key =~ /^_glm/)) {
+			if ($seed == 1) {
+			    $cleanup_string{$output_key}{$test_contrast} = "cp ${c_file} ${r_file};\n";
+			    push(@expected_p_outputs,$c_file);
+			    push(@expected_outputs,$r_file);
+			} else {
+			    if ($output_key =~ /^_$/) { # We only ask for --glm_outputs and cluster stats when calling seed1, so don't need to remove for other seeds.
+				$cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} rm ${c_file};\n";
+			    }
+			}
+		    } else {
+			push(@expected_p_outputs,$c_file);
+			if ($seed == 1) {
+			    $cleanup_string{$output_key}{$test_contrast}  = "fslmaths ${c_file} ";
+			    push(@expected_outputs,$r_file);
+			} else {
+			    $cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} -add ${c_file} ";
+			}		    
+		    }
 
-	    if ($randomise_options =~ /\ -T\ / ) { # $tfce_analysis
-		if ($seed == 1) {$cleanup_string{'tfce'}{$test_contrast}='';}
-		$c_file="${cfix}tfce_${cfix2}";
-		push(@expected_p_outputs,$c_file);
-		$cleanup_string{'tfce'}{$test_contrast}  = $cleanup_string{'tfce'}{$test_contrast}.' '.$c_file;
-
-		if ($seed == 1) {$cleanup_string{'tfce_p'}{$test_contrast}='';}
-		$c_file="${cfix}tfce_p_${cfix2}";
-		push(@expected_p_outputs,$c_file);
-		$cleanup_string{'tfce_p'}{$test_contrast}  = $cleanup_string{'tfce_p'}{$test_contrast}.' '.$c_file;
-
-		if ($seed == 1) {$cleanup_string{'tfce_corrp'}{$test_contrast}='';}
-		$c_file="${cfix}tfce_corrp_${cfix2}";
-		push(@expected_p_outputs,$c_file);
-		$cleanup_string{'tfce_corrp'}{$test_contrast}  = $cleanup_string{'tfce_corrp'}{$test_contrast}.' '.$c_file;
-	    }
-	    if (($cmbt_analysis) && ($seed == 1))  { # $cmbt_analysis
-
-		$c_file="${cfix}clusterm_${cfix2}";
-		push(@expected_p_outputs,$c_file);
-		#$cleanup_string{'clusterm'}{$test_contrast}  = $cleanup_string{'clusterm'}{$test_contrast}.' '.$c_file;
-
-		$c_file="${cfix}clusterm_corrp_${cfix2}";
-		push(@expected_p_outputs,$c_file);
-		#$cleanup_string{'clusterm_corrp'}{$test_contrast}  = $cleanup_string{'clusterm_corrp'}{$test_contrast}.' '.$c_file;
-
-	    }
-
-	    if ($randomise_options =~ /\ -x\ /) { # voxelwise p-values
-		if ($seed == 1) {$cleanup_string{'vox_corrp'}{$test_contrast}='';}
-		$c_file="${cfix}vox_corrp_${cfix2}";
-		push(@expected_p_outputs,$c_file);
-		$cleanup_string{'vox_corrp'}{$test_contrast}  = $cleanup_string{'vox_corrp'}{$test_contrast}.' '.$c_file;
-		
-		if ($seed == 1) {$cleanup_string{'vox_p'}{$test_contrast}='';}
-		$c_file="${cfix}vox_p_${cfix2}";
-		push(@expected_p_outputs,$c_file);
-		$cleanup_string{'vox_p'}{$test_contrast} = $cleanup_string{'vox_p'}{$test_contrast}.' '.$c_file;
-	    }
-
-	   # for my $tts (@expected_p_outputs) {
-	#	print "ls -arlth ${tts}\n";
-	   # }
-	   # my $rez = data_double_check(@expected_p_outputs);
-	   # print "rez = ${rez}\n\n";
-	    # die;
-
-
-	    if (data_double_check(@expected_p_outputs)) { # If any one of the expected outputs is missing, the work will be performed.
-		($job) = parallelized_randomise($seed,$c_permutations,$local_work_dir,$prefix,$contrast,$master_job_name,$test_contrast);
-		my @j_array = split(',',$job);
-		if ($j_array[0] > 1) {
-		    push(@jobs,$job);
+		} else {
+		    my $cfix3 = "tstat${test_contrast}.txt";
+		    $c_file="${cfix}${output_key}${cfix3}";
+		    $r_file = "${rfix}${output_key}${cfix3}";
+		    if ($seed == 1) {
+			$cleanup_string{$output_key}{$test_contrast}  = "cat ${c_file} > ${r_file};\n ";
+			push(@expected_outputs,$r_file);
+		    } else {
+			$cleanup_string{$output_key}{$test_contrast}  = $cleanup_string{$output_key}{$test_contrast}."tail -n +2 ${c_file} >> ${r_file};\n ";
+		    }
+		    push(@expected_p_outputs,$c_file);
 		}
+	    }
+	    if (data_double_check(@expected_outputs)) {
+		if (data_double_check(@expected_p_outputs)) { # If any one of the expected outputs is missing, the work will be performed.
+		    ($job) = parallelized_randomise($seed,$c_permutations,$local_work_dir,$prefix,$contrast,$master_job_name,$test_contrast);
+		    my @j_array = split(',',$job);
+		    if ($j_array[0] > 1) {
+			push(@jobs,$job);
+		    }
+		}
+	    }	    
+	}
+    }
+    
+    my $scale =  $default_nonparametric_job_size/$nonparametric_permutations;
+    for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
+	for my $output_key (@output_key_list) {
+	    if (! (($output_key =~ /^_$/) || ($output_key =~ /^_cluster/)|| ($output_key =~ /^_perm/) || ($output_key =~ /^_glm/)) ) {
+		my $rfix = "${local_results_path}/${prefix}"; # ...${key1}_${cfix2}";
+		my $cfix2 = "tstat${test_contrast}.nii.gz";
+		my $r_file = "${rfix}${output_key}${cfix2}";
+		$cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} -mul ${scale} ${r_file};\n";
 	    }
 	}
     }
- 
+
+
+    
     my $number_of_jobs = scalar(@jobs);
-    print " Number of jobs = ${number_of_jobs}\n";
+    if ($number_of_jobs) {
+	print " Number of jobs = ${number_of_jobs}\n";
+    }
     my $jobs=join(',',@jobs);
     
     my $defrag_cmd='';
-    my $scale =  $default_nonparametric_job_size/$nonparametric_permutations;
-    for my $key1 (keys %cleanup_string) {
-	#print "key = $key1\n\n";
+    for my $key1 (@output_key_list) {
 	for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
-	    my $cfix2 = "tstat${test_contrast}.nii.gz";
-	    my $result_file = "${contrast_path}/${prefix}_${key1}_${cfix2}";
-	    my $new_string =  join(' -add ',split(' ',$cleanup_string{$key1}{$test_contrast}));
-	    if (! -e $result_file) {
-		$defrag_cmd= $defrag_cmd."fslmaths + ${new_string} -mul ${scale} ${result_file};\n";
+
+	    my $cfix2;
+	    if ($key1 !~ /_perm_/ ) {
+		$cfix2 = "tstat${test_contrast}.nii.gz";
+	    } else{ 
+		$cfix2 = "tstat${test_contrast}.txt";
 	    }
-	    
+	    my $result_file = "${local_results_path}/${prefix}${key1}${cfix2}";
+	    #  my $new_string =  join(' -add ',split(' ',$cleanup_string{$key1}{$test_contrast}));
+	    if (! -e $result_file) {
+		$defrag_cmd= $defrag_cmd.$cleanup_string{$key1}{$test_contrast};
+	    }
 	}
-	    #print "	$cleanup_string{$key1}{1}\n\n";
-	#print "	$cleanup_string{$key1}{2}\n\n";
     }
+    # print "DEFRAGGER:\n${defrag_cmd}\n\n";
     #die;
     # Schedule defragmentation...
     
@@ -465,42 +503,46 @@ sub fsl_nonparametric_analysis_vbm {
 
 
     # And add the fdr and masking jobs...sure, why not?
-
-    
-    my @test=(0,0,'singleton');
-    if (defined $reservation) {
-	@test =(0,$reservation,'singleton');
-    }
-    
-    my $go_message = "$PM: Cleaning up fsl nonparametric testing for contrast: ${contrast}\n" ;
-    my $stop_message = "$PM: Failed to properly clean up data for fsl nonparametric testing in folder: ${local_work_dir}  \n" ;
-    
-    
-    my $mem_request = '17600';
-    my $cleanup_jid = 0;
-    if (cluster_check) {
-	my $go =1;	    
-	my $home_path = $local_work_dir;
-	my $Id= $master_job_name;
-	my $verbose = 2; # Will print log only for work done.
-	$cleanup_jid = cluster_exec($go,$go_message , $defrag_cmd,$home_path,$Id,$verbose,$mem_request,@test);     
-    } else {
-	`${defrag_cmd}`;
-    }
-    
-    print STDOUT "SLURM: Waiting for jobs $jobs to complete via singleton job dependency of ${cleanup_jid}.\n";
-    
-    if (cluster_check()) {
-	my $interval = 2;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($cleanup_jid));
+    if ($defrag_cmd ne '') {
 	
-	if ($done_waiting) {
-	    print STDOUT  " Clean up is complete for fsl nonparametric testing of ${contrast} for ${local_sub_name}; moving on to next step.\n";
+	my @test=(0,0,'singleton');
+	if (defined $reservation) {
+	    @test =(0,$reservation,'singleton');
 	}
-    }
+	
+	my $go_message = "$PM: Cleaning up fsl nonparametric testing for contrast: ${contrast}\n" ;
+	my $stop_message = "$PM: Failed to properly clean up data for fsl nonparametric testing in folder: ${local_work_dir}  \n" ;
+	
+	
+	my $mem_request = '17600';
+	my $cleanup_jid = 0;
+	if (cluster_check) {
+	    my $go =1;	    
+	    my $home_path = $local_results_path;  # Changed from local_work_dir to local_results_path to keep bookkeeping closer to final data.
+	    my $Id= $master_job_name;
+	    my $verbose = 2; # Will print log only for work done.
+	    $cleanup_jid = cluster_exec($go,$go_message , $defrag_cmd,$home_path,$Id,$verbose,$mem_request,@test);     
+	} else {
+	    `${defrag_cmd}`;
+	}
+	
+	if ($jobs) {
+	    print STDOUT "SLURM: Waiting for jobs $jobs to complete via singleton job dependency of ${cleanup_jid}.\n";
+	} else {
+	    print STDOUT "SLURM: Waiting for jobs ${cleanup_jid} to complete.\n";
+	}
 
-    
+	if (cluster_check() && ($cleanup_jid)) {
+	    my $interval = 2;
+	    my $verbose = 1;
+	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($cleanup_jid));
+	    
+	    if ($done_waiting) {
+		print STDOUT  " Clean up is complete for fsl nonparametric testing of ${contrast} for ${local_sub_name}; moving on to next step.\n";
+	    }
+	}
+
+    }
     return();
 }
 
@@ -614,7 +656,7 @@ sub fsl_nonparametric_analysis_prep {
 	    my $go =1;	    
 	    my $home_path = $local_work_dir;
 	    my $Id= "setup_for_fsl_nonparametric_testing_with_n${n1}_and_n${n2}";
-	    my $verbose = 2; # Will print log only for work done.
+	    my $verbose = 0; # These commands can be quite spammy, so will suppress. They can be found in the sbatch folder
 	    $jid = cluster_exec($go,$go_message , $setup_cmds,$home_path,$Id,$verbose,$mem_request,@test);     
 
 	    #return($jid);
