@@ -451,7 +451,7 @@ sub study_variables_vbm {
 	$pre_masked = 0;
     
 	$vba_analysis_software = 'fsl';
-	$nonparametric_permutations = 1995;
+	$nonparametric_permutations = 2035;
 
 #custom thresholds for Colton study
 	$thresh_ref = {
