@@ -428,14 +428,6 @@ if (defined $thresh_ref) {
 }
 
 
-
-if ($broken) {
-    $Hf->set_value('status_of_MDT_warp_calculations','broken');
-    $custom_predictor_string = $custom_predictor_string.'_broken_MDT';
-} else {
-    $Hf->set_value('status_of_MDT_warp_calculations','fixed');
-}
-
 $Hf->set_value('predictor_id',$custom_predictor_string);
 
 if (defined $template_predictor) {

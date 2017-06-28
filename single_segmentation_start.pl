@@ -21,7 +21,7 @@ use Carp qw(cluck confess);
 use Cwd qw(abs_path);
 use File::Basename;
 use List::MoreUtils qw(uniq);
-use vars qw($Hf $runno $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $valid_formats_string $nodes $reservation $broken  $mdt_to_reg_start_time);
+use vars qw($Hf $runno $BADEXIT $GOODEXIT $test_mode $syn_params $permissions $valid_formats_string $nodes $reservation  $mdt_to_reg_start_time);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
@@ -36,8 +36,6 @@ $valid_formats_string = 'hdr|img|nii';
 # a do it again variable, will allow you to pull data from another vbm_run
 my $import_data = 1;
 
-
-$intermediate_affine = 0;
 $test_mode = 0;
 
 $runno = shift(@ARGV);
@@ -52,8 +50,6 @@ use vars qw($recon_machine);
 if ($#runnos > 0) {
     $recon_machine = $runnos[1];
 }
-
-
 
 $reservation=shift(@ARGV);
 
@@ -76,7 +72,6 @@ if (! defined $nodes) {
 
 
 print "nodes = $nodes; reservation = \"$reservation\".\n\n\n";
-if (! defined $broken) { $broken = 0 ;} 
 
 umask(002);
 

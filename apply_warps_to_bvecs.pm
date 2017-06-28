@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $permissions $ants_verbosity $reservation $intermediate_affine $dims);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $permissions $ants_verbosity $reservation $dims);
 require Headfile;
 require pipeline_utilities;
 
@@ -318,33 +318,20 @@ sub apply_affine_rotation {
 # ------------------
 sub apply_warps_to_bvecs_Init_check {
 # ------------------
-# It does not make sense to have the images for label overlay in post-rigid space if 
-# the rigid and affine transforms are combined. While it is easy to get the images into
-# post-rigid space, it is not straightfoward to get the labels into said space. It could
-# in theory by lastly applying an forward rigid transform, but we will leave such tomfoolery for another day.
 
     my $init_error_msg='';
     my $message_prefix="$PM:\n";
-
+    
     my $do_connectivity = $Hf->get_value('do_connectivity');
-
+    
     if (($do_connectivity ne 'NO_KEY') && ($do_connectivity == 1)) {
-    # my $rigid_plus_affine = $Hf->get_value('combined_rigid_and_affine');
-    # my $do_labels = $Hf->get_value('create_labels');
-    # $current_label_space = $Hf->get_value('label_space');
-    # if ($current_label_space eq ('post_rigid' || 'pre_affine' || 'postrigid' || 'preaffine')) {
-    # 	if (($do_labels == 1) && ($rigid_plus_affine) && ($old_ants)) {
-    # 	    $init_error_msg = $init_error_msg."Label space of ${current_label_space} is not compatible with combined rigid and affine transforms using old ants.\n".
-    # 		"Please consider setting label space to either \"pre_rigid\" or \"post_affine\".\n";
-    # 	}
-    # } 
-
+	
 	$eddy_current_correction = $Hf->get_value('eddy_current_correction');
 	#$Hf->get_value("original_bvecs_${runno}");
-
+	
 
 	if ($init_error_msg ne '') {
-	$init_error_msg = $message_prefix.$init_error_msg;
+	    $init_error_msg = $message_prefix.$init_error_msg;
 	}
     }
     return($init_error_msg);

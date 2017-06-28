@@ -10,7 +10,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $ants_verbosity $intermediate_affine $nodes $reservation $permissions $dims);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $ants_verbosity $nodes $reservation $permissions $dims);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -209,10 +209,6 @@ sub iterative_pairwise_reg_Input_check {
 sub create_iterative_pairwise_warps {
 # ------------------
     my ($moving_runno) = @_;
-    my $pre_affined = $intermediate_affine;
-    
-    # Set to "1" for using results of apply_affine_reg_to_atlas module, 
-    # "0" if we decide to skip that step.  It appears the latter is easily the superior option.
     
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
     my $out_file =  "${current_path}/${moving_runno}_to_MDT_"; # Same
@@ -234,13 +230,7 @@ sub create_iterative_pairwise_warps {
     }	
     
     my $stop = 2;
-    my $start;
-    if ($combined_rigid_and_affine) {
-	$start = 2;
-    } else {
-	$start = 1;
-    }
-
+    my $start = 1;
 
     my @moving_array=split(',',$moving_string);  # In this case, we only want to consider the last 2 listed transforms, affine and rigid.
     while ($#moving_array > 1) {
@@ -255,7 +245,7 @@ sub create_iterative_pairwise_warps {
     
     $fixed = $current_target;
     $moving = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
-    if ($mdt_contrast_2 ne '') {
+    if ($mdt_contrast_2 ne '') { # Need to revisit this functionality
 	##$fixed_2 = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast_2) ; # Need to "fix" this, chuckle chuckle.
 	#$moving_2 = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast_2) ;
 	#$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
@@ -319,7 +309,7 @@ sub create_iterative_pairwise_warps {
 	my $Id= "${moving_runno}_to_MDT_create_iterative_pairwise_warp";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (! $jid) {
+	if (not $jid) {
 	    error_out();
 	}
     } else {
@@ -329,7 +319,7 @@ sub create_iterative_pairwise_warps {
 	}
     }
 
-    if (((!-e $new_warp) | (!-e $new_inverse)) && ($jid == 0)) {
+    if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
 	error_out($stop_message);
     }
     print "** $PM created ${new_warp} and ${new_inverse}\n";

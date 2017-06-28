@@ -15,7 +15,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $create_labels $nodes $permissions $dims $ants_verbosity $reservation);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $create_labels $nodes $permissions $dims $ants_verbosity $reservation);
 require Headfile;
 require pipeline_utilities;
 
@@ -77,7 +77,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 	my  $pipeline_name = $result_path_base.$xform_suffix;
 
 	if ($go) {
-	    if ((! $do_rigid) && ($runno eq $affine_target ) && (! $combined_rigid_and_affine)) { # For the affine target, we want to use the identity matrix.
+	    if ((! $do_rigid) && ($runno eq $affine_target )) { # For the affine target, we want to use the identity matrix.
 		my $affine_identity = $Hf->get_value('affine_identity_matrix');
 		`cp ${affine_identity} ${pipeline_name}`;
 	    } else {
@@ -117,15 +117,6 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 		headfile_list_handler($Hf,"inverse_xforms_${runno}","-i ${pipeline_name}",1);
 	    }
 	} elsif ((! $do_rigid) && ($runno eq $affine_target)) {
-	    if ($combined_rigid_and_affine) {
-		my $rigid_xform_name;
-		if ($mdt_flag) {
-		    $rigid_xform_name = $Hf->get_value("mdt_forward_xforms_${runno}");
-		} else {
-		    $rigid_xform_name = $Hf->get_value("forward_xforms_${runno}");
-		}
-		`cp $rigid_xform_name $pipeline_name`;
-	    }
 	    if ($mdt_flag) {
 		headfile_list_handler($Hf,"mdt_forward_xforms_${runno}","${pipeline_name}",0);
 		headfile_list_handler($Hf,"mdt_inverse_xforms_${runno}","-i ${pipeline_name}",1);
@@ -252,13 +243,11 @@ sub create_affine_transform_vbm {
     my ($B_path, $result_transform_path_base,$moving_runno) = @_;
     my $collapse = 0;
     my $transform_path="${result_transform_path_base}0GenericAffine.mat";
-    if ($combined_rigid_and_affine) {
-	$collapse = 1;
-    } else {
-	if (($xform_code ne 'rigid1') && (! $mdt_to_atlas)){
-	    $transform_path="${result_transform_path_base}1Affine.mat"; #2Affine.mat      
-	}
+
+    if (($xform_code ne 'rigid1') && (! $mdt_to_atlas)){
+	$transform_path="${result_transform_path_base}1Affine.mat"; #2Affine.mat      
     }
+    
     my ($q,$r);
     if ((! $do_rigid) && (! $mdt_to_atlas)) {
 	$r_string = "${current_path}/${moving_runno}_${other_xform_suffix}";

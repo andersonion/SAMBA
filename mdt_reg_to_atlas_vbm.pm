@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions $nodes $dims $ants_verbosity $reservation $mdt_to_reg_start_time);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $permissions $nodes $dims $ants_verbosity $reservation $mdt_to_reg_start_time);
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -37,15 +37,9 @@ if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
 my($warp_suffix,$inverse_suffix,$affine_suffix,$label_atlas);
-if (! $intermediate_affine) {
-   $warp_suffix = "1Warp.nii.gz";
-   $inverse_suffix = "1InverseWarp.nii.gz";
-   $affine_suffix = "0GenericAffine.mat";
-} else {
-    $warp_suffix = "0Warp.nii.gz";
-    $inverse_suffix = "0InverseWarp.nii.gz";
-    $affine_suffix = "0GenericAffine.mat";
-}
+$warp_suffix = "1Warp.nii.gz";
+$inverse_suffix = "1InverseWarp.nii.gz";
+$affine_suffix = "0GenericAffine.mat";
 
 my $affine = 0;
 
@@ -182,9 +176,7 @@ sub mdt_reg_to_atlas_Input_check {
 sub mdt_reg_to_atlas {
 # ------------------
     my ($runno) = @_;
-    my $pre_affined = $intermediate_affine;
-    # Set to "1" for using results of apply_affine_reg_to_atlas module, 
-    # "0" if we decide to skip that step.  It appears the latter is easily the superior option.
+
     if ($swap_fixed_and_moving) {
 	$warp_suffix = "0Warp.nii.gz";
 	$inverse_suffix = "0InverseWarp.nii.gz";

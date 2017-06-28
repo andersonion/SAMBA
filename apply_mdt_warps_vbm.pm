@@ -14,7 +14,7 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $combined_rigid_and_affine $permissions $ants_verbosity $reservation $intermediate_affine $dims);
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $permissions $ants_verbosity $reservation $dims);
 require Headfile;
 require pipeline_utilities;
 
@@ -268,23 +268,13 @@ sub apply_mdt_warp {
 	if ($direction eq 'f') {
 	    $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii.gz"; # Need to settle on exact file name format...  Added '.gz', 2 September 2015
 	    $direction_string = 'forward';
-	    if ($combined_rigid_and_affine) {
-		$start= 1;
-		$stop=2;
-	    } else {
-		$start=1;
-		$stop=3;
-	    }
+	    $start=1;
+	    $stop=3;
 	} else {
 	    $out_file = "${current_path}/MDT_to_${runno}_${current_contrast}.nii.gz"; # I don't think this will be the proper implementation of the "inverse" option.  Added '.gz', 2 September 2015
 	    $direction_string = 'inverse';
-	    if ($combined_rigid_and_affine) {
-		$start= 2;
-		$stop=3;
-	    } else {
-		$start=1;
-		$stop=3;
-	    }
+	    $start=1;
+	    $stop=3;
 	}
     }
 
@@ -440,23 +430,9 @@ sub convert_images_to_RAS {
 # ------------------
 sub apply_mdt_warps_vbm_Init_check {
 # ------------------
-# It does not make sense to have the images for label overlay in post-rigid space if 
-# the rigid and affine transforms are combined. While it is easy to get the images into
-# post-rigid space, it is not straightfoward to get the labels into said space. It could
-# in theory by lastly applying an forward rigid transform, but we will leave such tomfoolery for another day.
 
     my $init_error_msg='';
     my $message_prefix="$PM:\n";
-    # my $rigid_plus_affine = $Hf->get_value('combined_rigid_and_affine');
-    # my $do_labels = $Hf->get_value('create_labels');
-    # $current_label_space = $Hf->get_value('label_space');
-    # if ($current_label_space eq ('post_rigid' || 'pre_affine' || 'postrigid' || 'preaffine')) {
-    # 	if (($do_labels == 1) && ($rigid_plus_affine) && ($old_ants)) {
-    # 	    $init_error_msg = $init_error_msg."Label space of ${current_label_space} is not compatible with combined rigid and affine transforms using old ants.\n".
-    # 		"Please consider setting label space to either \"pre_rigid\" or \"post_affine\".\n";
-    # 	}
-    # } 
-
     if ($init_error_msg ne '') {
 	$init_error_msg = $message_prefix.$init_error_msg;
     }

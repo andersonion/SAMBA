@@ -21,7 +21,7 @@ use Cwd qw(abs_path);
 use File::Basename;
 use List::Util qw(min max reduce);
 use List::MoreUtils qw(uniq);
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $combined_rigid_and_affine $syn_params $permissions $intermediate_affine $valid_formats_string $nodes $reservation $broken  $mdt_to_reg_start_time);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $syn_params $permissions $valid_formats_string $nodes $reservation $mdt_to_reg_start_time);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
@@ -35,35 +35,8 @@ $valid_formats_string = 'hdr|img|nii';
 
 # a do it again variable, will allow you to pull data from another vbm_run
 my $import_data = 1;
-$broken = 0;
 
-
-$intermediate_affine = 0;
 $test_mode = 0;
-
-#$nodes = shift(@ARGV);
-# $reservation='';
-
-# if (! defined $nodes) {
-#     $nodes = 4 ;}
-# else {
-#     if ($nodes =~ /[^0-9]/) { # Test to see if this is not a number; if so, assume it to be a reservation.
-# 	$reservation = $nodes;
-# 	my $reservation_info = `scontrol show reservation ${reservation}`;
-# 	if ($reservation_info =~ /NodeCnt=([0-9]*)/m) { # Unsure if I need the 'm' option)
-# 	    $nodes = $1;
-# 	} else {
-# 	    $nodes = 4;
-# 	    print "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\nProceeding with NO reservation, and assuming you want to run on ${nodes} nodes.\n\n\n"; 
-# 	    $reservation = '';
-# 	    sleep(5);
-# 	}
-#     }
-# }
-
-
-# print "nodes = $nodes; reservation = \"$reservation\".\n\n\n";
-# if (! defined $broken) { $broken = 0 ;} 
 
 umask(002);
 
@@ -86,7 +59,6 @@ require set_reference_space_vbm;
 require create_rd_from_e2_and_e3_vbm;
 require mask_images_vbm;
 require create_affine_reg_to_atlas_vbm;
-require apply_affine_reg_to_atlas_vbm;
 require iterative_pairwise_reg_vbm;
 require pairwise_reg_vbm;
 require calculate_mdt_warps_vbm;
@@ -309,12 +281,6 @@ $Hf->set_value('control_comma_list',$control_comma_list);
 $Hf->set_value('compare_comma_list',$compare_comma_list);
 $Hf->set_value('complete_comma_list',$complete_comma_list);
 $Hf->set_value('channel_comma_list',$channel_comma_list);
-
-if (($combined_rigid_and_affine eq '') || (! defined $combined_rigid_and_affine)) {
-    $combined_rigid_and_affine=0; # Temporary default--> will eventually always be set to "0"
-}
-
-$Hf->set_value('combined_rigid_and_affine',$combined_rigid_and_affine);
 
 
 if (defined $affine_contrast) {
@@ -555,7 +521,6 @@ print STDOUT " Running the main code of $PM. \n";
      mask_images_vbm
      set_reference_space_vbm
      create_affine_reg_to_atlas_vbm
-     apply_affine_reg_to_atlas_vbm
      pairwise_reg_vbm
      iterative_pairwise_reg_vbm
      calculate_mdt_warps_vbm
@@ -678,9 +643,6 @@ if ($nii4D) {
     create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 21
     sleep($interval);
 
-#    apply_affine_reg_to_atlas_vbm(); #UNUSED
-#   sleep($interval);
-
     if (1) { #  Need to take out this hardcoded bit!
 	$do_rigid = 0;
 	create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 39
@@ -698,9 +660,6 @@ if ($nii4D) {
 ## Different approaches to MDT creation start to diverge here. ## 2 November 2016
     if ($mdt_creation_strategy eq 'iterative') {
 
-	#if (0) {
-	#    iterative_template_construction_vbm("d"); # To Temporarily handle calling Nick/Brian's script (04 Nov 2016...will ultimately remove
-	#} else {
 	    my $starting_iteration=$Hf->get_value('starting_iteration');
 
 	    if ($starting_iteration =~ /([1-9]{1}|[0-9]{2,})/) {
@@ -708,7 +667,6 @@ if ($nii4D) {
 		$starting_iteration = 0;
 	    }
 	   # print "starting_iteration = ${starting_iteration}";
-	   # die;
 
 	    for (my $ii = $starting_iteration; $ii <= $mdt_iterations; $ii++) {  # Will need to add a "while" option that runs to a certain point of stability; We don't really count the 0th iteration because normally this is just the averaging of the affine-aligned images. 
 
