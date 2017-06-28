@@ -383,6 +383,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               all_groups_comma_list
                               compare_comma_list  
                               complete_comma_list
+                              combined_rigid_and_affine
                               channel_comma_list
                               convert_labels_to_RAS
                               create_labels
