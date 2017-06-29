@@ -147,6 +147,7 @@ $label_space
 $label_reference
 
 $do_vba
+$fdr_masks
 
 $convert_labels_to_RAS
 $eddy_current_correction
@@ -500,6 +501,9 @@ if (defined $nonparametric_permutations) {
     $Hf->set_value('nonparametric_permutations',$nonparametric_permutations);
 }
 
+if (defined $fdr_masks) {
+    $Hf->set_value('fdr_masks',$fdr_masks);
+}
 
 #maincode
 

@@ -146,6 +146,7 @@ sub warp_atlas_labels_Output_check {
 	 if ($group eq 'MDT') {
 	     #$out_file = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
 	     $out_file = "${current_path}/MDT_labels_${label_atlas_name}.nii.gz";
+	     $Hf->set_value("${label_atlas_name}_MDT_labels",$out_file);
 	 }else {
 	     $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
 	 }

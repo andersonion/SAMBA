@@ -452,6 +452,7 @@ sub study_variables_vbm {
     
 	$vba_analysis_software = 'fsl';
 	$nonparametric_permutations = 2035;
+	$fdr_masks= 'ROI:51:1051,label:1:2:3:4:5:6,fa:0.3:1';#,dwi:0.1:1000:12,jabberwocky:1:2:4';
 
 #custom thresholds for Colton study
 	$thresh_ref = {
