@@ -425,6 +425,10 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               fixed_image_for_mdt_to_atlas_registratation
                               original_bvecs_
                               nonparametric_permutations
+                              nonparametric_masks
+                              fdr_masks
+                              thresh_masks
+                              ROI_masks
                               number_of_nonparametric_seeds); # affine_target_image will need to be removed from this list once we fully support it.
 
 

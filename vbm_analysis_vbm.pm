@@ -37,10 +37,11 @@ my $skip=0;
 my ($job);
 my @jobs=();
 my ($group_1_name,$group_2_name,$group_1_files,$group_2_files);
-
+my (@fdr_mask_array, @thresh_masks ,@ROI_masks);
+my ($fdr_masks,$thresh_masks,$ROI_masks);
 my $use_template_images;
 
-my ($nonparametric_permutations,$number_of_nonparametric_seeds,$number_of_test_contrasts,$nii4D,$con_file,$mat_file,$fsl_cluster_size,$tfce_extent,$variance_smoothing_kernal_in_mm,$randomise_options,$default_nonparametric_job_size,$local_work_dir,$local_sub_name); # Nonparametric testing variables.
+my ($nonparametric_permutations,$number_of_nonparametric_seeds,$number_of_test_contrasts,$nii4D,$con_file,$mat_file,$fsl_cluster_size,$tfce_extent,$variance_smoothing_kernal_in_mm,$randomise_options,$default_nonparametric_job_size,$local_work_dir,$local_sub_name,$label_atlas_name,$mdt_labels); # Nonparametric testing variables.
 my ($cmbt_analysis,$tfce_analysis);
 my $randomise_cleanup_script="${PIPELINE_PATH}/support/fsl_randomise_parallel_cleanup_bash_script.txt";
 if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
@@ -512,10 +513,32 @@ sub fsl_nonparametric_analysis_vbm {
 	}
     }
 
-    # Schedule defragmentation...
-    
-
     # And add the fdr and masking jobs...sure, why not?
+
+    unshift(@mask_names,'brain');
+    for my $mask_name (@mask_names) {
+	my $c_mask;
+	for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
+	    if ($mask_name eq 'brain') {
+		$c_mask = $average_mask;
+	    } else {
+		$c_mask = "${mask_dir}/${mask_name}.nii.gz";
+	    }
+	    my $input_image = "${local_results_path}/${prefix}_vox_p_tstat${test_contrast}";
+	    my $masked_image ="${input_image}_masked_with_${mask_name}.nii.gz";
+	    $input_image = $input_image.'.nii.gz';;
+
+	}
+
+#	for my $nonparametric_alpha (@nonparametric_alphas) {
+
+
+#	}
+
+#    }
+
+    # Schedule defragmentation ans other post processing jobs...
+    
     if ($defrag_cmd ne '') {
 
 	$defrag_cmd = 'wd='.$local_work_dir.";\n".'rd='.$local_results_path.";\n".$defrag_cmd;
@@ -575,7 +598,7 @@ sub fsl_nonparametric_analysis_prep {
     }
     if ($use_Hf) {
 	$nonparametric_permutations = $Hf->get_value('nonparametric_permutations');
-	$number_of_nonparametric_seeds = $Hf->get_value('number_of_nonparametric_seeds');	
+	$number_of_nonparametric_seeds = $Hf->get_value('number_of_nonparametric_seeds');
     }
 
     ## Begin randomise command options.
@@ -631,8 +654,8 @@ sub fsl_nonparametric_analysis_prep {
     $mat_file = "${local_prefix}.mat";
     my $m_flag=''; # else $m_flag = ' -m ';
     if (data_double_check($con_file,$mat_file)) {
-	my $con_mat_cmd = "design_ttest2 ${local_prefix} ${n1} ${n2} ${m_flag};\n";
-	$setup_cmds=$setup_cmds.$con_mat_cmd.';\n';
+	my $con_mat_cmd = "design_ttest2 ${local_prefix} ${n1} ${n2} ${m_flag}";
+	$setup_cmds=$setup_cmds.$con_mat_cmd.";\n";
     }
 
     $nii4D = "${local_work_dir}${local_sub_name}_nii4D_${contrast}.nii.gz";
@@ -648,7 +671,7 @@ sub fsl_nonparametric_analysis_prep {
 	    my $current_file = "${input_path}/${current_name_ext}";
 	    $make_nii4D_cmd = "${make_nii4D_cmd} ${current_file}";
 	}
-	$setup_cmds=$setup_cmds.$make_nii4D_cmd.';\n';
+	$setup_cmds=$setup_cmds.$make_nii4D_cmd.";\n";
     }
 
     my $go_message = "$PM: Setting up fsl nonparametric testing for contrast: ${contrast}\n" ;
@@ -666,7 +689,7 @@ sub fsl_nonparametric_analysis_prep {
 	    my $go =1;	    
 	    my $home_path = $local_work_dir;
 	    my $Id= "setup_for_fsl_nonparametric_testing_with_n${n1}_and_n${n2}";
-	    my $verbose = 1; 
+	    my $verbose = 2; 
 	    $jid = cluster_exec($go,$go_message , $setup_cmds,$home_path,$Id,$verbose,$mem_request,@test);     
 
 	    #return($jid);
@@ -734,6 +757,163 @@ sub parallelized_randomise {
 }
 
 
+
+# ------------------
+sub make_custom_masks {
+# ------------------
+    my ($mask_dir,$mdt_labels) = @_;
+
+
+  # Create ROI-based masks  # Will only support single ROIs for now?
+   # SET  $mask_dir # @fdr_mask_array = split(',',$fdr_masks);
+    my $make_mask_cmds='';
+    my @ROIs_needed;
+    my @mask_names;
+
+    #my $available_contrasts = join(' ',@channel_array);
+    my $ROI_options = 'ROI label';
+
+    # # Sort out the requested types of masks...
+    # for my $mask_string (@fdr_mask_array) {
+    # 	my @mask_parameters = split(':',$mask_string);
+    # 	my $mask_type = shift(@mask_parameters);
+    # 	if ((looks_like_number($mask_type)) || ($ROI_options =~ /${mask_type}/i)) {
+    # 	    if (looks_like_number($mask_type)) {
+    # 		unshift(@mask_parameters,$mask_type);
+    # 	    }
+    # 	    push(@ROI_masks,join(':',@mask_parameters));
+    # 	    push(@ROIs_needed,@mask_parameters);
+    # 	} elsif ($available_contrasts =~ /${mask_type}/i){
+    # 	    if ($#mask_parameters > 1) { # i.e. are more than a min and possibly max values remaining in array?
+    # 		push(@erroneous_masks,$mask_string);
+    # 	    } else {
+    # 		push(@thresh_masks,$mask_string);
+    # 	    }
+    # 	} else {
+    # 	    push(@erroneous_masks,$mask_string);
+    # 	}
+    # }
+    
+
+    my @unique_ROIs = uniq(split(':',join(':',@ROIs_needed)));
+    
+    for my $u_ROI (@unique_ROIs) {
+	my $mask_path = "${mask_dir}/${label_atlas_name}_ROI${u_ROI}.nii.gz";
+	if (data_double_check($mask_path)) {
+	    my $u_mask_cmd = "fslmaths ${mdt_labels} -thr ${u_ROI} -uthr ${u_ROI} ${mask_path}";
+	    $make_mask_cmds=$make_mask_cmds.$u_mask_cmd.";\n";
+	}   	
+    }
+    
+    for my $ROI_mask (@ROI_masks) {
+	my @ROIs = split(':',$ROI_mask);
+	my $name_string = "ROI".join('_',@ROIs);
+	push(@mask_names,$name_string);
+	if ($#ROIs) {
+	    my $mask_path = "${mask_dir}/${label_atlas_name}_${name_string}_mask.nii.gz";
+	    if (data_double_check($mask_path)) {
+		my $add_mask_cmd;
+		my $roi_counter = 1;
+		for my $ROI (@ROIs) {
+		    my $c_mask_path = "${mask_dir}/${label_atlas_name}_ROI${ROI}.nii.gz";
+		    if ($roi_counter == 1) {
+			$add_mask_cmd = $add_mask_cmd."fslmaths ${c_mask_path} ";
+		    } else {
+			$add_mask_cmd = $add_mask_cmd."-add ${c_mask_path} ";
+		    }
+		    $roi_counter=$roi_counter+1;
+		}
+		$add_mask_cmd = $add_mask_cmd."${mask_path};\nfslmaths ${mask_path} -bin ${mask_path}";
+		$make_mask_cmds=$make_mask_cmds.$add_mask_cmd.";\n";
+	    }
+	}
+    }
+
+
+    for my $thresh_mask (@thresh_masks) {
+	my @mask_parameters = split(':',$thresh_mask);
+	my $mask_contrast = shift(@mask_parameters);
+	my $min_threshold = shift(@mask_parameters);
+	my $max_threshold='';
+	if (@mask_parameters) {
+	    $max_threshold = shift(@mask_parameters);
+	    if ($min_threshold > $max_threshold) {
+		my $tmp = $min_threshold;
+		$min_threshold = $max_threshold;
+		$max_threshold = $tmp;
+	    }
+	}
+
+	my $max_string = '';
+	my $max_cmd='';
+	if ($max_threshold) {
+	    $max_string = "_max${max_threshold}";
+	    if ($max_string =~ s/^([-]+)/neg/) {}
+	    if ($max_string =~ s/[\.]+/p/) {}
+	    $max_cmd = " -uthr ${max_threshold} ";
+	}
+
+	my $min_string = "_min${min_threshold}";
+	if ($min_string =~ s/^([-]+)/neg/) {}
+	if ($min_string =~ s/[\.]+/p/) {}
+
+	my $include_zero_string = '';
+	if (($min_threshold < 0) && ($max_threshold > 0)) {
+	    $include_zero_string = " -fillh "; # This allows us to handle contrasts where zero might be a valid value (CT for example), but also the masked region value.
+	}
+
+	my $name_string = "${mask_contrast}${min_string}${max_string}";
+	push(@mask_names,$name_string);
+	# Let's assume that the MDT images are in the same directory as MDT labelset...
+	my ($mdt_dir,$dummy,$dummy2) = fileparts($mdt_labels,2);
+	my $contrast_image = get_nii_from_inputs($mdt_dir,'MDT',$mask_contrast);
+	my $mask_path = "${mask_dir}/${name_string}_mask.nii.gz";
+	if (data_double_check($mask_path)) {
+	    my $thresh_mask_cmd = "fslmaths ${contrast_image} -thr ${min_threshold} ${max_cmd} -abs -bin ${include_zero_string} ${mask_path};\nfslmath";
+	    $make_mask_cmds=$make_mask_cmds.$thresh_mask_cmd.";\n";
+	}
+    }
+
+
+    my $go_message = "$PM: Creating custom masks in ${mask_dir}.\n" ;
+    my $stop_message = "$PM: Failed to properly create custom masks in: ${mask_dir}  \n" ;
+    
+    my $jid = 0;
+    if ($make_mask_cmds ne '') {
+	my @test=(0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
+	my $mem_request = '17600'; #
+	#my $jid = 0;
+	if (cluster_check) {
+	    my $go =1;	    
+	    my $home_path = $mask_dir;
+	    my $Id= "creating_custom_VBA_masks";
+	    my $verbose = 2; 
+	    $jid = cluster_exec($go,$go_message , $make_mask_cmds,$home_path,$Id,$verbose,$mem_request,@test);     
+
+	    #return($jid);
+	} else {
+	    `${make_mask_cmds}`;
+	   # return(1);
+	}
+    }
+
+    if (cluster_check() && ($jid)){
+	my $interval = 2;
+	my $verbose = 1;
+	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($jid));
+	
+	if ($done_waiting) {
+	    print STDOUT  " Completed custom mask creation for VBA ; moving on to next step.\n";
+	}
+    }
+
+    return();
+
+}
+
 # # ------------------
 # sub vbm_analysis_Output_check {
 # # ------------------
@@ -797,6 +977,15 @@ sub vbm_analysis_vbm_Init_check {
 # ------------------
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
+
+
+    my $vba_contrast_comma_list = $Hf->get_value('vba_contrast_comma_list');
+    if ($vba_contrast_comma_list eq 'NO_KEY') { ## Should this go in init_check? # New feature to allow limited VBA/VBM analysis, 
+	# used for reproccessing corrected Jacobians (07 Dec 2015);
+	$vba_contrast_comma_list = $Hf->get_value('channel_comma_list');
+    }
+    @channel_array = split(',',$vba_contrast_comma_list);
+
     $software_list = $Hf->get_value('vba_analysis_software');
     if ($software_list eq 'NO_KEY') {
 	$software_list = "surfstat"; 
@@ -876,6 +1065,61 @@ $log_msg = $log_msg."\tThis will be performed in ${number_of_nonparametric_seeds
 	print "min_cluster_size = ${min_cluster_size}\n";
     }
 
+    $fdr_masks = $Hf->get_value('fdr_masks');
+    if ($fdr_masks eq 'NO_KEY') {
+	@fdr_mask_array=();
+    } else {
+	@fdr_mask_array = split(',',$fdr_masks);
+    }
+    
+    my @thresh_masks;
+    my @ROI_masks;
+    my @erroneous_masks;
+    my @ROIs_needed;
+    my @mask_names;
+
+    my $available_contrasts = join(' ',(@channel_array,'rd','jac','ajax')); # Need to include potentially derived contrasts
+    my $ROI_options = 'ROI label';
+
+    # Sort out the requested types of masks...
+    for my $mask_string (@fdr_mask_array) {
+	my @mask_parameters = split(':',$mask_string);
+	my $mask_type = shift(@mask_parameters);
+	if ((looks_like_number($mask_type)) || ($ROI_options =~ /${mask_type}/i)) {
+	    if (looks_like_number($mask_type)) {
+		unshift(@mask_parameters,$mask_type);
+	    }
+	    push(@ROI_masks,join(':',@mask_parameters));
+	    push(@ROIs_needed,@mask_parameters);
+	} elsif ($available_contrasts =~ /${mask_type}/i){
+	    if ($#mask_parameters > 1) { # i.e. are more than a min and possibly max values remaining in array?
+		push(@erroneous_masks,$mask_string);
+	    } else {
+		push(@thresh_masks,$mask_string);
+	    }
+	} else {
+	    push(@erroneous_masks,$mask_string);
+	}
+    }
+
+    if (@thresh_masks){
+	$thresh_masks =  join(',',@thresh_masks);
+	$Hf->set_value('thresh_masks',$thresh_masks);
+    }
+
+    if (@ROI_masks){
+	$ROI_masks =  join(',',@ROI_masks);
+	$Hf->set_value('ROI_masks',$ROI_masks);
+    }
+
+    if (@erroneous_masks){
+	for my $error_mask_string (@erroneous_masks) {
+	    $init_error_msg = $init_error_msg. "An invalid or imparsable request was made for a VBA fdr mask: \"${error_mask_string}\".\n";
+	}
+    }
+
+
+
     if ($log_msg ne '') {
 	log_info("${message_prefix}${log_msg}");
     }
@@ -908,6 +1152,24 @@ sub vbm_analysis_vbm_Runtime_check {
 	if ($current_path eq 'NO_KEY') {
 	    $current_path = "${template_path}/vbm_analysis";
 	    $Hf->set_value('vba_analysis_path',$current_path);
+
+	    $thresh_masks = $Hf->get_value('thresh_masks');
+	    if ($thresh_masks eq 'NO_KEY') {
+		@thresh_masks=();
+	    } else {
+		@thresh_masks = split(',',$thresh_masks);
+	    }
+
+
+	    $ROI_masks = $Hf->get_value('ROI_masks');
+	    if ($ROI_masks eq 'NO_KEY') {
+		@ROI_masks=();
+	    } else {
+		@ROI_masks = split(',',$ROI_masks);
+	    }
+
+	    $label_atlas_name = $Hf->get_value('label_atlas_name');	
+	    $mdt_labels = $Hf->get_value("${label_atlas_name}_MDT_labels");	
 	}
 	if (! -e $current_path) {
 	    mkdir ($current_path,$permissions);
@@ -989,6 +1251,7 @@ sub vbm_analysis_vbm_Runtime_check {
 	}
     }
 
+    my ($local_inputs,$local_work,$local_results,$local_Hf);
     my @already_processed;
     foreach my $smoothing (@smoothing_params) {
 	my $input_smoothing = $smoothing;
@@ -1010,7 +1273,6 @@ sub vbm_analysis_vbm_Runtime_check {
 	my $smoothing_with_units_string = $smoothing_string.$units;
 	my $smoothing_with_units = $smoothing.$units;
 	my $already_smoothed = join('|',@already_processed);
-
 	if ($smoothing_with_units =~ /^(${already_smoothed})$/) { 
 	    print "$PM: Work for specified smoothing \"${input_smoothing}\" has already been completed as \"$1\".\n";
 	} else {
@@ -1019,7 +1281,7 @@ sub vbm_analysis_vbm_Runtime_check {
 	    my $file_suffix = "s${smoothing_with_units_string}";
 	    
 	    my $local_folder_name  = $directory_prefix.'/'.$template_name.'_'.$folder_suffix;
-	    my ($local_inputs,$local_work,$local_results,$local_Hf)=make_process_dirs($local_folder_name);
+	    ($local_inputs,$local_work,$local_results,$local_Hf)=make_process_dirs($local_folder_name);
 	    foreach my $file (@files_to_link) {
 		my ($file_path,$file_name,$file_ext) = fileparts($file,2);
 		my $linked_file = $local_inputs."/".$file_name.$file_ext;
@@ -1069,6 +1331,11 @@ sub vbm_analysis_vbm_Runtime_check {
 
     $average_mask = $Hf->get_value('MDT_eroded_mask');
 
+    my $mask_dir = $local_work."/masks/";
+    if (! -e $mask_dir) {
+	mkdir ($mask_dir,$permissions);
+    }
+    make_custom_masks($mask_dir,$mdt_labels);    
 
 #     $runlist = $Hf->get_value('complete_comma_list');
 #     @array_of_runnos = split(',',$runlist);
