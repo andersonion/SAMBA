@@ -525,8 +525,15 @@ sub fsl_nonparametric_analysis_vbm {
 		$c_mask = "${mask_dir}/${mask_name}.nii.gz";
 	    }
 	    my $input_image = "${local_results_path}/${prefix}_vox_p_tstat${test_contrast}";
-	    my $masked_image ="${input_image}_masked_with_${mask_name}.nii.gz";
-	    $input_image = $input_image.'.nii.gz';;
+	    my $masked_image ="${input_image}_masked_with_${mask_name}";
+	    my $fdr_image = "${masked_image}";###
+	    $input_image = $input_image.'.nii.gz';
+	    $masked_image = $masked_image.'.nii.gz';
+	    if (data_double_check($masked_image)) {
+		my $mask_image_cmd = "fslmaths ${input_image} -mas ${c_mask} ${masked_image}";
+		$defrag_cmd= $defrag_cmd.$mask_image_cmd.";\n";
+	    }
+
 
 	}
 
