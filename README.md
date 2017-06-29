@@ -1,4 +1,4 @@
-# vba_pipeline
+# SAMBA
 Welcome to SAMBA, the Small Animal Multivariate Brain Analysis pipeline suite!
 
 SAMBA is an HPC cluster-based pipeline for atlas creation, voxel- and label-based analysis (and more!)
