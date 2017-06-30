@@ -13,20 +13,22 @@ mdt_contrast=fa
 mdt_creation_strategy=iterative
 mdt_iterations=6
 diffeo_transform_parameters=0.5,3,0.5
+diffeo_iterations=100x100x100x60
 
 # Various optional parameters
 
-custom_predictor_string=nos2_vs_cvn
-optional_suffix=April2017analysis
+#custom_predictor_string=nos2_vs_cvn
+#optional_suffix=April2017analysis
 
-vbm_reference_space=N51211#native
+#vbm_reference_space=N51211
+vbm_reference_space=native
 
 # Connectivity processing options
-convert_labels_to_RAS=1
+#convert_labels_to_RAS=1
 do_connectivity=0
 
-affine_contrast=dwi
-affine_target=N51231
+#affine_contrast=dwi
+#affine_target=N51231
 
 flip_x=1
 flip_z=0
@@ -34,7 +36,7 @@ flip_z=0
 # Label options
 create_labels=1
 label_atlas_name=chass_symmetric2
-label_space=pre_rigid,post_affine # pre_rigid,post_rigid(pre_affine),post_affine,MDT, and/or atlas	
+label_space=pre_rigid # pre_rigid,post_rigid(pre_affine),post_affine,MDT, and/or atlas	
   
 # Masking/skull-stripping options	
 skull_strip_contrast=dwi
