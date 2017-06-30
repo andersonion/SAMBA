@@ -633,7 +633,7 @@ if ($do_connectivity) {
 }
 
 if ($civm_ecosystem) {
-   # pull_civm_tensor_data(); # Commented only for testing
+   pull_civm_tensor_data(); # Commented only for testing
 }
 
 
