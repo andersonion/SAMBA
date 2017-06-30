@@ -13,6 +13,7 @@
 my $PM = 'vbm_pipeline_start.pl'; 
 
 use strict;
+no strict "refs";
 use warnings;
 no warnings qw(uninitialized bareword);
 
@@ -102,12 +103,21 @@ require Headfile;
 use vars qw(
 $project_name 
 @control_group
+$control_comma_list
 @compare_group
+$compare_comma_list
+
+$complete_comma_list
 
 @group_1
+$group_1_runnos
 @group_2
+$group_2_runnos
+$all_groups_comma_list
 
 @channel_array
+$channel_comma_list
+
 $custom_predictor_string
 $template_predictor
 $template_name
@@ -180,6 +190,15 @@ $smoothing_comma_list
 $image_dimensions
  );
 
+
+
+my $kevin_spacey='';
+foreach my $entry ( keys %main:: )  { # Build a string of all initialized variables, etc, that contain only letters, numbers, or '_'.
+    if ($entry =~ /^[A-Za-z0-9_]+$/) {
+	$kevin_spacey = $kevin_spacey." $entry ";
+    }
+}
+#print "$kevin_spacey\n\n\n";
 {
     if ($start_file) {
 	load_SAMBA_parameters($start_file);
@@ -191,11 +210,6 @@ $image_dimensions
 	$do_vba = 1;
     }
     vbm_pipeline_workflow();
-## Add any tensory postprocessing here for nii4D and bvecs
-    # if ($do_connectivity){ # 21 April 2017, BJA: Moved this code to vbm_pipeline_workflow.pm
-    # 	apply_mdt_warps_vbm('nii4D',"f",'all'); #
-    # 	apply_warps_to_bvecs();
-    # }
 
 
 } #end main
@@ -215,8 +229,77 @@ sub load_SAMBA_parameters {
     }
     
     foreach ($tempHf->get_keys) {
+	my $val = $tempHf->get_value($_);
+	if ($val eq '') {
+	    print "$val\n";
+	}
+	if ($kevin_spacey =~ /$_/) {
+	    if ($val) {
+#		print "$_\n";
+		eval("\$$_=\'$val\'");
+#		if (defined ${$_}) {
+		    print "$_ = ${$_}\n";
+#		}	   
+	    }
+	}
+    }
+    
+    if (! defined $project_name){
+	my $project_string = $tempHf->get_value('project_id');
+	my @ps_array = split('_',$project_string);
+	shift(@ps_array);
+	my $ps2 = shift(@ps_array);
+	if ($ps2  =~ /^([0-9]+)([a-zA-Z]+)([0-9]+)$/) {
+	    $project_name = "$1.$2.$3";
+	}
+	if (! defined $optional_suffix) {
+	    $optional_suffix = join('_',@ps_array);
+	}
+	print "$project_name\n\n\n";
+    }
 
-	eval("\$$_=$tempHf->get_value($_)");
+    if ((! defined ($pre_masked)) && (defined ($do_mask))) {
+	if ($do_mask) {
+	    $pre_masked = 0;
+	} else {
+	    $pre_masked=1;
+	}
+    }
+
+    if ((defined ($pre_masked)) && (! defined ($do_mask))) {
+	if ($pre_masked) {
+	    $do_mask = 0;
+	} else {
+	    $do_mask=1;
+	}
+    }
+
+    if (! defined $port_atlas_mask) { $port_atlas_mask = 0;}
+
+    if (($test_mode) && ($test_mode eq 'off')) { $test_mode = 0;}
+
+    if (defined $channel_comma_list) {
+	my @CCL = split(',',$channel_comma_list);
+	foreach (@CCL) {
+	    if ($_ !~ /(jac|ajax|nii4D)/) {
+		push (@channel_array,$_);
+	    }
+	}
+
+	@channel_array = uniq(@channel_array);
+	$channel_comma_list = join(',',@channel_array);
+    }
+
+    if (! defined  $atlas_name){
+	my $r_atlas_name = $tempHf->get_value('rigid_atlas_name');
+	my $l_atlas_name = $tempHf->get_value('label_atlas_name');
+	if ($r_atlas_name ne 'NO_KEY') {
+	    $atlas_name = $r_atlas_name;
+	} elsif ($l_atlas_name ne 'NO_KEY') {
+	    $atlas_name = $l_atlas_name;
+	} else {
+	    $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
+	}
     }
 }
 

@@ -656,13 +656,21 @@ sub set_reference_path_vbm {
 
     if (! data_double_check($ref_option)) {
 	my ($r_path,$r_name,$r_extension) = fileparts($ref_option,2);
+	print "r_name = ${r_name}\n\n\n\n";
 	if ($r_extension =~ m/^[.]{1}(hdr|img|nii|nii\.gz)$/) {
 	    $log_msg=$log_msg."\tThe selected ${which_space} reference space is an [acceptable] arbitrary file: ${ref_option}\n";
 	    $input_ref_path=$ref_option;
-	    $r_name =~ s/([^0-9a-zA-Z]*)//g;
-	    $r_name =~ m/(^[\w]{2,8})/;
-	    $ref_string = "c_$1";  # "c" stands for custom
-	    $ref_path="${ref_folder}/reference_file_${ref_string}.nii.gz";
+	    if ($r_name =~ /^reference_file_([^\.]*)\.nii(\.gz)?$/) {
+		$ref_path = "${ref_folder}/${r_name}.nii.gz";
+		$ref_string=$1;
+		print "ref_path = ${ref_path};\n\nref_string=${ref_string}\n\n\n"; ####
+	    } else {
+		$r_name =~ s/([^0-9a-zA-Z]*)//g;
+		$r_name =~ m/(^[\w]{2,8})/;
+		$ref_string = "c_$1";  # "c" stands for custom
+		$ref_path="${ref_folder}/reference_file_${ref_string}.nii.gz";
+	    }
+	    print "ref_string = ${ref_string}\n\nref_path = ${ref_path}\n\n\n";
 	} else {
 	    $error_message="The arbitrary file selected for defining ${which_space} reference space exists but is NOT  in an acceptable format:\n${ref_option}\n";
 	}

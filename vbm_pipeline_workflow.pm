@@ -21,7 +21,7 @@ use Cwd qw(abs_path);
 use File::Basename;
 use List::Util qw(min max reduce);
 use List::MoreUtils qw(uniq);
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $syn_params $permissions $valid_formats_string $nodes $reservation $mdt_to_reg_start_time);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $syn_params $permissions $valid_formats_string $nodes $reservation $mdt_to_reg_start_time $civm_ecosystem);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
@@ -32,6 +32,10 @@ my $ERROR_EXIT=$BADEXIT;
 $permissions = 0755;
 my $interval = 0.1; ##Normally 1
 $valid_formats_string = 'hdr|img|nii';
+
+$civm_ecosystem = 0; # Begin implementing handling of code that is CIVM-specific
+if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {$civm_ecosystem = 1};
+
 
 # a do it again variable, will allow you to pull data from another vbm_run
 my $import_data = 1;
@@ -591,7 +595,9 @@ if ($do_connectivity) {
     $nii4D = 1;
 }
 
-pull_civm_tensor_data();
+if ($civm_ecosystem) {
+   # pull_civm_tensor_data(); # Commented only for testing
+}
 
 
 # Need to pass the nii4D flag in a more elegant manner...
