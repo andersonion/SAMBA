@@ -19,7 +19,7 @@ diffeo_transform_parameters=0.5,3,0.5
 custom_predictor_string=nos2_vs_cvn
 optional_suffix=April2017analysis
 
-vbm_reference_space=native
+vbm_reference_space=N51211#native
 
 # Connectivity processing options
 convert_labels_to_RAS=1
