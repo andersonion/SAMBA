@@ -1,2 +1,13 @@
 The basics of how to get a project running through SAMBA.
 This guide is intended for CIVM users, and will need further adapation for external users.
+
+Firing up SAMBA is done via the bash command (or script):
+
+#!/bin/bash
+input_parameters=~/my_startup_file
+optional_reservation=
+SAMBA_startup ${input_parameters} ${optional_reservation}
+
+*SAMBA_startup may need to be replaced by vba_pipeline_start in some cases.
+
+BUT before doing this, the input parameters file must be created.
