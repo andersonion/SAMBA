@@ -456,7 +456,7 @@ sub iterative_pairwise_reg_vbm_Init_check {
 	} else {
 	    if ($diffeo_iterations eq ('' || 'NO_KEY')) {
 	    #$diffeo_iterations = $defaults_Hf->get_value('diffeo_iterations');
-		$diffeo_iterations="4000x4000x4000x4000";
+		$diffeo_iterations="2000x2000x2000x60";
 		$log_msg = $log_msg."\tNo diffeomorphic iterations specified; using default values:  \"${diffeo_iterations}\".\n";
 	    }
 	}
