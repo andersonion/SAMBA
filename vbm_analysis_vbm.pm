@@ -37,8 +37,8 @@ my $skip=0;
 my ($job);
 my @jobs=();
 my ($group_1_name,$group_2_name,$group_1_files,$group_2_files);
-my (@fdr_mask_array, @thresh_masks ,@ROI_masks);
-my ($fdr_masks,$thresh_masks,$ROI_masks);
+my (@fdr_mask_array, @thresh_masks ,@ROI_masks,@mask_names,@ROIs_needed);
+my ($fdr_masks,$thresh_masks,$ROI_masks,$mask_folder);
 my $use_template_images;
 
 my ($nonparametric_permutations,$number_of_nonparametric_seeds,$number_of_test_contrasts,$nii4D,$con_file,$mat_file,$fsl_cluster_size,$tfce_extent,$variance_smoothing_kernal_in_mm,$randomise_options,$default_nonparametric_job_size,$local_work_dir,$local_sub_name,$label_atlas_name,$mdt_labels); # Nonparametric testing variables.
@@ -522,7 +522,7 @@ sub fsl_nonparametric_analysis_vbm {
 	    if ($mask_name eq 'brain') {
 		$c_mask = $average_mask;
 	    } else {
-		$c_mask = "${mask_dir}/${mask_name}.nii.gz";
+		$c_mask = "${mask_folder}/${mask_name}.nii.gz";
 	    }
 	    my $input_image = "${local_results_path}/${prefix}_vox_p_tstat${test_contrast}";
 	    my $masked_image ="${input_image}_masked_with_${mask_name}";
@@ -533,8 +533,8 @@ sub fsl_nonparametric_analysis_vbm {
 		my $mask_image_cmd = "fslmaths ${input_image} -mas ${c_mask} ${masked_image}";
 		$defrag_cmd= $defrag_cmd.$mask_image_cmd.";\n";
 	    }
-
-
+## Codus interuptus here	    
+	    
 	}
 
 #	for my $nonparametric_alpha (@nonparametric_alphas) {
@@ -542,7 +542,7 @@ sub fsl_nonparametric_analysis_vbm {
 
 #	}
 
-#    }
+    }
 
     # Schedule defragmentation ans other post processing jobs...
     
@@ -774,9 +774,6 @@ sub make_custom_masks {
   # Create ROI-based masks  # Will only support single ROIs for now?
    # SET  $mask_dir # @fdr_mask_array = split(',',$fdr_masks);
     my $make_mask_cmds='';
-    my @ROIs_needed;
-    my @mask_names;
-
     #my $available_contrasts = join(' ',@channel_array);
     my $ROI_options = 'ROI label';
 
@@ -863,12 +860,12 @@ sub make_custom_masks {
 	my $min_string = "_min${min_threshold}";
 	if ($min_string =~ s/^([-]+)/neg/) {}
 	if ($min_string =~ s/[\.]+/p/) {}
-
+	
 	my $include_zero_string = '';
 	if (($min_threshold < 0) && ($max_threshold > 0)) {
 	    $include_zero_string = " -fillh "; # This allows us to handle contrasts where zero might be a valid value (CT for example), but also the masked region value.
 	}
-
+	
 	my $name_string = "${mask_contrast}${min_string}${max_string}";
 	push(@mask_names,$name_string);
 	# Let's assume that the MDT images are in the same directory as MDT labelset...
@@ -1079,15 +1076,15 @@ $log_msg = $log_msg."\tThis will be performed in ${number_of_nonparametric_seeds
 	@fdr_mask_array = split(',',$fdr_masks);
     }
     
-    my @thresh_masks;
-    my @ROI_masks;
+    # my @thresh_masks;
+    # my @ROI_masks;
     my @erroneous_masks;
-    my @ROIs_needed;
-    my @mask_names;
-
+    # my @ROIs_needed;
+    # my @mask_names;
+    
     my $available_contrasts = join(' ',(@channel_array,'rd','jac','ajax')); # Need to include potentially derived contrasts
     my $ROI_options = 'ROI label';
-
+    
     # Sort out the requested types of masks...
     for my $mask_string (@fdr_mask_array) {
 	my @mask_parameters = split(':',$mask_string);
@@ -1108,17 +1105,17 @@ $log_msg = $log_msg."\tThis will be performed in ${number_of_nonparametric_seeds
 	    push(@erroneous_masks,$mask_string);
 	}
     }
-
+    
     if (@thresh_masks){
 	$thresh_masks =  join(',',@thresh_masks);
 	$Hf->set_value('thresh_masks',$thresh_masks);
     }
-
+    
     if (@ROI_masks){
 	$ROI_masks =  join(',',@ROI_masks);
 	$Hf->set_value('ROI_masks',$ROI_masks);
     }
-
+    
     if (@erroneous_masks){
 	for my $error_mask_string (@erroneous_masks) {
 	    $init_error_msg = $init_error_msg. "An invalid or imparsable request was made for a VBA fdr mask: \"${error_mask_string}\".\n";
@@ -1338,12 +1335,12 @@ sub vbm_analysis_vbm_Runtime_check {
 
     $average_mask = $Hf->get_value('MDT_eroded_mask');
 
-    my $mask_dir = $local_work."/masks/";
-    if (! -e $mask_dir) {
-	mkdir ($mask_dir,$permissions);
+    $mask_folder = $local_work."/masks/";
+    if (! -e $mask_folder) {
+	mkdir ($mask_folder,$permissions);
     }
-    make_custom_masks($mask_dir,$mdt_labels);    
-
+    make_custom_masks($mask_folder,$mdt_labels);    
+    
 #     $runlist = $Hf->get_value('complete_comma_list');
 #     @array_of_runnos = split(',',$runlist);
  
@@ -1356,8 +1353,8 @@ sub vbm_analysis_vbm_Runtime_check {
 #     if ($skip_message ne '') {
 # 	print "${skip_message}";
 #     }
-
-
+    
+    
 }
 
 

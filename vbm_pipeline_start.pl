@@ -17,6 +17,7 @@ use warnings;
 no warnings qw(uninitialized bareword);
 
 require pipeline_utilities;
+require Headfile;
 
 use Carp qw(cluck confess);
 
@@ -36,7 +37,7 @@ $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
 $permissions = 0755;
-my $interval = 0.1; ##Normally 1
+my $interval = 1;
 $valid_formats_string = 'hdr|img|nii';
 
 # a do it again variable, will allow you to pull data from another vbm_run
@@ -44,7 +45,14 @@ my $import_data = 1;
 
 $test_mode = 0;
 
-$nodes = shift(@ARGV);
+my $start_file=shift(@ARGV);
+
+if ( ! -f $start_file )  {
+    $nodes = $start_file;
+    $start_file = '';
+} else {
+    $nodes = shift(@ARGV);
+}
 
 $reservation='';
 
@@ -66,8 +74,10 @@ else {
 }
 
 
-print "nodes = $nodes; reservation = \"$reservation\".\n\n\n";
-
+print "Attempting to use $nodes nodes;\n\n";
+if ($reservation) { 
+    print "Using slurm reservation = \"$reservation\".\n\n\n";
+}
 umask(002);
 
 use lib dirname(abs_path($0));
@@ -171,7 +181,12 @@ $image_dimensions
  );
 
 {
-    study_variables_vbm();
+    if ($start_file) {
+	load_SAMBA_parameters();
+    } else {
+	study_variables_vbm();
+    }
+
     if (! defined $do_vba) {
 	$do_vba = 1;
     }
@@ -184,4 +199,23 @@ $image_dimensions
 
 
 } #end main
+
+# ------------------
+sub load_SAMBA_parameters {
+# ------------------
+    my ($param_file) = (@_);
+    my $tempHf = new Headfile ('rw', "${param_file}");
+    if (! $tempHf->check()) {
+	error_out(" Unable to open SAMBA parameter file ${param_file}.");
+	return(0);
+    }
+    if (! $tempHf->read_headfile) {
+	error_out(" Unable to read SAMBA parameter file ${param_file}."); 
+	return(0);
+    }
+    
+    foreach ($tempHf->get_keys) {
+	eval($_=get_value($_));
+    }
+}
 
