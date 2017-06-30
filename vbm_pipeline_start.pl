@@ -182,7 +182,7 @@ $image_dimensions
 
 {
     if ($start_file) {
-	load_SAMBA_parameters();
+	load_SAMBA_parameters($start_file);
     } else {
 	study_variables_vbm();
     }
