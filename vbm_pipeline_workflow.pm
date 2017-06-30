@@ -88,12 +88,21 @@ $cluck_off = 1;
 use vars qw(
 $project_name 
 @control_group
+$control_comma_list
 @compare_group
+$compare_comma_list
+
+$complete_comma_list
 
 @group_1
+$group_1_runnos
 @group_2
+$group_2_runnos
+$all_groups_comma_list
 
 @channel_array
+$channel_comma_list
+
 $custom_predictor_string
 $template_predictor
 $template_name
@@ -230,18 +239,44 @@ my $inputs_dir = $preprocess_dir.'/base_images';
 
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
 
+if (! @control_group) {
+    if (defined $control_comma_list) {
+	@control_group = split(',',$control_comma_list);
+    }
+}
+
+if (! @compare_group) {
+    if (defined $compare_comma_list) {
+	@compare_group = split(',',$compare_comma_list);
+    } else {
+	@compare_group = @control_group;
+    }
+}
+
+if (! @group_1) {
+    if (defined $group_1_runnos) {
+	@group_1 = split(',',$group_1_runnos);
+    }
+}
+
+if (! @group_2) {
+    if (defined $group_2_runnos) {
+	@group_2 = split(',',$group_2_runnos);
+    }
+}
+
 my @all_runnos = uniq(@control_group,@compare_group);
 
-my $control_comma_list = join(',',uniq(@control_group));
-my $compare_comma_list = join(',',uniq(@compare_group));
+$control_comma_list = join(',',uniq(@control_group));
+$compare_comma_list = join(',',uniq(@compare_group));
 #my $complete_comma_list = $control_comma_list.','.$compare_comma_list;
-my $complete_comma_list =join(',',uniq(@all_runnos));
-my $channel_comma_list = join(',',uniq(@channel_array));
+$complete_comma_list =join(',',uniq(@all_runnos));
+$channel_comma_list = join(',',uniq(@channel_array));
 
 if ($do_vba) {
     my $group_1_runnos;
     my $group_2_runnos;
-    if (defined @group_1) {
+    if (defined @group_1)  {
 	$group_1_runnos = join(',',uniq(@group_1));
 	$Hf->set_value('group_1_runnos',$group_1_runnos);
     }
