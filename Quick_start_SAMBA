@@ -29,6 +29,7 @@ So, let's do that now!
 Save a copy of input_parameter_template.headfile and open in your text editor of choice.
 
 Change the project_name appropriately, in the form of 15.rja.01 or 13.mcnamara.02, etc.
+Change the optional_suffix to something like nians_test or NataliesTest
 Set the group_1_runnos and group_2_runnos.
 Leave all other defaults in place.
 
