@@ -1,7 +1,9 @@
 # REQUIRED PARAMETERS
 project_name=13.colton.01
-group_1_runnos=N51211,N51221,N51231,N51383,N51386 #,N51404,N51406,N51193
-group_2_runnos=N51136,N51201,N51234,N51241,N51252 #,N51282,N51390,N51392,N51393,N51133,N51388,N51124,N51130,N51131,N51164,N51182,N51151,N51622,N51620,N51617
+group_1_runnos=N51211,N51221,N51231,N51383,N51386
+#,N51404,N51406,N51193
+group_2_runnos=N51136,N51201,N51234,N51241,N51252
+#,N51282,N51390,N51392,N51393,N51133,N51388,N51124,N51130,N51131,N51164,N51182,N51151,N51622,N51620,N51617
 channel_comma_list=dwi,fa
 
 # Rigid (coarse) alignment options
@@ -36,7 +38,8 @@ flip_z=0
 # Label options
 create_labels=1
 label_atlas_name=chass_symmetric2
-label_space=pre_rigid # pre_rigid,post_rigid(pre_affine),post_affine,MDT, and/or atlas	
+label_space=pre_rigid
+# pre_rigid,post_rigid(pre_affine),post_affine,MDT, and/or atlas	
   
 # Masking/skull-stripping options	
 skull_strip_contrast=dwi
