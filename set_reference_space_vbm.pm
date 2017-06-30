@@ -701,7 +701,8 @@ sub set_reference_path_vbm {
 	$ref_path="${ref_folder}/reference_file_${ref_string}.nii.gz";
 	$log_msg=$log_msg."\tThe full ${which_space} input reference path is ${input_ref_path}\n";
     } else {
-	my $ref_runno;
+  
+	my $ref_runno;#=$Hf->get_value('ref_runno');
 	my $preprocess_dir = $Hf->get_value('preprocess_dir');
 	if ($runno_list =~ /[,]*${ref_option}[,]*/ ) {
 	    $ref_runno=$ref_option;
@@ -710,6 +711,7 @@ sub set_reference_path_vbm {
 	    $ref_runno = shift(@control_runnos);
 	}
 	print " Ref_runno = ${ref_runno}\n";
+	$Hf->set_value('ref_runno',$ref_runno);
 	#$ref_path = get_nii_from_inputs($preprocess_dir,"native_reference",$ref_runno);
 	#$ref_path = get_nii_from_inputs($preprocess_dir,"reference_image_native",$ref_runno);# Updated 1 September 2016
 	

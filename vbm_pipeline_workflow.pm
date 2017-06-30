@@ -239,20 +239,6 @@ my $inputs_dir = $preprocess_dir.'/base_images';
 
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
 
-if (! @control_group) {
-    if (defined $control_comma_list) {
-	@control_group = split(',',$control_comma_list);
-    }
-}
-
-if (! @compare_group) {
-    if (defined $compare_comma_list) {
-	@compare_group = split(',',$compare_comma_list);
-    } else {
-	@compare_group = @control_group;
-    }
-}
-
 if (! @group_1) {
     if (defined $group_1_runnos) {
 	@group_1 = split(',',$group_1_runnos);
@@ -262,6 +248,22 @@ if (! @group_1) {
 if (! @group_2) {
     if (defined $group_2_runnos) {
 	@group_2 = split(',',$group_2_runnos);
+    }
+}
+
+if (! @control_group) {
+    if (defined $control_comma_list) {
+	@control_group = split(',',$control_comma_list);
+    } elsif ((@group_1) = (@group_2)) {
+	@control_group = uniq(@group_1,@group_2);
+    }
+}
+
+if (! @compare_group) {
+    if (defined $compare_comma_list) {
+	@compare_group = split(',',$compare_comma_list);
+    } else {
+	@compare_group = @control_group;
     }
 }
 
