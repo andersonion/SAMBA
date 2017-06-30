@@ -21,7 +21,7 @@ variable_2_name=variable_2_string
 .
 variable_N_name=variable_N_string
 
-Note that the strings CANNOT contain spaces, and quotes are discouraged.
+Note that the strings CANNOT contain spaces, and quotes are discouraged.  You can have comments starting with "#", but they need to be on there own line.
 When listing multiple entries, such as run numbers ("runnos"), separate with commas.
 
 So, let's do that now!
