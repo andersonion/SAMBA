@@ -215,7 +215,8 @@ sub load_SAMBA_parameters {
     }
     
     foreach ($tempHf->get_keys) {
-	eval($_=$tempHf->get_value($_));
+
+	eval("\$$_=$tempHf->get_value($_)");
     }
 }
 
