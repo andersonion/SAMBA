@@ -11,7 +11,7 @@ SAMBA_startup ${input_parameters} ${optional_reservation}
 # End of script
 *SAMBA_startup may need to be replaced by vba_pipeline_start in some cases.
 
-BUT before doing this, the input parameters file must be created. This can be done from scratch, or input_parameter_template.headfile can be used as a starting point and saved with the name of your choice. This file also acts as a guide as to what is are required parameters, which are optional, and which are available but can be ignored.
+BUT before doing this, the input parameters file must be created. This can be done from scratch, or input_parameter_template.headfile can be used as a starting point and saved with the name of your choice. This file also acts as a guide as to what are required parameters, which are optional, and which are available but can be ignored.
 
 Headfile entries are straightforward:
 variable_1_name=variable_1_string
@@ -21,7 +21,7 @@ variable_2_name=variable_2_string
 .
 variable_N_name=variable_N_string
 
-Note that the strings CANNOT contain spaces, and quotes are discouraged.  You can have comments starting with "#", but they need to be on there own line.
+Note that the strings CANNOT contain spaces, and quotes are discouraged.  You can have comments starting with "#", but they need to be on their own line.
 When listing multiple entries, such as run numbers ("runnos"), separate with commas.
 
 So, let's do that now!
