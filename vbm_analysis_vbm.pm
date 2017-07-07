@@ -36,9 +36,10 @@ my $supported_vbm_software = '(surfstat|spm|ANTsR|fsl|nonparametric)';
 my $skip=0;
 my ($job);
 my @jobs=();
+my @all_jobs=();
 my ($group_1_name,$group_2_name,$group_1_files,$group_2_files);
 my (@fdr_mask_array, @thresh_masks ,@ROI_masks,@mask_names,@ROIs_needed);
-my ($fdr_masks,$thresh_masks,$ROI_masks,$mask_folder);
+my ($fdr_masks,$thresh_masks,$ROI_masks,$mask_folder,$make_masks_jid);
 my $use_template_images;
 
 my ($nonparametric_permutations,$number_of_nonparametric_seeds,$number_of_test_contrasts,$nii4D,$con_file,$mat_file,$fsl_cluster_size,$tfce_extent,$variance_smoothing_kernal_in_mm,$randomise_options,$default_nonparametric_job_size,$local_work_dir,$local_sub_name,$label_atlas_name,$mdt_labels); # Nonparametric testing variables.
@@ -54,17 +55,17 @@ my $matlab_path = '/cm/shared/apps/MATLAB/R2015b/'; #Need to make this more gene
 # ------------------
 sub vbm_analysis_vbm {
 # ------------------
- 
+    
     my @args = @_;
     my $start_time = time;
     vbm_analysis_vbm_Runtime_check(@args);
-
+    
     foreach my $smoothing (@smoothing_params) {
 	print "Running smoothing for ${smoothing}\n";
 	my $smooth_work = $work_dir_hash{$smoothing};
 	my $smooth_results = $results_dir_hash{$smoothing};
 	my $smooth_inputs = $smooth_pool_hash{$smoothing};
-
+	
 	foreach my $software (@software_array) {
 	    my $software_results_path;
 	    my $software_work_path;
@@ -101,26 +102,52 @@ sub vbm_analysis_vbm {
 		$group_2_files = join(',',@group_2_files);
 		
 		if ($software eq 'surfstat') {
-		    surfstat_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
-		   # `gzip ${software_results_path}/${contrast}/*.nii`; # Hopefully will be unnecessary after 20 Dec 2016 due to updated SurfStat function.
+		    my @local_jobs = surfstat_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+		    # `gzip ${software_results_path}/${contrast}/*.nii`; # Hopefully will be unnecessary after 20 Dec 2016 due to updated SurfStat function.
+		    if (@local_jobs) {
+			push(@all_jobs,@local_jobs);
+		    }
 		} elsif ($software eq 'spm') {
 		    spm_analysis_vbm($contrast,$smooth_inputs,$software_work_path);
 		} elsif ($software eq 'antsr') {
-		    antsr_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+		    my @local_jobs =  antsr_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+		    if (@local_jobs) {
+			push(@all_jobs,@local_jobs);
+		    }
 		} elsif ($software eq 'fsl') {
-		    fsl_nonparametric_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+		    my (@local_jobs) = fsl_nonparametric_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+		    if (@local_jobs) {
+			push(@all_jobs,@local_jobs);
+		    }
 		} else {
 		    print "I'm sorry, but VBM software \"$software\" is currently not supported :( \n";
 		}
 	    }
 	}
     }
+    @all_jobs=uniq(@all_jobs);
+    my $all_job_string = join(',',@all_jobs);
+    if (@all_jobs) {
+	print STDOUT "SLURM: Waiting for jobs ${all_job_string} to complete (may contain job dependencies).\n";
+    }
+    
+    if (cluster_check() && (@all_jobs)) {
+	my $interval = 2;
+	my $verbose = 1;
+	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@all_jobs);
+	
+	if ($done_waiting) {
+	    print STDOUT  " All voxel-based analysis jobs have completed; moving on to next step.\n";
+	}
+    }
 
 
-    my $real_time = write_stats_for_pm($PM,$Hf,$start_time);#,@jobs);
+#}    
+    
+    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@all_jobs);
     print "$PM took ${real_time} seconds to complete.\n";
-
-
+    
+    
 }
 
 
@@ -236,7 +263,7 @@ sub antsr_analysis_vbm {
 #    	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
     	my $verbose = 2; # Will print log only for work done.
     	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-    	if (! $jid) {
+    	if (not $jid) {
     	    error_out();
     	}
     } # else {
@@ -251,7 +278,7 @@ sub antsr_analysis_vbm {
     # }
     # print "** $PM created ${new_warp} and ${new_inverse}\n";
   
-     return($jid);
+    return($jid);
 }
 
 # ------------------
@@ -307,6 +334,7 @@ sub surfstat_analysis_vbm {
     my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
     my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
     my $exec_testing =1;
+    my $jid = 0;
     if ($exec_testing) {
 	my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
 	my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
@@ -317,7 +345,7 @@ sub surfstat_analysis_vbm {
 	    @test =(0,$reservation);
 	}
 	my $mem_request = '10000';
-	my $jid = 0;
+
 	if (cluster_check) {
 	    my $go =1;	    
 #	my $cmd = $pairwise_cmd.$rename_cmd;
@@ -327,7 +355,7 @@ sub surfstat_analysis_vbm {
 	    my $Id= "${contrast}_surfstat_VBA_for_${group_1_name}_vs_${group_2_name}";
 	    my $verbose = 2; # Will print log only for work done.
 	    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	    if (! $jid) {
+	    if (not $jid) {
 		error_out($stop_message);
 	    }
 	}
@@ -337,7 +365,7 @@ sub surfstat_analysis_vbm {
 	my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
 	print "Current state = $state\n";
     }
-    return();
+    return($jid);
 }
 
 # ------------------
@@ -350,7 +378,7 @@ sub fsl_nonparametric_analysis_vbm {
 	mkdir ($contrast_path,$permissions);
     }
 
-    fsl_nonparametric_analysis_prep($contrast,$input_path);
+    my $prep_jid = fsl_nonparametric_analysis_prep($contrast,$input_path,$make_masks_jid);
 
     my $local_results_path = "${contrast_path}/${local_sub_name}_${nonparametric_permutations}_perms/";
     if (! -e $local_results_path) {
@@ -418,13 +446,13 @@ sub fsl_nonparametric_analysis_vbm {
 		    $c_file_short="${cfix_S}${output_key}${cfix2}";
 		    $r_file = "${rfix}${output_key}${cfix2}";
 		    $r_file_short = "${rfix_S}${output_key}${cfix2}";
-		    if ( ($output_key =~ /^_$/) || ($output_key =~ /^_cluster/) || ($output_key =~ /^_glm/)) {
+		    if ( ($output_key =~ /^_$/) || ($output_key =~ /^_cluster/) || ($output_key =~ /^_tfce_$/) || ($output_key =~ /^_glm/)) {
 			if ($seed == 1) {
 			    $cleanup_string{$output_key}{$test_contrast} = "cp ${c_file_short} ${r_file_short};\n";
 			    push(@expected_p_outputs,$c_file);
 			    push(@expected_outputs,$r_file);
 			} else {
-			    if ($output_key =~ /^_$/) { # We only ask for --glm_outputs and cluster stats when calling seed1, so don't need to remove for other seeds.
+			    if (($output_key =~ /^_$/) || ($output_key =~ /^_tfce_$/)) { # We only ask for --glm_outputs and cluster stats when calling seed1, so don't need to remove for other seeds.
 				#$cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} rm ${c_file};\n";
 				$temp_remove_commands{$output_key} = " rm ${c_file_short};\n";
 			    }
@@ -462,7 +490,7 @@ sub fsl_nonparametric_analysis_vbm {
 			}
 		    }
 		    
-		    ($job) = parallelized_randomise($seed,$c_permutations,$local_work_dir,$prefix,$contrast,$master_job_name,$test_contrast);
+		    ($job) = parallelized_randomise($seed,$c_permutations,$local_work_dir,$prefix,$contrast,$master_job_name,$test_contrast,$prep_jid);
 		    my @j_array = split(',',$job);
 		    if ($j_array[0] > 1) {
 			push(@jobs,$job);
@@ -513,8 +541,10 @@ sub fsl_nonparametric_analysis_vbm {
 	}
     }
 
+    my @default_alphas = (0.01,0.02,0.05);
     # And add the fdr and masking jobs...sure, why not?
-
+    my %masks_to_combine;
+    my %combined_masks;
     unshift(@mask_names,'brain');
     for my $mask_name (@mask_names) {
 	my $c_mask;
@@ -522,34 +552,72 @@ sub fsl_nonparametric_analysis_vbm {
 	    if ($mask_name eq 'brain') {
 		$c_mask = $average_mask;
 	    } else {
-		$c_mask = "${mask_folder}/${mask_name}.nii.gz";
+		$c_mask = "${mask_folder}/${mask_name}_mask.nii.gz";
 	    }
-	    my $input_image = "${local_results_path}/${prefix}_vox_p_tstat${test_contrast}";
-	    my $masked_image ="${input_image}_masked_with_${mask_name}";
-	    my $fdr_image = "${masked_image}";###
-	    $input_image = $input_image.'.nii.gz';
-	    $masked_image = $masked_image.'.nii.gz';
-	    if (data_double_check($masked_image)) {
-		my $mask_image_cmd = "fslmaths ${input_image} -mas ${c_mask} ${masked_image}";
-		$defrag_cmd= $defrag_cmd.$mask_image_cmd.";\n";
+	    my $input_image_prefix = "${local_results_path}/${prefix}_vox_p_tstat${test_contrast}";
+	    #my $masked_image ="${input_image}_masked_with_${mask_name}";
+	    my $fdr_image = "${local_results_path}/${prefix}_vox_q_tstat${test_contrast}_${mask_name}.nii.gz";
+	    my $input_image = $input_image_prefix.'.nii.gz';
+	    #$fdr_image = $fdr_image.'.nii.gz';
+	    if (data_double_check($fdr_image)) {
+		my $fdr_cmd = "fdr -i ${input_image} --oneminusp -m ${c_mask} -a ${fdr_image}";
+		$defrag_cmd= $defrag_cmd.$fdr_cmd.";\n";
+	    }	    
+
+	    for my $alpha (@default_alphas) {
+		my $thresh = 1-$alpha;
+		my $alpha_string = $alpha;
+		if ($alpha_string =~ s/[\.]/p/) {}
+		my $threshmask = "${input_image_prefix}_${mask_name}_${alpha_string}_threshmask.nii.gz";
+		my $combined_threshmask = $threshmask;
+		if ($combined_threshmask =~ s/(_tstat${test_contrast})/_tstat/){}
+		$combined_masks{$alpha} = $combined_threshmask;
+		my $thresh_cmd = "fslmaths  ${input_image} -mas ${c_mask} -thr ${thresh} -bin ${threshmask}";		
+		if (data_double_check($threshmask)) {
+		    $defrag_cmd= $defrag_cmd.$thresh_cmd.";\n";
+		}
+		if ($test_contrast == 1) {
+		    $masks_to_combine{$alpha}="fslmaths ${threshmask} ";
+		} else {
+		    $masks_to_combine{$alpha}=$masks_to_combine{$alpha}." -add ${threshmask} ";
+		}
+
+		if ($test_contrast == $number_of_test_contrasts) {
+		    $masks_to_combine{$alpha}=$masks_to_combine{$alpha}." ${combined_threshmask} ";
+		}
 	    }
-## Codus interuptus here	    
-	    
 	}
-
-#	for my $nonparametric_alpha (@nonparametric_alphas) {
-
-
-#	}
-
+	
+	for my $alpha (@default_alphas) {
+	    if (data_double_check($combined_masks{$alpha})) {
+		$defrag_cmd= $defrag_cmd.$masks_to_combine{$alpha}.";\n";
+	    }
+	    my $alpha_string = $alpha;
+	    if ($alpha_string =~ s/[\.]/p/) {}
+	    my $masked_tstat_image =  "${local_results_path}/${prefix}_vox_p_tstat_${alpha_string}.nii.gz";
+	    my $input =  "${local_results_path}/${prefix}_tstat1.nii.gz";
+	    if (data_double_check($masked_tstat_image))  {
+		my $apply_mask_cmd  ="fslmaths ${input} -mas ${combined_masks{$alpha}} ${masked_tstat_image} ";
+		$defrag_cmd= $defrag_cmd.$apply_mask_cmd.";\n";
+	    }
+	}
     }
 
     # Schedule defragmentation ans other post processing jobs...
-    
+    my $cleanup_jid = 0;
     if ($defrag_cmd ne '') {
 
-	$defrag_cmd = 'wd='.$local_work_dir.";\n".'rd='.$local_results_path.";\n".$defrag_cmd;
-	
+	# Shorten file names for human readibility.
+	if ($local_work_dir =~ s/(\/+)/\//) {}
+	if ($local_results_path =~ s/(\/+)/\//) {}
+	if ($mask_folder =~ s/(\/+)/\//) {}
+	if ($defrag_cmd =~ s/(\/+)/\//) {}
+	if ($defrag_cmd =~ s/${local_work_dir}/\$\{wd\}/) {}
+	if ($defrag_cmd =~ s/${local_results_path}/\$\{rd\}/) {}
+	if ($defrag_cmd =~ s/${mask_folder}/\$\{md\}/) {}
+
+	$defrag_cmd = 'wd='.$local_work_dir.";\n".'rd='.$local_results_path.";\n".'md='.$mask_folder.";\n".$defrag_cmd;
+
 	my @test=(0,0,'singleton');
 	if (defined $reservation) {
 	    @test =(0,$reservation,'singleton');
@@ -560,7 +628,7 @@ sub fsl_nonparametric_analysis_vbm {
 	
 	
 	my $mem_request = '17600';
-	my $cleanup_jid = 0;
+	
 	if (cluster_check) {
 	    my $go =1;	    
 	    my $home_path = $local_results_path;  # Changed from local_work_dir to local_results_path to keep bookkeeping closer to final data.
@@ -571,30 +639,33 @@ sub fsl_nonparametric_analysis_vbm {
 	    `${defrag_cmd}`;
 	}
 	
-	if ($jobs) {
-	    print STDOUT "SLURM: Waiting for jobs $jobs to complete via singleton job dependency of ${cleanup_jid}.\n";
-	} else {
-	    print STDOUT "SLURM: Waiting for jobs ${cleanup_jid} to complete.\n";
-	}
+	#if ($jobs) {
+	#    print STDOUT "SLURM: Waiting for jobs $jobs to complete via singleton job dependency of ${cleanup_jid}.\n";
+	#} else {
+	#    print STDOUT "SLURM: Waiting for jobs ${cleanup_jid} to complete.\n";
+	#}
 
-	if (cluster_check() && ($cleanup_jid)) {
-	    my $interval = 2;
-	    my $verbose = 1;
-	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($cleanup_jid));
-	    
-	    if ($done_waiting) {
-		print STDOUT  " Clean up is complete for fsl nonparametric testing of ${contrast} for ${local_sub_name}; moving on to next step.\n";
-	    }
-	}
+	#if (cluster_check() && ($cleanup_jid)) {
+	#    my $interval = 2;
+	#    my $verbose = 1;
+	#    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($cleanup_jid));
+	#    
+	#    if ($done_waiting) {
+	#	print STDOUT  " Clean up is complete for fsl nonparametric testing of ${contrast} for ${local_sub_name}; moving on to next step.\n";
+	#    }
+	#}
 
     }
-    return();
+    if ($cleanup_jid) {
+	push(@jobs,$cleanup_jid);
+    }
+    return(@jobs);
 }
 
 # ------------------
 sub fsl_nonparametric_analysis_prep {
 # ------------------
-    my ($contrast,$input_path) = @_;
+    my ($contrast,$input_path,$c_make_masks_jid) = @_;
     
     if (defined $Hf) { 
 	$use_Hf = 1;
@@ -683,13 +754,21 @@ sub fsl_nonparametric_analysis_prep {
 
     my $go_message = "$PM: Setting up fsl nonparametric testing for contrast: ${contrast}\n" ;
     my $stop_message = "$PM: Failed to properly set up data for fsl nonparametric testing in folder: ${local_work_dir}  \n" ;
+
     
     my $jid = 0;
     if ($setup_cmds ne '') {
+
 	my @test=(0);
+
 	if (defined $reservation) {
 	    @test =(0,$reservation);
 	}
+	if ($c_make_masks_jid) {
+	    if ($c_make_masks_jid =~ s/,/:/) {}
+	    push(@test,"afterany:".$c_make_masks_jid)
+	}
+
 	my $mem_request = '17600'; #
 	#my $jid = 0;
 	if (cluster_check) {
@@ -699,22 +778,22 @@ sub fsl_nonparametric_analysis_prep {
 	    my $verbose = 2; 
 	    $jid = cluster_exec($go,$go_message , $setup_cmds,$home_path,$Id,$verbose,$mem_request,@test);     
 
-	    #return($jid);
+	    return($jid);
 	} else {
 	    `${setup_cmds}`;
-	   # return(1);
+	    return(0);
 	}
     }
 
-    if (cluster_check() && ($jid)){
-	my $interval = 2;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($jid));
+    # if (cluster_check() && ($jid)){
+    # 	my $interval = 2;
+    # 	my $verbose = 1;
+    # 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($jid));
 	
-	if ($done_waiting) {
-	    print STDOUT  " Set up is complete for fsl nonparametric testing for ${local_sub_name} ; moving on to next step.\n";
-	}
-    }
+    # 	if ($done_waiting) {
+    # 	    print STDOUT  " Set up is complete for fsl nonparametric testing for ${local_sub_name} ; moving on to next step.\n";
+    # 	}
+    # }
 
     #fsl_nonparametric_analysis_Output_check();
 
@@ -723,9 +802,10 @@ sub fsl_nonparametric_analysis_prep {
 # ------------------
 sub parallelized_randomise {
 # ------------------
-    my ($seed,$num_of_perms,$output_path,$prefix,$contrast,$job_name,$contrast_number) = @_;
+    my ($seed,$num_of_perms,$output_path,$prefix,$contrast,$job_name,$contrast_number,$optional_job_dependency) = @_;
 
     if (! defined $contrast_number) {$contrast_number = 1;}
+    if (! defined $optional_job_dependency) {$optional_job_dependency = 0;}
     my $output=$output_path.'/'.$prefix;
     my $glm_option = '';
     my $cmbt_options='';
@@ -742,9 +822,16 @@ sub parallelized_randomise {
     # check for expected output first? -- should, but will have to add later, once I have a better idea of what that looks like...
     my $cmd = "randomise -i ${nii4D} -m ${average_mask} -d ${mat_file} -t ${con_file} ${randomise_options} ${glm_option} ${cmbt_options} -n ${num_of_perms} -o ${output}_SEED${seed}x${num_of_perms} --seed=${seed} --skipTo=${contrast_number}";
     my $go_message ="$PM: Running fsl nonparametric testing for contrast: ${contrast}\n" ;
-    my @test=(0);
+   
+    if ($optional_job_dependency) {
+	if ($optional_job_dependency !~ /^afterany:/) {
+	    $optional_job_dependency = "afterany:${optional_job_dependency}";
+	} 
+    }
+    
+    my @test=(0,0,$optional_job_dependency);
     if (defined $reservation) {
-	@test =(0,$reservation);
+	@test =(0,$reservation,$optional_job_dependency);
     }
     
     my $mem_request = '7600'; # Processes appear to be single-threaded...trying to stuff as many jobs onto a node as there are [virtual?] cores...
@@ -768,8 +855,9 @@ sub parallelized_randomise {
 # ------------------
 sub make_custom_masks {
 # ------------------
-    my ($mask_dir,$mdt_labels) = @_;
+    my ($mask_dir,$mdt_labels,$optional_job_dependency) = @_;
 
+    if (! defined $optional_job_dependency) {$optional_job_dependency = 0;}
 
   # Create ROI-based masks  # Will only support single ROIs for now?
    # SET  $mask_dir # @fdr_mask_array = split(',',$fdr_masks);
@@ -811,10 +899,10 @@ sub make_custom_masks {
     
     for my $ROI_mask (@ROI_masks) {
 	my @ROIs = split(':',$ROI_mask);
-	my $name_string = "ROI".join('_',@ROIs);
+	my $name_string = $label_atlas_name."_ROI".join('_',@ROIs);
 	push(@mask_names,$name_string);
 	if ($#ROIs) {
-	    my $mask_path = "${mask_dir}/${label_atlas_name}_${name_string}_mask.nii.gz";
+	    my $mask_path = "${mask_dir}/${name_string}_mask.nii.gz";
 	    if (data_double_check($mask_path)) {
 		my $add_mask_cmd;
 		my $roi_counter = 1;
@@ -878,15 +966,20 @@ sub make_custom_masks {
 	}
     }
 
+    if ($optional_job_dependency) {
+	if ($optional_job_dependency !~ /^afterany:/) {
+	    $optional_job_dependency = "afterany:${optional_job_dependency}";
+	} 
+    }
 
     my $go_message = "$PM: Creating custom masks in ${mask_dir}.\n" ;
     my $stop_message = "$PM: Failed to properly create custom masks in: ${mask_dir}  \n" ;
     
     my $jid = 0;
     if ($make_mask_cmds ne '') {
-	my @test=(0);
+	my @test=(0,0,0);
 	if (defined $reservation) {
-	    @test =(0,$reservation);
+	    @test =(0,$reservation,$optional_job_dependency);
 	}
 	my $mem_request = '17600'; #
 	#my $jid = 0;
@@ -914,7 +1007,7 @@ sub make_custom_masks {
 	}
     }
 
-    return();
+    return($jid);
 
 }
 
@@ -1339,7 +1432,11 @@ sub vbm_analysis_vbm_Runtime_check {
     if (! -e $mask_folder) {
 	mkdir ($mask_folder,$permissions);
     }
-    make_custom_masks($mask_folder,$mdt_labels);    
+    $make_masks_jid = make_custom_masks($mask_folder,$mdt_labels);    
+
+    if (! defined $make_masks_jid) {
+	$make_masks_jid = 0;
+    }
     
 #     $runlist = $Hf->get_value('complete_comma_list');
 #     @array_of_runnos = split(',',$runlist);

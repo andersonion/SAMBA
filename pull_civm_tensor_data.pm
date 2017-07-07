@@ -46,7 +46,7 @@ use lib split(':',$RADISH_PERL_LIB);
 require Headfile;
 #require retrieve_archived_data;
 #require study_variables_vbm;
-use vars qw($cluck_off);
+use vars qw($Hf $cluck_off $recon_machine $project_name);
 $cluck_off = 1;
 
 
@@ -127,7 +127,7 @@ sub find_my_tensor_data {
 	    confess("More than 1 tensor headfile detected for runno \"${local_runno}\"; it appears invalid and/or ambiguous runnos are being used.");
 	}
 	$tensor_headfile = $input_files_1[0];
-	if (($tensor_headfile ne '') && (defined $tensor_headfile)) {
+	if ((defined $tensor_headfile) && ($tensor_headfile ne '')) {
 	    $tensor_headfile_exists=1;
 	    $tensor_headfile = "${inputs_dir}/${tensor_headfile}";
 	}
@@ -211,6 +211,7 @@ sub find_my_tensor_data {
 	    if ($unsuccessful_pull_of_tensor_headfile) {
 		$tmp_log_msg = "Unable to find a valid tensor headfile for runno \"${local_runno}\" on machine: ${current_recon_machine}\n\tTrying other locations...\n";
 		$log_msg = $log_msg.$tmp_log_msg;
+		#print "Puller command =\n${pull_headfile_cmd}\n\n${tmp_log_msg}\n\n\n";
 	    } else {
 	       	push(@tensor_recon_machines,$current_recon_machine);
 		my $latest_headfile = `ls -rt ${local_folder}/tensor*headfile | tail -1`;
@@ -231,9 +232,10 @@ sub find_my_tensor_data {
     }
     #print "${tensor_headfile}\n\n";
     my $pos;
-    if (($tensor_headfile eq '') || (! defined $tensor_headfile)) {
+    if ((! defined $tensor_headfile) || ($tensor_headfile eq '')) {
 	$tmp_error_msg = "No proper tensor headfile found ANYWHERE for runno: \"${local_runno}\".\n";
 	$error_msg = $error_msg.$tmp_error_msg;
+	$tensor_recon_machine='';
     } elsif (($#tensor_recon_machines > 0) && (($recon_machine eq '') || ($recon_machine eq 'NO_KEY'))) {
 	$tmp_error_msg = "Multiple tensor headfiles found for runno: \"${local_runno}\" on these machines:\n";
 	$error_msg = $error_msg.$tmp_error_msg;
@@ -305,7 +307,7 @@ sub pull_civm_tensor_data {
     
     my $complete_runno_list=$Hf->get_value('complete_comma_list');
     my @array_of_runnos = split(',',$complete_runno_list);
-    
+    @array_of_runnos = uniq(@array_of_runnos);
     my $complete_channel_list=$Hf->get_value('channel_comma_list');
     my @array_of_channels = split(',',$complete_channel_list);
     
@@ -342,7 +344,7 @@ sub pull_civm_tensor_data {
 		}
 		$tensor_headfile = $input_files_1[0];
 
-		if (($tensor_headfile ne '') && (defined $tensor_headfile)) {
+		if ((defined $tensor_headfile) && ($tensor_headfile ne '')) {
 		    $tensor_headfile = "${inputs_dir}/${tensor_headfile}";
 		} else {
 		    my ($temp_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) =query_data_home(\%where_to_find_tensor_data,$runno);
@@ -353,7 +355,7 @@ sub pull_civm_tensor_data {
 	    }
 
 	    my $gradient_file;
-	    if ( -f $tensor_headfile) {
+	    if (($tensor_headfile) && ( -f $tensor_headfile)) {
 		my $tensor_Hf = new Headfile ('rw', $tensor_headfile);
 		$tensor_Hf->read_headfile;
 		# 10 April 2017, BJA: it's too much of a hassle to pull the bvecs file then try to figure out how to incorporate the bvals...
@@ -375,7 +377,7 @@ sub pull_civm_tensor_data {
 			    $error_msg=$error_msg.$tmp_error_msg;
 			}
 			$raw_headfile = $input_files_2[0];
-			if (($raw_headfile ne '') && (defined $raw_headfile)) {
+			if ((defined $raw_headfile)&& ($raw_headfile ne '')) {
 			    $raw_headfile = "${inputs_dir}/${raw_headfile}";
 			} else {
 			    my $raw_machine_found=0;		    
@@ -796,9 +798,11 @@ sub  query_data_home{
    if (! defined $data_home) {
        my $find_log_msg='';
        ($found_headfile,$data_home,$find_log_msg,$find_error_msg) = find_my_tensor_data($runno);
-       $log_msg = $log_msg.$find_log_msg;
-       $home_array_ref->{$runno}=$data_home;
-       $log_msg = $log_msg."Data home found for runno \"${runno}\" on machine \"${data_home}\"\n";
+       if ($data_home) { # We want to return a defined value, but if it is empty/zero, that means we failed to find what we wanted (as opposed to code failure).
+	   $log_msg = $log_msg.$find_log_msg;
+	   $home_array_ref->{$runno}=$data_home;
+	   $log_msg = $log_msg."Data home found for runno \"${runno}\" on machine \"${data_home}\"\n";
+       }
    }
    #print "for some runno, ${runno}: \"".$home_array_ref->{$runno}."\"\n\n";
    #print " this should be \"${data_home}\"\n\n";

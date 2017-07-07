@@ -342,7 +342,7 @@ sub create_affine_transform_vbm {
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);
 	
-	if (! $jid) {
+	if (not $jid) {
 	    error_out($stop_message);
 	}
     } else {
@@ -353,7 +353,7 @@ sub create_affine_transform_vbm {
     # my $transform_path = "${result_transform_path_base}Affine.txt"; # From previous version of Ants, perhaps?
     
        
-    if (data_double_check($transform_path) && $go && ($jid == 0)) {
+    if (data_double_check($transform_path) && $go && (not $jid)) {
 	error_out("$PM: create_transform: did not find result xform: $transform_path");
 	print "** $PM: create_transform $xform_code created $transform_path\n";
     }

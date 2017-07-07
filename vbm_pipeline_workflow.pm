@@ -31,7 +31,7 @@ $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
 $permissions = 0755;
 my $interval = 0.1; ##Normally 1
-$valid_formats_string = 'hdr|img|nii';
+$valid_formats_string = 'hdr|img|nii|nhdr';
 
 $civm_ecosystem = 0; # Begin implementing handling of code that is CIVM-specific
 if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {$civm_ecosystem = 1};
@@ -180,6 +180,47 @@ $image_dimensions
 
 
 sub vbm_pipeline_workflow { 
+## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
+
+if (! @group_1) {
+    if (defined $group_1_runnos) {
+	@group_1 = split(',',$group_1_runnos);
+    }
+}
+
+if (! @group_2) {
+    if (defined $group_2_runnos) {
+	@group_2 = split(',',$group_2_runnos);
+    }
+}
+
+if (! @control_group) {
+    if (defined $control_comma_list) {
+	@control_group = split(',',$control_comma_list);
+    } elsif ((@group_1) && (@group_2)) {
+	@control_group = uniq(@group_1,@group_2);
+    } elsif (@group_1) {
+	@control_group = uniq(@group_1)
+    }
+}
+
+if (! @compare_group) {
+    if (defined $compare_comma_list) {
+	@compare_group = split(',',$compare_comma_list);
+    } else {
+	@compare_group = @control_group;
+    }
+}
+
+my @all_runnos = uniq(@control_group,@compare_group);
+
+if ($#all_runnos < 1) {
+    $do_vba = 0;
+    if (! $optional_suffix) {
+	$optional_suffix = $all_runnos[0];
+    }
+}
+
 if (! defined $do_vba) {
     $do_vba = 0;
 }
@@ -239,35 +280,35 @@ my $inputs_dir = $preprocess_dir.'/base_images';
 
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
 
-if (! @group_1) {
-    if (defined $group_1_runnos) {
-	@group_1 = split(',',$group_1_runnos);
-    }
-}
+# if (! @group_1) {
+#     if (defined $group_1_runnos) {
+# 	@group_1 = split(',',$group_1_runnos);
+#     }
+# }
 
-if (! @group_2) {
-    if (defined $group_2_runnos) {
-	@group_2 = split(',',$group_2_runnos);
-    }
-}
+# if (! @group_2) {
+#     if (defined $group_2_runnos) {
+# 	@group_2 = split(',',$group_2_runnos);
+#     }
+# }
 
-if (! @control_group) {
-    if (defined $control_comma_list) {
-	@control_group = split(',',$control_comma_list);
-    } elsif ((@group_1) = (@group_2)) {
-	@control_group = uniq(@group_1,@group_2);
-    }
-}
+# if (! @control_group) {
+#     if (defined $control_comma_list) {
+# 	@control_group = split(',',$control_comma_list);
+#     } elsif ((@group_1) && (@group_2)) {
+# 	@control_group = uniq(@group_1,@group_2);
+#     }
+# }
 
-if (! @compare_group) {
-    if (defined $compare_comma_list) {
-	@compare_group = split(',',$compare_comma_list);
-    } else {
-	@compare_group = @control_group;
-    }
-}
+# if (! @compare_group) {
+#     if (defined $compare_comma_list) {
+# 	@compare_group = split(',',$compare_comma_list);
+#     } else {
+# 	@compare_group = @control_group;
+#     }
+# }
 
-my @all_runnos = uniq(@control_group,@compare_group);
+# my @all_runnos = uniq(@control_group,@compare_group);
 
 $control_comma_list = join(',',uniq(@control_group));
 $compare_comma_list = join(',',uniq(@compare_group));

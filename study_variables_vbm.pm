@@ -391,13 +391,12 @@ sub study_variables_vbm {
 	#$optional_suffix = '2016analysis'; #'aTest6'
 	$optional_suffix='April2017analysis';
 	$diffeo_transform_parameters = "0.5,3,0.5";  #"0.5,3,1"
+	$diffeo_iterations='4000x4000x4000x4000';
 	$vbm_reference_space = "native";
 	$create_labels = 1;
 	#$label_space = "pre_affine";
 	$label_space = "pre_rigid,post_affine";
 	$convert_labels_to_RAS = 1;
-
-
 
 	$mdt_creation_strategy = 'iterative';
 	$mdt_iterations = 6;
