@@ -79,7 +79,7 @@ sub pairwise_reg_vbm {  # Main code
 	}
     }
     
-    if (cluster_check() && ($jobs[0] ne '')) {
+    if (cluster_check() && (@jobs)) {
 	my $interval = 15;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
@@ -253,7 +253,7 @@ sub create_pairwise_warps {
 	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (! $jid) {
+	if (not $jid) {
 	    error_out();
 	}
     } else {
@@ -263,7 +263,7 @@ sub create_pairwise_warps {
 	}
     }
 
-    if (((!-e $new_warp) | (!-e $new_inverse)) && ($jid == 0)) {
+    if (((!-e $new_warp) | (! -e $new_inverse)) && (not $jid)) {
 	error_out($stop_message);
     }
     print "** $PM created ${new_warp} and ${new_inverse}\n";

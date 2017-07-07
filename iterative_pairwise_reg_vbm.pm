@@ -108,11 +108,7 @@ sub iterative_pairwise_reg_vbm {  # Main code
        headfile_list_handler($Hf,"mdt_inverse_xforms_${moving_runno}",$inverse_out,1,$replace); # added 'mdt_', 15 June 2016
    }
 
- #  if   ($current_iteration == 5) {
-   #     @jobs=qw(1380535  1380536  1380537  1380538  1380539  1380540  1380541  1380542  1380543  1380544  1380545  1380546  1380547  1380548  1380549  1380550  1380935 1380936 1380937 1380938);  ## MEGA ONE-OFF!!!
-   # }
-
-   if (cluster_check() && ($jobs[0] ne '')) {
+   if (cluster_check() && (@jobs)) {
        my $interval = 15;
        my $verbose = 1;
        my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);

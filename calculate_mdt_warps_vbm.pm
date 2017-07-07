@@ -69,7 +69,7 @@ sub calculate_mdt_warps_vbm {  # Main code
     }
      
 
-    if (cluster_check()) {
+    if (cluster_check() && (@jobs)) {
 	my $interval = 2;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
