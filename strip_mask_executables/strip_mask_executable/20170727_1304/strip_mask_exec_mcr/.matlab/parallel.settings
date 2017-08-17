@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings name="parallel" xmlns="urn:mathworks.matlab.settings" xsi:schemaLocation="urn:mathworks.matlab.settings settings.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <settings name="client">
+        <key name="ConfigurationsLastUpgradeTime">
+            <double>
+            </double>
+        </key>
+        <key name="DefaultProfile">
+            <string>
+                <value><![CDATA[civmcluster1_slurm]]></value>
+            </string>
+        </key>
+        <key name="LastForcedLogin">
+            <string>
+            </string>
+        </key>
+        <settings name="gui" visible="true">
+            <key name="IndicatorTooltipDetailLevel" visible="true">
+                <string>
+                    <value><![CDATA[VERBOSE]]></value>
+                </string>
+            </key>
+        </settings>
+        <settings name="pool">
+            <key name="AutoCreate">
+                <bool>
+                </bool>
+            </key>
+            <key name="IdleTimeout">
+                <double>
+                </double>
+            </key>
+            <key name="PreferredNumWorkers">
+                <double>
+                </double>
+            </key>
+            <key name="RestartOnClusterChange">
+                <bool>
+                </bool>
+            </key>
+            <key name="RestartOnPreferredNumWorkersChange">
+                <bool>
+                </bool>
+            </key>
+        </settings>
+    </settings>
+    <settings name="internal">
+        <settings name="profilesWithReadOnlyAlias">
+            <key name="local" visible="true">
+                <bool>
+                </bool>
+            </key>
+        </settings>
+        <settings name="profilesWithReadOnlySched">
+            <key name="local" visible="true">
+                <bool>
+                </bool>
+            </key>
+        </settings>
+        <settings name="schedulerComponentsWithReadOnlyAlias">
+            <key name="localSchedulerComponent" visible="true">
+                <bool>
+                </bool>
+            </key>
+        </settings>
+    </settings>
+    <settings name="profiles">
+        <settings name="civmcluster1_slurm" visible="true">
+            <key name="Alias" visible="true">
+                <string>
+                    <value><![CDATA[civmcluster1_slurm]]></value>
+                </string>
+            </key>
+            <key name="Description" visible="true">
+                <string>
+                    <value><![CDATA[civmcluster1_slurm]]></value>
+                </string>
+            </key>
+            <key name="ProjectComponent" visible="true">
+                <string>
+                    <value><![CDATA[civmcluster1_slurmProjectComponent]]></value>
+                </string>
+            </key>
+            <key name="SchedulerComponent" visible="true">
+                <string>
+                    <value><![CDATA[GenericProfile1SchedulerComponent]]></value>
+                </string>
+            </key>
+        </settings>
+        <settings name="local" visible="true">
+            <key name="Alias" visible="true">
+                <string>
+                </string>
+            </key>
+            <key name="Description" visible="true">
+                <string>
+                </string>
+            </key>
+            <key name="ProjectComponent" visible="true" anytype="true">
+            </key>
+            <key name="SchedulerComponent" visible="true">
+                <string>
+                </string>
+            </key>
+        </settings>
+    </settings>
+    <settings name="projectcomponents">
+        <settings name="civmcluster1_slurmProjectComponent" visible="true">
+            <key name="AdditionalPaths" visible="true">
+                <string minArraySize="0" maxArraySize="0" undef="true">
+                </string>
+            </key>
+            <key name="Alias" visible="true">
+                <string>
+                    <value><![CDATA[civmcluster1_slurmProjectComponent]]></value>
+                </string>
+            </key>
+            <key name="AttachedFiles" visible="true">
+                <string minArraySize="0" maxArraySize="0" undef="true">
+                </string>
+            </key>
+            <key name="AutoAttachFiles" visible="true" anytype="true">
+            </key>
+            <key name="CaptureDiary" visible="true">
+                <bool>
+                    <value>1</value>
+                </bool>
+            </key>
+            <key name="JobFinishedFcn" visible="true" anytype="true">
+            </key>
+            <key name="JobQueuedFcn" visible="true" anytype="true">
+            </key>
+            <key name="JobRunningFcn" visible="true" anytype="true">
+            </key>
+            <key name="JobTimeout" visible="true" anytype="true">
+            </key>
+            <key name="NumWorkersRange" visible="true" anytype="true">
+            </key>
+            <key name="TaskFinishedFcn" visible="true" anytype="true">
+            </key>
+            <key name="TaskRunningFcn" visible="true" anytype="true">
+            </key>
+            <key name="TaskTimeout" visible="true" anytype="true">
+            </key>
+        </settings>
+    </settings>
+    <settings name="schedulercomponents">
+        <settings name="Cloud" visible="true">
+        </settings>
+        <settings name="Generic" visible="true">
+            <settings name="GenericProfile1SchedulerComponent" visible="true">
+                <key name="Alias" visible="true">
+                    <string>
+                        <value><![CDATA[GenericProfile1SchedulerComponent]]></value>
+                    </string>
+                </key>
+                <key name="CancelJobFcn" visible="true" anytype="true">
+                    <string>
+                        <value><![CDATA[AAFJTQAAAAAOAAAAQAAAAAYAAAAIAAAABAAAAAAAAAAFAAAACAAAAAEAAAAPAAAAAQAAAAAAAAAQAAAADwAAAHNsdXJtRGVzdHJveUpvYgA=]]></value>
+                    </string>
+                </key>
+                <key name="CancelTaskFcn" visible="true" anytype="true">
+                    <string>
+                        <value><![CDATA[AAFJTQAAAAAOAAAAQAAAAAYAAAAIAAAABAAAAAAAAAAFAAAACAAAAAEAAAAPAAAAAQAAAAAAAAAQAAAADwAAAHNsdXJtRGVzdHJveUpvYgA=]]></value>
+                    </string>
+                </key>
+                <key name="ClusterMatlabRoot" visible="true" anytype="true">
+                </key>
+                <key name="CommunicatingSubmitFcn" visible="true">
+                    <string>
+                        <value><![CDATA[AAFJTQAAAAAOAAAASAAAAAYAAAAIAAAABAAAAAAAAAAFAAAACAAAAAEAAAAWAAAAAQAAAAAAAAAQAAAAFgAAAHNsdXJtUGFyYWxsZWxTdWJtaXRGY24AAA==]]></value>
+                    </string>
+                </key>
+                <key name="DeleteJobFcn" visible="true">
+                    <string>
+                        <value><![CDATA[AAFJTQAAAAAOAAAAQAAAAAYAAAAIAAAABAAAAAAAAAAFAAAACAAAAAEAAAAPAAAAAQAAAAAAAAAQAAAADwAAAHNsdXJtRGVzdHJveUpvYgA=]]></value>
+                    </string>
+                </key>
+                <key name="DeleteTaskFcn" visible="true" anytype="true">
+                    <string>
+                        <value><![CDATA[AAFJTQAAAAAOAAAAQAAAAAYAAAAIAAAABAAAAAAAAAAFAAAACAAAAAEAAAAPAAAAAQAAAAAAAAAQAAAADwAAAHNsdXJtRGVzdHJveUpvYgA=]]></value>
+                    </string>
+                </key>
+                <key name="GetJobStateFcn" visible="true">
+                    <string>
+                        <value><![CDATA[AAFJTQAAAAAOAAAASAAAAAYAAAAIAAAABAAAAAAAAAAFAAAACAAAAAEAAAATAAAAAQAAAAAAAAAQAAAAEwAAAHNsdXJtR2V0Sm9iU3RhdGVGY24AAAAAAA==]]></value>
+                    </string>
+                </key>
+                <key name="HasSharedFilesystem" visible="true" anytype="true">
+                </key>
+                <key name="IndependentSubmitFcn" visible="true">
+                    <string>
+                        <value><![CDATA[AAFJTQAAAAAOAAAASAAAAAYAAAAIAAAABAAAAAAAAAAFAAAACAAAAAEAAAAUAAAAAQAAAAAAAAAQAAAAFAAAAHNsdXJtU2ltcGxlU3VibWl0RmNuAAAAAA==]]></value>
+                    </string>
+                </key>
+                <key name="JobStorageLocation" visible="true">
+                    <string minArraySize="0" maxArraySize="0">
+                        <value><![CDATA[/glusterspace/BJ/matlab_jobs/]]></value>
+                    </string>
+                </key>
+                <key name="LicenseNumber" visible="true" anytype="true">
+                </key>
+                <key name="NumWorkers" visible="true">
+                    <double>
+                        <value>7.0</value>
+                    </double>
+                </key>
+                <key name="OperatingSystem" visible="true" anytype="true">
+                </key>
+                <key name="RequiresMathWorksHostedLicensing" visible="true" anytype="true">
+                </key>
+            </settings>
+        </settings>
+        <settings name="HPCServer" visible="true">
+        </settings>
+        <settings name="LSF" visible="true">
+        </settings>
+        <settings name="Local" visible="true">
+            <settings name="localSchedulerComponent" visible="true">
+                <key name="Alias" visible="true">
+                    <string>
+                    </string>
+                </key>
+                <key name="JobStorageLocation" visible="true">
+                    <string minArraySize="0" maxArraySize="0" undef="true">
+                    </string>
+                </key>
+                <key name="NumWorkers" visible="true" anytype="true">
+                </key>
+            </settings>
+        </settings>
+        <settings name="MJS" visible="true">
+        </settings>
+        <settings name="MJSComputeCloud" visible="true">
+        </settings>
+        <settings name="PBSPro" visible="true">
+        </settings>
+        <settings name="Torque" visible="true">
+        </settings>
+    </settings>
+</settings>

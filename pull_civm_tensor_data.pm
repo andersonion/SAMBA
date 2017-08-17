@@ -16,7 +16,7 @@ use warnings;
 use Cwd qw(abs_path);  # Verified as "necessary".
 use File::Basename;
 use List::Util qw(min max reduce); # Verified as "necessary".
-use List::MoreUtils qw(uniq); # Verfified as "necessary".
+use List::MoreUtils qw(uniq first_index); # Verfified as "necessary".
 use vars qw($Hf $BADEXIT $GOODEXIT $permissions $valid_formats_string $nodes $reservation);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
@@ -46,10 +46,9 @@ use lib split(':',$RADISH_PERL_LIB);
 require Headfile;
 #require retrieve_archived_data;
 #require study_variables_vbm;
-use vars qw($Hf $cluck_off $recon_machine $project_name);
-$cluck_off = 1;
-
-
+use vars qw($Hf $recon_machine $project_name);
+my $do_connectivity=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
+my $eddy_current_correction=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
 #---------------------
 sub find_my_tensor_data {
 #---------------------
@@ -81,15 +80,17 @@ sub find_my_tensor_data {
         crete
         sifnos
         milos
-        naxos
         panorama
         rhodos
         syros
-        tinos
-        wheezy); # James has a function to automatically compiling a valid list... 
+        tinos); # James has a function to automatically compiling a valid list... 
+
+# 10 July 2017: removed naxos temporarily until we better address "dead machine" issue.
 
     if ((defined $recon_machine) && ($recon_machine ne 'NO_KEY') && ($recon_machine ne '')) {
 	unshift(@recon_machines,$recon_machine);
+    } else {
+	$recon_machine='';
     }
     @recon_machines = uniq(@recon_machines);
     
@@ -138,14 +139,17 @@ sub find_my_tensor_data {
     if ($tensor_headfile_exists) {
 	## Pull out engine name, and to list of possible locations to look for data, after glusterspace and atlasdb;
 	my $temp_tensor_Hf = new Headfile ('rw', $tensor_headfile);
-	if (! $cluck_off){ cluck("tensor headfile = ${tensor_headfile}\n");}
+	my $msg_1 = "tensor headfile = ${tensor_headfile}\n";
+	printd(30,$msg_1); # At the threshold of still printing, but almost clucking.
 	$temp_tensor_Hf->read_headfile;
 	$little_engine_that_did = $temp_tensor_Hf->get_value('engine');
 	if ($little_engine_that_did eq 'NO_KEY') {
 	    $little_engine_that_did = $temp_tensor_Hf->get_value('engine-computer-name');
 	}
-	if (! $cluck_off){  cluck("little engine that did = ${little_engine_that_did}\n");}
-	@possible_tensor_recon_machines = ('atlasdb',$little_engine_that_did,'gluster');
+	my $msg_2 = "little engine that did = ${little_engine_that_did}\n";
+	printd(30,$msg_2);
+
+	@possible_tensor_recon_machines = ('gluster',$little_engine_that_did,'atlasdb'); # 10 July 2017: reversed order of importance
 	if ((defined $recon_machine) && ($recon_machine ne 'NO_KEY') && ($recon_machine ne '')) {
 	    unshift(@possible_tensor_recon_machines,$recon_machine);
 	}
@@ -206,8 +210,10 @@ sub find_my_tensor_data {
 	    }
 	} else {
 	    $pull_headfile_cmd = "puller_simple -D 0 -f file -or ${current_recon_machine} ${archive_prefix}tensor${local_runno}*${machine_suffix}/tensor${local_runno}*headfile ${local_folder}/";
+	 
 	    `${pull_headfile_cmd} 2>&1`;
 	    my $unsuccessful_pull_of_tensor_headfile = $?;
+	    #print "\$unsuccessful_pull_of_tensor_headfile = ${unsuccessful_pull_of_tensor_headfile}\n\n";
 	    if ($unsuccessful_pull_of_tensor_headfile) {
 		$tmp_log_msg = "Unable to find a valid tensor headfile for runno \"${local_runno}\" on machine: ${current_recon_machine}\n\tTrying other locations...\n";
 		$log_msg = $log_msg.$tmp_log_msg;
@@ -223,20 +229,20 @@ sub find_my_tensor_data {
 		push(@temp_tensor_headfiles,$temp_headfile_name);
 		
 		$tensor_headfile = $temp_headfile_name;#temp solution only !!!
-
+ 
 		$tmp_log_msg = "Tensor headfile for runno \"${local_runno}\" found on machine: ${current_recon_machine}\n";
 		$log_msg = $log_msg.$tmp_log_msg;
 	    }
-	}
-	
+	}	
     }
-    #print "${tensor_headfile}\n\n";
+    print "${tensor_headfile}\n\n";
     my $pos;
     if ((! defined $tensor_headfile) || ($tensor_headfile eq '')) {
 	$tmp_error_msg = "No proper tensor headfile found ANYWHERE for runno: \"${local_runno}\".\n";
 	$error_msg = $error_msg.$tmp_error_msg;
 	$tensor_recon_machine='';
-    } elsif (($#tensor_recon_machines > 0) && (($recon_machine eq '') || ($recon_machine eq 'NO_KEY'))) {
+#	print "NO Tensor found anywhere...\n\n\n";
+    } elsif ((@tensor_recon_machines) && ($#tensor_recon_machines > 0) && (($recon_machine eq '') || ($recon_machine eq 'NO_KEY'))) {
 	$tmp_error_msg = "Multiple tensor headfiles found for runno: \"${local_runno}\" on these machines:\n";
 	$error_msg = $error_msg.$tmp_error_msg;
 	for (@tensor_recon_machines) {
@@ -253,9 +259,10 @@ sub find_my_tensor_data {
 	$pos = 0;
 	$tensor_recon_machine = $tensor_recon_machines[0];
     } elsif (($recon_machine ne '') && ($recon_machine ne 'NO_KEY')) {
-	$pos = grep { $tensor_recon_machines[$_] eq "${recon_machine}" } 0..$#tensor_recon_machines;
+	#$pos = grep { $tensor_recon_machines[$_] eq "${recon_machine}" } 0..$#tensor_recon_machines;
+	$pos = first_index { /${recon_machine}/ } @tensor_recon_machines;
 	$tensor_recon_machine =  $tensor_recon_machines[$pos];
-	$tmp_log_msg = "A tensor headfile for runno \"${local_runno}\" was found on \$recon_machine ${tensor_recon_machine}[0]\n\tAny missing data will be pulled from here.\n";
+	$tmp_log_msg = "A tensor headfile for runno \"${local_runno}\" was found on \$recon_machine ${tensor_recon_machine}\n\tAny missing data will be pulled from here.\n";
 	$log_msg = $log_msg.$tmp_log_msg;
     }
 	
@@ -293,18 +300,18 @@ sub pull_civm_tensor_data {
         crete
         sifnos
         milos
-        naxos
         panorama
         rhodos
         syros
-        tinos
-        wheezy); # James has a function to automatically compiling a valid list... 
+        tinos); # James has a function to automatically compiling a valid list... 
     
+# 10 July 2017: removed naxos temporarily until we better address "dead machine" issue. 
+
     if ((defined $recon_machine) && ($recon_machine ne 'NO_KEY') && ($recon_machine ne '')) {
 	unshift(@recon_machines,$recon_machine);
     }
     @recon_machines = uniq(@recon_machines);
-    
+
     my $complete_runno_list=$Hf->get_value('complete_comma_list');
     my @array_of_runnos = split(',',$complete_runno_list);
     @array_of_runnos = uniq(@array_of_runnos);
@@ -607,6 +614,7 @@ sub pull_civm_tensor_data {
 		} else {
 		    my ($dummy_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) =query_data_home(\%where_to_find_tensor_data,$runno);
 		    $log_msg=$log_msg.$find_log_msg;
+		    print($find_log_msg."\n\n");#####
 		    $error_msg=$error_msg.$find_error_msg;
 		    if ($data_home eq 'gluster') {
 			$pull_file_cmd = "cp /glusterspace/tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
@@ -772,14 +780,14 @@ sub  build_bvec_array_from_raw_headfile{ # Code extracted and lightly adapted fr
 	    if ($max_v>$grad_max){$grad_max=$max_v;}
 	}
     } else {
-	error_out("Did not find Agilient variable \"dro\"".$HfInput->get_value("${data_prefix}dro") ) ;
+	error_out("Did not find Agilent variable \"dro\"".$HfInput->get_value("${data_prefix}dro") ) ;
     }		
 
     return ($n_Bvalues,$vector_dimension,@Hf_gradients);    
 }
 
 #---------------------
-sub  query_data_home{
+sub query_data_home{
 #---------------------
    my ($home_array_ref,$runno)=@_;
    my $data_home;

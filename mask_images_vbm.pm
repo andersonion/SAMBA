@@ -32,6 +32,9 @@ my $go=1;
 my ($port_atlas_mask_path,$port_atlas_mask);
 my ($job);
 
+my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
+my $strip_mask_executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/strip_mask_executables/strip_mask_executable/20170727_1304/run_strip_mask_exec.sh";
+
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
@@ -61,14 +64,30 @@ sub mask_images_vbm {
 	    $mask_hash{$runno} = $mask_path;
 
 	    if (! -e $mask_path) {
-		if ( ( (! $port_atlas_mask)) || (($port_atlas_mask) && (! -e $ported_mask)) ) {
-		    my $nifti_args ="\'$current_file\', $dim_divisor, $mask_threshold, \'$mask_path\',$num_morphs , $morph_radius,$status_display_level";
-		    my $nifti_command = make_matlab_command('strip_mask',$nifti_args,"${runno}_${template_contrast}_",$Hf,0); # 'center_nii'
-		    execute(1, "Creating mask for $runno using ${template_contrast} channel", $nifti_command);
+		if ( ( (! $port_atlas_mask)) || (($port_atlas_mask) && (! -e $ported_mask) && (! -e $ported_mask.'.gz')) ) {
+		    #my $nifti_args ="\'$current_file\', $dim_divisor, $mask_threshold, \'$mask_path\',$num_morphs , $morph_radius,$status_display_level";
+		    #my $nifti_command = make_matlab_command('strip_mask',$nifti_args,"${runno}_${template_contrast}_",$Hf,0); # 'center_nii'
+		    #execute(1, "Creating mask for $runno using ${template_contrast} channel", $nifti_command);
+		    ($job) =  strip_mask_vbm($current_file,$mask_path);
+		    if ($job) {
+			push(@jobs,$job);
+		    }
 		}
 	    }
 	}
     }
+
+    if (cluster_check() && (@jobs)) {
+	my $interval = 2;
+	my $verbose = 1;
+	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+	
+	if ($done_waiting) {
+	    print STDOUT  " Automated skull-stripping/mask generation based on ; moving on to next step.\n";
+	}
+    }
+
+    @jobs=();
 
     if ($port_atlas_mask) {
 	my $atlas_mask =$Hf->get_value('port_atlas_mask_path') ;
@@ -112,7 +131,7 @@ sub mask_images_vbm {
 	}
     }
 
-    if (cluster_check() && ($#jobs > 0)) {
+    if (cluster_check() && (@jobs)) {
 	my $interval = 1;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
@@ -210,6 +229,45 @@ sub mask_images_Output_check {
 }
 
 # ------------------
+sub strip_mask_vbm {
+# ------------------
+    my ($input_file,$mask_path) = @_;
+
+    my $jid = 0;
+    my ($go_message, $stop_message);
+
+
+    my $matlab_exec_args="${input_file} ${dim_divisor} ${mask_threshold} ${mask_path} ${num_morphs} ${morph_radius} ${status_display_level}";
+    $go_message = "$PM: Creating mask from file: ${input_file}\n" ;
+    $stop_message = "$PM: Failed to properly create mask from file: ${input_file}\n" ;
+
+    my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+    my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
+
+    if (cluster_check) {
+	my $go =1;	    
+#	my $cmd = $pairwise_cmd.$rename_cmd;
+	my $cmd = "${strip_mask_executable_path} ${matlab_path} ${matlab_exec_args}";
+	
+	my $home_path = $current_path;
+	my $Id= "creating_mask_from_contrast_${template_contrast}";
+	my $verbose = 2; # Will print log only for work done.
+	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+	if (not $jid) {
+	    error_out($stop_message);
+	}
+    }
+
+    return($jid);
+}
+
+
+
+
+# ------------------
 sub port_atlas_mask_vbm {
 # ------------------
     my ($runno,$atlas_mask,$port_mask) = @_;
@@ -217,7 +275,7 @@ sub port_atlas_mask_vbm {
     my $input_mask = $mask_hash{$runno};
     my $new_mask = $mask_dir.'/'.$runno.'_atlas_mask.nii.gz'; # 2 Feb 2016: added '.gz'
     
-    my $current_norm_mask = "${mask_dir}/${runno}_norm_mask.nii.gz";# 2 Feb 2016: added '.gz'
+     my $current_norm_mask = "${mask_dir}/${runno}_norm_mask.nii.gz";# 2 Feb 2016: added '.gz'
     my $out_prefix = $mask_dir.'/'.$runno."_mask_";
    # my $port_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
     my $temp_out_file = $out_prefix."0GenericAffine.mat";
@@ -257,14 +315,15 @@ sub port_atlas_mask_vbm {
 	@test =(0,$reservation);
     }
 
+    my $mem_request = 60000;
 
     my $jid = 0;
     if (cluster_check) {
 	my ($home_path,$dummy1,$dummy2) = fileparts($port_mask,2);
 	my $Id= "${runno}_create_port_atlas_mask";
 	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,'',@test);     
-	if (! $jid) {
+	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);     
+	if (not $jid) {
 	    error_out($stop_message);
 	}
     } else {
@@ -273,7 +332,7 @@ sub port_atlas_mask_vbm {
 	}
     }
 
-    if (data_double_check($port_mask)  && ($jid == 0)) {
+    if (data_double_check($port_mask)  && (not $jid)) {
 	error_out("$PM: could not properly create port atlas mask: ${port_mask}");
 	print "** $PM: port atlas mask created ${port_mask}\n";
     }
@@ -301,7 +360,7 @@ sub mask_one_image {
     }
    # my $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};\n";
     my $copy_hd_cmd = "CopyImageHeaderInformation ${centered_path} ${out_path} ${out_path} 1 1 1 ${im_a_real_tensor};\n";
-    my $remove_cmd = "rm ${centered_path};\n";
+    my $remove_cmd = "if [[ -f ${out_path} ]];then\n rm ${centered_path};\nfi\n";
     my $go_message = "$PM: Applying mask created by ${template_contrast} image of runno $runno" ;
     my $stop_message = "$PM: could not apply ${template_contrast} mask to ${centered_path}:\n${apply_cmd}\n" ;
     
@@ -312,8 +371,8 @@ sub mask_one_image {
 	@test =(0,$reservation);
     }
 
-    my $mem_request = 60000; # 12 April 2017, BJA: added higher memory request because of nii4Ds...may need to even go higher, but really should do this smartly.
-    
+    my $mem_request = 100000; # 12 April 2017, BJA: added higher memory request (60000) because of nii4Ds...may need to even go higher, but really should do this smartly.
+    # 10 July 2017, BJA: Increased from 60000, to 100000, because we were trying to process 8.1GB files
     my $jid = 0;
     if (cluster_check) {
 
@@ -361,7 +420,7 @@ sub mask_images_vbm_Init_check {
 	$Hf->set_value('port_atlas_mask',$port_atlas_mask);
 	$log_msg=$log_msg."\tImages have been pre-masked. No skulls will be stripped today.\n";
     }
-
+    my $rigid_atlas_name = $Hf->get_value('rigid_atlas_name');
     $port_atlas_mask_path = $Hf->get_value('port_atlas_mask_path');
     $rigid_contrast = $Hf->get_value('rigid_contrast');
     my $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
@@ -369,18 +428,18 @@ sub mask_images_vbm_Init_check {
     my $rigid_atlas=$Hf->get_value('rigid_atlas_name');
     if ($do_mask eq 'NO_KEY') { $do_mask=0;}
     if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
-    
-    my $default_mask = "${WORKSTATION_DATA}/atlas/DTI/DTI_mask.nii"; ## Set default mask for porting here!
+    my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii"; ## Set default mask for porting here!
     if (($do_mask == 1) && ($port_atlas_mask == 1)) {
 	if ($port_atlas_mask_path eq 'NO_KEY') {
+	    print "rigid_atlas_path = ${rigid_atlas_path}\n\n\n\n";
 	    my ($dummy1,$rigid_dir,$dummy2);
 	    if (! data_double_check($rigid_atlas_path)){
 		($rigid_dir,$dummy1,$dummy2) = fileparts($rigid_atlas_path,2);
-		$port_atlas_mask_path = get_nii_from_inputs($rigid_dir,'','mask');
+		$port_atlas_mask_path = get_nii_from_inputs($rigid_dir,$rigid_atlas_name,'mask');
 		if ($port_atlas_mask_path =~ /[\n]+/) {
 		    my ($dummy1,$original_rigid_dir,$dummy2);
 		    ($original_rigid_dir,$dummy1,$dummy2) = fileparts($original_rigid_atlas_path,2);
-		    $port_atlas_mask_path = get_nii_from_inputs($original_rigid_dir,'','mask');
+		    $port_atlas_mask_path = get_nii_from_inputs($original_rigid_dir,$rigid_atlas_name,'mask');      
 		    if ($port_atlas_mask_path =~ /[\n]+/) {
 			$port_atlas_mask_path=$default_mask;  # Use default mask
 			$log_msg=$log_msg."\tNo atlas mask specified; porting default atlas mask: ${port_atlas_mask_path}\n";

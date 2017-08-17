@@ -222,7 +222,7 @@ sub calculate_average_mdt_warp {
 	my $Id= "${runno}_calculate_${dir_string}_MDT_warp";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);    
-	if (! $jid) {
+	if (not $jid) {
 	    error_out("$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n");
 	}
     } else {
@@ -232,7 +232,7 @@ sub calculate_average_mdt_warp {
 	}
     }
 
-    if ((data_double_check($out_file)) && ($jid == 0)) {
+    if ((data_double_check($out_file)) && (not $jid)) {
 	error_out("$PM: missing ${dir_string} MDT warp results for ${runno}: ${out_file}");
     }
     print "** $PM created ${out_file}\n";

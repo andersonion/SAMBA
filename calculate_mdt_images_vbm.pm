@@ -228,7 +228,7 @@ sub calculate_average_mdt_image {
 	my $Id= "${contrast}_calculate_average_MDT_image";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (! $jid) {
+	if (not $jid) {
 	    error_out($stop_message);
 	}
     } else {
@@ -238,7 +238,7 @@ sub calculate_average_mdt_image {
 	}
     }
 
-    if ((!-e $out_file) && ($jid == 0)) {
+    if ((!-e $out_file) && (not $jid)) {
 	error_out("$PM: missing average MDT image for contrast: ${contrast}: ${out_file}");
     }
     print "** $PM created ${out_file}\n";

@@ -191,114 +191,136 @@ sub compare_reg_to_mdt_Input_check {
 sub reg_to_mdt {
 # ------------------
     my ($runno) = @_;
-
+    my $jid = 0;
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
     my $out_file =  "${current_path}/${runno}_to_MDT_"; # Same
     my $new_warp = "${current_path}/${runno}_to_MDT_warp.nii.gz"; # none 
     my $new_inverse = "${current_path}/MDT_to_${runno}_warp.nii.gz";
-    my $new_affine = "${current_path}/${runno}_to_MDT_affine.nii.gz";
+    #my $new_affine = "${current_path}/${runno}_to_MDT_affine.nii.gz";
     my $out_warp = "${out_file}${warp_suffix}";
     my $out_inverse =  "${out_file}${inverse_suffix}";
     my $out_affine = "${out_file}${affine_suffix}";
     my $second_contrast_string='';
     
-    $fixed = $median_images_path."/MDT_${mdt_contrast}.nii.gz"; # added .gz 23 October 2015
-    
-    my ($r_string);
-    my ($moving_string,$moving_affine);
-    
-    $moving_string=$Hf->get_value("forward_xforms_${runno}");
-    if ($moving_string eq 'NO_KEY') {
-	$moving_string=$Hf->get_value("mdt_forward_xforms_${runno}");
-	my @moving_array = split(',',$moving_string);
-	shift(@moving_array);
-	$moving_string = join(',',@moving_array);
-    }
-    my $stop = 2;
-    my $start = 1;
 
-    $r_string = format_transforms_for_command_line($moving_string,"r",$start,$stop);
-    
-    
-    if ($mdt_contrast_2 ne '') {
-	$fixed_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii.gz";
+    # For single-specimen work, the "MDT" will most likely be that specimen, so the out put should be the identity_warp.nii.gz
+    # Test for this condition...
+
+    my $CCL = $Hf->get_value('template_comma_list');
+    if (($CCL eq 'NO_KEY') || ($CCL eq 'EMPTY_VALUE')) {
+	$CCL=$Hf->get_value('control_comma_list');
     }
     
-    $moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
-    if ($mdt_contrast_2 ne '') {
-	$moving_2 = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast_2) ;
-	$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius}${diffeo_sampling_options}] ";
-    }
-    
-    $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
-	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n";
+    if ($runno =~ /^${CCL}$/) {
+	my $id_warp = "${current_path}/identity_warp.nii.gz";
+	my $first_image = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
 	
-    my @test = (0);
+	if (data_double_check($id_warp)) {
+	    make_identity_warp($first_image,$Hf,$current_path);
+	}
+	`mv ${id_warp} ${new_warp}; cp ${new_warp} ${new_inverse}`;
+	
+    } else { # Business as usual
 
-    my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
-    my $stop_message = "$PM: could not create diffeomorphic warp to MDT for ${runno}:\n${pairwise_cmd}\n" ;
- 
-    my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
-	"ln -s ${out_warp} ${new_warp};\n".
-	"ln -s ${out_inverse} ${new_inverse};\n".
-	"rm ${out_affine};\n";
-    
+	$fixed = $median_images_path."/MDT_${mdt_contrast}.nii.gz"; # added .gz 23 October 2015
+	
+	my ($r_string);
+	my ($moving_string,$moving_affine);
+	
+	$moving_string=$Hf->get_value("forward_xforms_${runno}");
+	if ($moving_string eq 'NO_KEY') {
+	    $moving_string=$Hf->get_value("mdt_forward_xforms_${runno}");
+	    my @moving_array = split(',',$moving_string);
+	    shift(@moving_array);
+	    $moving_string = join(',',@moving_array);
+	}
+	my $stop = 2;
+	my $start = 1;
 
+	$r_string = format_transforms_for_command_line($moving_string,"r",$start,$stop);
+	
+	
+	if ($mdt_contrast_2 ne '') {
+	    $fixed_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii.gz";
+	}
+	
+	$moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
+	if ($mdt_contrast_2 ne '') {
+	    $moving_2 = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast_2) ;
+	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius}${diffeo_sampling_options}] ";
+	}
+	
+	$pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
+	    "  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s $diffeo_smoothing_sigmas ${r_string} -u;\n";
+	
+	my @test = (0);
 
+	my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
+	my $stop_message = "$PM: could not create diffeomorphic warp to MDT for ${runno}:\n${pairwise_cmd}\n" ;
+	
+	my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
+	    "ln -s ${out_warp} ${new_warp};\n".
+	    "ln -s ${out_inverse} ${new_inverse};\n".
+	    "rm ${out_affine};\n";
+	
+
+	if ($mdt_creation_strategy eq 'iterative') {
 ## It is possible that we have done more iterations of template creation.  If so, then the "MDT_diffeo" warps will be the same work we want here, with the one caveat that the same diffeo parameters are used during template creation and registration to template (no doubt we will stray from this path soon).
-    my $future_template_path = $template_path;
-    my $mdt_iterations = $Hf->get_value('mdt_iterations');
-    my $future_iteration = ($mdt_iterations + 1);
-    if ($future_template_path =~ s/_i([0-9]+[\/]*)?/_i${future_iteration}/) { }
-    my $future_MDT_diffeo_path = "${future_template_path}/MDT_diffeo/";
-    my $reusable_warp = "${future_MDT_diffeo_path}/${runno}_to_MDT_warp.nii.gz"; # none 
-    my $reusable_inverse_warp = "${future_MDT_diffeo_path}/MDT_to_${runno}_warp.nii.gz"; 
-
-    if ((! data_double_check($reusable_warp,$reusable_inverse_warp)) && ($mdt_iterations >= $diffeo_levels)){
-	$pairwise_cmd = '';
-	$rename_cmd = "ln ${reusable_warp} ${new_warp}; ln ${reusable_inverse_warp} ${new_inverse};";
-    } else {
-	$job_count++;
-    }
-
-    if ($job_count > $jobs_in_first_batch){
-	$mem_request = $mem_request_2;
-    }
-
-
-    if (defined $reservation) {
-	@test =(0,$reservation);
-    }
-
-    my $jid = 0;
-    if (cluster_check) {
-	#my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s;\n"; # random sleep of 5-15 seconds
-	# my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
-	#     "ln -s ${out_warp} ${new_warp};\n".
-	#     "ln -s ${out_inverse} ${new_inverse};\n".
-	#     "rm ${out_affine};\n";
-    
-	my $cmd = $pairwise_cmd.$rename_cmd;	
-	my $home_path = $current_path;
-	$batch_folder = $home_path.'/sbatch/';
-	my $Id= "${runno}_to_MDT_create_warp";
-	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (! $jid) {
-	    error_out($stop_message);
+	    my $future_template_path = $template_path;
+	    my $mdt_iterations = $Hf->get_value('mdt_iterations');
+	    my $future_iteration = ($mdt_iterations + 1);
+	    if ($future_template_path =~ s/_i([0-9]+[\/]*)?/_i${future_iteration}/) { }
+	    my $future_MDT_diffeo_path = "${future_template_path}/MDT_diffeo/";
+	    my $reusable_warp = "${future_MDT_diffeo_path}/${runno}_to_MDT_warp.nii.gz"; # none 
+	    my $reusable_inverse_warp = "${future_MDT_diffeo_path}/MDT_to_${runno}_warp.nii.gz"; 
+	    
+	    if ((! data_double_check($reusable_warp,$reusable_inverse_warp)) && ($mdt_iterations >= $diffeo_levels)){
+		$pairwise_cmd = '';
+		$rename_cmd = "ln ${reusable_warp} ${new_warp}; ln ${reusable_inverse_warp} ${new_inverse};";
+	    } else {
+		$job_count++;
+	    }
+	} else {
+	    $job_count++;
 	}
-    } else {
-	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
-	if (! execute($go, $go_message, @cmds) ) {
-	    error_out($stop_message);
-	}
-    }
 
-    if (((!-e $new_warp) | (!-e $new_inverse)) && ($jid == 0)) {
-	error_out("$PM: missing one or both of the warp results ${new_warp} and ${new_inverse}");
+	if ($job_count > $jobs_in_first_batch){
+	    $mem_request = $mem_request_2;
+	}
+
+
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
+
+	if (cluster_check) {
+	    #my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s;\n"; # random sleep of 5-15 seconds
+	    # my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
+	    #     "ln -s ${out_warp} ${new_warp};\n".
+	    #     "ln -s ${out_inverse} ${new_inverse};\n".
+	    #     "rm ${out_affine};\n";
+	    
+	    my $cmd = $pairwise_cmd.$rename_cmd;	
+	    my $home_path = $current_path;
+	    $batch_folder = $home_path.'/sbatch/';
+	    my $Id= "${runno}_to_MDT_create_warp";
+	    my $verbose = 2; # Will print log only for work done.
+	    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+	    if (not $jid) {
+		error_out($stop_message);
+	    }
+	} else {
+	    my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
+	    if (! execute($go, $go_message, @cmds) ) {
+		error_out($stop_message);
+	    }
+	}
+
+	if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
+	    error_out("$PM: missing one or both of the warp results ${new_warp} and ${new_inverse}");
+	}
+	print "** $PM created ${new_warp} and ${new_inverse}\n";
     }
-    print "** $PM created ${new_warp} and ${new_inverse}\n";
-  
     return($jid,$new_warp,$new_inverse);
 }
 

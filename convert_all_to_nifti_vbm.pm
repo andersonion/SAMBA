@@ -17,9 +17,10 @@ use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions);
+use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $civm_ecosystem);
 require Headfile;
 require pipeline_utilities;
+require pull_civm_tensor_data;
 #require convert_to_nifti_util;
 
 
@@ -27,10 +28,14 @@ my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$flip_x
 my (@array_of_runnos,@channel_array);
 my (%go_hash,%go_mask,%mask_hash);
 my $skip=0;
+my $log_msg='';
+my (@jobs);
+my ($dummy,$error_message);
 
+
+my $working_image_orientation;
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
-
 
 # ------------------
 sub convert_all_to_nifti_vbm {
@@ -40,59 +45,116 @@ sub convert_all_to_nifti_vbm {
     ($skip) = @_;
     if ($skip eq '') {$skip = 0;}
     my $start_time = time;
-    
-    convert_all_to_nifti_vbm_Runtime_check();
+    my $run_again = 1;  
+    my $second_run=0;  
+    while ($run_again) {
+	convert_all_to_nifti_vbm_Runtime_check();
 
-    my @nii_cmds;
-    my @nii_files;
+	my @nii_cmds;
+	my @nii_files;
 
 
-    foreach my $runno (@array_of_runnos) {
-	foreach my $ch (@channel_array) {
-	    my $go = $go_hash{$runno}{$ch};
-	    if ($go) {
-		my $current_file=get_nii_from_inputs($in_folder,$runno,$ch);
+	foreach my $runno (@array_of_runnos) {
+	    foreach my $ch (@channel_array) {
+		my $go = $go_hash{$runno}{$ch};
+		if ($go) {
+		    my $job;
+		    my $current_file=get_nii_from_inputs($in_folder,$runno,$ch);
+		    my $Hf_key = "original_orientation_${runno}";
+		    #my $Hf_key = "original_orientation_${runno}_${ch}";# May need to evolve to where each image is checked for proper orientation.
+		    my $current_orientation= $Hf->get_value($Hf_key);# Insert orientation finder function here? No, want to out-source, I think.
+		    if ($current_orientation eq 'NO_KEY') {
+			$Hf_key = "original_study_orientation";
+			$current_orientation= $Hf->get_value($Hf_key);
+			if ($current_orientation eq 'NO_KEY') {
+			    if ((defined $flip_x) || ($flip_z)) { # Going to assume that these archaic notions will come in pairs.
+				if (($flip_x) && ($flip_z)) {
+				    $current_orientation = 'PLI';
+				} elsif ($flip_x) {
+				    $current_orientation = 'PRS';
+				} elsif ($flip_z) {
+				    $current_orientation = 'ARI';
+				} else {
+				    $current_orientation = 'ALS';
+				}
+			    } else {
+				$current_orientation = 'ALS';
+			    }
+			}
+		    }
 
-		if ($current_file =~ /[\n]+/) {
-		    print "Unable to find input image for $runno and $ch in folder: ${in_folder}.\n";
-		} else {
-		    push(@nii_files,$current_file);
+		    if ($current_file =~ /[\n]+/) {
+			print "Unable to find input image for $runno and $ch in folder: ${in_folder}.\n";
+		    } else {
+			# push(@nii_files,$current_file);
+			my $please_recenter=1; # Currently, this is stuck "on", as we can't turn it off in our function.
+			($job) =  set_center_and_orientation_vbm($current_file,$current_path,$current_orientation,$working_image_orientation,$please_recenter);
+			if ($job) {
+			    push(@jobs,$job);
+			}
+		    }
 		}
 	    }
 	}
+	# if ($nii_files[0] ne '') {
+	# 	my $message="\n$PM:\nThe following files will be prepared by Matlab for the VBM pipeline:\n".
+	# 	    join("\n",@nii_files)."\n\n";
+	# 	print "$message";
+	# }
+	# foreach my $file (@nii_files) {
+	# 	recenter_nii_function($file,$current_path,$skip,$Hf);
+	# }
+	
+
+	if (cluster_check() && (@jobs)) {
+	    my $interval = 2;
+	    my $verbose = 1;
+	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+	    
+	    if ($done_waiting) {
+		print STDOUT  " Reorienting and recentering for all input images is complete; moving on to next step.\n";
+	    }
+	}
+
+
+
+
+	my $case = 2;
+	($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
+
+	
+	#my $real_time = write_stats_for_pm($PM,$Hf,$start_time); #moved outside of while loop.
+	#print "$PM took ${real_time} seconds to complete.\n";
+
+	if (($error_message eq '') || ($second_run)) {
+	    $run_again = 0;
+	} else {
+	    if ($civm_ecosystem) {
+		print STDOUT " Several jobs have failed, possibly because the input files were not in the right place.\nAttempting to automatically find inputs../\n";
+		pull_civm_tensor_data();
+		$second_run=1;
+	    } else {
+		error_out("${error_message}",0);
+	    }
+	}
+
     }
-    if ($nii_files[0] ne '') {
-	my $message="\n$PM:\nThe following files will be prepared by Matlab for the VBM pipeline:\n".
-	    join("\n",@nii_files)."\n\n";
-	print "$message";
-    }
 
-
-    foreach my $file (@nii_files) {
-	recenter_nii_function($file,$current_path,$skip,$Hf);
-    }
-   # execute_indep_forks(1,"Recentering nifti images from tensor inputs", @nii_cmds);
-
-    my $case = 2;
-    my ($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
-
- 
     my $real_time = write_stats_for_pm($PM,$Hf,$start_time);
     print "$PM took ${real_time} seconds to complete.\n";
-
-
     if ($error_message ne '') {
 	error_out("${error_message}",0);
-    } else {
-    # Clean up matlab junk
-	my $test_string = `ls ${work_dir} `;
-	if ($test_string =~ /.m$/) {
-	    `rm ${work_dir}/*.m`;
-	}
-	if ($test_string =~ /matlab/) {
-	    `rm ${work_dir}/*matlab*`;
-	}
-    }
+    } 
+    # else { # Deprecated with advent of matlab executables. #BJA, 11 August 2017
+    # # Clean up matlab junk
+    # 	my $test_string = `ls ${work_dir} `;
+    # 	if ($test_string =~ /.m$/) {
+    # 	    `rm ${work_dir}/*.m`;
+    # 	}
+    # 	if ($test_string =~ /matlab/) {
+    # 	    `rm ${work_dir}/*matlab*`;
+    # 	}
+    # }
 }
 
 
@@ -155,12 +217,96 @@ sub convert_all_to_nifti_Output_check {
     return($file_array_ref,$error_msg);
 }
 
+# ------------------
+sub set_center_and_orientation_vbm {
+# ------------------
+    my ($input_file,$output_folder,$current_orientation,$desired_orientation,$recenter) = @_;
+    if (! defined $recenter) {$recenter=1;} # Unused for now.
+
+    if ($output_folder !~ /\/$/) {
+	$output_folder=$output_folder.'/';
+    }
+
+    my $matlab_exec_args='';
+
+    my $jid = 0;
+    my ($go_message, $stop_message);
+
+#    if ($current_orientation eq $desired_orientation) {
+    # Hope to have a function that easily and quickly diddles with the header to recenter it...may incorporate into matlab exec instead, though.
+#    } else {
+	$matlab_exec_args="${input_file} ${current_orientation} ${desired_orientation} ${output_folder}";
+	$go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;
+	$stop_message = "$PM: Failed to properly reorientate to ${desired_orientation} and recenter file: ${input_file}\n" ;
+#    }
+    my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+    my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
+
+    if (cluster_check) {
+	my $go =1;	    
+#	my $cmd = $pairwise_cmd.$rename_cmd;
+	my $cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
+	
+	my $home_path = $current_path;
+	my $Id= "recentering_and_setting_image_orientation_to_${desired_orientation}";
+	my $verbose = 2; # Will print log only for work done.
+	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+	if (not $jid) {
+	    error_out($stop_message);
+	}
+    }
+
+    return($jid);
+}
+
 
 # ------------------
 sub convert_all_to_nifti_vbm_Init_check {
 # ------------------
 
-    return('');
+    my $init_error_msg='';
+    my $message_prefix="$PM initialization check:\n";
+
+    my $optional_runno_string;
+    my $orientation_type = 'working_image_orientation';
+    my $orientation_error_msg_prefix="I'm sorry, but an invalid ${orientation_type} has been requested${optional_runno_string}: ";    
+    my $orientation_error_msg_suffix=".\n\tOrientation must be allcaps and contain 3 of the following letters: A or P, L or R, S or I.\n"; 
+    my $desired_orientation = $Hf->get_value($orientation_type);
+    my $da = $desired_orientation;
+    my $error_flag=0;
+    if ($da  eq 'NO_KEY') {
+	$da = 'ALS'; # This will soon change to RAS as the default, 'ALS' is historically what we've used.
+	$Hf->set_value($orientation_type,$da);
+	$log_msg = $log_msg."\nNo ${orientation_type}${optional_runno_string} has been specified; using default orientation of ${da}. \n";   
+    } elsif ($da =~ /[^ALSRPI]/ ) {
+	$error_flag=1;
+    } elsif (($da =~ /[A]/)&& ($da =~ /[P]/)) {
+	$error_flag=1;
+    } elsif (($da =~ /[I]/)&& ($da =~ /[S]/)) {
+	$error_flag=1;
+    } elsif (($da =~ /[L]/)&& ($da =~ /[R]/)) {
+	$error_flag=1;
+    } else {
+	$Hf->set_value($orientation_type,$da);
+	$log_msg = $log_msg."\nUsing ${da} for {orientation_type}${optional_runno_string}, as requested. \n";
+    }
+
+    if ($error_flag) {
+	$init_error_msg=$init_error_msg.$orientation_error_msg_prefix.$da.$orientation_error_msg_suffix;
+    }
+    
+    if ($log_msg ne '') {
+	log_info("${message_prefix}${log_msg}");
+    }
+    
+    if ($init_error_msg ne '') {
+	$init_error_msg = $message_prefix.$init_error_msg;
+    }
+    
+    return($init_error_msg);
 }
 
 # ------------------
@@ -174,8 +320,20 @@ sub convert_all_to_nifti_vbm_Runtime_check {
 #   $current_path = $Hf->get_value('inputs_dir');
     $current_path = $Hf->get_value('preprocess_dir');
 
-    $flip_x = $Hf->get_value('flip_x'); 
-    $flip_z = $Hf->get_value('flip_z'); 
+    $working_image_orientation = $Hf->get_value('working_image_orientation');
+    my $original_study_orientation = $Hf->get_value('original_study_orientation');
+
+    if ($original_study_orientation eq 'NO_KEY') {
+	$flip_x = $Hf->get_value('flip_x'); # Will phase out soon...
+	if ($flip_x eq 'NO_KEY') {
+	    undef $flip_x;
+	}
+	$flip_z = $Hf->get_value('flip_z'); # Will phase out soon...
+	if ($flip_z eq 'NO_KEY') {
+	    undef $flip_z;
+	}
+    }
+
     $do_mask = $Hf->get_value('do_mask');
 
 #    opendir(DIR,$in_folder) or die ("$PM: could not open project inputs folder!";
@@ -212,7 +370,10 @@ sub convert_all_to_nifti_vbm_Runtime_check {
 	print "${skip_message}";
     }
 
-
+    ($dummy,$skip_message)=convert_all_to_nifti_Output_check($case);
+    if ($skip_message ne '') {
+	print "${skip_message}";
+    }
 }
 
 

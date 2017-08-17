@@ -80,8 +80,6 @@ require calculate_jacobians_vbm;
 require smooth_images_vbm;
 require vbm_analysis_vbm;
 
-use vars qw($cluck_off);
-$cluck_off = 1;
 # Temporary hardcoded variables
 
 # variables, set up by the study vars script(study_variables_vbm.pm)
@@ -172,6 +170,8 @@ $fixed_image_for_mdt_to_atlas_registratation
 $vba_contrast_comma_list
 $vba_analysis_software
 $smoothing_comma_list
+
+$original_study_orientation
 
 $nonparametric_permutations
 
@@ -336,6 +336,21 @@ if ($do_vba) {
 	$Hf->set_value('all_groups_comma_list',$all_groups_comma_list);
     }
 }
+
+
+
+my $runlist = $Hf->get_value('all_groups_comma_list');
+if ($runlist eq 'NO_KEY') {
+    $runlist = $Hf->get_value('complete_comma_list');
+}
+
+my $multiple_runnos = 0;
+if ($runlist =~ /,/) {
+    $multiple_runnos = 1;
+}
+
+my $multiple_groups=0;
+if (@group_2) {$multiple_groups = 1;}
 
 
 ## End duplication control
@@ -533,8 +548,18 @@ if (! defined $flip_z) {
     $flip_z = 0;
 }
 
-$Hf->set_value('flip_x',$flip_x);
-$Hf->set_value('flip_z',$flip_z);
+if (defined $flip_x) {
+    $Hf->set_value('flip_x',$flip_x);
+}
+
+if (defined $flip_z) {
+    $Hf->set_value('flip_z',$flip_z);
+}
+
+if (defined $original_study_orientation) {
+    $Hf->set_value('original_study_orientation',$original_study_orientation);
+}
+
 
 $Hf->set_value('do_mask',$do_mask);
 if (defined $thresh_ref) {
@@ -604,8 +629,8 @@ print STDOUT " Running the main code of $PM. \n";
     my @modules_for_Init_check = qw(
      convert_all_to_nifti_vbm
      create_rd_from_e2_and_e3_vbm
-     mask_images_vbm
      set_reference_space_vbm
+     mask_images_vbm
      create_affine_reg_to_atlas_vbm
      pairwise_reg_vbm
      iterative_pairwise_reg_vbm
@@ -624,7 +649,7 @@ print STDOUT " Running the main code of $PM. \n";
      vbm_analysis_vbm
      apply_warps_to_bvecs
       );
-    
+    # 20 July 2017, BJA: swapped check order of mask images and set reference space
     my $checkCall; # Using camelCase here to avoid the potential need for playing the escape character game when calling command with backticks, etc.
     my $Init_suffix = "_Init_check()";
     
@@ -661,21 +686,21 @@ print STDOUT " Running the main code of $PM. \n";
 
 # Begin work:
 
-    if (! -e $inputs_dir) {
-	mkdir($inputs_dir,0777);
-    }
-    if ($import_data) { 
-	load_study_data_vbm(); #$PM_code = 11
-    }
+if (! -e $inputs_dir) {
+    mkdir($inputs_dir,0777);
+}
+if ($import_data) { # This should be deprecated
+    load_study_data_vbm(); #$PM_code = 11
+}
 
 my $nii4D = 0;
 if ($do_connectivity) {
     $nii4D = 1;
 }
 
-if ($civm_ecosystem) {
-   pull_civm_tensor_data(); # Commented only for testing
-}
+#if ($civm_ecosystem) { # Moved to be called within convert_all_to_nifti_vbm, so will only run as necessary. # BJA, 11 August 2017
+#   pull_civm_tensor_data(); # Commented only for testing
+#}
 
 
 # Need to pass the nii4D flag in a more elegant manner...
@@ -703,7 +728,8 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
     push(@channel_array,'rd');
     push(@original_channel_array,'rd');
     $original_channel_comma_list = $original_channel_comma_list.',rd';
-    $channel_comma_list = $original_channel_comma_list;
+    #$channel_comma_list = $original_channel_comma_list;
+    $channel_comma_list = $channel_comma_list.',rd';
     $Hf->set_value('channel_comma_list',$channel_comma_list);
 }
     sleep($interval);
@@ -864,7 +890,7 @@ if ($nii4D) {
 
 	#warp_atlas_labels_vbm(); #$PM_code = 63
 	#sleep($interval);
-	#cluck "\$label_space = ${label_space}";
+
 	$group_name = "all";
 
 	my @current_channel_array = @channel_array;
@@ -877,18 +903,25 @@ if ($nii4D) {
 
 
 	foreach my $a_label_space (@label_spaces) {
-	    #cluck "\$a_label_space = ${a_label_space}";
+
 	    warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
 	    sleep($interval);
 
 	    foreach my $a_contrast (@current_channel_array) {
 		apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
+		# if ($a_contrast !~ /nii4D/) {
+		#     apply_mdt_warps_vbm($a_contrast,"f",'MDT',$a_label_space); #$PM_code = 64
+		# }
 	    }
 	    
 	    calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
-	    tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
-	    label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
 
+	    if ($multiple_runnos) {
+		tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
+		if ($multiple_groups) {	
+		    label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
+		}
+	    }
 	    if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
 		#apply_mdt_warps_vbm('nii4D',"f",'all',$a_label_space); #
 		apply_warps_to_bvecs($a_label_space);	
@@ -909,9 +942,10 @@ if ($do_vba) {
     $Hf->set_value('channel_comma_list',$channel_comma_list);
     sleep($interval);
     
-    vbm_analysis_vbm(); #$PM_code = 72
-    sleep($interval);
-    
+    if ($multiple_groups) {
+	vbm_analysis_vbm(); #$PM_code = 72
+	sleep($interval);
+    }
     # smooth_images_vbm(); #$PM_code = 71 (now called from vbm_analysis_vbm)
     #sleep($interval);
     
@@ -928,38 +962,36 @@ if ($do_vba) {
 
 }
 
-    $Hf->write_headfile($result_headfile);
+$Hf->write_headfile($result_headfile);
 
-    print "\n\nVBM Pipeline has completed successfully.  Great job, you.\n\n";
+print "\n\nVBM Pipeline has completed successfully.  Great job, you.\n\n";
 
 	
 #    use civm_simple_util qw(whowasi whoami);	
 #    my $process = whowasi();
 #    my @split = split('::',$process);
 #    $process = pop(@split);
-    my $process = "vbm_pipeline";
+my $process = "vbm_pipeline";
     
-    my $completion_message ="Congratulations, master scientist. Your VBM pipeline process has completed.  Hope you find something interesting.\n";
-    my $time = time;
-    my $email_folder = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/email/';			
-    my $email_file="${email_folder}/VBM_pipeline_completion_email_for_${time}.txt";
-    
-    my $local_time = localtime();
-    my $local_time_stamp = "This file was generated on ${local_time}, local time.\n";
-    my $time_stamp = "Completion time stamp = ${time} seconds since January 1, 1970 (or some equally asinine date).\n";
-   
+my $completion_message ="Congratulations, master scientist. Your VBM pipeline process has completed.  Hope you find something interesting.\n";
+my $results_message = "Results are available for your perusal in: ${result_dir}.\n";
+my $time = time;
+my $email_folder = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/email/';			
+my $email_file="${email_folder}/VBM_pipeline_completion_email_for_${time}.txt";
 
-    my $subject_line = "Subject: VBM Pipeline has finished!!!\n";
+my $local_time = localtime();
+my $local_time_stamp = "This file was generated on ${local_time}, local time.\n";
+my $time_stamp = "Completion time stamp = ${time} seconds since January 1, 1970 (or some equally asinine date).\n";
+
+
+my $subject_line = "Subject: VBM Pipeline has finished!!!\n";
 
 			
-    #my $email_content = $subject_line.$completion_message.$time_stamp;
-    my $email_content = $subject_line.$completion_message.$local_time_stamp.$time_stamp;
-    `echo "${email_content}" > ${email_file}`;
-    `sendmail -f $process.civmcluster1\@dhe.duke.edu rja20\@duke.edu < ${email_file}`;
-    `sendmail -f $process.civmcluster1\@dhe.duke.edu 9196128939\@vtext.com < ${email_file}`;
-
-
-
+#my $email_content = $subject_line.$completion_message.$time_stamp;
+my $email_content = $subject_line.$completion_message.$results_message.$local_time_stamp.$time_stamp;
+`echo "${email_content}" > ${email_file}`;
+`sendmail -f $process.civmcluster1\@dhe.duke.edu rja20\@duke.edu < ${email_file}`;
+`sendmail -f $process.civmcluster1\@dhe.duke.edu 9196128939\@vtext.com < ${email_file}`;
 
 } #end main
 

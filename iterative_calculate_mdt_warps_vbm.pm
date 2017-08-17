@@ -193,7 +193,7 @@ sub iterative_calculate_average_mdt_warp {
 	my $Id= "create_update_warp";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, "$PM: create update warp}", $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (! $jid) {
+	if (not $jid) {
 	    error_out("$PM: could not create update warp:\n${cmd}\n");
 	}
     } else {
@@ -203,7 +203,7 @@ sub iterative_calculate_average_mdt_warp {
 	}
     }
 
-    if ((data_double_check($out_file_1)) && ($jid == 0)) {
+    if ((data_double_check($out_file_1)) && (not $jid)) {
 	error_out("$PM: missing update warp: ${out_file_1}");
     }
     print "** $PM created ${out_file_1}\n";

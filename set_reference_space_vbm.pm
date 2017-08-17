@@ -337,7 +337,7 @@ sub apply_new_reference_space_vbm {
 	    my $Id= "${short_filename}_reference_to_proper_space";
 	    my $verbose = 2; # Will print log only for work done.
 	    $jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);     
-	    if (! $jid) {
+	    if (not $jid) {
 		error_out($stop_message);
 	    }
 	} else {
@@ -345,7 +345,7 @@ sub apply_new_reference_space_vbm {
 		error_out($stop_message);
 	    }
 	}
-	if (data_double_check($out_file)  && ($jid == 0)) {
+	if (data_double_check($out_file)  && (not $jid)) {
 	    error_out("$PM: could not properly create translation transform and/or apply reference: ${out_file}");
 	    print "** $PM: apply reference created ${out_file}\n";
 	}

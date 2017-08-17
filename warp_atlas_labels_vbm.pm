@@ -14,11 +14,9 @@ use strict;
 use warnings;
 #no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $reference_path $ants_verbosity $reservation $dev_mode); # dev_mode added to control clucking and confessing, 25 June 2017
+use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $reference_path $ants_verbosity $reservation);
 require Headfile;
 require pipeline_utilities;
-
-use Carp qw(cluck confess);
 use List::Util qw(max);
 
 
@@ -375,7 +373,7 @@ sub convert_labels_to_RAS {
 	    my $Id= "converting_${label_atlas_name}_labels_for_${runno}_to_RAS_orientation";
 	    my $verbose = 2; # Will print log only for work done.
 	    $jid_2 = cluster_exec($go_2, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	    if (! $jid_2) {
+	    if (not $jid_2) {
 		error_out($stop_message);
 	    }
 	} else {
@@ -385,7 +383,7 @@ sub convert_labels_to_RAS {
 	    }
 	}
 	
-	if ((!-e $out_file) && ($jid_2 == 0)) {
+	if ((!-e $out_file) && (not $jid_2)) {
 	    error_out("$PM: missing RAS version of ${label_atlas_name} label set for ${runno}: ${out_file}");
 	}
 	print "** $PM created ${out_file}\n";
@@ -452,23 +450,15 @@ sub warp_atlas_labels_vbm_Runtime_check {
     if ($group eq 'MDT') {
 	$current_path = $Hf->get_value('median_images_path');
     } else {
+	my $msg;
 	if (! defined $current_label_space) {
-	    my $msg = "\$current_label_space not explicitly defined. Checking Headfile...";
-	    if ($dev_mode) {
-		cluck $msg;
-	    } else {
-		print $msg;
-	    }
+	    $msg = "\$current_label_space not explicitly defined. Checking Headfile...";
 	    $current_label_space = $Hf->get_value('label_space');
 	} else {
-	    my $msg = "current_label_space has been explicitly set to: ${current_label_space}";
-	    if ($dev_mode) {
-		cluck $msg;
-	    } else {
-		print $msg;
-	    }
-	}
-	
+	   $msg = "current_label_space has been explicitly set to: ${current_label_space}";
+	}	
+	printd(35,$msg);
+
 	#$ROI_path_substring="${current_label_space}_${label_refname}_space/${label_atlas}";
 	
 	#$current_path = $Hf->get_value('label_results_dir');

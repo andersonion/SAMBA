@@ -18,7 +18,7 @@ use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $permissions $ants_verbosity $res
 require Headfile;
 require pipeline_utilities;
 
-use Carp qw(cluck confess);
+use civm_simple_util qw(printd $debug_val);
 use List::Util qw(max);
 
 
@@ -296,7 +296,7 @@ sub apply_affine_rotation {
 	my $Id= "${runno}_apply_${direction_string}_affine_rotations_to_bvecs";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (! $jid) {
+	if (not $jid) {
 	    error_out($stop_message);
 	}
     } else {
@@ -306,7 +306,7 @@ sub apply_affine_rotation {
 	}
     }
 
-    if ((!-e $out_file) && ($jid == 0)) {
+    if ((!-e $out_file) && (not $jid)) {
 	error_out("$PM: missing bvecs with ${direction_string} affine rotations  applied for ${runno}: ${out_file}");
     }
     print "** $PM created ${out_file}\n";
@@ -360,12 +360,14 @@ sub apply_warps_to_bvecs_Runtime_check {
     $label_reference_path = $Hf->get_value('label_reference_path');
     $label_refname = $Hf->get_value('label_refname');
     
+    my $msg;
     if (! defined $current_label_space) {
-	cluck "\$current_label_space not explicitly defined. Checking Headfile...";
+	$msg =  "\$current_label_space not explicitly defined. Checking Headfile...\n";
 	$current_label_space = $Hf->get_value('label_space');
     } else {
-	cluck "current_label_space has been explicitly set to: ${current_label_space}";
+	$msg =  "current_label_space has been explicitly set to: ${current_label_space}\n";
     }
+    printd(35,$msg);
 
     $label_path=$Hf->get_value('labels_dir');
     $label_results_path=$Hf->get_value('label_results_path');

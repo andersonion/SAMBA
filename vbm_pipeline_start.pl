@@ -20,8 +20,6 @@ no warnings qw(uninitialized bareword);
 require pipeline_utilities;
 require Headfile;
 
-use Carp qw(cluck confess);
-
 use Cwd qw(abs_path);
 use File::Basename;
 use List::MoreUtils qw(uniq);
@@ -97,7 +95,11 @@ require vbm_pipeline_workflow;
 require apply_warps_to_bvecs;
 require Headfile;
 
-# Temporary hardcoded variables
+## Example use of printd
+use civm_simple_util qw(printd $debug_val);
+#$debug_val = 35;
+#my $msg =  "Your message here!";
+#printd(5,$msg);
 
 # variables, set up by the study vars script(study_variables_vbm.pm)
 use vars qw(
@@ -180,8 +182,11 @@ $fdr_masks
 $convert_labels_to_RAS
 $eddy_current_correction
 $do_connectivity
-$fixed_image_for_mdt_to_atlas_registratation
+$recon_machine
 
+$original_study_orientation
+
+$fixed_image_for_mdt_to_atlas_registratation
 
 $vba_contrast_comma_list
 $vba_analysis_software
