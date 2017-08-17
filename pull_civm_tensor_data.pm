@@ -47,8 +47,8 @@ require Headfile;
 #require retrieve_archived_data;
 #require study_variables_vbm;
 use vars qw($Hf $recon_machine $project_name);
-my $do_connectivity=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
-my $eddy_current_correction=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
+#my $do_connectivity=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
+#my $eddy_current_correction=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
 #---------------------
 sub find_my_tensor_data {
 #---------------------
