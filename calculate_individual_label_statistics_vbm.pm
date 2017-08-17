@@ -221,13 +221,16 @@ sub  calculate_individual_label_statistics_Runtime_check {
     $mdt_contrast = $Hf->get_value('mdt_contrast');
     $label_atlas = $Hf->get_value('label_atlas_name');
 
+    my $msg;
     if (! defined $current_label_space) {
-	cluck "\$current_label_space not explicitly defined. Checking Headfile...";
+	$msg =  "\$current_label_space not explicitly defined. Checking Headfile...";
 	$current_label_space = $Hf->get_value('label_space');
     } else {
-	cluck "current_label_space has been explicitly set to: ${current_label_space}";
+	$msg = "current_label_space has been explicitly set to: ${current_label_space}";
     }
-    
+    printd(35,$msg);    
+
+
     $space_string='rigid'; # Default
 
     if ($current_label_space eq 'pre_rigid') {

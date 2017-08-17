@@ -7,7 +7,7 @@ function compare_group_stats_exec(stats_file,contrast,group_1_name,group_2_name,
 % contrast: which quantitative contrast to compare; 'vol','volume', and  'volume_mm3_' are all recognized as volume, and will be normalized by the global volumes.
 % group_1_name/group_2_name: string describing the group ('control','treated','cb57', etc)
 % group_1_runno_string/group_2_runno_string: comma-delimited string of runnos in the respective groups.
-% out_dir: [optional] directory which to write the output; dafault is to put it in the same dir as the stats_file.
+% out_dir: [optional] directory which to write the output; default is to put it in the same dir as the stats_file.
 % skip_first_row: [optional] binary flag, indicator whether or not to EXCLUDE the exterior; default: 1
 %
 % Note that a two-line header is written in the form of:

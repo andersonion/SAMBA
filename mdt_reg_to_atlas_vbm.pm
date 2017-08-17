@@ -264,7 +264,7 @@ sub mdt_reg_to_atlas {
 	}
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (! $jid) {
+	if (not $jid) {
 	    error_out($stop_message);
 	}
     } else {
@@ -274,7 +274,7 @@ sub mdt_reg_to_atlas {
 	}
     }
 
-    if (((!-e $new_warp) | (!-e $new_inverse)) && ($jid == 0)) {
+    if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
 	error_out("$PM: missing one or both of the warp results ${new_warp} and ${new_inverse}");
     }
     print "** $PM created ${new_warp} and ${new_inverse}\n";

@@ -236,10 +236,7 @@ sub  label_stat_comparisons_between_groups_Runtime_check {
     $label_atlas = $Hf->get_value('label_atlas_name');
 
     if (! defined $current_label_space) {
-	#cluck "\$current_label_space not explicitly defined. Checking Headfile...";
 	$current_label_space = $Hf->get_value('label_space');
-    #} else {
-    #	cluck "current_label_space has been explicitly set to: ${current_label_space}";
     }
     
     $space_string='rigid'; # Default

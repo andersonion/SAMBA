@@ -386,8 +386,12 @@ sub fsl_nonparametric_analysis_vbm {
     }
 
 
-    $number_of_test_contrasts=`head -2 $con_file | tail -1 | cut -d ' ' -f 2`;
-    
+    #$number_of_test_contrasts=`head -2 $con_file | tail -1 | cut -d ' ' -f 2`; # This does not work for arbitrary con files.
+    my $num_con_line=`more $con_file | grep NumContrasts`;
+    if ($num_con_line =~ /([0-9]+)/) {
+	$number_of_test_contrasts=$1;
+    }
+
     my $prefix = "${contrast}_nonparametric_testing";
     my $master_job_name="fsl_nonparametric_testing_for_${local_sub_name}_${contrast}";
     my @expected_outputs = ();

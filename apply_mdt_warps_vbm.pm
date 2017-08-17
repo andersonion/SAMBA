@@ -18,7 +18,7 @@ use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $permissions $ants_verbosity $res
 require Headfile;
 require pipeline_utilities;
 
-use Carp qw(cluck confess);
+use civm_simple_util qw(printd $debug_val);
 use List::Util qw(max);
 
 
@@ -86,7 +86,7 @@ sub apply_mdt_warps_vbm {  # Main code
     }
      
 
-    if (cluster_check() && ($jobs[0] ne '')) {
+    if (cluster_check() && (@jobs)) {
 	my $interval = 2;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
@@ -121,9 +121,12 @@ sub apply_mdt_warps_vbm {  # Main code
     
     my @jobs_2;
     if (($convert_images_to_RAS == 1) && ($gid == 2)){
-	foreach my $runno (@array_of_runnos) {
-	    ($job) = convert_images_to_RAS($runno,$current_contrast);
-	    
+	foreach my $runno (@array_of_runnos,'MDT') {
+	    if (($runno eq 'MDT') && ($current_contrast eq 'nii4D')){
+		$job=0;
+	    } else {
+		($job) = convert_images_to_RAS($runno,$current_contrast);
+	    } 
 	    if ($job) {
 		push(@jobs_2,$job);
 	    }
@@ -323,7 +326,7 @@ sub apply_mdt_warp {
 	@test =(0,$reservation);
     }
 
-    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+    my $mem_request = 75000;  # Added 23 November 2016,  Will need to make this smarter later.
 
     my $jid = 0;
     if (cluster_check) {
@@ -359,9 +362,9 @@ sub convert_images_to_RAS {
     my ($out_file,$input_image,$work_file);
     my $final_images_dir;
 
-    if ($group eq 'MDT') {
+    if ($runno eq 'MDT') {
 	#$out_file = "${final_MDT_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
-	$input_image = "${median_images_path}/${runno}_${contrast}.nii.gz";
+	$input_image = "${median_images_path}/MDT_${contrast}.nii.gz";
 	#$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
 	#$final_images_dir = "${final_MDT_results_dir}/${runno}_images/";
 	$final_images_dir = "${final_MDT_results_dir}/";
@@ -495,12 +498,15 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	$label_reference_path = $Hf->get_value('label_reference_path');
 	$label_refname = $Hf->get_value('label_refname');
 
+	my $msg;
 	if (! defined $current_label_space) {
-	    cluck "\$current_label_space not explicitly defined. Checking Headfile...";
+	    $msg = "current_label_space not explicitly defined. Checking Headfile...\n";
 	    $current_label_space = $Hf->get_value('label_space');
 	} else {
-	    cluck "current_label_space has been explicitly set to: ${current_label_space}";
+	    $msg="current_label_space has been explicitly set to: ${current_label_space}\n";
 	}
+	printd(35,$msg);
+
 	$label_path=$Hf->get_value('labels_dir');
 	$label_results_path=$Hf->get_value('label_results_path');
    

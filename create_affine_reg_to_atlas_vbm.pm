@@ -787,7 +787,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 
 	if ($current_path eq 'NO_KEY') {
 	    $current_path = "${label_path}/transforms"; #$current_path = "${work_path}/labels_${label_atlas}";
-	    $Hf->set_value('label_tranform_dir',$current_path);
+	    $Hf->set_value('label_transform_dir',$current_path);
 	    if (! -e $current_path) {
 		mkdir ($current_path,$permissions);
 	    }

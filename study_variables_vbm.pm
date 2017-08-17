@@ -12,7 +12,7 @@ my $NAME = "In lieu of commandline functionality, here is the place to define va
 
 my $obrien = 0;
 my $obrien_invivo=0;
-my $colton = 1;
+my $colton = 0;
 my $colton_invivo = 0;
 my $mcnamara = 0;
 my $premont = 0;
@@ -20,7 +20,7 @@ my $premont_ct = 0;
 my $dave = 0;
 my $bj = 0;
 my $bj_group = 0;
-my $agoston = 0;
+my $agoston = 1;
 my $apoe = 0;
 my $christmas_rat = 0;
 my $mg_enhanced =0;
@@ -119,6 +119,9 @@ $smoothing_comma_list
 $nonparametric_permutations
 
 $image_dimensions
+
+$working_image_orientation
+$ref_runno
 ); # Need to replace $native_reference_space with $reference_space
 
 
@@ -395,7 +398,7 @@ sub study_variables_vbm {
 	$vbm_reference_space = "native";
 	$create_labels = 1;
 	#$label_space = "pre_affine";
-	$label_space = "pre_rigid,post_affine";
+	$label_space = "post_rigid";
 	$convert_labels_to_RAS = 1;
 
 	$mdt_creation_strategy = 'iterative';
@@ -1051,60 +1054,113 @@ dummy
     elsif ($agoston)
     
     {
-	$project_name = "14.agoston.01";
-	#$custom_predictor_string = "sham_vs_injured";
-	$custom_predictor_string = "sham2_vs_delayed";
+	#$project_name = "14.agoston.01";
+	$project_name = "15.agoston.02";
+        #$custom_predictor_string = "sham_vs_injured";
+	#$custom_predictor_string = "sham2_vs_delayed";
+	$custom_predictor_string="old_vs_young";
 	$template_predictor = "sham";
 
 	$vbm_reference_space = "native";
 	$create_labels = 1;
 	
-	@control_group = qw(S65456 S65459 S65466 S65521 S65530 S65533 S65537 S65541);
-	#@compare_group = qw(S65453 S65461 S65464 S65467 S65524 S65528 S65535 S65539 S65544);
-	@compare_group = qw(S66782 S66784 S66787 S66789 S66791 S66831 S66833 S66835 S66837  S66853 S66855 S66857 S66859 S66861 S66863 S66865 S66867 S66869);
+	$mdt_creation_strategy = 'iterative';
+	$mdt_iterations = 5; #6
 
-	@group_1 = qw(S66782 S66784 S66787 S66789 S66791 S66831 S66833 S66835 S66837) ;
-	@group_2 = qw(S66853 S66855 S66857 S66859 S66861 S66863 S66865 S66867 S66869) ;
+	#$recon_machine='tinos';
+
+	#@control_group = qw(S65456 S65459 S65466 S65521 S65530 S65533 S65537 S65541);
+	@compare_group = qw(S65456 S65459 S65466 S65521 S65530 S65533 S65537 S65541 S65453 S65461 S65464 S65467 S65524 S65528 S65535 S65539 S65544 S66782 S66784 S66787 S66789 S66791 S66831 S66833 S66835 S66837 S66853 S66855 S66857 S66859 S66861 S66863 S66865 S66867 S66869); #add S66833 S66791 back with port_atlas_mask and no flips
+	#@compare_group = qw(S66782 S66784 S66787 S66789 S66791 S66831 S66833 S66835 S66837  S66853 S66855 S66857 S66859 S66861 S66863 S66865 S66867 S66869);
+	#@compare_group=(@control_group,@compare_group); # 18 July 2017, using ALL specimens to construct mdt
+	@control_group=@compare_group;
+
+	#@group_1 = qw(S66782 S66784 S66787 S66789 S66791 S66831 S66833 S66835 S66837) ;
+	#@group_2 = qw(S66853 S66855 S66857 S66859 S66861 S66863 S66865 S66867 S66869) ;
+	#$group_1_name='old';
+	@group_1=qw(S66784
+S66782
+S66837
+S66835
+S66861
+S66859
+S66857
+S66855
+S66853
+S66833
+S66791
+S66831
+S66789
+S66787
+S66869
+S66867
+S66865
+S66863
+);
+
+
+	#$group_2_name='new';
+	@group_2=qw(
+S65453
+S65464
+S65467
+S65524
+S65528
+S65535
+S65539
+S65544
+S65461
+S65456
+S65459
+S65466
+S65521
+S65530
+S65533
+S65537
+S65541
+);
+
 
 	@channel_array = qw(dwi fa adc e1 e2 e3);
     
-	$flip_x = 1;
+	$flip_x = 0;
 	$flip_z = 0;
 	
 	$optional_suffix = '';
-	$atlas_name = 'rat';#
+	$atlas_name = 'rat2';#rat2
 	$label_atlas_name = 'rat2';#
 	
 	$rigid_contrast = 'dwi';
-	## $affine_contrast = 'dwi';
-	$affine_metric = 'MI';
-	#$affine_radius=32;
-	$affine_sampling_options = 'Regular,0.75';
-	$affine_gradient_step = 0.05;
-	$affine_iterations = '500x500x500x500';
-	$affine_convergence_thresh = '1e-6';
-        $affine_convergence_window = 15;
-	$affine_smoothing_sigmas= '0x0x0x0vox';
-	$affine_shrink_factors = '6x4x2x1';
-	##$affine_target;
+	# ## $affine_contrast = 'dwi';
+	# $affine_metric = 'MI';
+	# #$affine_radius=32;
+	# $affine_sampling_options = 'Regular,0.75';
+	# $affine_gradient_step = 0.05;
+	# $affine_iterations = '500x500x500x500';
+	# $affine_convergence_thresh = '1e-6';
+        # $affine_convergence_window = 15;
+	# $affine_smoothing_sigmas= '0x0x0x0vox';
+	# $affine_shrink_factors = '6x4x2x1';
+	# ##$affine_target;
 
 	$mdt_contrast = 'fa';
 	$diffeo_metric = 'CC';
 	$diffeo_radius = 4;
 	$diffeo_shrink_factors = '8x4x2x1'; # Commented out to test default behavior.
-	$diffeo_iterations = '500x500x500x500';
+	$diffeo_iterations = '500x500x500x50';
 	$diffeo_transform_parameters = '0.4,3,1';
 	$diffeo_convergence_thresh = '1e-7';
 	$diffeo_convergence_window = 15;
 	$diffeo_smoothing_sigmas = '4x2x1x0vox';
-	$diffeo_sampling_options = 'Random,1';
+	#$diffeo_sampling_options = 'Random,1';
 
-
+	$vba_analysis_software='fsl';
+	$vba_contrast_comma_list = 'rd,jac_to_MDT'; #one at a time: adc,fa,dwi,e1,
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
-	$do_mask = 0;
-	$port_atlas_mask = 0;    
-	$pre_masked = 1;	
+	$do_mask = 1;#0
+	$port_atlas_mask = 0; # For S65530, S66863, S66837, S66833, S66791   
+	$pre_masked = 0;#1	
     } elsif ($apoe)
 	
     {
@@ -1152,7 +1208,7 @@ dummy
 	$flip_x = 1;
 	$flip_z = 0;
 	
-	$optional_suffix = 'v2';
+	$optional_suffix = '';
 	$atlas_name = 'rat2';#
 	$label_atlas_name = 'rat2';#
 	
@@ -1183,7 +1239,7 @@ dummy
 	$diffeo_convergence_thresh = '1e-7';
 	$diffeo_convergence_window = 15;
 	$diffeo_smoothing_sigmas = '4x2x1x0vox';
-	$diffeo_sampling_options = 'Random,1';
+	#$diffeo_sampling_options = 'Random,1';
 
 
 	$skull_strip_contrast = 'dwi';
@@ -1198,6 +1254,7 @@ dummy
 	
 	$custom_predictor_string = "Control_vs_AD";
 
+	$mdt_creation_strategy = 'pairwise';
 
 	$vbm_reference_space = "native";
 	$create_labels = 1;
@@ -1217,7 +1274,7 @@ dummy
 	
 	$optional_suffix = '';
 	$atlas_name = 'chass_symmetric';#
-	$label_atlas_name = 'chass_symmetric';#
+	$label_atlas_name = 'chass_symmetric2';#$label_atlas_name = 'chass_symmetric';
 	
 	$rigid_contrast = 'T2';
 	## $affine_contrast = 'dwi';
@@ -1237,7 +1294,8 @@ dummy
 	#$diffeo_radius = 4;
 	#$diffeo_shrink_factors = '8x4x2x1'; # Commented out to test default behavior.
 	#$diffeo_iterations = '500x500x500x500';
-	$diffeo_transform_parameters = '0.5,3,1';
+
+	$diffeo_transform_parameters = '.5,3,0';#$diffeo_transform_parameters = '0.5,3,1';
 	#$diffeo_convergence_thresh = '1e-7';
 	#$diffeo_convergence_window = 15;
 	#$diffeo_smoothing_sigmas = '4x2x1x0vox';
@@ -1259,6 +1317,11 @@ dummy
 
 	$mdt_creation_strategy = 'iterative';
 	$mdt_iterations = 6;
+
+
+	$diffeo_iterations='4000x4000x4000x4000';
+	$ref_runno='B03680';
+	$working_image_orientation='ALS';
 
 	$vbm_reference_space = "native";
 	$create_labels = 1;
@@ -1441,7 +1504,7 @@ elsif ($nian_connectome)
 	$diffeo_iterations = '3000x3000x3000x80';
 
 	$vbm_reference_space = 'native';
-	$label_space = "post_affine";
+	$label_space = 'post_rigid'; # "post_affine";
 	
 	@control_group = qw(N54435 N54441 N54443 N54451 N54453 N54455 N54431 N54433 N54437 N54439 N54445 N54447 N54449 );
 	@compare_group = @control_group;
@@ -1548,7 +1611,7 @@ elsif ($nian_connectome)
 	#$mdt_convergence_threshold # Need to figure out how to use this!
 
 	$do_connectivity = 1;
-	#$recon_machine = 'piper';
+	$recon_machine = 'andros';
 	$eddy_current_correction = 0; # Was 1, but want to be consistent with spectrin for now...
 	$convert_labels_to_RAS = 1;
 
@@ -1574,8 +1637,8 @@ elsif ($nian_connectome)
 	    $do_vba = 0;
 	}
 	
-#	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
-    	@channel_array = qw(dwi fa tensor); #Just these two for now so we don't overload glusterspace
+	@channel_array = qw(adc dwi e1 e2 e3 fa); # This will be determined by command line, and will be able to include STI, T1, T2, T2star, etc.
+#    	@channel_array = qw(dwi fa tensor); #Just these two for now so we don't overload glusterspace
 
 #	$vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs to be rerun, but can be used whenever needed.
 
@@ -1588,7 +1651,8 @@ elsif ($nian_connectome)
 	
         $optional_suffix='connectomics';
 	$atlas_name = 'chass_symmetric2';
-	$label_atlas_name = 'chass_ALS_whole';
+	#$label_atlas_name = 'chass_ALS_whole';
+	$label_atlas_name = 'chass_symmetric2';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
 	$mdt_contrast = 'fa';

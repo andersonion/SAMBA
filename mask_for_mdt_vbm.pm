@@ -199,7 +199,7 @@ sub mask_for_mdt_Output_check {
  	my $Id= "extract_mask_from_MDT_${template_contrast}";
  	my $verbose = 2; # Will print log only for work done.
  	$jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
- 	if (! $jid) {
+ 	if (not $jid) {
  	    error_out($stop_message);
  	}
      } else {
@@ -210,7 +210,7 @@ sub mask_for_mdt_Output_check {
  	}
     }
 
-     if ((data_double_check($out_path)) && ($jid == 0)) {
+     if ((data_double_check($out_path)) && (not $jid)) {
  	error_out("$PM: Missing eroded MDT mask: ${out_path}");
      }
      print "** $PM created ${out_path}\n";

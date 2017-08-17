@@ -15,9 +15,7 @@ my $PM = 'single_segmentation_start.pl';
 use strict;
 use warnings;
 no warnings qw(uninitialized bareword);
-
-use Carp qw(cluck confess);
-
+use civm_simple_util qw(printd $debug_val);
 use Cwd qw(abs_path);
 use File::Basename;
 use List::MoreUtils qw(uniq);
