@@ -503,6 +503,10 @@ $Hf->set_value('number_of_nodes_used',$nodes);
 
 if ($create_labels) {
     my $label_atlas_dir = "${WORKSTATION_DATA}/atlas/${label_atlas_name}";
+    if (! -d $label_atlas_dir) {
+	if ($label_atlas_dir =~ s/data/CIVMdata/) {}
+    }
+
     $Hf->set_value('label_atlas_dir',$label_atlas_dir);
     $Hf->set_value('label_atlas_name',$label_atlas_name);
     if (! defined $label_space) {
