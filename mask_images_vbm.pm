@@ -429,6 +429,10 @@ sub mask_images_vbm_Init_check {
     if ($do_mask eq 'NO_KEY') { $do_mask=0;}
     if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
     my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii"; ## Set default mask for porting here!
+    if (! -f $default_mask) {
+	if ($default_mask =~ s/data/CIVMdata/) {}
+    }
+
     if (($do_mask == 1) && ($port_atlas_mask == 1)) {
 	if ($port_atlas_mask_path eq 'NO_KEY') {
 	    print "rigid_atlas_path = ${rigid_atlas_path}\n\n\n\n";

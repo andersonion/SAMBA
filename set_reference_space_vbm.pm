@@ -586,6 +586,9 @@ sub set_reference_space_vbm_Init_check {
 	    $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.\n";
 	} else {
 	    my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
+	    if (! -d $rigid_atlas_dir) {
+		if ($rigid_atlas_dir =~ s/data/CIVMdata/) {}
+	    }
 	    my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
 	    #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
 
@@ -690,7 +693,11 @@ sub set_reference_path_vbm {
     }
     
     my $atlas_dir_perhaps = "${WORKSTATION_DATA}/atlas/${ref_option}";
-    
+    if (! -d $atlas_dir_perhaps) {
+	if ($atlas_dir_perhaps =~ s/data/CIVMdata/) {}
+    } 
+
+
     if (-d $atlas_dir_perhaps) {
 	$log_msg=$log_msg."\tThe ${which_space} reference space will be inherited from the ${ref_option} atlas.\n";
 	$input_ref_path = get_nii_from_inputs($atlas_dir_perhaps,$ref_option,$rigid_contrast);
