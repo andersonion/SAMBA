@@ -632,6 +632,7 @@ print STDOUT " Running the main code of $PM. \n";
 
     my @modules_for_Init_check = qw(
      convert_all_to_nifti_vbm
+     pull_civm_tensor_data
      create_rd_from_e2_and_e3_vbm
      set_reference_space_vbm
      mask_images_vbm

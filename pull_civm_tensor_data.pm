@@ -49,6 +49,50 @@ require Headfile;
 use vars qw($Hf $recon_machine $project_name);
 #my $do_connectivity=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
 #my $eddy_current_correction=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
+
+
+
+#---------------------
+sub pull_civm_tensor_data_Init_check {
+#---------------------
+
+    my $init_error_msg='';
+    my $message_prefix="$PM initialization check:\n";
+    my $log_msg='';
+
+    my $decision_whether_or_not_to_run_this_code = $Hf->get_value('do_connectivity');
+    if ($decision_whether_or_not_to_run_this_code){
+	my $complete_runno_list=$Hf->get_value('complete_comma_list');
+	my @array_of_runnos = split(',',$complete_runno_list);
+	@array_of_runnos = uniq(@array_of_runnos);
+	foreach my $runno (@array_of_runnos) {
+	    my $gradient_file='';
+	    if (-d $inputs_dir) {
+		opendir(DIR, $inputs_dir);
+		my @input_files_0= grep(/^($runno).*(gradient_matrix)(\.txt)?$/i ,readdir(DIR));
+		$gradient_file = $input_files_0[0];
+	    }
+
+	    if ($gradient_file ne '') {
+		$Hf->set_value("original_bvecs_${runno}",$gradient_file);
+		$log_msg = $log_msg."\tSetting the [presumed] original bvecs for runno \"${runno}\" as ${gradient_file}.\n";
+	    }
+	}
+    }
+
+    if ($log_msg ne '') {
+	log_info("${message_prefix}${log_msg}");
+    }
+    
+    if ($init_error_msg ne '') {
+	$init_error_msg = $message_prefix.$init_error_msg;
+    }
+    
+    return($init_error_msg);
+}
+
+
+
 #---------------------
 sub find_my_tensor_data {
 #---------------------
