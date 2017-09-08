@@ -59,7 +59,7 @@ sub pull_civm_tensor_data_Init_check {
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
     my $log_msg='';
-
+    my $inputs_dir = $Hf->get_value('pristine_input_dir');
     my $decision_whether_or_not_to_run_this_code = $Hf->get_value('do_connectivity');
     if ($decision_whether_or_not_to_run_this_code){
 	my $complete_runno_list=$Hf->get_value('complete_comma_list');
