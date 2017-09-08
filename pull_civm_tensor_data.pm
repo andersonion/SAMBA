@@ -71,7 +71,7 @@ sub pull_civm_tensor_data_Init_check {
 		opendir(DIR, $inputs_dir);
 		my @input_files_0= grep(/^($runno).*(gradient_matrix)(\.txt)?$/i ,readdir(DIR));
 		$gradient_file = $inputs_dir.'/'.$input_files_0[0];
-		if ($gradient_file =~ s/(\/\)/\//) {}
+		if ($gradient_file =~ s/(\/\/)/\//) {}
 	    }
 
 	    if ($gradient_file ne '') {
