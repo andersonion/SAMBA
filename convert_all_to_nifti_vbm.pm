@@ -116,9 +116,6 @@ sub convert_all_to_nifti_vbm {
 	    }
 	}
 
-
-
-
 	my $case = 2;
 	($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
 
@@ -130,7 +127,7 @@ sub convert_all_to_nifti_vbm {
 	    $run_again = 0;
 	} else {
 	    if ($civm_ecosystem) {
-		print STDOUT " Several jobs have failed, possibly because the input files were not in the right place.\nAttempting to automatically find inputs../\n";
+		print STDOUT " Several jobs have failed, possibly because the input files were not in the right place.\nAttempting to automatically find inputs...\n";
 		pull_civm_tensor_data();
 		$second_run=1;
 	    } else {
