@@ -52,6 +52,11 @@ do_connectivity=0
 ## Hint: do_connectivity=1 will process the 4D diffusion nifti stack and bvals/bvecs to be used as input into another program such mrtrix or DSI studio
 ##       Only DSI studio is fully supported right now for bval/bvec processing and formatting.
 
+#eddy_current_correction=1
+## Hint: When turned on eddy current correction was used during DTI tensor processing, the resulting rotations will be applied to the bvecs as well.
+
+
+## Affine registration options
 
 #affine_contrast=dwi
 #affine_target=N51231
