@@ -391,7 +391,7 @@ sub fsl_nonparametric_analysis_vbm {
     if ($num_con_line =~ /([0-9]+)/) {
 	$number_of_test_contrasts=$1;
     } else {
-	$number_of_test_contrasts=3;
+	$number_of_test_contrasts=2; # Default
 	print "using default number of contrasts (2)\n";
     }
  
