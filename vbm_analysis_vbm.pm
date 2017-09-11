@@ -390,7 +390,13 @@ sub fsl_nonparametric_analysis_vbm {
     my $num_con_line=`more $con_file | grep NumContrasts`;
     if ($num_con_line =~ /([0-9]+)/) {
 	$number_of_test_contrasts=$1;
+    } else {
+	$number_of_test_contrasts=2;
+	print "using default number of contrasts (2)\n";
     }
+ 
+    print "number_of_test_contrasts = $number_of_test_contrasts\n\n";
+    die;
 
     my $prefix = "${contrast}_nonparametric_testing";
     my $master_job_name="fsl_nonparametric_testing_for_${local_sub_name}_${contrast}";
