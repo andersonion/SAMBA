@@ -1124,7 +1124,7 @@ sub vbm_analysis_vbm_Init_check {
 	    push(@temp_software_array,$software);
 
 	    if ($software eq 'fsl') {
-		$default_nonparametric_job_size = 25; # We expect to keep this hardcoded...might we need to decrease this for large data sets?
+		$default_nonparametric_job_size = 100; #Using only 25 tends to choke SLURM...# We expect to keep this hardcoded...might we need to decrease this for large data sets?
 		my $default_nonparametric_permutations = 5000;
 		$default_nonparametric_permutations = $default_nonparametric_job_size*(ceil($default_nonparametric_permutations/$default_nonparametric_job_size));
 		my $minimum_nonparametric_permutations = 1500;
