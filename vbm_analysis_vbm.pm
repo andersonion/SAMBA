@@ -391,12 +391,11 @@ sub fsl_nonparametric_analysis_vbm {
     if ($num_con_line =~ /([0-9]+)/) {
 	$number_of_test_contrasts=$1;
     } else {
-	$number_of_test_contrasts=2;
+	$number_of_test_contrasts=3;
 	print "using default number of contrasts (2)\n";
     }
  
     print "number_of_test_contrasts = $number_of_test_contrasts\n\n";
-    die;
 
     my $prefix = "${contrast}_nonparametric_testing";
     my $master_job_name="fsl_nonparametric_testing_for_${local_sub_name}_${contrast}";
@@ -618,10 +617,10 @@ sub fsl_nonparametric_analysis_vbm {
     if ($defrag_cmd ne '') {
 
 	# Shorten file names for human readibility.
-	if ($local_work_dir =~ s/(\/+)/\//) {}
-	if ($local_results_path =~ s/(\/+)/\//) {}
-	if ($mask_folder =~ s/(\/+)/\//) {}
-	if ($defrag_cmd =~ s/(\/+)/\//) {}
+	if ($local_work_dir =~ s/([\/]+)/\//) {}
+	if ($local_results_path =~ s/([\/]+)/\//) {}
+	if ($mask_folder =~ s/([\/]+)/\//) {}
+	if ($defrag_cmd =~ s/([\/]+)/\//) {}
 	if ($defrag_cmd =~ s/${local_work_dir}/\$\{wd\}/) {}
 	if ($defrag_cmd =~ s/${local_results_path}/\$\{rd\}/) {}
 	if ($defrag_cmd =~ s/${mask_folder}/\$\{md\}/) {}
