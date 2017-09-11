@@ -114,6 +114,12 @@ port_atlas_mask=0
 
 ## VBA Options
 
+vba_contrast_comma_list=dwi,fa,e1,jac
+## Hint: If not all contrasts should be analyzed with VBA, this comma-delimited list of image contrasts will specify which ones will be used with VBA. If this variable is not set, VBA will be performed on all available contrasts (except the nii4D).
+
+smoothing_comma_list=1,2,3,0.1mm
+## Hint: This comma-delimited list specifies the smoothing radii you want to try before performing VBA; no specified units defaults to 'vox', while 'mm' can be specified if need be.
+
 vba_analysis_software=surfstat
 ## Hint: multiple comma-delimited options can be specified and include: surfstat (default),fsl,ANTsR, and spm.
 ## Hint: fsl must be included if you want to do nonparametric testing
