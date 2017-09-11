@@ -639,6 +639,11 @@ sub pull_civm_tensor_data {
 		    if ($test_file =~ /[\n]+/) {
 
 			my ($dummy_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) = query_data_home(\%where_to_find_tensor_data,$runno);
+
+			if ($contrast eq 'tensor') {
+			    if ($machine_suffix =~ s/results/work/) {}
+			}
+
 			$log_msg=$log_msg.$find_log_msg;
 			$error_msg=$error_msg.$find_error_msg;
 		
