@@ -178,6 +178,10 @@ $label_reference
 
 $do_vba
 $fdr_masks
+$tfce_extent
+$tfce_height
+
+$nonparametric_permutations
 
 $convert_labels_to_RAS
 $eddy_current_correction
@@ -191,6 +195,7 @@ $fixed_image_for_mdt_to_atlas_registratation
 $vba_contrast_comma_list
 $vba_analysis_software
 $smoothing_comma_list
+
 
 $image_dimensions
  );
