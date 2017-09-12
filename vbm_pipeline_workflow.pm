@@ -174,6 +174,8 @@ $smoothing_comma_list
 $original_study_orientation
 
 $nonparametric_permutations
+$tfce_extent
+$tfce_height
 
 $image_dimensions
  );
@@ -616,6 +618,14 @@ if (defined $fdr_masks) {
     $Hf->set_value('fdr_masks',$fdr_masks);
 }
 
+
+if (defined $tfce_extent){
+    $Hf->set_value('tfce_extent',$tfce_extent);
+}
+
+if (defined $tfce_height){
+    $Hf->set_value('tfce_extent',$tfce_height);
+}
 #maincode
 
 print STDOUT " Running the main code of $PM. \n";

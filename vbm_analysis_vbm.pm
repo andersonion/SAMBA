@@ -42,8 +42,8 @@ my (@fdr_mask_array, @thresh_masks ,@ROI_masks,@mask_names,@ROIs_needed);
 my ($fdr_masks,$thresh_masks,$ROI_masks,$mask_folder,$make_masks_jid);
 my $use_template_images;
 
-my ($nonparametric_permutations,$number_of_nonparametric_seeds,$number_of_test_contrasts,$nii4D,$con_file,$mat_file,$fsl_cluster_size,$tfce_extent,$variance_smoothing_kernal_in_mm,$randomise_options,$default_nonparametric_job_size,$local_work_dir,$local_sub_name,$label_atlas_name,$mdt_labels); # Nonparametric testing variables.
-my ($cmbt_analysis,$tfce_analysis);
+my ($nonparametric_permutations,$number_of_nonparametric_seeds,$number_of_test_contrasts,$nii4D,$con_file,$mat_file,$fsl_cluster_size,$tfce_extent,$tfce_height,$variance_smoothing_kernal_in_mm,$randomise_options,$default_nonparametric_job_size,$local_work_dir,$local_sub_name,$label_atlas_name,$mdt_labels); # Nonparametric testing variables.
+my ($cmbt_analysis,$cbt_analysis,$tfce_analysis);
 my $randomise_cleanup_script="${PIPELINE_PATH}/support/fsl_randomise_parallel_cleanup_bash_script.txt";
 if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
@@ -417,6 +417,11 @@ sub fsl_nonparametric_analysis_vbm {
 	push(@output_key_list,@c_keys);
     }
     
+    if ($cbt_analysis)  { # $cbt_analysis
+	my @c2_keys = ('_clustere_','_clustere_corrp_');
+	push(@output_key_list,@c2_keys);
+    }
+
     if ($randomise_options =~ /\ -x\ /) {
 	my @x_keys = ('_vox_p_','_vox_corrp_');
 	push(@output_key_list,@x_keys);
@@ -692,15 +697,29 @@ sub fsl_nonparametric_analysis_prep {
 
     # Threshold-Free Cluster Enhancement business...
     $tfce_analysis = 1; # Initially will default to always on...just creating the code in case of future optionalization.
-    $tfce_extent = 0.8; # Hardcoding this as a default for now...but is a module-wide variable which eventually can be accessed via $Hf.
+    $tfce_extent = 0.5;
+    $tfce_height=1;
+
+    my $custom_tfce_extent=$Hf->get_value('tfce_extent');
+    if ($custom_tfce_extent ne 'NO_KEY') {
+	$tfce_extent=$custom_tfce_extent;
+    }
+
+    my $custom_tfce_height=$Hf->get_value('tfce_height');
+    if ($custom_tfce_height ne 'NO_KEY') {
+	$tfce_height=$custom_tfce_height;
+    }
+
+
     my $tfce_options='';
 
     if ($tfce_analysis) {
-	$tfce_options = " -T --tfce_E=${tfce_extent} ";
+	$tfce_options = " -T --tfce_E=${tfce_extent} --tfce_H=${tfce_height} ";
     }
 
     # Cluster-mass-based thresholding business...
     $cmbt_analysis = 1; # Initially will default to always on...just creating the code in case of future optionalization.
+    $cbt_analysis = 1; # Initially will default to always on...just creating the code in case of future optionalization.
     $fsl_cluster_size = 100 ; # Hardcoding this as a default for now...but is a module-wide variable which eventually can be accessed via $Hf.
 
     # Variance smoothing business...
@@ -818,18 +837,24 @@ sub parallelized_randomise {
     my $output=$output_path.'/'.$prefix;
     my $glm_option = '';
     my $cmbt_options='';
+    my $cbt_options='';
     if ($seed == 1) {
 	$glm_option = ' --glm_output ';
 	$cmbt_options='';
 	if ($cmbt_analysis) {
 	    $cmbt_options = " -C ${fsl_cluster_size} ";
 	}
+
+	$cbt_options='';
+	if ($cbt_analysis) {
+	    $cbt_options = " -c ${fsl_cluster_size} ";
+	}
     } else {
 	$num_of_perms = $num_of_perms + 1;
     }
 
     # check for expected output first? -- should, but will have to add later, once I have a better idea of what that looks like...
-    my $cmd = "randomise -i ${nii4D} -m ${average_mask} -d ${mat_file} -t ${con_file} ${randomise_options} ${glm_option} ${cmbt_options} -n ${num_of_perms} -o ${output}_SEED${seed}x${num_of_perms} --seed=${seed} --skipTo=${contrast_number}";
+    my $cmd = "randomise -i ${nii4D} -m ${average_mask} -d ${mat_file} -t ${con_file} ${randomise_options} ${glm_option} ${cmbt_options} ${cbt_options}  -n ${num_of_perms} -o ${output}_SEED${seed}x${num_of_perms} --seed=${seed} --skipTo=${contrast_number}";
     my $go_message ="$PM: Running fsl nonparametric testing for contrast: ${contrast}\n" ;
    
     if ($optional_job_dependency) {
