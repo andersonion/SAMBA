@@ -327,8 +327,23 @@ sub apply_mdt_warp {
     }
 
     my $mem_request = 75000;  # Added 23 November 2016,  Will need to make this smarter later.
-    my $input_size = 1024*(stat $image_to_warp)[7];
+    #my $input_size = 1024*(stat $image_to_warp)[7];
+    my $input_size=1;
+    for ($ii=1; $ii<6; $ii++){
+	my $c_string = `fslhd ${image_to_warp} | grep dim${ii} | grep -v pix`;
+	chomp($c_string);
+	my $c_dim_size = 1;
+	if ($c_string =~ /\s([0-9]+)$/) {
+	    $c_dim_size = $1;
+	} 
+	$input_size = $input_size*$c_dim_size;
+    }
+    $bytes_per_point = 8; # Going to go with 64-bit depth by default, though float is the usual case;   
+    $input_size = $input_size*($bytes_per_point/1024);
+
+
     my $expected_max_mem = 6.2*$input_size;
+    print "Expected amount of memory required to apply warps: ${expected_max_mem}\n";
     if ($expected_max_mem > $mem_request) {
 	$mem_request = $expected_max_mem;
     }
