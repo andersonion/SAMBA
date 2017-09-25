@@ -189,6 +189,7 @@ $do_connectivity
 $recon_machine
 
 $original_study_orientation
+$working_image_orientation
 
 $fixed_image_for_mdt_to_atlas_registratation
 

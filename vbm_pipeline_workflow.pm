@@ -172,6 +172,7 @@ $vba_analysis_software
 $smoothing_comma_list
 
 $original_study_orientation
+$working_image_orientation
 
 $nonparametric_permutations
 $tfce_extent
@@ -564,6 +565,10 @@ if (defined $flip_z) {
 
 if (defined $original_study_orientation) {
     $Hf->set_value('original_study_orientation',$original_study_orientation);
+}
+
+if (defined $working_image_orientation) {
+    $Hf->set_value('working_image_orientation',$working_image_orientation);
 }
 
 

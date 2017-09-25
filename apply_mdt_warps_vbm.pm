@@ -327,6 +327,12 @@ sub apply_mdt_warp {
     }
 
     my $mem_request = 75000;  # Added 23 November 2016,  Will need to make this smarter later.
+    my $input_size = 1024*(stat $image_to_warp)[7];
+    my $expected_max_mem = 6.2*$input_size;
+    if ($expected_max_mem > $mem_request) {
+	$mem_request = $expected_max_mem;
+    }
+
 
     my $jid = 0;
     if (cluster_check) {
