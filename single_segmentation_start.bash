@@ -2,7 +2,10 @@
 
 remote_tensor_hf=$1;
 atlas=$2;
-headfile_template="$WORKSTATION_DATA/single_seg_input_template.headfile";
+#headfile_template="$WORKSTATION_DATA/single_seg_input_template.headfile"; #DOESNT QUITE WORK RIGHT
+headfile_template="/cm/shared/CIVMdata/single_seg_input_template.headfile"
+
+echo "Using defaults for single segmentation as defined in ${headfile_temp}.";
 staart_headfile="$HOME/.seghf";# Must define.. probably shouldnt be in tmp...
 
 if [ -z "$remote_tensor_hf" ]; then
@@ -38,7 +41,17 @@ done
 echo '' > $staart_headfile; # clear startup headfile
 
 U_runno=$(grep 'U_runno=' $tensor_hf|cut -d '=' -f2 );
+
+if [ ! "${U_runno}" ]; then
+    U_runno=$(grep 'U_runno_m00=' $tensor_hf|cut -d '=' -f2 );
+fi
+
 U_code=$(grep 'U_code=' $tensor_hf|cut -d '=' -f2 );
+if [ ! "${U_code}" ]; then
+    U_code=$(grep 'U_code_m00=' $tensor_hf|cut -d '=' -f2 );
+fi
+
+
 # OR 
 grep U_* ${tensor_hf}  >> $staart_headfile;
 echo "project_name=${U_code}"  >> $staart_headfile;
@@ -48,7 +61,8 @@ echo "label_atlas_name=$atlas" >> $staart_headfile;
 echo "recon_machine=$success" >> $staart_headfile;
 cat $headfile_template >> $staart_headfile;
 
-SAMBA_startup $staart_headfile;
 
+#SAMBA_startup $staart_headfile;
+more $staart_heaedfile;
 
 
