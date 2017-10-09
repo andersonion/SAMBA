@@ -10,6 +10,10 @@
 # All my includes and requires are belong to us.
 # use ...
 
+print "This function is obsolete; please speak to BJ about doing what you want to do with active code.";
+exit;
+
+
 my $PM = 'single_segmentation_start.pl'; 
 
 use strict;
