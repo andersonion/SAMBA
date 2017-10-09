@@ -2,10 +2,10 @@
 
 remote_tensor_hf=$1;
 atlas=$2;
-#headfile_template="$WORKSTATION_DATA/single_seg_input_template.headfile"; #DOESNT QUITE WORK RIGHT
-headfile_template="/cm/shared/CIVMdata/single_seg_input_template.headfile"
+headfile_template="$WORKSTATION_DATA/single_seg_input_template.headfile"; #DOESNT QUITE WORK RIGHT
+#headfile_template="/cm/shared/CIVMdata/single_seg_input_template.headfile"
 
-echo "Using defaults for single segmentation as defined in ${headfile_temp}.";
+echo "Using defaults for single segmentation as defined in ${headfile_template}.";
 staart_headfile="$HOME/.seghf";# Must define.. probably shouldnt be in tmp...
 
 if [ -z "$remote_tensor_hf" ]; then
@@ -30,10 +30,17 @@ fi;
 hst_list="andros delos piper vidconfmac";#$(get_workstation_hosts);
 tensor_hf="/tmp/$(basename $remote_tensor_hf)";
 
+if [ ! -f $tensor_hf ]; then
+    rm $tensor_hf;
+fi
+
 for hst in $hst_list; do 
     if [ ! -f $tensor_hf ]; then
 	echo "trying $hst";
-	scp omega@$hst.duhs.duke.edu:/Volumes/${hst}space/$remote_tensor_hf /tmp/ && success=$hst
+	scp omega@$hst:$remote_tensor_hf /tmp/ 
+	if [ -f $tensor_hf ]; then
+	   success=$hst;
+	fi;
     else 
 	continue;
     fi
@@ -53,16 +60,25 @@ fi
 
 
 # OR 
-grep U_* ${tensor_hf}  >> $staart_headfile;
+grep U_ ${tensor_hf}  >> $staart_headfile;
 echo "project_name=${U_code}"  >> $staart_headfile;
 echo "group_1_runnos=${U_runno%_*}"  >> $staart_headfile;
 echo "rigid_atlas_name=$atlas" >> $staart_headfile;
 echo "label_atlas_name=$atlas" >> $staart_headfile;
+
+if [ ! -z "$success" ]; then 
 echo "recon_machine=$success" >> $staart_headfile;
+else
+    echo "CANT FIND HOST";
+    #exit ;
+fi
+
+
+
 cat $headfile_template >> $staart_headfile;
 
 
-#SAMBA_startup $staart_headfile;
-more $staart_heaedfile;
+SAMBA_startup $staart_headfile;
+#more $staart_headfile;
 
 
