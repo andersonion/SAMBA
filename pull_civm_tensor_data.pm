@@ -436,9 +436,9 @@ sub pull_civm_tensor_data {
 			    ##Cycle through possible locations until we successfully pull in a raw headfile, while noting location of data.
 			    foreach my $current_recon_machine (@recon_machines){
 				if (! $raw_machine_found) {
-				    my $archive_prefix = '';
+				    my $archive_prefix_or_runno = $runno."/";
 				    if ($current_recon_machine eq 'atlasdb') {
-					$archive_prefix = "${project_name}/";
+					$archive_prefix_or_runno = "${project_name}/";
 				    }
 				
 				    my $pull_headfile_cmd;
@@ -454,10 +454,11 @@ sub pull_civm_tensor_data {
 						    $raw_machine_found = 1;
 						    $tmp_log_msg = "Raw recon folder for runno \"${runno}\" found locally at ${current_dir}\n";
 						    
-						    my $input_headfile = `ls -t ${current_dir}/${runno}*headfile | tail -1`;
+						   # my $input_headfile = `ls -t ${current_dir}/${runno}*headfile | tail -1`;
+						    my $input_headfile = `ls -rt ${current_dir}/${runno}*/${runno}*/${runno}*headfile | head -1`;
 						    chomp($input_headfile);
 						    `cp ${input_headfile} ${inputs_dir}/`;
-						    $raw_headfile = `ls -rt ${inputs_dir}/${runno}*headfile | tail -1`; 
+						    $raw_headfile = `ls -t ${inputs_dir}/${runno}*headfile | head -1`; 
 						    chomp($raw_headfile);
 						    if ($raw_headfile !~ /"no such file"/) { 
 							$raw_machine_found=1;
@@ -472,7 +473,7 @@ sub pull_civm_tensor_data {
 					}
 					
 				    } else {
-					$pull_headfile_cmd = "puller_simple -D 0 -f file -or ${current_recon_machine} ${archive_prefix}${runno}*/${runno}*headfile ${inputs_dir}/";
+					$pull_headfile_cmd = "puller_simple -D 0 -f file -or ${current_recon_machine} ${archive_prefix_or_runno}${runno}*/${runno}*headfile ${inputs_dir}/";
 					 `${pull_headfile_cmd} 2>&1`;
 					my $unsuccessful_pull_of_raw_headfile = $?;
 					if ($unsuccessful_pull_of_raw_headfile) {
@@ -481,7 +482,8 @@ sub pull_civm_tensor_data {
 					    $log_msg = $log_msg.$tmp_log_msg;
 					} else {
 					    $raw_machine_found = 1;
-					    $raw_headfile = `ls -rt ${inputs_dir}/${runno}*headfile | tail -1`; 
+					    #$raw_headfile = `ls -rt ${inputs_dir}/${runno}*headfile | tail -1`;
+					    $raw_headfile = `ls -t ${inputs_dir}/${runno}*headfile | head -1`;
 					    chomp($raw_headfile);
 					    $tmp_log_msg = $tmp_log_msg."Raw headfile for runno \"${runno}\"found on machine: ${current_recon_machine}\n.\n";
 					    $log_msg = $log_msg.$tmp_log_msg;
@@ -786,9 +788,10 @@ sub  build_bvec_array_from_raw_headfile{ # Code extracted and lightly adapted fr
     if (! $HfInput->check)         {error_out("Problem opening input runno headfile; ${input_headfile}");}
     
     if (! $HfInput->read_headfile) {error_out("Could not read input runno headfile: ${input_headfile}");}
-    
-    if ( $HfInput->get_value("${data_prefix}dro") !~ "(NO_KEY|UNDEFINED_VALUE|EMPTY_VALUE)" )  {
-	if ( $HfInput->get_value("${data_prefix}array") ne '(dro,dpe,dsl)' ) {
+    #$HfInput->print_headfile();
+    print "input headfile = $input_headfile\n\n\n";
+    if ( $HfInput->get_value_like("${data_prefix}dro") !~ "(NO_KEY|UNDEFINED_VALUE|EMPTY_VALUE)" )  {
+	if ( $HfInput->get_value_like("${data_prefix}array") ne '(dro,dpe,dsl)' ) {
 	    error_out('Agilent gradient table may not be in proper format, NOTIFIY JAMES');
 	}
 	#vector data format, dim1:dim2:dimn, data1 data2 datan[:NEWLINE:]
@@ -796,9 +799,9 @@ sub  build_bvec_array_from_raw_headfile{ # Code extracted and lightly adapted fr
 	my ($xd,$yd,$zd);
 	my ($xv,$yv,$zv);
 	my (@xva,@yva,@zva);
-	($xd,$xv)=split(',',$HfInput->get_value("${data_prefix}dro"));
-	($yd,$yv)=split(',',$HfInput->get_value("${data_prefix}dpe"));
-	($zd,$zv)=split(',',$HfInput->get_value("${data_prefix}dsl"));
+	($xd,$xv)=split(',',$HfInput->get_value_like("${data_prefix}dro"));
+	($yd,$yv)=split(',',$HfInput->get_value_like("${data_prefix}dpe"));
+	($zd,$zv)=split(',',$HfInput->get_value_like("${data_prefix}dsl"));
 	@xva=split(' ',$xv);
 	@yva=split(' ',$yv);
 	@zva=split(' ',$zv);
@@ -830,7 +833,7 @@ sub  build_bvec_array_from_raw_headfile{ # Code extracted and lightly adapted fr
 	    if ($max_v>$grad_max){$grad_max=$max_v;}
 	}
     } else {
-	error_out("Did not find Agilent variable \"dro\"".$HfInput->get_value("${data_prefix}dro") ) ;
+	error_out("Did not find Agilent variable \"${data_prefix}dro\"".$HfInput->get_value_like("${data_prefix}dro") ) ;
     }		
 
     return ($n_Bvalues,$vector_dimension,@Hf_gradients);    

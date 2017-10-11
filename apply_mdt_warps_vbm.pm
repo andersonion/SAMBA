@@ -342,7 +342,7 @@ sub apply_mdt_warp {
     $input_size = $input_size*($bytes_per_point/1024);
 
 
-    my $expected_max_mem = 6.2*$input_size;
+    my $expected_max_mem = int(6.2*$input_size);
     print "Expected amount of memory required to apply warps: ${expected_max_mem}\n";
     if ($expected_max_mem > $mem_request) {
 	$mem_request = $expected_max_mem;
