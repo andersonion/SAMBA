@@ -87,7 +87,12 @@ mkdir -p -m 777 $inputs_dir;
 new_hf="$inputs_dir/${U_runno%_*}_inputs.hf"
 cp $staart_headfile $new_hf;
 
+c_user=`echo $USER`;
 
-echo "running command: SAMBA_startup $new_hf";
-SAMBA_startup $new_hf
-
+if [[ $c_user == 'rja20' ]]; then
+    echo "running command: bjpipe $new_hf";
+    bjpipe $new_hf
+else
+    echo "running command: SAMBA_startup $new_hf";
+    SAMBA_startup $new_hf
+fi
