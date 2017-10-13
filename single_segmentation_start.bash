@@ -90,8 +90,8 @@ cp $staart_headfile $new_hf;
 c_user=`echo $USER`;
 
 if [[ $c_user == 'rja20' ]]; then
-    echo "running command: bjpipe $new_hf";
-    bjpipe $new_hf
+    echo "running command:  ~/cluster_code/workstation_code/analysis/vbm_pipe/vbm_pipeline_start.pl $new_hf";
+    ~/cluster_code/workstation_code/analysis/vbm_pipe/vbm_pipeline_start.pl $new_hf
 else
     echo "running command: SAMBA_startup $new_hf";
     SAMBA_startup $new_hf
