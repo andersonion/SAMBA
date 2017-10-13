@@ -33,7 +33,7 @@ my $pipe_home = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/";
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";  #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
 my $compilation_date = "20170616_2204";
 my $write_individual_stats_executable_path = "${pipe_home}label_stats_executables/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec.sh"; 
-
+my $write_rat_report_executable_path = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh';
 
 #if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
@@ -57,6 +57,20 @@ sub  calculate_individual_label_statistics_vbm {
 		push(@jobs,$job);
 	    }
 	} 
+    }
+
+    my $species = $Hf->get_value('U_species_m00');
+    if ($species =~ /rat/) {
+	foreach my $runno (@array_of_runnos) {
+	    $go = $go_hash{$runno};
+	    if ($go) {
+		($job) = write_rat_report($runno);
+		
+		if ($job) {
+		    push(@jobs,$job);
+		}
+	    } 
+	}
     }
 
     if (cluster_check() && (scalar(@jobs)>0)) {
@@ -195,6 +209,46 @@ sub calculate_label_statistics {
 	}
     }
 } 
+
+
+# ------------------
+sub write_rat_report {
+# ------------------
+    my ($runno) = @_;
+    my $input_labels = "${work_dir}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
+    my $spec_id = $Hf->get_value('U_specid');
+    my $project_id = $Hf->get_value('project_id');
+
+    #my $exec_args_ ="${runno} {contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";# Save for part 3..
+    my $exec_args ="${runno} ${input_labels} 'e1,rd,fa' ${image_dir} ${current_path} ${project_id} 'Rat' ${spec_id}";
+
+    my $go_message = "$PM: Writing rat report for runno: ${runno}\n" ;
+    my $stop_message = "$PM: Failed to properly write rat report for runno: ${runno} \n" ;
+    
+    my @test=(0);
+    if (defined $reservation) {
+	@test =(0,$reservation);
+    }
+    my $mem_request = '10000';
+    my $jid = 0;
+    if (cluster_check) {
+	my $go =1;	    
+#	my $cmd = $pairwise_cmd.$rename_cmd;
+	my $cmd = "${write_rat_report_executable_path} ${matlab_path} ${exec_args}";
+	
+	my $home_path = $current_path;
+	my $Id= "${runno}_write_rat_report";
+	my $verbose = 2; # Will print log only for work done.
+	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+	if (! $jid) {
+	    error_out($stop_message);
+	} else {
+	    return($jid);
+	}
+    }
+} 
+
+
 
 # ------------------
 sub  calculate_individual_label_statistics_Init_check {

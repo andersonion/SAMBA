@@ -197,6 +197,8 @@ $vba_contrast_comma_list
 $vba_analysis_software
 $smoothing_comma_list
 
+$U_specid
+$U_species_m00
 
 $image_dimensions
  );

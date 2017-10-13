@@ -70,8 +70,10 @@ sub pull_civm_tensor_data_Init_check {
 	    if (-d $inputs_dir) {
 		opendir(DIR, $inputs_dir);
 		my @input_files_0= grep(/^($runno).*(gradient_matrix)(\.txt)?$/i ,readdir(DIR));
-		$gradient_file = $inputs_dir.'/'.$input_files_0[0];
-		if ($gradient_file =~ s/(\/\/)/\//) {}
+		if (@input_files_0) {
+		    $gradient_file = $inputs_dir.'/'.$input_files_0[0];
+		    if ($gradient_file =~ s/(\/\/)/\//) {}
+		}
 	    }
 
 	    if ($gradient_file ne '') {
@@ -122,7 +124,6 @@ sub find_my_tensor_data {
         piper
         delos
         vidconfmac
-        crete
         sifnos
         milos
         panorama
@@ -131,7 +132,7 @@ sub find_my_tensor_data {
         tinos); # James has a function to automatically compiling a valid list... 
 
 # 10 July 2017: removed naxos temporarily until we better address "dead machine" issue.
-
+# 11 October 2017: removed crete temporarily because we are too lazy to turn it back on now.
     if ((defined $recon_machine) && ($recon_machine ne 'NO_KEY') && ($recon_machine ne '')) {
 	unshift(@recon_machines,$recon_machine);
     } else {
@@ -255,7 +256,7 @@ sub find_my_tensor_data {
 	    }
 	} else {
 	    $pull_headfile_cmd = "puller_simple -D 0 -f file -or ${current_recon_machine} ${archive_prefix}tensor${local_runno}*${machine_suffix}/tensor${local_runno}*headfile ${local_folder}/";
-	 
+	    ###print "pull headfile cmd XX = ${pull_headfile_cmd}\n\n\n";
 	    `${pull_headfile_cmd} 2>&1`;
 	    my $unsuccessful_pull_of_tensor_headfile = $?;
 	    #print "\$unsuccessful_pull_of_tensor_headfile = ${unsuccessful_pull_of_tensor_headfile}\n\n";
@@ -280,7 +281,7 @@ sub find_my_tensor_data {
 	    }
 	}	
     }
-    print "${tensor_headfile}\n\n";
+    #print "${tensor_headfile}\n\n";
     my $pos;
     if ((! defined $tensor_headfile) || ($tensor_headfile eq '')) {
 	$tmp_error_msg = "No proper tensor headfile found ANYWHERE for runno: \"${local_runno}\".\n";
@@ -342,7 +343,6 @@ sub pull_civm_tensor_data {
         piper
         delos
         vidconfmac
-        crete
         sifnos
         milos
         panorama
@@ -351,7 +351,7 @@ sub pull_civm_tensor_data {
         tinos); # James has a function to automatically compiling a valid list... 
     
 # 10 July 2017: removed naxos temporarily until we better address "dead machine" issue. 
-
+# 11 October 2017: removed crete temporarily because we are too lazy to turn it back on now.
     if ((defined $recon_machine) && ($recon_machine ne 'NO_KEY') && ($recon_machine ne '')) {
 	unshift(@recon_machines,$recon_machine);
     }
@@ -436,7 +436,7 @@ sub pull_civm_tensor_data {
 			    ##Cycle through possible locations until we successfully pull in a raw headfile, while noting location of data.
 			    foreach my $current_recon_machine (@recon_machines){
 				if (! $raw_machine_found) {
-				    my $archive_prefix_or_runno = $runno."/";
+				    my $archive_prefix_or_runno = $runno."*/";
 				    if ($current_recon_machine eq 'atlasdb') {
 					$archive_prefix_or_runno = "${project_name}/";
 				    }
@@ -474,6 +474,7 @@ sub pull_civm_tensor_data {
 					
 				    } else {
 					$pull_headfile_cmd = "puller_simple -D 0 -f file -or ${current_recon_machine} ${archive_prefix_or_runno}${runno}*/${runno}*headfile ${inputs_dir}/";
+					####print "pull headfile cmd ${pull_headfile_cmd}\n\n\n";
 					 `${pull_headfile_cmd} 2>&1`;
 					my $unsuccessful_pull_of_raw_headfile = $?;
 					if ($unsuccessful_pull_of_raw_headfile) {
@@ -609,6 +610,8 @@ sub pull_civm_tensor_data {
 		    } else {
 			$pull_folder_cmd = "puller_simple  -or ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/ ${local_folder}/";
 		    }
+
+		   ### print "pull folder command = ${pull_folder_cmd}\n\n\n"; ########
 		    `${pull_folder_cmd} 2>&1`;
 		    my $unsuccessful_flag = $?;
 		    $tmp_log_msg = "Pulling tensor results folder for runno \"${runno}\" with command:\n\t${pull_folder_cmd}\n";
@@ -673,6 +676,7 @@ sub pull_civm_tensor_data {
 		    } else {
 			$pull_file_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
 		    }
+		    ### print "pull file command YY = ${pull_file_cmd}\n\n\n"; ########
 		    `${pull_file_cmd} 2>&1`;
 		    #if ($data_home eq 'gluster') {
 			#$tmp_log_msg = `cp /glusterspace/tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/`;
@@ -788,12 +792,15 @@ sub  build_bvec_array_from_raw_headfile{ # Code extracted and lightly adapted fr
     if (! $HfInput->check)         {error_out("Problem opening input runno headfile; ${input_headfile}");}
     
     if (! $HfInput->read_headfile) {error_out("Could not read input runno headfile: ${input_headfile}");}
-    #$HfInput->print_headfile();
-    print "input headfile = $input_headfile\n\n\n";
+
     if ( $HfInput->get_value_like("${data_prefix}dro") !~ "(NO_KEY|UNDEFINED_VALUE|EMPTY_VALUE)" )  {
-	if ( $HfInput->get_value_like("${data_prefix}array") ne '(dro,dpe,dsl)' ) {
+	#if ( $HfInput->get_value_like("${data_prefix}array") ne '(dro,dpe,dsl)' ) {
+	if ( $HfInput->get_value_like("${data_prefix}array(\$|_)") ne '(dro,dpe,dsl)' ) {	
 	    error_out('Agilent gradient table may not be in proper format, NOTIFIY JAMES');
-	}
+	} #elsif ( $HfInput->get_value_like("${data_prefix}array) ne '(dro,dpe,dsl)' ) {
+	 #   error_out('Agilent gradient table may not be in proper format, NOTIFIY JAMES');
+	#}
+
 	#vector data format, dim1:dim2:dimn, data1 data2 datan[:NEWLINE:]
 
 	my ($xd,$yd,$zd);

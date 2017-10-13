@@ -178,6 +178,8 @@ $nonparametric_permutations
 $tfce_extent
 $tfce_height
 
+$U_specid
+
 $image_dimensions
  );
 
@@ -630,6 +632,15 @@ if (defined $tfce_extent){
 
 if (defined $tfce_height){
     $Hf->set_value('tfce_extent',$tfce_height);
+}
+
+
+if (defined $U_specid){
+    $Hf->set_value('U_specid',$U_specid);
+}
+
+if (defined $U_species_m00){
+    $Hf->set_value('U_species_m00',$U_species_m00); # Temporary fix, assumes 10-99 DTI directions
 }
 #maincode
 

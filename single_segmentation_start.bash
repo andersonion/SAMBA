@@ -80,15 +80,14 @@ fi
 cat $headfile_template >> $staart_headfile;
 
 inputs_dir="/glusterspace/SingleSegmentation_${U_code}_${atlas}_${U_runno%_*}-inputs/";
-echo $inputs_dir
+#echo $inputs_dir
 inputs_dir=`echo $inputs_dir | tr -d '.'`;
-echo $inputs_dir
+#echo $inputs_dir
 mkdir -p -m 777 $inputs_dir;
 new_hf="$inputs_dir/${U_runno%_*}_inputs.hf"
 cp $staart_headfile $new_hf;
 
 
-echo SAMBA_startup $new_hf;
-#more $staart_headfile;
-
+echo "running command: SAMBA_startup $new_hf";
+SAMBA_startup $new_hf
 
