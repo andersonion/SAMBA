@@ -247,12 +247,12 @@ sub mdt_reg_to_atlas {
 	my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
 	    "ln -s ${out_warp} ${new_warp};\n".
 	    "ln -s ${out_inverse} ${new_inverse};\n".
-	    "rm ${out_affine};\n";
+	    "if [ -f ${out_affine} ]; then\n\trm ${out_affine};\nfi\n";
 	if ($swap_fixed_and_moving) {
 	    $rename_cmd ="". 
 	    "ln -s ${out_warp} ${new_inverse};\n".
 	    "ln -s ${out_inverse} ${new_warp};\n".
-	    "rm ${out_affine};\n";
+	    "if [ -f ${out_affine} ]; then\n\trm ${out_affine};\nfi\n";
 	}
     
 	my $cmd = $pairwise_cmd.$rename_cmd;
@@ -268,7 +268,7 @@ sub mdt_reg_to_atlas {
 	    error_out($stop_message);
 	}
     } else {
-	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
+	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","if [ -f ${out_affine} ]; then rm ${out_affine};fi  ");
 	if (! execute($go, $go_message, @cmds) ) {
 	    error_out($stop_message);
 	}

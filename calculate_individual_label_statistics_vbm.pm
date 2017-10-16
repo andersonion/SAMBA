@@ -217,7 +217,7 @@ sub write_rat_report {
     my ($runno) = @_;
     my $input_labels = "${work_dir}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
     my $spec_id = $Hf->get_value('U_specid');
-    my $project_id = $Hf->get_value('project_id');
+    my $project_id = $Hf->get_value('U_code');
 
     #my $exec_args_ ="${runno} {contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";# Save for part 3..
     my $exec_args ="${runno} ${input_labels} 'e1,rd,fa' ${image_dir} ${current_path} ${project_id} 'Rat' ${spec_id}";

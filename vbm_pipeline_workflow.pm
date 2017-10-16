@@ -179,6 +179,8 @@ $tfce_extent
 $tfce_height
 
 $U_specid
+$U_code
+$U_species_m00
 
 $image_dimensions
  );
@@ -642,6 +644,12 @@ if (defined $U_specid){
 if (defined $U_species_m00){
     $Hf->set_value('U_species_m00',$U_species_m00); # Temporary fix, assumes 10-99 DTI directions
 }
+
+if (defined $U_code){
+    $Hf->set_value('U_code',$U_code);
+}
+
+
 #maincode
 
 print STDOUT " Running the main code of $PM. \n";
