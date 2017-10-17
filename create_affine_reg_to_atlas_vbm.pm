@@ -34,6 +34,8 @@ my $mem_request;
 my $log_msg;
 my $swap_fixed_and_moving=0;
 
+my (%xform_paths,%pipeline_names,%alt_result_path_bases);
+
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
@@ -75,7 +77,8 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 	
 	$go = $go_hash{$runno};
 	my  $pipeline_name = $result_path_base.$xform_suffix;
-
+	$pipeline_names{$runno}=$pipeline_name;
+	$alt_result_path_bases{$runno}=$alt_result_path_base;
 	if ($go) {
 	    if ((! $do_rigid) && ($runno eq $affine_target )) { # For the affine target, we want to use the identity matrix.
 		my $affine_identity = $Hf->get_value('affine_identity_matrix');
@@ -85,17 +88,20 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 		# We are setting atlas as fixed and current runno as moving...this is opposite of what happens in seg_pipe_mc, 
 		# when you are essential passing around the INVERSE of that registration to atlas step,
 		# but accounting for it by setting "-i 1" with $do_inverse_bool.
+
+		$xform_paths{$runno}=$xform_path;
 	    
 		if ($job) {
 		    push(@jobs,$job);
 		}
-		if ($swap_fixed_and_moving) {
-		    my $alt_pipeline_name = $alt_result_path_base.$xform_suffix;
-		    `ln -s ${xform_path}  ${alt_pipeline_name}`;
-		    create_explicit_inverse_of_ants_affine_transform($alt_pipeline_name,$pipeline_name); 
-		} else {
-		    `ln -s ${xform_path}  ${pipeline_name}`;
-		}
+		## 17 October 2017, BJA: Move this code to after all jobs have completed.
+		# if ($swap_fixed_and_moving) {
+		#     my $alt_pipeline_name = $alt_result_path_base.$xform_suffix;
+		#     `ln -s ${xform_path}  ${alt_pipeline_name}`;
+		#     create_explicit_inverse_of_ants_affine_transform($alt_pipeline_name,$pipeline_name); 
+		# } else {
+		#     `ln -s ${xform_path}  ${pipeline_name}`;
+		# }
 	    }
 	}
 	my $mdt_flag = 0;
@@ -140,6 +146,23 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 	}
     }
     
+    foreach my $runno (@array_of_runnos) {
+	if ($go) {
+	    if (! ((! $do_rigid) && ($runno eq $affine_target ))) {
+		$xform_path = $xform_paths{$runno};
+		my $pipeline_name = $pipeline_names{$runno};
+		if ($swap_fixed_and_moving) {
+		    my $alt_pipeline_name = $alt_result_path_bases{$runno}.$xform_suffix;
+		    `if [ -f "${xform_path}" ]; then mv ${xform_path}  ${alt_pipeline_name}; fi`;
+		    create_explicit_inverse_of_ants_affine_transform($alt_pipeline_name,$pipeline_name); 
+		    `if [ -f "${pipeline_name}" ]; then rm ${alt_pipeline_name}; fi`;
+		} else {
+		    `if [ -f "${xform_path}" ]; then mv ${xform_path}  ${pipeline_name}; fi`;
+		}
+	    }
+	}
+    }
+
     
     my $case = 2;
     my ($dummy,$error_message)=create_affine_reg_to_atlas_Output_check($case);
