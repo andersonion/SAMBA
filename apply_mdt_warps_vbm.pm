@@ -339,7 +339,7 @@ sub apply_mdt_warp {
 	$input_size = $input_size*$c_dim_size;
     }
     my $bytes_per_point = 8; # Going to go with 64-bit depth by default, though float is the usual case;   
-    $input_size = $input_size*($bytes_per_point/1024);
+    $input_size = $input_size*($bytes_per_point/1024/1024); # Originally just divided by 1024 instead of 1024*1024...was calculating request in kB instead of MB!
 
 
     my $expected_max_mem = int(6.2*$input_size);
