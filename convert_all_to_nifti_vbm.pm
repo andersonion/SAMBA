@@ -81,7 +81,10 @@ sub convert_all_to_nifti_vbm {
 				$current_orientation = 'ALS';
 			    }
 			}
+		    } else {
+			print "Using custom orientation for runno $runno: $current_orientation.\n\n";
 		    }
+
 
 		    if ($current_file =~ /[\n]+/) {
 			print "Unable to find input image for $runno and $ch in folder: ${in_folder}.\n";
