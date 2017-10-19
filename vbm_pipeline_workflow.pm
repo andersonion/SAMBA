@@ -590,14 +590,12 @@ if ((defined $start_file) && ($start_file ne '')) {
     if (! $tempHf->read_headfile) {
 	error_out(" Unable to read SAMBA parameter file ${start_file}."); 
 	return(0);
-    }
+   }
 
     foreach my $c_runno (@all_runnos) {
 	my $c_key = "original_orientation_${c_runno}";
 	my $temp_orientation = $tempHf->get_value($c_key);
-	if ($c_runno eq 'N54766') {print "Here's your runno! Temp_orientation = ${temp_orientation}\n\n";}
 	if (($temp_orientation ne 'NO_KEY')  &&  ($temp_orientation ne 'UNDEFINED_VALUE')) {
-	    if ($c_runno eq 'N54766') {print "We are supposed to be setting key ${c_key} to value ${temp_orientation}\n\n";}
 	    $Hf->set_value($c_key,$temp_orientation);
 	} 
     }

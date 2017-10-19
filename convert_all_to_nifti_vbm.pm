@@ -49,7 +49,7 @@ sub convert_all_to_nifti_vbm {
     my $second_run=0;  
     while ($run_again) {
 	convert_all_to_nifti_vbm_Runtime_check();
-	$Hf->write_headfile("/glusterspace/BJ_delete_this.headfile");
+
 	my @nii_cmds;
 	my @nii_files;
 
