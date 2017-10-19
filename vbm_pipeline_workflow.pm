@@ -84,6 +84,8 @@ require vbm_analysis_vbm;
 
 # variables, set up by the study vars script(study_variables_vbm.pm)
 use vars qw(
+$start_file
+
 $project_name 
 @control_group
 $control_comma_list
@@ -362,6 +364,10 @@ if (@group_2) {$multiple_groups = 1;}
 
 ## End duplication control
 
+if ((defined $start_file) && ($start_file ne '')) {
+    $Hf->set_value('start_file',$start_file);
+}
+
 
 $Hf->set_value('project_id',$project_id);
 
@@ -571,6 +577,29 @@ if (defined $original_study_orientation) {
     $Hf->set_value('original_study_orientation',$original_study_orientation);
 }
 
+
+##
+if ((defined $start_file) && ($start_file ne '')) {
+    my $tempHf = new Headfile ('rw', "${start_file}");
+    if (! $tempHf->check()) {
+	error_out(" Unable to open SAMBA parameter file ${start_file}.");
+	return(0);
+    }
+    if (! $tempHf->read_headfile) {
+	error_out(" Unable to read SAMBA parameter file ${start_file}."); 
+	return(0);
+    }
+
+    for my $c_runno (@all_runnos) {
+	my $temp_orientation = $tempHf->get_value("original_orientation_${c_runno}");
+	if (( ! $temp_orientation eq 'NO_KEY')  &&  ( ! $temp_orientation eq 'UNDEFINED_VALUE')) {
+	    $Hf->set_value("original_orienation_${c_runno}",$temp_orientation);
+	} 
+    }
+}
+
+
+##
 if (defined $working_image_orientation) {
     $Hf->set_value('working_image_orientation',$working_image_orientation);
 }
@@ -581,8 +610,9 @@ if (defined $thresh_ref) {
     $Hf->set_value('threshold_hash_reference',$thresh_ref);
 }
 
-
-$Hf->set_value('predictor_id',$custom_predictor_string);
+if (defined $custom_predictor_string) {
+    $Hf->set_value('predictor_id',$custom_predictor_string);
+}
 
 if (defined $template_predictor) {
     $Hf->set_value('template_predictor',$template_predictor);

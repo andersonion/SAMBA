@@ -523,7 +523,7 @@ sub iterative_pairwise_reg_vbm_Init_check {
 	} else {
 	    $init_error_msg=$init_error_msg."Invalid diffeomorphic convergence threshold specified: \"${diffeo_convergence_thresh}\". ".
 		"Real positive numbers are accepted; scientific notation (\"X.Ye-Z\") are also righteous.\n";
-    }
+	}
 	$Hf->set_value('diffeo_convergence_thresh',$diffeo_convergence_thresh);    
 	
 	my $dcw_error = 0;

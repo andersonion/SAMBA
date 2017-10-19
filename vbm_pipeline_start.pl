@@ -39,6 +39,7 @@ $permissions = 0755;
 my $interval = 1;
 $valid_formats_string = 'hdr|img|nii';
 
+
 # a do it again variable, will allow you to pull data from another vbm_run
 my $import_data = 1;
 
