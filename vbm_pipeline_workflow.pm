@@ -595,7 +595,7 @@ if ((defined $start_file) && ($start_file ne '')) {
     }
 
     foreach my $c_runno (@all_runnos) {
-	print "Runno = $runno\n\n";
+	print "Runno = $c_runno\n\n";
 	my $temp_orientation = $tempHf->get_value("original_orientation_${c_runno}");
 
 	print "Temp_orientation = ${temp_orientation}\n\n";
