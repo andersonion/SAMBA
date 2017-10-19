@@ -44,8 +44,8 @@ $valid_formats_string = 'hdr|img|nii';
 my $import_data = 1;
 
 $test_mode = 0;
-
-my $start_file=shift(@ARGV); #my
+use vars qw($start_file);
+$start_file=shift(@ARGV); #my
 
 if ( ! -f $start_file )  {
     $nodes = $start_file;
@@ -104,8 +104,6 @@ use civm_simple_util qw(printd $debug_val);
 
 # variables, set up by the study vars script(study_variables_vbm.pm)
 use vars qw(
-$start_file
-
 $project_name 
 @control_group
 $control_comma_list
