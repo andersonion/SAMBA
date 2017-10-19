@@ -45,7 +45,7 @@ my $import_data = 1;
 
 $test_mode = 0;
 
-$start_file=shift(@ARGV); #my
+my $start_file=shift(@ARGV); #my
 
 if ( ! -f $start_file )  {
     $nodes = $start_file;
