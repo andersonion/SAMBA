@@ -579,9 +579,7 @@ if (defined $original_study_orientation) {
 
 
 ##
-sleep(2);
-print "Wait for it...\n\n";
-print "Start file = ${start_file}\n\n";
+
 if ((defined $start_file) && ($start_file ne '')) {
 
     my $tempHf = new Headfile ('rw', "${start_file}");
@@ -595,12 +593,10 @@ if ((defined $start_file) && ($start_file ne '')) {
     }
 
     foreach my $c_runno (@all_runnos) {
-	print "Runno = $c_runno\n\n";
 	my $temp_orientation = $tempHf->get_value("original_orientation_${c_runno}");
 
-	print "Temp_orientation = ${temp_orientation}\n\n";
 	if (( ! $temp_orientation eq 'NO_KEY')  &&  ( ! $temp_orientation eq 'UNDEFINED_VALUE')) {
-	    $Hf->set_value("original_orienation_${c_runno}",$temp_orientation);
+	    $Hf->set_value("original_orientation_${c_runno}",$temp_orientation);
 	} 
     }
 }
