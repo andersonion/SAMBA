@@ -89,9 +89,11 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 		# when you are essential passing around the INVERSE of that registration to atlas step,
 		# but accounting for it by setting "-i 1" with $do_inverse_bool.
 		if ($swap_fixed_and_moving) {
+		    print "swap_fixed_and_moving is activated\n\n\n";
 		    $xform_paths{$runno}=$xform_path;
 		} else {
-		    `if [ -f "${xform_path}" ]; then mv ${xform_path}  ${pipeline_name}; fi`;
+		    print "swap_fixed_and_moving is TURNED OFF (as it probably should be)\n\n\n";
+		    `ln -s ${xform_path}  ${pipeline_name}`;
 		}
 
 		if ($job) {
@@ -149,17 +151,19 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 	}
     }
 
-    if ($swap_fixed_and_moving) {
-	foreach my $runno (@array_of_runnos) {
-	    if ($go) {
-		if (! ((! $do_rigid) && ($runno eq $affine_target ))) {
-		    $xform_path = $xform_paths{$runno};
-		    my $pipeline_name = $pipeline_names{$runno};
-		    
-		    my $alt_pipeline_name = $alt_result_path_bases{$runno}.$xform_suffix;
+   
+    foreach my $runno (@array_of_runnos) {
+	if ($go) {
+	    if (! ((! $do_rigid) && ($runno eq $affine_target ))) {
+		$xform_path = $xform_paths{$runno};
+		my $pipeline_name = $pipeline_names{$runno};
+		my $alt_pipeline_name = $alt_result_path_bases{$runno}.$xform_suffix;
+		if ($swap_fixed_and_moving) {
 		    `if [ -f "${xform_path}" ]; then mv ${xform_path}  ${alt_pipeline_name}; fi`;
 		    create_explicit_inverse_of_ants_affine_transform($alt_pipeline_name,$pipeline_name); 
 		    `if [ -f "${pipeline_name}" ]; then rm ${alt_pipeline_name}; fi`;
+		} else {
+		    `if [ -f "${xform_path}" ]; then mv ${xform_path}  ${pipeline_name}; fi`;
 		    
 		}
 	    }
