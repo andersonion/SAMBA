@@ -285,7 +285,8 @@ sub port_atlas_mask_vbm {
     $cleanup_command=$cleanup_command."if [ -e \"${port_mask}\" ]\nthen\n\tif [ -e \"${new_mask}\" ]\n\tthen\n\t\trm ${new_mask};\n";
     
     if (! -e $new_mask) {
-	$apply_xform_command = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} -i $atlas_mask -o $new_mask -t [${temp_out_file}, 1] -r $current_norm_mask -n NearestNeighbor;\n";
+	$apply_xform_command = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} -i $atlas_mask -o $new_mask -t [${temp_out_file}, 1] -r $current_norm_mask -n NearestNeighbor".
+	    "\niMath 3 ${new_mask} MD ${new_mask} 2 1 ball 1;\nSmoothImage 3 ${new_mask} 1 ${new_mask} 0 1;\n"; #BJA, 19 Oct 2017: Added radius=2 dilation, and then smoothing of new mask.
 	$cleanup_command=$cleanup_command."\t\tif [ -e \"${temp_out_file}\" ]\n\t\tthen\n\t\t\trm ${temp_out_file};\n";
 	
 	if (! -e $temp_out_file) {
