@@ -378,7 +378,8 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 	@alphabet = ('',@alphabet);
 
 	my $include = 0; # We will exclude certain keys from headfile comparison. Exclude key list getting bloated...may need to switch to include.
-	my @excluded_keys =qw(affine_identity_matrix
+	my @excluded_keys =qw(start_file
+                              affine_identity_matrix
                               affine_target_image
                               all_groups_comma_list
                               compare_comma_list  
