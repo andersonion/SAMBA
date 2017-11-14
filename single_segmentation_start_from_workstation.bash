@@ -58,19 +58,19 @@ echo "Checking for reconstructed images...";
 n_ready_vols=$(ls $BIGGUS_DISKUS/${runno}_m*/${runno}_m*images/*0001*raw | wc -l | xargs );
 #echo n ready vols $n_ready_vols
 while [[ "$n_ready_vols" -lt "$n_dti_volumes" ]]; do
-    n_ready_vols=$(ls $BIGGUS_DISKUS/${runno}_m*/${runno}_m*images/*0001*raw | wc -l | xargs );
     echo "Only ${n_ready_vols} of ${n_dti_volumes} DTI volumes are ready. Will check again in ${sleep_sec} seconds."
     sleep ${sleep_sec};
+    n_ready_vols=$(ls $BIGGUS_DISKUS/${runno}_m*/${runno}_m*images/*0001*raw | wc -l | xargs );
 done
 
 echo "All ${n_dti_volumes} DTI volumes are ready; checking for righteous headfile...";
 
 n_ready_hfs=$(grep z_Agilent_dro $BIGGUS_DISKUS/${runno}_m*/${runno}_m*images/*headfile | wc -l | xargs );
 #echo ready hfs $n_ready_hfs
-while [[ "$n_ready_hfs" -lt "$n_dti_runs" ]]; do
-    n_ready_hfs=$(grep z_Agilent_dro $BIGGUS_DISKUS/${runno}_m*/${runno}_m*images/*headfile | wc -l xargs );
+while [[ "$n_ready_hfs" -lt "$n_dti_volumes" ]]; do
     echo "Only ${n_ready_hfs} of ${n_dti_volumes} headfiles are ready. Will check again in ${sleep_sec} seconds."
     sleep ${sleep_sec};
+    n_ready_hfs=$(grep z_Agilent_dro $BIGGUS_DISKUS/${runno}_m*/${runno}_m*images/*headfile | wc -l | xargs );
 done
 
 echo "All ${n_ready_hfs} headfiles are ready; beginning tensor create (if needed)."

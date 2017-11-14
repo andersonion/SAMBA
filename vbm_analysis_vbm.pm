@@ -868,7 +868,7 @@ sub parallelized_randomise {
 	@test =(0,$reservation,$optional_job_dependency);
     }
     
-    my $mem_request = '7600'; # Processes appear to be single-threaded...trying to stuff as many jobs onto a node as there are [virtual?] cores...
+    my $mem_request = '5900 -c 1 '; # Processes appear to be single-threaded...trying to stuff as many jobs onto a node as there are [virtual?] cores...
     my $jid = 0;
     if (cluster_check) {
 	my $go =1;	    

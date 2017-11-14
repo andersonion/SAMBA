@@ -1155,7 +1155,8 @@ S65541
 	#$diffeo_sampling_options = 'Random,1';
 
 	$vba_analysis_software='fsl';
-	$vba_contrast_comma_list = 'rd,jac_to_MDT'; #one at a time: adc,fa,dwi,e1,
+	$vba_contrast_comma_list = 'jac_to_MDT,fa';#,adc,dwi,e1,rd';
+	$smoothing_comma_list ='1';
 	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
 	$do_mask = 1;#0
