@@ -35,7 +35,8 @@ my ($dummy,$error_message);
 
 my $working_image_orientation;
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
-my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
+#my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
+my $img_transform_executable_path ="/cm/shared/workstation_code_dev/matlab_execs/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
 
 # ------------------
 sub convert_all_to_nifti_vbm {

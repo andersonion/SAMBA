@@ -2,8 +2,8 @@
 
 remote_tensor_hf=$1;
 atlas=$2;
-headfile_template="$WORKSTATION_DATA/single_seg_input_template.headfile"; #DOESNT QUITE WORK RIGHT
-#headfile_template="/cm/shared/CIVMdata/single_seg_input_template.headfile"
+#headfile_template="$WORKSTATION_DATA/single_seg_input_template.headfile"; #DOESNT QUITE WORK RIGHT
+headfile_template="/cm/shared/CIVMdata/single_seg_input_template.headfile"
 
 echo "Using defaults for single segmentation as defined in ${headfile_template}.";
 staart_headfile="$HOME/.seghf";# Must define.. probably shouldnt be in tmp...
@@ -89,10 +89,10 @@ cp $staart_headfile $new_hf;
 
 c_user=`echo $USER`;
 
-if [[ $c_user == 'rja20' ]]; then
-    echo "running command:  ~/cluster_code/workstation_code/analysis/vbm_pipe/vbm_pipeline_start.pl $new_hf";
-    ~/cluster_code/workstation_code/analysis/vbm_pipe/vbm_pipeline_start.pl $new_hf
-else
+#if [[ $c_user == 'rja20' ]]; then
+#    echo "running command:  ~/cluster_code/workstation_code/analysis/vbm_pipe/vbm_pipeline_start.pl $new_hf";
+#    ~/cluster_code/workstation_code/analysis/vbm_pipe/vbm_pipeline_start.pl $new_hf
+#else
     echo "running command: SAMBA_startup $new_hf";
     SAMBA_startup $new_hf
-fi
+#fi

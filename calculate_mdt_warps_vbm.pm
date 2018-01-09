@@ -393,6 +393,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               do_connectivity
                               do_vba
                               eddy_current_correction
+                              fsl_cluster_size
                               group_1_runnos
                               group_2_runnos
                               label_atlas_dir
@@ -424,6 +425,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               vba_analysis_software
                               vba_contrast_comma_list
                               vbm_input_reference_path
+                              vbm_software
                               fixed_image_for_mdt_to_atlas_registratation
                               original_bvecs_
                               nonparametric_permutations

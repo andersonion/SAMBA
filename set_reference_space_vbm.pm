@@ -587,7 +587,7 @@ sub set_reference_space_vbm_Init_check {
 	} else {
 	    my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
 	    if (! -d $rigid_atlas_dir) {
-		if ($rigid_atlas_dir =~ s/data/CIVMdata/) {}
+		if ($rigid_atlas_dir =~ s/\/data/\/CIVMdata/) {}
 	    }
 	    my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
 	    #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
@@ -694,7 +694,7 @@ sub set_reference_path_vbm {
     
     my $atlas_dir_perhaps = "${WORKSTATION_DATA}/atlas/${ref_option}";
     if (! -d $atlas_dir_perhaps) {
-	if ($atlas_dir_perhaps =~ s/data/CIVMdata/) {}
+	if ($atlas_dir_perhaps =~ s/\/data/\/CIVMdata/) {}
     } 
 
 

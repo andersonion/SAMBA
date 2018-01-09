@@ -181,6 +181,7 @@ $do_vba
 $fdr_masks
 $tfce_extent
 $tfce_height
+$fsl_cluster_size
 
 $nonparametric_permutations
 
@@ -259,18 +260,17 @@ sub load_SAMBA_parameters {
 	}
     }
     
+    my @ps_array;
     if (! defined $project_name){
 	my $project_string = $tempHf->get_value('project_id');
-	my @ps_array = split('_',$project_string);
+	@ps_array = split('_',$project_string);
 	shift(@ps_array);
 	my $ps2 = shift(@ps_array);
 	if ($ps2  =~ /^([0-9]+)([a-zA-Z]+)([0-9]+)$/) {
 	    $project_name = "$1.$2.$3";
 	}
-	if (! defined $optional_suffix) {
-	    $optional_suffix = join('_',@ps_array);
-	}
-	print "$project_name\n\n\n";
+
+	print "Project name: $project_name\n\n\n";
     }
 
     if ((! defined ($pre_masked)) && (defined ($do_mask))) {
@@ -306,15 +306,25 @@ sub load_SAMBA_parameters {
     }
 
     if (! defined  $atlas_name){
-	my $r_atlas_name = $tempHf->get_value('rigid_atlas_name');
-	my $l_atlas_name = $tempHf->get_value('label_atlas_name');
-	if ($r_atlas_name ne 'NO_KEY') {
-	    $atlas_name = $r_atlas_name;
-	} elsif ($l_atlas_name ne 'NO_KEY') {
-	    $atlas_name = $l_atlas_name;
-	} else {
-	    $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
-	}
+        my $r_atlas_name = $tempHf->get_value('rigid_atlas_name');
+        my $l_atlas_name = $tempHf->get_value('label_atlas_name');
+        if ($r_atlas_name ne 'NO_KEY') {
+            $atlas_name = $r_atlas_name;
+        } elsif ($l_atlas_name ne 'NO_KEY') {
+            $atlas_name = $l_atlas_name;
+        } else {
+            $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
+        }
     }
+
+	if (! defined $optional_suffix) {
+	    $optional_suffix = join('_',@ps_array);
+        print "os = ${optional_suffix}\n\n";
+        
+        if ($optional_suffix =~ s/^(${atlas_name}[_]?)//) {}
+        
+         print "os = ${optional_suffix}\n\n";
+	}
+
 }
 

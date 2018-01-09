@@ -30,8 +30,8 @@ my $go = 1;
 my $job;
 my $PM_code = 66;
 
-
 my $pipe_home = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/";
+
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";  #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
 my $compilation_date = "20170619_1151";
 my $tabulate_study_stats_executable_path = "${pipe_home}label_stats_executables/study_stats_by_contrast_executable/${compilation_date}/run_study_stats_by_contrast_exec.sh"; 

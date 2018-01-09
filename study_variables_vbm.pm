@@ -10,7 +10,7 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 0;
+my $obrien = 1;
 my $obrien_invivo=0;
 my $colton = 0;
 my $colton_invivo = 0;
@@ -20,7 +20,7 @@ my $premont_ct = 0;
 my $dave = 0;
 my $bj = 0;
 my $bj_group = 0;
-my $agoston = 1;
+my $agoston = 0;
 my $apoe = 0;
 my $christmas_rat = 0;
 my $mg_enhanced =0;

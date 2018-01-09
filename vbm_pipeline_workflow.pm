@@ -24,6 +24,10 @@ use List::MoreUtils qw(uniq);
 use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $syn_params $permissions $valid_formats_string $nodes $reservation $mdt_to_reg_start_time $civm_ecosystem);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
 
+## This may be hacky, but I'm sick of trying to point this to the right place. 19 December 2017
+if ($WORKSTATION_DATA =~ s/\.\.\/data/\.\.\/CIVMdata/) {}
+print "WORKSTATION_DATA = ${WORKSTATION_DATA}\n\n\n";
+
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 $ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
 $GOODEXIT = 0;
@@ -34,7 +38,11 @@ my $interval = 0.1; ##Normally 1
 $valid_formats_string = 'hdr|img|nii|nhdr';
 
 $civm_ecosystem = 0; # Begin implementing handling of code that is CIVM-specific
-if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {$civm_ecosystem = 1};
+if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
+    $civm_ecosystem = 1;
+} elsif ( $ENV{'BIGGUS_DISKUS'} =~ /nas4/) {
+    $civm_ecosystem = 1;
+}
 
 
 # a do it again variable, will allow you to pull data from another vbm_run
@@ -179,6 +187,7 @@ $working_image_orientation
 $nonparametric_permutations
 $tfce_extent
 $tfce_height
+$fsl_cluster_size
 
 $U_specid
 $U_code
@@ -260,6 +269,38 @@ $project_id = $main_folder_prefix.$project_id.'_'.$atlas_name.$optional_suffix; 
 
 
 my ($pristine_input_dir,$work_dir,$result_dir,$result_headfile) = make_process_dirs($project_id); #new_get_engine_dependencies($project_id);
+
+## Backwards compatability for rerunning work initially ran on glusterspace
+
+# search start headfile for references to '/glusterspace/'
+if (defined $start_file) {
+    my $start_contents=`more $start_file`;
+    if ($start_contents =~ /\/glusterspace\//) {
+        my $old_pristine_input_dir=$pristine_input_dir;
+        if ($pristine_input_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
+
+        if (! -l $pristine_input_dir) {
+             `ln -s $old_pristine_input_dir $pristine_input_dir`;
+        }
+
+        my $old_work_dir=$work_dir;
+        if ($work_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
+        if (! -l $work_dir) {
+             `ln -s $old_work_dir $work_dir`;
+        }
+
+
+        my $old_result_dir=$result_dir;
+        if ($result_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
+        if (! -l $result_dir) {
+             `ln -s $old_result_dir $result_dir`;
+        }
+
+        if ($result_headfile =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
+    }
+
+}
+
 
 ## Mini-kludge...until we can get a proper data importer in place...
 my $test_for_inputs = `ls ${pristine_input_dir}`;
@@ -517,7 +558,7 @@ $Hf->set_value('number_of_nodes_used',$nodes);
 if ($create_labels) {
     my $label_atlas_dir = "${WORKSTATION_DATA}/atlas/${label_atlas_name}";
     if (! -d $label_atlas_dir) {
-	if ($label_atlas_dir =~ s/data/CIVMdata/) {}
+	if ($label_atlas_dir =~ s/\/data/\/CIVMdata/) {}
     }
 
     $Hf->set_value('label_atlas_dir',$label_atlas_dir);
@@ -669,6 +710,10 @@ if (defined $tfce_height){
     $Hf->set_value('tfce_extent',$tfce_height);
 }
 
+
+if (defined $fsl_cluster_size){
+    $Hf->set_value('fsl_cluster_size',$fsl_cluster_size);
+}
 
 if (defined $U_specid){
     $Hf->set_value('U_specid',$U_specid);

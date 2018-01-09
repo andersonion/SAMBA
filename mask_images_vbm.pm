@@ -475,7 +475,7 @@ sub mask_images_vbm_Init_check {
 	} else {
 	    my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
 	    if (! -d $rigid_atlas_dir) {
-		if ($rigid_atlas_dir =~ s/data/CIVMdata/) {}
+		if ($rigid_atlas_dir =~ s/\/data/\/CIVMdata/) {}
 	    }
 	    my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
 	    #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
@@ -524,11 +524,11 @@ sub mask_images_vbm_Init_check {
     if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
     my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii"; ## Set default mask for porting here!
     if (! -f $default_mask) {
-	if ($default_mask =~ s/data/CIVMdata/) {
+	if ($default_mask =~ s/\/data/\/CIVMdata/) {
 	    if (! -f $default_mask) {
 		$default_mask = "${default_mask}.gz";
 		if (! -f $default_mask) {
-		    if ($default_mask =~ s/CIVMdata/data/) {}
+		    if ($default_mask =~ s/\/CIVMdata/\/data/) {}
 		}
 	    }
 	}
@@ -559,7 +559,7 @@ sub mask_images_vbm_Init_check {
 		}
 	    } else {
 		$port_atlas_mask_path=$default_mask;  # Use default mask
-		$log_msg=$log_msg."\t70No atlas mask specified and rigid atlas being used; porting default atlas mask: ${port_atlas_mask_path}\n";
+		$log_msg=$log_msg."\nNo atlas mask specified and rigid atlas being used; porting default atlas mask: ${port_atlas_mask_path}\n";
 	    }
 	}  
 	

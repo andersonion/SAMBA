@@ -461,24 +461,24 @@ sub fsl_nonparametric_analysis_vbm {
 		    $r_file = "${rfix}${output_key}${cfix2}";
 		    $r_file_short = "${rfix_S}${output_key}${cfix2}";
 		    if ( ($output_key =~ /^_$/) || ($output_key =~ /^_cluster/) || ($output_key =~ /^_tfce_$/) || ($output_key =~ /^_glm/)) {
-			if ($seed == 1) {
-			    $cleanup_string{$output_key}{$test_contrast} = "cp ${c_file_short} ${r_file_short};\n";
-			    push(@expected_p_outputs,$c_file);
-			    push(@expected_outputs,$r_file);
-			} else {
-			    if (($output_key =~ /^_$/) || ($output_key =~ /^_tfce_$/)) { # We only ask for --glm_outputs and cluster stats when calling seed1, so don't need to remove for other seeds.
-				#$cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} rm ${c_file};\n";
-				$temp_remove_commands{$output_key} = " rm ${c_file_short};\n";
-			    }
-			}
+                if ($seed == 1) {
+                    $cleanup_string{$output_key}{$test_contrast} = "cp ${c_file_short} ${r_file_short};\n";
+                    push(@expected_p_outputs,$c_file);
+                    push(@expected_outputs,$r_file);
+                } else {
+                    if (($output_key =~ /^_$/) || ($output_key =~ /^_tfce_$/)) { # We only ask for --glm_outputs and cluster stats when calling seed1, so don't need to remove for other seeds.
+                    #$cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} rm ${c_file};\n";
+                    $temp_remove_commands{$output_key} = " rm ${c_file_short};\n";
+                    }
+            	}
 		    } else {
-			push(@expected_p_outputs,$c_file);
-			if ($seed == 1) {
-			    $cleanup_string{$output_key}{$test_contrast}  = "fslmaths ${c_file_short} ";
-			    push(@expected_outputs,$r_file);
-			} else {
-			    $cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} -add ${c_file_short} ";
-			}		    
+                push(@expected_p_outputs,$c_file);
+                if ($seed == 1) {
+                    $cleanup_string{$output_key}{$test_contrast}  = "fslmaths ${c_file_short} ";
+                    push(@expected_outputs,$r_file);
+                } else {
+                    $cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} -add ${c_file_short} ";
+                }		    
 		    }
 
 		} else {
@@ -718,9 +718,9 @@ sub fsl_nonparametric_analysis_prep {
     }
 
     # Cluster-mass-based thresholding business...
-    $cmbt_analysis = 1; # Initially will default to always on...just creating the code in case of future optionalization.
-    $cbt_analysis = 1; # Initially will default to always on...just creating the code in case of future optionalization.
-    $fsl_cluster_size = 100 ; # Hardcoding this as a default for now...but is a module-wide variable which eventually can be accessed via $Hf.
+    #$cmbt_analysis = 1; # Initially will default to always on...just creating the code in case of future optionalization.
+    #$cbt_analysis = 1; # Initially will default to always on...just creating the code in case of future optionalization.
+    #$fsl_cluster_size = 100 ; ## This was a fundamental misunderstanding of this value! UNHardcoding this as a default for now...but is a module-wide variable which eventually can be accessed via $Hf.
 
     # Variance smoothing business...
     my $variance_smoothing = 1;  # Initially will default to always on...just creating the code in case of future optionalization.
@@ -839,18 +839,18 @@ sub parallelized_randomise {
     my $cmbt_options='';
     my $cbt_options='';
     if ($seed == 1) {
-	$glm_option = ' --glm_output ';
-	$cmbt_options='';
-	if ($cmbt_analysis) {
-	    $cmbt_options = " -C ${fsl_cluster_size} ";
-	}
+        $glm_option = ' --glm_output ';
+        $cmbt_options='';
+        if ($cmbt_analysis) {
+            $cmbt_options = " -C ${fsl_cluster_size} ";
+        }
 
-	$cbt_options='';
-	if ($cbt_analysis) {
-	    $cbt_options = " -c ${fsl_cluster_size} ";
-	}
+    	$cbt_options='';
+        if ($cbt_analysis) {
+            $cbt_options = " -c ${fsl_cluster_size} ";
+        }
     } else {
-	$num_of_perms = $num_of_perms + 1;
+        $num_of_perms = $num_of_perms + 1;
     }
 
     # check for expected output first? -- should, but will have to add later, once I have a better idea of what that looks like...
@@ -1148,38 +1148,53 @@ sub vbm_analysis_vbm_Init_check {
 	    push(@temp_software_array,$software);
 
 	    if ($software eq 'fsl') {
-		$default_nonparametric_job_size = 100; #Using only 25 tends to choke SLURM...# We expect to keep this hardcoded...might we need to decrease this for large data sets?
-		my $default_nonparametric_permutations = 5000;
-		$default_nonparametric_permutations = $default_nonparametric_job_size*(ceil($default_nonparametric_permutations/$default_nonparametric_job_size));
-		my $minimum_nonparametric_permutations = 1500;
-		$minimum_nonparametric_permutations = $default_nonparametric_job_size*(ceil($minimum_nonparametric_permutations/$default_nonparametric_job_size));
+            $default_nonparametric_job_size = 100; #Using only 25 tends to choke SLURM...# We expect to keep this hardcoded...might we need to decrease this for large data sets?
+            my $default_nonparametric_permutations = 5000;
+            $default_nonparametric_permutations = $default_nonparametric_job_size*(ceil($default_nonparametric_permutations/$default_nonparametric_job_size));
+            my $minimum_nonparametric_permutations = 1500;
+            $minimum_nonparametric_permutations = $default_nonparametric_job_size*(ceil($minimum_nonparametric_permutations/$default_nonparametric_job_size));
 
-		my $requested_permutations = $Hf->get_value('nonparametric_permutations');
-		if ($requested_permutations eq 'NO_KEY') {
-		    $nonparametric_permutations = $default_nonparametric_permutations;
-		    $log_msg = $log_msg."\tNo number of non-parametric testing permutations specified; using default (${nonparametric_permutations}). \n";
-		} elsif (! looks_like_number($requested_permutations)) {
-		    $nonparametric_permutations = $default_nonparametric_permutations;
-		    $log_msg = $log_msg."\tAn invalid value of non-parametric testing permutations has been requested (${requested_permutations}); using default (${nonparametric_permutations}). \n";
-		} elsif ($requested_permutations < $minimum_nonparametric_permutations) {
-		    $nonparametric_permutations = $minimum_nonparametric_permutations;
-		    $log_msg = $log_msg."\tThe requested number of non-parametric testing permutations (${requested_permutations}) is less than the minimum (${minimum_nonparametric_permutations}); using ${nonparametric_permutations}. \n";
-		} elsif ($requested_permutations >= $minimum_nonparametric_permutations) {
-		    $nonparametric_permutations = $default_nonparametric_job_size*(ceil($requested_permutations/$default_nonparametric_job_size));
-		    #$nonparametric_permutations = floor($requested_permutations);
-		    $log_msg = $log_msg."\tUsing the specified [integer-esque] number of non-parametric testing permutations (${nonparametric_permutations}). (The requested number of non-parametric testing permutations was ${requested_permutations}.)  \n";
-		} else {
-		    $nonparametric_permutations = $default_nonparametric_permutations;
-		    $log_msg = $log_msg."\tAn invalid value of non-parametric testing permutations has been requested (${requested_permutations}); using default (${nonparametric_permutations}). \n";
-		}
+            my $requested_permutations = $Hf->get_value('nonparametric_permutations');
+            if ($requested_permutations eq 'NO_KEY') {
+                $nonparametric_permutations = $default_nonparametric_permutations;
+                $log_msg = $log_msg."\tNo number of non-parametric testing permutations specified; using default (${nonparametric_permutations}). \n";
+            } elsif (! looks_like_number($requested_permutations)) {
+                $nonparametric_permutations = $default_nonparametric_permutations;
+                $log_msg = $log_msg."\tAn invalid value of non-parametric testing permutations has been requested (${requested_permutations}); using default (${nonparametric_permutations}). \n";
+            } elsif ($requested_permutations < $minimum_nonparametric_permutations) {
+                $nonparametric_permutations = $minimum_nonparametric_permutations;
+                $log_msg = $log_msg."\tThe requested number of non-parametric testing permutations (${requested_permutations}) is less than the minimum (${minimum_nonparametric_permutations}); using ${nonparametric_permutations}. \n";
+            } elsif ($requested_permutations >= $minimum_nonparametric_permutations) {
+                $nonparametric_permutations = $default_nonparametric_job_size*(ceil($requested_permutations/$default_nonparametric_job_size));
+                #$nonparametric_permutations = floor($requested_permutations);
+                $log_msg = $log_msg."\tUsing the specified [integer-esque] number of non-parametric testing permutations (${nonparametric_permutations}). (The requested number of non-parametric testing permutations was ${requested_permutations}.)  \n";
+            } else {
+                $nonparametric_permutations = $default_nonparametric_permutations;
+                $log_msg = $log_msg."\tAn invalid value of non-parametric testing permutations has been requested (${requested_permutations}); using default (${nonparametric_permutations}). \n";
+            }
 
-		$Hf->set_value('nonparametric_permutations',$nonparametric_permutations);
-		$number_of_nonparametric_seeds = ceil($nonparametric_permutations/$default_nonparametric_job_size);
-		$Hf->set_value('number_of_nonparametric_seeds',$number_of_nonparametric_seeds);
-$log_msg = $log_msg."\tThis will be performed in ${number_of_nonparametric_seeds} parallel jobs per design contrast (typically 2), featuring ${default_nonparametric_job_size} permutations each. \n";
-	    }
+            $Hf->set_value('nonparametric_permutations',$nonparametric_permutations);
+            $number_of_nonparametric_seeds = ceil($nonparametric_permutations/$default_nonparametric_job_size);
+            $Hf->set_value('number_of_nonparametric_seeds',$number_of_nonparametric_seeds);
+            $log_msg = $log_msg."\tThis will be performed in ${number_of_nonparametric_seeds} parallel jobs per design contrast (typically 2), featuring ${default_nonparametric_job_size} permutations each. \n";
 
-	    
+            $cmbt_analysis=0;
+            $cbt_analysis=0;
+            $fsl_cluster_size = $Hf->get_value('fsl_cluster_size');
+            if ($fsl_cluster_size ne 'NO_KEY') {
+                my $cluster_test = $fsl_cluster_size*100000 % 100000;  
+                if ($cluster_test) {
+                    $cmbt_analysis=1;
+                    $cbt_analysis=1;
+                    $log_msg = $log_msg."\t\$fsl_cluster_size appears to be legit (${fsl_cluster_size}); cluster-based/cluster-mass-based thresholding will be performed . \n"; 
+                } else {
+                    $init_error_msg=$init_error_msg."An integer value for \$fsl_cluster_size was requested; I don't think that means what you think that means.\n";
+
+                }
+            } else {
+                $log_msg = $log_msg."\t\$fsl_cluster_size has not been specified; NO cluster-based/cluster-mass-based thresholding will be performed . \n";
+            }
+        }    
 	    $log_msg = $log_msg."\n\tVBA will be performed with software: ${software} \n";   
 	} else {
 	    $init_error_msg=$init_error_msg."I'm sorry, but VBM software \"${software}\" is currently not supported :( \n";

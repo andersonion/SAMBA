@@ -42,7 +42,8 @@ my $almost_results_dir;
 my $almost_MDT_results_dir;
 
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
-my $make_ROIs_executable_path = "/glusterspace/BJ/run_Labels_to_ROIs_exec.sh";
+#my $make_ROIs_executable_path = "/glusterspace/BJ/run_Labels_to_ROIs_exec.sh";
+my $make_ROIs_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/Labels_to_ROIs_executable/20161006_1100/run_Labels_to_ROIs_exec.sh";
 
 my $current_label_space; # 21 April 2017 -- BJA: Previously this wasn't initialized, but was still imported from the calling .pl (or at least that's my theory).
 

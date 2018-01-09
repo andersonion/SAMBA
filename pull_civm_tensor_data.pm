@@ -209,9 +209,12 @@ sub find_my_tensor_data {
     my @temp_tensor_headfiles;
     
     ## Cycle through possible locations until we successfully pull in a tensor headfile, while noting location of data.
+    
+    my $keep_checking = 1;
     foreach my $current_recon_machine (@possible_tensor_recon_machines){
-	#print("searching ${current_recon_machine}...\n");
-	my $archive_prefix = '';
+	print("searching ${current_recon_machine}...\n");
+	if ($keep_checking){
+    my $archive_prefix = '';
 	my $machine_suffix = '';		
 	if ($current_recon_machine eq 'atlasdb') {
 	    $archive_prefix = "${project_name}/research/";
@@ -279,6 +282,10 @@ sub find_my_tensor_data {
 		$tmp_log_msg = "Tensor headfile for runno \"${local_runno}\" found on machine: ${current_recon_machine}\n";
 		$log_msg = $log_msg.$tmp_log_msg;
 	    }
+        if ($tensor_recon_machines[0] eq $recon_machine) {
+            $keep_checking = 0;
+        }
+    }
 	}	
     }
     #print "${tensor_headfile}\n\n";

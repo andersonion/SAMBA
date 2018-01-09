@@ -30,10 +30,11 @@ my $job;
 my $PM_code = 65;
 
 my $pipe_home = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/";
+
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";  #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
 my $compilation_date = "20170616_2204";
 my $write_individual_stats_executable_path = "${pipe_home}label_stats_executables/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec.sh"; 
-my $write_rat_report_executable_path = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh';
+my $write_rat_report_executable_path = '${pipe_home}label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh';
 
 #if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
