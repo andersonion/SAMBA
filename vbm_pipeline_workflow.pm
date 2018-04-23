@@ -303,7 +303,6 @@ if (defined $start_file) {
 
 }
 
-
 ## Mini-kludge...until we can get a proper data importer in place...
 my $test_for_inputs = `ls ${pristine_input_dir}`;
 if ($test_for_inputs eq '') {
