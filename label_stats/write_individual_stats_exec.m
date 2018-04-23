@@ -158,8 +158,12 @@ for ii=1:length(contrasts)
         imnii_i=load_untouch_nii(filenii_i);
         for ind=1:numel(ROI)
             fprintf('For contrast "%s" (%i/%i), processing region %i of %i (ROI %i)...\n',contrast,ii,length(contrasts),ind,numel(ROI),ROI(ind));
-            %regionindex=find(labelim==val1(ind));
-            contrast_stats(ind)=mean(imnii_i.img(labelim==ROI(ind)));
+            %regionindex=find(labelim==val1(ind));          
+            %contrast_stats(ind)=mean(imnii_i.img(labelim==ROI(ind)));
+            %%Switched to the code below on 27 Feb 2018, to ignore masked
+            %%voxels in the ROI
+            data_vector=imnii_i.img(labelim==ROI(ind));
+            contrast_stats(ind)=mean(data_vector(data_vector~=0));
         end
         eval_cmd = ['working_table.' contrast '=contrast_stats;'];
         eval(eval_cmd);

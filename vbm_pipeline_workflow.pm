@@ -25,7 +25,9 @@ use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $syn_params $permissions $valid_fo
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
 
 ## This may be hacky, but I'm sick of trying to point this to the right place. 19 December 2017
+if (! -d $WORKSTATION_DATA) {
 if ($WORKSTATION_DATA =~ s/\.\.\/data/\.\.\/CIVMdata/) {}
+}
 print "WORKSTATION_DATA = ${WORKSTATION_DATA}\n\n\n";
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
@@ -40,7 +42,7 @@ $valid_formats_string = 'hdr|img|nii|nhdr';
 $civm_ecosystem = 0; # Begin implementing handling of code that is CIVM-specific
 if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
     $civm_ecosystem = 1;
-} elsif ( $ENV{'BIGGUS_DISKUS'} =~ /nas4/) {
+} elsif ( $ENV{'BIGGUS_DISKUS'} =~ /civmnas4/) {
     $civm_ecosystem = 1;
 }
 
@@ -369,17 +371,20 @@ $channel_comma_list = join(',',uniq(@channel_array));
 if ($do_vba) {
     my $group_1_runnos;
     my $group_2_runnos;
-    if (defined @group_1)  {
+    #if (defined @group_1)  {
+    if (@group_1)  {
 	$group_1_runnos = join(',',uniq(@group_1));
 	$Hf->set_value('group_1_runnos',$group_1_runnos);
     }
 
-    if (defined @group_2) {
+    #if (defined @group_2) {
+    if (@group_2) {
 	$group_2_runnos = join(',',uniq(@group_2));
 	$Hf->set_value('group_2_runnos',$group_2_runnos);
     }
     
-    if ((defined @group_1)&&(defined @group_2)) { 
+    #   if ((defined @group_1)&&(defined @group_2)) {
+    if ((@group_1) && (@group_2)) { 
 	my @all_in_groups = uniq(@group_1,@group_2);
 	#my $all_groups_comma_list = $group_1_runnos.','.$group_2_runnos;
 	my $all_groups_comma_list = join(',',@all_in_groups) ;

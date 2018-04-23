@@ -122,26 +122,30 @@ sub apply_mdt_warps_vbm {  # Main code
     
     my @jobs_2;
     if (($convert_images_to_RAS == 1) && ($gid == 2)){
-	foreach my $runno (@array_of_runnos,'MDT') {
-	    if (($runno eq 'MDT') && ($current_contrast eq 'nii4D')){
-		$job=0;
-	    } else {
-		($job) = convert_images_to_RAS($runno,$current_contrast);
-	    } 
-	    if ($job) {
-		push(@jobs_2,$job);
-	    }
-	} 
+        foreach my $runno (@array_of_runnos,'MDT') {
+            if (($runno eq 'MDT') && ($current_contrast eq 'nii4D')){
+            $job=0;
+            } else {
+            ($job) = convert_images_to_RAS($runno,$current_contrast);
+            } 
+            if ($job) {
+            push(@jobs_2,$job);
+            }
+        
+        } 
 	
-	if (cluster_check()) {
-	    my $interval = 2;
-	    my $verbose = 1;
-	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_2);
+        if (cluster_check()) {
+            my $interval = 2;
+            my $verbose = 1;
+            my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_2);
 	    
-	    if ($done_waiting) {
-		print STDOUT  " RAS images have been created for all runnos; moving on to next step.\n";
-	    }
-	}
+            if ($done_waiting) {
+            print STDOUT  " RAS images have been created for all runnos; moving on to next step.\n";
+            }
+        }
+        #if ($current_contrast eq 'nii4D') {
+        #    `gzip ${current_path}/*nii4D*nii`;  
+        #}
     }
 
  
@@ -185,18 +189,18 @@ sub apply_mdt_warps_Output_check {
 	 }
 
 	 if (data_double_check($out_file)) {
-	     if ($out_file =~ s/\.gz$//) {
-		 if (data_double_check($out_file)) {
+	     #if ($out_file =~ s/\.gz$//) {
+		 #if (data_double_check($out_file)) {
 		     $go_hash{$runno}=1;
 		     push(@file_array,$out_file);
 		     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
 		     $missing_files_message = $missing_files_message."\t$runno\n";
-		 } else {
-		     `gzip -f ${out_file}`; #Is -f safe to use?
-		     $go_hash{$runno}=0;
-		     $existing_files_message = $existing_files_message."\t$runno\n";
-		 }
-	     }
+		 #} else {
+		  #   `gzip -f ${out_file}`; #Is -f safe to use?
+		  #   $go_hash{$runno}=0;
+		  #   $existing_files_message = $existing_files_message."\t$runno\n";
+		 #}
+	     #}
 	 } else {
 	     $go_hash{$runno}=0;
 	     $existing_files_message = $existing_files_message."\t$runno\n";
@@ -242,9 +246,12 @@ sub apply_mdt_warp {
 
     my $mdt_warp_string = $Hf->get_value('forward_label_xforms');
     my $mdt_warp_train;
-
+    my $gz='.gz';
+    if ($current_contrast eq 'nii4D') {
+        $gz='';
+    }
     if ($gid == 2 ) {
-	$out_file = "${current_path}/${runno}_${current_contrast}.nii.gz"; # Added '.gz', 2 September 2015
+	$out_file = "${current_path}/${runno}_${current_contrast}.nii${gz}"; # Added '.gz', 2 September 2015
 	$reference_image = $label_reference_path;
 
 	if ($direction eq 'f') {
@@ -270,12 +277,12 @@ sub apply_mdt_warp {
     } else {
 	$reference_image=$vbm_reference_path;
 	if ($direction eq 'f') {
-	    $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii.gz"; # Need to settle on exact file name format...  Added '.gz', 2 September 2015
+	    $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii${gz}"; # Need to settle on exact file name format...  Added '.gz', 2 September 2015
 	    $direction_string = 'forward';
 	    $start=1;
 	    $stop=3;
 	} else {
-	    $out_file = "${current_path}/MDT_to_${runno}_${current_contrast}.nii.gz"; # I don't think this will be the proper implementation of the "inverse" option.  Added '.gz', 2 September 2015
+	    $out_file = "${current_path}/MDT_to_${runno}_${current_contrast}.nii${gz}"; # I don't think this will be the proper implementation of the "inverse" option.  Added '.gz', 2 September 2015
 	    $direction_string = 'inverse';
 	    $start=1;
 	    $stop=3;
@@ -306,18 +313,36 @@ sub apply_mdt_warp {
 	$reference_image=$reference_image.'.gz';
     }
 
-    my $test_dim =  `PrintHeader ${image_to_warp} 2`;
-    my @dim_array = split('x',$test_dim);
-    my $real_dim = $#dim_array +1;
+    my $test_dim =  `fslhd ${image_to_warp} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;#`PrintHeader ${image_to_warp} 2`;
+    #my @dim_array = split('x',$test_dim);
+    #my $real_dim = $#dim_array +1;
     my $opt_e_string='';
-    if ($real_dim == 4) {
-	$opt_e_string = ' -e 3 ';
-    } elsif ($image_to_warp =~ /tensor/) {
-	$opt_e_string = ' -e 2 ';
+    # if ($real_dim == 4) {
+    if ($image_to_warp =~ /tensor/) {
+        $opt_e_string = ' -e 2 ';
+    } elsif ($test_dim > 1) {
+        $opt_e_string = ' -e 3 ';
+    } 
+    
+    if (($current_contrast eq 'nii4D') && (! data_double_check($out_file))) {
+    #skip apply warp
+    } else {
+      $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} ${opt_e_string} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";  
+    }
+    
+    if ($current_contrast eq 'nii4D') {
+        if (($convert_images_to_RAS == 1) && ($gid == 2)) {
+            my $tmp_file;   
+            if ($runno eq 'MDT') {
+                $tmp_file= "${median_images_path}/MDT_${current_contrast}_tmp.nii";
+            } else {
+                 $tmp_file= "${current_path}/${runno}_${current_contrast}_tmp.nii";
+            }
+            $cmd=$cmd."cp ${out_file} ${tmp_file};\n";
+        }
+        $cmd=$cmd."gzip ${out_file};\n";
     }
 
-    $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} ${opt_e_string} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";  
- 
 
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} MDT warp(s) to ${current_contrast} image for  ${runno}:\n${cmd}\n";
@@ -383,22 +408,33 @@ sub convert_images_to_RAS {
     my ($cmd);
     my ($out_file,$input_image,$work_file);
     my $final_images_dir;
-
+    my $gz='.gz';
+    if ($contrast eq 'nii4D') {
+        $gz='';
+    }
+    my $fat_out_file;
+    my $tmp_file;
     if ($runno eq 'MDT') {
 	#$out_file = "${final_MDT_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
 	$input_image = "${median_images_path}/MDT_${contrast}.nii.gz";
+    $tmp_file= "${median_images_path}/MDT_${contrast}_tmp.nii";
 	#$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
 	#$final_images_dir = "${final_MDT_results_dir}/${runno}_images/";
 	$final_images_dir = "${final_MDT_results_dir}/";
+
 	$out_file = "${final_images_dir}/MDT_${contrast}_RAS.nii.gz";
+    $fat_out_file = "${final_images_dir}/MDT_${contrast}_tmp_RAS.nii";
     }else {
 	#$out_file = "${final_results_dir}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
 	$input_image = "${current_path}/${runno}_${contrast}.nii.gz";
+    $tmp_file= "${current_path}/${runno}_${contrast}_tmp.nii";   
 	#$work_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
 	#$final_images_dir = "${final_results_dir}/${runno}_images/";
 	$final_images_dir = "${final_results_dir}/${runno}/";
 	$out_file = "${final_images_dir}/${runno}_${contrast}_RAS.nii.gz";
+    $fat_out_file = "${final_images_dir}/${runno}_${contrast}_tmp_RAS.nii";
     }
+
 
    if (! -e $final_images_dir) {
 	mkdir ($final_images_dir,$permissions);
@@ -411,10 +447,22 @@ sub convert_images_to_RAS {
     if (data_double_check($out_file)) {
 	my $current_vorder = 'ALS';
 	my $desired_vorder = 'RAS';
-	$cmd = $cmd."${img_transform_executable_path} ${matlab_path} ${input_image} ${current_vorder} ${desired_vorder} ${final_images_dir};\n";	
 
-	#$cmd =$cmd."cp ${work_file} ${out_file}";
- 
+    if (($contrast eq 'nii4D') && (data_double_check($fat_out_file))) {
+        $cmd =$cmd."if [[ ! -f ${tmp_file} ]]; then\ngunzip -k ${input_image} > ${tmp_file};\nfi\n";
+        $input_image=$tmp_file;
+     };
+	#$cmd = $cmd."${img_transform_executable_path} ${matlab_path} ${input_image} ${current_vorder} ${desired_vorder} ${final_images_dir};\n";        
+    if ($contrast eq 'nii4D' && (! data_double_check($fat_out_file))) {
+    # Do nothing
+    } else {
+        $cmd = $cmd."${img_transform_executable_path} ${matlab_path} ${input_image} ${current_vorder} ${desired_vorder} ${final_images_dir};\n";    
+    }
+    if ($contrast eq 'nii4D') {
+        $cmd =$cmd."gzip -c ${fat_out_file} > ${out_file};\n";
+        $cmd =$cmd."rm ${tmp_file};\n";
+        $cmd =$cmd."rm ${fat_out_file};\n";
+     };
 	my $go_message =  "$PM: converting ${runno}_${contrast} image to RAS orientation";
 	my $stop_message = "$PM: could not convert ${runno}_${contrast} image to RAS orientation:\n${cmd}\n";
 	

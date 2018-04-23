@@ -360,7 +360,7 @@ sub mask_one_image {
 	$im_a_real_tensor = '1';
     }
    # my $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};\n";
-    my $copy_hd_cmd = "CopyImageHeaderInformation ${centered_path} ${out_path} ${out_path} 1 1 1 ${im_a_real_tensor};\n";
+    my $copy_hd_cmd = '';#"CopyImageHeaderInformation ${centered_path} ${out_path} ${out_path} 1 1 1 ${im_a_real_tensor};\n"; # 24 Feb 2018, disabling, function seems to be broken and wreaking havoc
     my $remove_cmd = "if [[ -f ${out_path} ]];then\n rm ${centered_path};\nfi\n";
     my $go_message = "$PM: Applying mask created by ${template_contrast} image of runno $runno" ;
     my $stop_message = "$PM: could not apply ${template_contrast} mask to ${centered_path}:\n${apply_cmd}\n" ;
@@ -522,7 +522,7 @@ sub mask_images_vbm_Init_check {
 
     if ($do_mask eq 'NO_KEY') { $do_mask=0;}
     if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
-    my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii"; ## Set default mask for porting here!
+    my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii.gz"; ## Set default mask for porting here!
     if (! -f $default_mask) {
 	if ($default_mask =~ s/\/data/\/CIVMdata/) {
 	    if (! -f $default_mask) {
