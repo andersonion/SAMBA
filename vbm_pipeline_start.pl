@@ -215,6 +215,7 @@ foreach my $entry ( keys %main:: )  { # Build a string of all initialized variab
     }
 }
 #print "$kevin_spacey\n\n\n";
+my $tmp_rigid_atlas_name='';
 {
     if ($start_file) {
 	load_SAMBA_parameters($start_file);
@@ -249,6 +250,7 @@ sub load_SAMBA_parameters {
 	if ($val eq '') {
 	    print "$val\n";
 	}
+
 	if ($kevin_spacey =~ /$_/) {
 	    if ($val) {
 #		print "$_\n";
@@ -256,7 +258,10 @@ sub load_SAMBA_parameters {
 #		if (defined ${$_}) {
 		    print "$_ = ${$_}\n";
 #		}	   
-	    }
+            if ($_ eq 'rigid_atlas_name'){
+                $tmp_rigid_atlas_name=${$_};
+            }
+        }
 	}
     }
     
@@ -268,20 +273,15 @@ sub load_SAMBA_parameters {
 	my $ps2 = shift(@ps_array);
 	if ($ps2  =~ /^([0-9]+)([a-zA-Z]+)([0-9]+)$/) {
 	    $project_name = "$1.$2.$3";
-	}
-<<<<<<< HEAD
+    }
+
 	if (! defined $optional_suffix) {
 	    $optional_suffix = join('_',@ps_array);
-        print "os = ${optional_suffix}\n\n";
-        if (exist $rigid_atlas_name){
-            if ($optional_suffix =~ s/^(${rigid_atlas_name}[_]?)//) {}
+        if ($tmp_rigid_atlas_name ne ''){
+            if ($optional_suffix =~ s/^(${tmp_rigid_atlas_name}[_]?)//) {}
         }
-         print "os = ${optional_suffix}\n\n";
 	}
-=======
 
->>>>>>> 6c9b0ddf945a50b68892009760c24024b466fd87
-	print "Project name: $project_name\n\n\n";
     }
 
     if ((! defined ($pre_masked)) && (defined ($do_mask))) {
