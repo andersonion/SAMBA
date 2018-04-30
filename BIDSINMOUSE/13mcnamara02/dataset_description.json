@@ -1,0 +1,7 @@
+{
+  "Name": "Mouse Brain Supplementary Data for SAMBA",
+  "BIDSVersion": "1.1.0",
+  "Name": "The Center for In Vivo Microscopy, Duke niversity Medical Center",
+  "References": [Robert J Anderson, James J Cook, Natalie A Delpratt, John C Nouls, Bin Gu, James O McNamara, Brian B Avants, G Allan Johnson, Alexandra Badea. "An HPC Pipeline with Validation Framework for Small Animal Multivariate Brain Analysis (SAMBA)",2018],
+  "License": "Apache License, Version 2.0"
+}
