@@ -319,7 +319,7 @@ sub apply_mdt_warp {
     my $opt_e_string='';
     # if ($real_dim == 4) {
     if ($image_to_warp =~ /tensor/) {
-        $opt_e_string = ' -e 2 ';
+        $opt_e_string = ' -e 2 -f 0.0007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
     } elsif ($test_dim > 1) {
         $opt_e_string = ' -e 3 ';
     } 

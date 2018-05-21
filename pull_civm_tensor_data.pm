@@ -1,5 +1,5 @@
 #!/usr/local/pipeline-link/perl
-# oull_civm_tensor_data.pm
+# pull_civm_tensor_data.pm
 # Originally from mid-Spring 2017; written by BJ Anderson, CIVM
 #
 # Initially appended to vbm_pipeline_workflow; extracted on 16 June 2017
@@ -183,7 +183,7 @@ sub find_my_tensor_data {
     my $little_engine_that_did;
     my @possible_tensor_recon_machines;
     if ($tensor_headfile_exists) {
-	## Pull out engine name, and to list of possible locations to look for data, after glusterspace and atlasdb;
+	## Pull out engine name, and to list of possible locations to look for data, after BIGGUS_DISKUS and atlasdb;
 	my $temp_tensor_Hf = new Headfile ('rw', $tensor_headfile);
 	my $msg_1 = "tensor headfile = ${tensor_headfile}\n";
 	printd(30,$msg_1); # At the threshold of still printing, but almost clucking.
@@ -225,7 +225,7 @@ sub find_my_tensor_data {
 	my $pull_headfile_cmd;
 	if ($current_recon_machine eq 'gluster') {
 	    ## Look for local tensor results directory
-	    my $main_dir = "/glusterspace/";
+	    my $main_dir = "/${BIGGUS_DISKUS}/";
 	    if (-d $main_dir) {
 		opendir(DIR, $main_dir);
 		my @gluster_contents= grep(/^tensor($local_runno).*${machine_suffix}$/i ,readdir(DIR));
@@ -258,8 +258,9 @@ sub find_my_tensor_data {
 		}
 	    }
 	} else {
+	    print("pulling tensor${local_runno}*.headfile to $local_folder\n");
 	    $pull_headfile_cmd = "puller_simple -D 0 -f file -or ${current_recon_machine} ${archive_prefix}tensor${local_runno}*${machine_suffix}/tensor${local_runno}*headfile ${local_folder}/";
-	    ###print "pull headfile cmd XX = ${pull_headfile_cmd}\n\n\n";
+	    print "pull headfile cmd XX = ${pull_headfile_cmd}\n\n\n";
 	    `${pull_headfile_cmd} 2>&1`;
 	    my $unsuccessful_pull_of_tensor_headfile = $?;
 	    #print "\$unsuccessful_pull_of_tensor_headfile = ${unsuccessful_pull_of_tensor_headfile}\n\n";
@@ -451,7 +452,7 @@ sub pull_civm_tensor_data {
 				    my $pull_headfile_cmd;
 				    if ($current_recon_machine eq 'gluster') {
 					## Look for local tensor results directory
-					my $main_dir = "/glusterspace/";
+					my $main_dir = "/${BIGGUS_DISKUS}/";
 					if (-d $main_dir) {
 					    opendir(DIR, $main_dir);
 					    my @gluster_contents= grep(/^($runno).*$/i ,readdir(DIR));
@@ -613,7 +614,7 @@ sub pull_civm_tensor_data {
 		    $error_msg=$error_msg.$find_error_msg;
 		    my $pull_folder_cmd;
 		    if ($data_home eq 'gluster') {
-			$pull_folder_cmd = "cp /glusterspace/tensor${runno}*${machine_suffix}/* ${local_folder}/";
+			$pull_folder_cmd = "cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/* ${local_folder}/";
 		    } else {
 			$pull_folder_cmd = "puller_simple  -or ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/ ${local_folder}/";
 		    }
@@ -660,7 +661,7 @@ sub pull_civm_tensor_data {
 			$error_msg=$error_msg.$find_error_msg;
 		
 			if ($data_home eq 'gluster') {
-			    $pull_file_cmd = "cp /glusterspace/tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
+			    $pull_file_cmd = "cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
 			} else {
 			    $pull_file_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
 			}
@@ -678,15 +679,21 @@ sub pull_civm_tensor_data {
 		    $log_msg=$log_msg.$find_log_msg;
 		    print($find_log_msg."\n\n");#####
 		    $error_msg=$error_msg.$find_error_msg;
+
+			if ($contrast eq 'tensor') {
+                #print  "machine suffix = ${machine_suffix}\n\n\n";
+			    if ($machine_suffix =~ s/results/work/) {}
+                #print  "machine suffix = ${machine_suffix}\n\n\n";  
+			}
 		    if ($data_home eq 'gluster') {
-			$pull_file_cmd = "cp /glusterspace/tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
+			$pull_file_cmd = "cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
 		    } else {
 			$pull_file_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
 		    }
 		    ### print "pull file command YY = ${pull_file_cmd}\n\n\n"; ########
 		    `${pull_file_cmd} 2>&1`;
 		    #if ($data_home eq 'gluster') {
-			#$tmp_log_msg = `cp /glusterspace/tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/`;
+			#$tmp_log_msg = `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/`;
 		    #} else {
 		        #$pull_file_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
 			#$tmp_log_msg = `${pull_file_cmd}`;
@@ -713,7 +720,7 @@ sub pull_civm_tensor_data {
 			    $error_msg=$error_msg.$find_error_msg;
 			    
 			    if ($data_home eq 'gluster') {
-				$pull_nii4D_cmd= `cp /glusterspace/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;		      
+				$pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;		      
 			    } else {
 				$pull_nii4D_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
 			    }
@@ -727,13 +734,13 @@ sub pull_civm_tensor_data {
 			$log_msg=$log_msg.$find_log_msg;
 			$error_msg=$error_msg.$find_error_msg;
 			if ($data_home eq 'gluster') {
-			    $pull_nii4D_cmd= `cp /glusterspace/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;		      
+			    $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;		      
 			} else {
 			    $pull_nii4D_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
 			}
 			`${pull_nii4D_cmd} 2>&1`;
 			# if ($data_home eq 'gluster') {
-			#     $tmp_log_msg = `cp /glusterspace/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;
+			#     $tmp_log_msg = `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;
 			# } else {
 			#     $pull_nii4D_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
 			#     $tmp_log_msg = `${pull_nii4D_cmd}`;

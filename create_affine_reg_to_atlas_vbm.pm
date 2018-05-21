@@ -398,16 +398,26 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 # check for valid atlas
 
     $rigid_contrast = $Hf->get_value('rigid_contrast');
-    if ($rigid_contrast eq ('' || 'NO_KEY')) {
-	my @channels = $Hf->get_value('channel_comma_list');
-	$rigid_contrast = shift(@channels);
-	$Hf->set_value('affine_contrast',$affine_contrast);
-	$log_msg=$log_msg."\tNo rigid contrast specified; using first specified contrast: \"${rigid_contrast}\" for rigid  registrations.\n";
-	$Hf->set_value('rigid_contrast',$rigid_contrast);
+    my $affine_contrast = $Hf->get_value('affine_contrast');
+    if ($rigid_contrast eq ('' || 'NO_KEY' || 'UNDEFINED_VALUE')) {
+        if ($affine_contrast ne ('' && 'NO_KEY' && 'UNDEFINED_VALUE')) {
+            $rigid_contrast = $affine_contrast;
+            $log_msg=$log_msg."\tNo rigid contrast specified; inheriting contrast used for affine registration: \"${rigid_contrast}\" for rigid  registrations.\n";
+        } else {
+            if ($channel_comma_list =~ /(dwi)/i) {
+                $rigid_contrast = $1;
+                $log_msg=$log_msg."\tNo rigid contrast specified; using default contrast: \"${rigid_contrast}\" for rigid  registrations.\n";
+            } else {
+                my @channels = $Hf->get_value('channel_comma_list');
+                $rigid_contrast = shift(@channels);
+                #$Hf->set_value('affine_contrast',$affine_contrast);
+                $log_msg=$log_msg."\tNo rigid contrast specified; using first specified contrast: \"${rigid_contrast}\" for rigid  registrations.\n";
+            }
+        }
+        $Hf->set_value('rigid_contrast',$rigid_contrast);
     }
 
-    my $affine_contrast = $Hf->get_value('affine_contrast');
-    if ($affine_contrast eq ('' || 'NO_KEY')) {
+    if ($affine_contrast eq ('' || 'NO_KEY' || 'UNDEFINED_VALUE')) {
 	#$affine_contrast = $defaults_Hf->get_value('affine_contrast');
 	$affine_contrast = $Hf->get_value('rigid_contrast');
 	$Hf->set_value('affine_contrast',$affine_contrast);

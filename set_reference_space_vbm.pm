@@ -243,6 +243,15 @@ sub apply_new_reference_space_vbm {
 # ------------------
     my ($in_file,$ref_file,$out_file)=@_;
     my $do_registration = 1; 
+    
+    my $test_dim =  `fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;
+    my $opt_e_string='';
+    if ($in_file =~ /tensor/) {
+        $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
+    } elsif ($test_dim > 1) {
+        $opt_e_string = ' -e 3 ';
+    }
+
 
     if ($out_file =~ /\.nii(\.gz)?/) {
 	$do_registration = 0;
@@ -312,7 +321,7 @@ sub apply_new_reference_space_vbm {
 	    }
 
 	    $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
-	    $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform};\n"; 
+	    $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform};\n"; 
 	    @cmds = ($cmd);
 	}  
     }
@@ -374,6 +383,7 @@ sub set_reference_space_vbm_Init_check {
     }
 
     my $create_labels= $Hf->get_value('create_labels');
+
     my $do_mask= $Hf->get_value('do_mask');
     
     my $rigid_work_dir = $Hf->get_value('rigid_work_dir');
@@ -381,6 +391,7 @@ sub set_reference_space_vbm_Init_check {
 
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_contrast = $Hf->get_value('rigid_contrast'); 
+
     $runno_list= $Hf->get_value('complete_comma_list');
 
     $refspace_folder_hash{'vbm'} = $inputs_dir;
@@ -391,24 +402,23 @@ sub set_reference_space_vbm_Init_check {
     $reference_space_hash{'label'}=$Hf->get_value('label_reference_space');     
 
     if ((! defined $reference_space_hash{'vbm'}) || ($reference_space_hash{'vbm'} eq ('NO_KEY' || ''))) {
-	$log_msg=$log_msg."\tNo VBM reference space specified.  Will use native image space.\n";
-	$reference_space_hash{'vbm'} = 'native';
+        $log_msg=$log_msg."\tNo VBM reference space specified.  Will use native image space.\n";
+        $reference_space_hash{'vbm'} = 'native';
     }
     
     
     $process_dir_for_labels =0;
     if ($create_labels == 1) {
-	$process_dir_for_labels = 1;
-	
-	if ((! defined $reference_space_hash{'label'}) || ($reference_space_hash{'label'} eq (('NO_KEY') || ('') || ($reference_space_hash{'vbm'})))) {
-	    
-	    $log_msg=$log_msg."\tNo label reference space specified.  Will inherit from VBM reference space.\n";
-	    $reference_space_hash{'label'}=$reference_space_hash{'vbm'};
-	    $Hf->set_value('label_reference_space',$reference_space_hash{'label'});
-	    $process_dir_for_labels = 0;
-	    $refspace_folder_hash{'label'} = $inputs_dir;	   
-	} 
-	
+        $process_dir_for_labels = 1;
+
+        if ((! defined $reference_space_hash{'label'}) || ($reference_space_hash{'label'} eq (('NO_KEY') || ('') || ($reference_space_hash{'vbm'})))) {
+
+            $log_msg=$log_msg."\tNo label reference space specified.  Will inherit from VBM reference space.\n";
+            $reference_space_hash{'label'}=$reference_space_hash{'vbm'};
+            $Hf->set_value('label_reference_space',$reference_space_hash{'label'});
+            $process_dir_for_labels = 0;
+            $refspace_folder_hash{'label'} = $inputs_dir;	   
+        } 
     }
     
     $Hf->set_value('base_images_for_labels',$process_dir_for_labels);    
@@ -421,43 +431,44 @@ sub set_reference_space_vbm_Init_check {
     }
     
     foreach my $V_or_L (@spaces) {    
-	my ($ref_error,$for_labels);
-	if ($V_or_L eq "label") {
-	    $for_labels = 1;
-	} else {	
-	    $for_labels = 0;
-	}
-	
-	($input_reference_path_hash{$V_or_L},$reference_path_hash{$V_or_L},$refname_hash{$V_or_L},$ref_error) = set_reference_path_vbm($reference_space_hash{$V_or_L},$for_labels);
-	
-	
-	
-	if ($input_reference_path_hash{$V_or_L} eq 'rerun_init_check_later') {
-	    my $log_msg = "Reference spaces not set yet. Will rerun upon start of set_reference_space module.";
-	    log_info("${message_prefix}${log_msg}");
-	    $Hf->set_value('rerun_init_check',1);
-	    #if ($init_error_msg ne '') {
-	    #    $init_error_msg = $message_prefix.$init_error_msg;
-	    #}
-	    return($init_error_msg);
-	} else {
-	    
-	    
-	    $Hf->set_value("${V_or_L}_reference_path",$reference_path_hash{$V_or_L});
-	    $Hf->set_value("${V_or_L}_input_reference_path",$input_reference_path_hash{$V_or_L});
-	    #my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($reference_path_hash{$V_or_L});
-	    my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($input_reference_path_hash{$V_or_L});
-	    
-	    $refspace_hash{$V_or_L} = $bounding_box_and_spacing;
-	    $Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
-	    
-	    if ($ref_error ne '') {
-		$init_error_msg=$init_error_msg.$ref_error;
-	    }
-	    
-	    $log_msg=$log_msg."\tReference path for ${V_or_L} analysis is ${reference_path_hash{${V_or_L}}}\n";
-	    
-	}
+        my ($ref_error,$for_labels);
+        if ($V_or_L eq "label") {
+            $for_labels = 1;
+        } else {	
+            $for_labels = 0;
+        }
+
+        ($input_reference_path_hash{$V_or_L},$reference_path_hash{$V_or_L},$refname_hash{$V_or_L},$ref_error) = set_reference_path_vbm($reference_space_hash{$V_or_L},$for_labels);
+
+
+
+        if ($input_reference_path_hash{$V_or_L} eq 'rerun_init_check_later') {
+            my $log_msg = "Reference spaces not set yet. Will rerun upon start of set_reference_space module.";
+            log_info("${message_prefix}${log_msg}");
+            $Hf->set_value('rerun_init_check',1);
+            #if ($init_error_msg ne '') {
+            #    $init_error_msg = $message_prefix.$init_error_msg;
+            #}
+            return($init_error_msg);
+        } else {
+
+
+            $Hf->set_value("${V_or_L}_reference_path",$reference_path_hash{$V_or_L});
+            $Hf->set_value("${V_or_L}_input_reference_path",$input_reference_path_hash{$V_or_L});
+            $Hf->set_value("${V_or_L}_reference_space",$reference_space_hash{$V_or_L});
+            #my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($reference_path_hash{$V_or_L});
+            my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($input_reference_path_hash{$V_or_L});
+
+            $refspace_hash{$V_or_L} = $bounding_box_and_spacing;
+            $Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
+
+            if ($ref_error ne '') {
+                $init_error_msg=$init_error_msg.$ref_error;
+            }
+
+            $log_msg=$log_msg."\tReference path for ${V_or_L} analysis is ${reference_path_hash{${V_or_L}}}\n";
+
+        }
     }    
 
     my $dir_work = $Hf->get_value('dir_work');
@@ -467,64 +478,64 @@ sub set_reference_space_vbm_Init_check {
     $Hf->set_value('rigid_work_dir',$rigid_work_path);
     
     if ($refspace_hash{'existing_vbm'}) {
-	if ($refspace_hash{'vbm'} ne $refspace_hash{'existing_vbm'}) {
-	    $init_error_msg=$init_error_msg."WARNING\n\tWARNING\n\t\tWARNING\nThere is an existing vbm reference space which is not consistent with the one currently specified.".
-		"\nExisting bounding box/spacing: ${refspace_hash{'existing_vbm'}}\nSpecified bounding box/spacing: ${refspace_hash{'vbm'}}\n\n".
-		"If you really intend to change the vbm reference space, run the following commands and then try rerunning the pipeline:\n".
-		"mv ${rigid_work_path} ${rigid_work_path}_${refname_hash{'existing_vbm'}}\n".
-		"mv ${inputs_dir} ${inputs_dir}_${refname_hash{'existing_vbm'}}\n\n".
-		"If ${rigid_work_path} does not exist, but another previous \'rigid_work_dir\' (as noted in headfiles) does exist, it is highly recommended to adjust the first command to properly back up the folder.\n";
-	} else {
-	    if ($refname_hash{'vbm'} ne $refname_hash{'existing_vbm'}) {
-		$log_msg=$log_msg."\tThe specified vbm reference space is identical to the existing vbm reference space.  Existing vbm reference string will be used.\n".
-		    "\trefname_hash{\'vbm\'} = ${refname_hash{'existing_vbm'}} INSTEAD of ${refname_hash{'vbm'}}\n";
-		$Hf->set_value('vbm_refname',$refname_hash{'existing_vbm'});
-		$refname_hash{'vbm'}=$refname_hash{'existing_vbm'};
-		$Hf->set_value('vbm_refspace',$refspace_hash{'existing_vbm'});
-		$refspace_hash{'vbm'}=$refspace_hash{'existing_vbm'};
-		
-	    }
-	}
+        if ($refspace_hash{'vbm'} ne $refspace_hash{'existing_vbm'}) {
+            $init_error_msg=$init_error_msg."WARNING\n\tWARNING\n\t\tWARNING\nThere is an existing vbm reference space which is not consistent with the one currently specified.".
+            "\nExisting bounding box/spacing: ${refspace_hash{'existing_vbm'}}\nSpecified bounding box/spacing: ${refspace_hash{'vbm'}}\n\n".
+            "If you really intend to change the vbm reference space, run the following commands and then try rerunning the pipeline:\n".
+            "mv ${rigid_work_path} ${rigid_work_path}_${refname_hash{'existing_vbm'}}\n".
+            "mv ${inputs_dir} ${inputs_dir}_${refname_hash{'existing_vbm'}}\n\n".
+            "If ${rigid_work_path} does not exist, but another previous \'rigid_work_dir\' (as noted in headfiles) does exist, it is highly recommended to adjust the first command to properly back up the folder.\n";
+        } else {
+            if ($refname_hash{'vbm'} ne $refname_hash{'existing_vbm'}) {
+            $log_msg=$log_msg."\tThe specified vbm reference space is identical to the existing vbm reference space.  Existing vbm reference string will be used.\n".
+                "\trefname_hash{\'vbm\'} = ${refname_hash{'existing_vbm'}} INSTEAD of ${refname_hash{'vbm'}}\n";
+            $Hf->set_value('vbm_refname',$refname_hash{'existing_vbm'});
+            $refname_hash{'vbm'}=$refname_hash{'existing_vbm'};
+            $Hf->set_value('vbm_refspace',$refspace_hash{'existing_vbm'});
+            $refspace_hash{'vbm'}=$refspace_hash{'existing_vbm'};
+
+            }
+        }
     }
     if (($process_dir_for_labels == 1) && ($refspace_hash{'vbm'} eq $refspace_hash{'label'})) {
-	$process_dir_for_labels = 0;
-	$Hf->set_value('label_reference_path',$reference_path_hash{'vbm'});	
-	$Hf->set_value('label_refname',$refname_hash{'vbm'});
-	$Hf->set_value('label_refspace',$refspace_hash{'vbm'});
-	$Hf->set_value('label_refspace_path',$inputs_dir);
+        $process_dir_for_labels = 0;
+        $Hf->set_value('label_reference_path',$reference_path_hash{'vbm'});	
+        $Hf->set_value('label_refname',$refname_hash{'vbm'});
+        $Hf->set_value('label_refspace',$refspace_hash{'vbm'});
+        $Hf->set_value('label_refspace_path',$inputs_dir);
     }
     $Hf->set_value('base_images_for_labels',$process_dir_for_labels);
   
     
     if ($process_dir_for_labels == 1) {
-	my $intermediary_path = "${inputs_dir}/reffed_for_labels";
-	my $current_folder;
-	my $existence = 1;
-	for (my $i=1; $existence== 1; $i++) {
-	    $current_folder =  "${intermediary_path}/ref_$i";
-	    if (! -d "${current_folder}") {
-		$existence = 0;
-		$refspace_folder_hash{'label'} = $current_folder;
-		$log_msg=$log_msg."\tCreating new base images folder for label space \"ref_$i\": ${refspace_folder_hash{'label'}}\n";
-	    } else {
+        my $intermediary_path = "${inputs_dir}/reffed_for_labels";
+        my $current_folder;
+        my $existence = 1;
+        for (my $i=1; $existence== 1; $i++) {
+            $current_folder =  "${intermediary_path}/ref_$i";
+            if (! -d "${current_folder}") {
+                $existence = 0;
+                $refspace_folder_hash{'label'} = $current_folder;
+                $log_msg=$log_msg."\tCreating new base images folder for label space \"ref_$i\": ${refspace_folder_hash{'label'}}\n";
+                } else {
 
-		($refspace_hash{'existing_label'},$refname_hash{'existing_label'}) = read_refspace_txt($current_folder,$split_string);
+                ($refspace_hash{'existing_label'},$refname_hash{'existing_label'}) = read_refspace_txt($current_folder,$split_string);
 
-		if ($refspace_hash{'label'} eq $refspace_hash{'existing_label'}) {
+                if ($refspace_hash{'label'} eq $refspace_hash{'existing_label'}) {
 
-		    $existence = 0;
-		    $refspace_folder_hash{'label'} = $current_folder;
+                    $existence = 0;
+                    $refspace_folder_hash{'label'} = $current_folder;
 
-		    if ($refname_hash{'label'} ne $refname_hash{'existing_label'}) {
-			$log_msg=$log_msg."\tThe specified label reference space is identical to the existing label reference space.".
-			    " Existing label reference string will be used.\n".
-			    "\t\'label_refname\' = ${refname_hash{'existing_label'}} INSTEAD of ${refname_hash{'label'}}\n";
-			$Hf->set_value('label_refname',$refname_hash{'existing_label'});
-			$refname_hash{'label'} = $refname_hash{'existing_label'};
-		    }
-		} 
-	    }    
-	}
+                    if ($refname_hash{'label'} ne $refname_hash{'existing_label'}) {
+                        $log_msg=$log_msg."\tThe specified label reference space is identical to the existing label reference space.".
+                            " Existing label reference string will be used.\n".
+                            "\t\'label_refname\' = ${refname_hash{'existing_label'}} INSTEAD of ${refname_hash{'label'}}\n";
+                        $Hf->set_value('label_refname',$refname_hash{'existing_label'});
+                        $refname_hash{'label'} = $refname_hash{'existing_label'};
+                    }
+                } 
+            }    
+        }
 	
     }
 
@@ -537,12 +548,12 @@ sub set_reference_space_vbm_Init_check {
 
 
     if ($create_labels==1){ 
-	$Hf->set_value('label_refspace_folder',$refspace_folder_hash{'label'});
-	if ($process_dir_for_labels) {
-	    $Hf->set_value('label_reference_path',$reference_path_hash{'label'});
-	} else {
-	    $Hf->set_value("label_reference_path",$reference_path_hash{'vbm'});
-	} 
+        $Hf->set_value('label_refspace_folder',$refspace_folder_hash{'label'});
+        if ($process_dir_for_labels) {
+            $Hf->set_value('label_reference_path',$reference_path_hash{'label'});
+        } else {
+            $Hf->set_value("label_reference_path",$reference_path_hash{'vbm'});
+        } 
     }
 
     
@@ -714,7 +725,7 @@ sub set_reference_path_vbm {
 	if ($runno_list =~ /[,]*${ref_option}[,]*/ ) {
 	    $ref_runno=$ref_option;
 	} else {
-	    my @control_runnos= split(',',$Hf->get_value('control_comma_list'));
+	    my @control_runnos= split(',',$Hf->get_value('control_comma_list')); #switched from "control" to "template" 1 May 2018
 	    $ref_runno = shift(@control_runnos);
 	}
 	print " Ref_runno = ${ref_runno}\n";
@@ -722,7 +733,7 @@ sub set_reference_path_vbm {
 	#$ref_path = get_nii_from_inputs($preprocess_dir,"native_reference",$ref_runno);
 	#$ref_path = get_nii_from_inputs($preprocess_dir,"reference_image_native",$ref_runno);# Updated 1 September 2016
 	
-	$input_ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,""); # Will stick with looking for ANY contrast from $ref_runno. 16 March 2017
+	$input_ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,""); # Will stick with looking for ANY contrast from $ . 16 March 2017
 	
 	$error_message='';	
 	

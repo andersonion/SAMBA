@@ -415,11 +415,11 @@ sub mask_images_vbm_Init_check {
     $port_atlas_mask = $Hf->get_value('port_atlas_mask');
 
     if ($pre_masked  == 1) {
-	$do_mask = 0;
-	$Hf->set_value('do_mask',$do_mask);
-	$port_atlas_mask = 0;
-	$Hf->set_value('port_atlas_mask',$port_atlas_mask);
-	$log_msg=$log_msg."\tImages have been pre-masked. No skulls will be stripped today.\n";
+        $do_mask = 0;
+        $Hf->set_value('do_mask',$do_mask);
+        $port_atlas_mask = 0;
+        $Hf->set_value('port_atlas_mask',$port_atlas_mask);
+        $log_msg=$log_msg."\tImages have been pre-masked. No skulls will be stripped today.\n";
     }
     my $rigid_atlas_name = $Hf->get_value('rigid_atlas_name');
     $port_atlas_mask_path = $Hf->get_value('port_atlas_mask_path');
@@ -440,126 +440,130 @@ sub mask_images_vbm_Init_check {
     
     my $this_path;
     if ($rigid_atlas_name eq 'NO_KEY') {
-	if ($rigid_target eq 'NO_KEY') {
-	    $Hf->set_value('rigid_atlas_path','null');
-	    $Hf->set_value('rigid_contrast','null');
-	    $log_msg=$log_msg."\tNo rigid target or atlas has been specified. No rigid registration will be performed. Rigid contrast is \"null\".\n";
-	} else {
-	    if ($runno_list =~ /[,]*${rigid_target}[,]*}/) {
-		$this_path=get_nii_from_inputs($preprocess_dir,$rigid_target,$rigid_contrast);
-		if ($this_path !~ /[\n]+/) {
-		   my ($dumdum,$this_name,$this_ext)= fileparts($this_path,2);
-		   my $that_path = "${inputs_dir}/${this_name}${this_ext}";
-		   #$Hf->set_value('rigid_atlas_path',$that_path);
-		   $Hf->set_value('original_rigid_atlas_path',$that_path); #Updated 1 September 2016
-		   $log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${that_path} as the expected rigid atlas path.\n";
-		} else {
-		    $init_error_msg=$init_error_msg."The desired target for rigid registration appears to be runno: ${rigid_target}, ".
-			"but could not locate appropriate image.\nError message is: ${this_path}";	    
-		}
-	    } else {
-		if (data_double_check($rigid_target)) {
-		    $log_msg=$log_msg."\tNo valid rigid targets have been implied or specified (${rigid_target} could not be validated). Rigid registration will be skipped.\n";
-		    $Hf->set_value('rigid_atlas_path','');
-		    $Hf->set_value('original_rigid_atlas_path',''); # Added 1 September 2016
-		} else {
-		    $log_msg=$log_msg."\tThe specified file to be used as the original rigid target exists: ${rigid_target}. (Note: it has not been verified to be a valid image.)\n";
-		   # $Hf->set_value('rigid_atlas_path',$rigid_target);
-		    $Hf->set_value('original_rigid_atlas_path',$rigid_target);#Updated 1 September 2016
-		}
-	    }
-	}
+        if ($rigid_target eq 'NO_KEY') {
+            $Hf->set_value('rigid_atlas_path','null');
+            $Hf->set_value('rigid_contrast','null');
+            $log_msg=$log_msg."\tNo rigid target or atlas has been specified. No rigid registration will be performed. Rigid contrast is \"null\".\n";
+        } else {
+            if ($runno_list =~ /[,]*${rigid_target}[,]*}/) {
+                $this_path=get_nii_from_inputs($preprocess_dir,$rigid_target,$rigid_contrast);
+                if ($this_path !~ /[\n]+/) {
+                   my ($dumdum,$this_name,$this_ext)= fileparts($this_path,2);
+                   my $that_path = "${inputs_dir}/${this_name}${this_ext}";
+                   #$Hf->set_value('rigid_atlas_path',$that_path);
+                   $Hf->set_value('original_rigid_atlas_path',$that_path); #Updated 1 September 2016
+                   $log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${that_path} as the expected rigid atlas path.\n";
+                } else {
+                    $init_error_msg=$init_error_msg."The desired target for rigid registration appears to be runno: ${rigid_target}, ".
+                    "but could not locate appropriate image.\nError message is: ${this_path}";	    
+                }
+            } else {
+                if (data_double_check($rigid_target)) {
+                    $log_msg=$log_msg."\tNo valid rigid targets have been implied or specified (${rigid_target} could not be validated). Rigid registration will be skipped.\n";
+                    $Hf->set_value('rigid_atlas_path','');
+                    $Hf->set_value('original_rigid_atlas_path',''); # Added 1 September 2016
+                } else {
+                    $log_msg=$log_msg."\tThe specified file to be used as the original rigid target exists: ${rigid_target}. (Note: it has not been verified to be a valid image.)\n";
+                   # $Hf->set_value('rigid_atlas_path',$rigid_target);
+                    $Hf->set_value('original_rigid_atlas_path',$rigid_target);#Updated 1 September 2016
+                }
+            }
+        }
     } else {
-	if ($rigid_contrast eq 'NO_KEY') {
-	    $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.\n";
-	} else {
-	    my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
-	    if (! -d $rigid_atlas_dir) {
-		if ($rigid_atlas_dir =~ s/\/data/\/CIVMdata/) {}
-	    }
-	    my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
-	    #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
-	    if (data_double_check($expected_rigid_atlas_path)) {
-		$expected_rigid_atlas_path = "${expected_rigid_atlas_path}.gz";
-	    }
-	    $source_rigid_atlas_path = $expected_rigid_atlas_path;
-	    my $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast); #Added 14 March 2017
-	    if ($test_path =~ s/\.gz//) {} # Strip '.gz', 15 March 2017
-	    my ($dumdum,$rigid_atlas_filename,$rigid_atlas_ext)= fileparts($test_path,2);
-	    #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
-	    $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_filename}${rigid_atlas_ext}"; #Updated 14 March 2017
+        if (($rigid_contrast eq 'NO_KEY') || ($rigid_contrast eq 'UNDEFINED_VALUE')){
+            create_affine_reg_to_atlas_vbm::create_affine_reg_to_atlas_vbm_Init_check();
+        }
 
-	    if (data_double_check($rigid_atlas_path))  {
-		$rigid_atlas_path=$rigid_atlas_path.'.gz';
-		if (data_double_check($rigid_atlas_path))  {
-		    $original_rigid_atlas_path  = get_nii_from_inputs($preprocess_dir,$rigid_atlas_name,$rigid_contrast);
-		    if ($original_rigid_atlas_path =~ /[\n]+/) {
-			$original_rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);#Updated 1 September 2016
-			if (data_double_check($original_rigid_atlas_path))  { # Updated 1 September 2016
-			    $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
-			} else {
-			    `cp ${original_rigid_atlas_path} ${preprocess_dir}`;
-			    if ($original_rigid_atlas_path !~ /\.gz$/) {
-				`gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii`;
-			    } 
-			}
-		    }
-		} else {
-		    `gzip ${rigid_atlas_path}`;
-		    #$rigid_atlas_path=$rigid_atlas_path.'.gz'; #If things break, look here! 27 Sept 2016
-		    $original_rigid_atlas_path = $expected_rigid_atlas_path;
-		}
-	    } else {
-		$original_rigid_atlas_path = $expected_rigid_atlas_path;
-	    }
-	    
-	    $Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
-	    $Hf->set_value('original_rigid_atlas_path',$original_rigid_atlas_path); # Updated 1 September 2016
-	}
+        if (($rigid_contrast eq 'NO_KEY') || ($rigid_contrast eq 'UNDEFINED_VALUE')){
+            $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.\n";
+        } else {
+            my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
+            if (! -d $rigid_atlas_dir) {
+                if ($rigid_atlas_dir =~ s/\/data/\/CIVMdata/) {}
+            }
+            my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
+            #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
+            if (data_double_check($expected_rigid_atlas_path)) {
+                $expected_rigid_atlas_path = "${expected_rigid_atlas_path}.gz";
+            }
+            $source_rigid_atlas_path = $expected_rigid_atlas_path;
+            my $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast); #Added 14 March 2017
+            if ($test_path =~ s/\.gz//) {} # Strip '.gz', 15 March 2017
+            my ($dumdum,$rigid_atlas_filename,$rigid_atlas_ext)= fileparts($test_path,2);
+            #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
+            $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_filename}${rigid_atlas_ext}"; #Updated 14 March 2017
+
+            if (data_double_check($rigid_atlas_path))  {
+                $rigid_atlas_path=$rigid_atlas_path.'.gz';
+                if (data_double_check($rigid_atlas_path))  {
+                    $original_rigid_atlas_path  = get_nii_from_inputs($preprocess_dir,$rigid_atlas_name,$rigid_contrast);
+                    if ($original_rigid_atlas_path =~ /[\n]+/) {
+                        $original_rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);#Updated 1 September 2016
+                        if (data_double_check($original_rigid_atlas_path))  { # Updated 1 September 2016
+                            $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
+                        } else {
+                            `cp ${original_rigid_atlas_path} ${preprocess_dir}`;
+                            if ($original_rigid_atlas_path !~ /\.gz$/) {
+                                `gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii`;
+                            } 
+                        }
+                    }
+                } else {
+                    `gzip ${rigid_atlas_path}`;
+                    #$rigid_atlas_path=$rigid_atlas_path.'.gz'; #If things break, look here! 27 Sept 2016
+                    $original_rigid_atlas_path = $expected_rigid_atlas_path;
+                }
+            } else {
+                $original_rigid_atlas_path = $expected_rigid_atlas_path;
+            }
+
+            $Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
+            $Hf->set_value('original_rigid_atlas_path',$original_rigid_atlas_path); # Updated 1 September 2016
+        }
     }
 
 ########
 
     if ($do_mask eq 'NO_KEY') { $do_mask=0;}
-    if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
-    my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii.gz"; ## Set default mask for porting here!
-    if (! -f $default_mask) {
-	if ($default_mask =~ s/\/data/\/CIVMdata/) {
-	    if (! -f $default_mask) {
-		$default_mask = "${default_mask}.gz";
-		if (! -f $default_mask) {
-		    if ($default_mask =~ s/\/CIVMdata/\/data/) {}
-		}
-	    }
-	}
+        if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
+        my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii.gz"; ## Set default mask for porting here!
+        if (! -f $default_mask) {
+            if ($default_mask =~ s/\/data/\/CIVMdata/) {
+                if (! -f $default_mask) {
+                    $default_mask = "${default_mask}.gz";
+                if (! -f $default_mask) {
+                    if ($default_mask =~ s/\/CIVMdata/\/data/) {}
+                }
+            }
+        }
     }
 
     if (($do_mask == 1) && ($port_atlas_mask == 1)) {
-	#print "Port atlas mask path = ${port_atlas_mask_path}\n\n";
-	if ($port_atlas_mask_path eq 'NO_KEY') {
-	    #print "source_rigid_atlas_path = ${source_rigid_atlas_path}\n\n\n\n";
-	    my ($dummy1,$rigid_dir,$dummy2);
-	    if (! data_double_check($source_rigid_atlas_path)){
-		($rigid_dir,$dummy1,$dummy2) = fileparts($source_rigid_atlas_path,2);
-		$port_atlas_mask_path = get_nii_from_inputs($rigid_dir,$rigid_atlas_name,'mask');
-		#print "Port atlas mask path = ${port_atlas_mask_path}\n\n"; #####
-		#pause(15);
-		if ($port_atlas_mask_path =~ /[\n]+/) {
-		    my ($dummy1,$original_rigid_dir,$dummy2);
-		    ($original_rigid_dir,$dummy1,$dummy2) = fileparts($source_rigid_atlas_path,2);
-		    $port_atlas_mask_path = get_nii_from_inputs($original_rigid_dir,$rigid_atlas_name,'mask');      
-		    if ($port_atlas_mask_path =~ /[\n]+/) {
-			$port_atlas_mask_path=$default_mask;  # Use default mask
-			$log_msg=$log_msg."\tNo atlas mask specified; porting default atlas mask: ${port_atlas_mask_path}\n";
-		    } else {
-			`cp ${port_atlas_mask} ${rigid_dir}`;
-		    }
-		} else {
-		    $log_msg=$log_msg."\tNo atlas mask specified; porting rigid ${rigid_atlas} atlas mask: ${port_atlas_mask_path}\n";
-		}
+        #print "Port atlas mask path = ${port_atlas_mask_path}\n\n";
+        if ($port_atlas_mask_path eq 'NO_KEY') {
+            #print "source_rigid_atlas_path = ${source_rigid_atlas_path}\n\n\n\n";
+            my ($dummy1,$rigid_dir,$dummy2);
+            if (! data_double_check($source_rigid_atlas_path)){
+            ($rigid_dir,$dummy1,$dummy2) = fileparts($source_rigid_atlas_path,2);
+            $port_atlas_mask_path = get_nii_from_inputs($rigid_dir,$rigid_atlas_name,'mask');
+            #print "Port atlas mask path = ${port_atlas_mask_path}\n\n"; #####
+            #pause(15);
+            if ($port_atlas_mask_path =~ /[\n]+/) {
+                my ($dummy1,$original_rigid_dir,$dummy2);
+                ($original_rigid_dir,$dummy1,$dummy2) = fileparts($source_rigid_atlas_path,2);
+                $port_atlas_mask_path = get_nii_from_inputs($original_rigid_dir,$rigid_atlas_name,'mask');      
+                if ($port_atlas_mask_path =~ /[\n]+/) {
+                    $port_atlas_mask_path=$default_mask;  # Use default mask
+                    $log_msg=$log_msg."\tNo atlas mask specified; porting default atlas mask: ${port_atlas_mask_path}\n";
+                } else {
+                    `cp ${port_atlas_mask} ${rigid_dir}`;
+                }
+            } else {
+                $log_msg=$log_msg."\tNo atlas mask specified; porting rigid ${rigid_atlas} atlas mask: ${port_atlas_mask_path}\n";
+            }
 	    } else {
-		$port_atlas_mask_path=$default_mask;  # Use default mask
-		$log_msg=$log_msg."\nNo atlas mask specified and rigid atlas being used; porting default atlas mask: ${port_atlas_mask_path}\n";
+            $port_atlas_mask_path=$default_mask;  # Use default mask
+            $log_msg=$log_msg."\nNo atlas mask specified and rigid atlas being used; porting default atlas mask: ${port_atlas_mask_path}\n";
 	    }
 	}  
 	
@@ -572,21 +576,21 @@ sub mask_images_vbm_Init_check {
 
     my $threshold_code;
     if ($do_mask) {
-	$threshold_code = $Hf->get_value('threshold_code');
-	if ($threshold_code eq 'NO_KEY') {
-	    $threshold_code = 4;
-	    $Hf->set_value('threshold_code',$threshold_code);
-	    $log_msg=$log_msg."\tThreshold code for skull-stripping is not set. Will use default value of ${threshold_code}.\n";
-	}    
+        $threshold_code = $Hf->get_value('threshold_code');
+        if (($threshold_code eq 'NO_KEY') || ($threshold_code eq 'UNDEFINED_VALUE')) {
+            $threshold_code = 4;
+            $Hf->set_value('threshold_code',$threshold_code);
+            $log_msg=$log_msg."\tThreshold code for skull-stripping is not set. Will use default value of ${threshold_code}.\n";
+        }    
     }
 
 
     if ($log_msg ne '') {
-	log_info("${message_prefix}${log_msg}");
+        log_info("${message_prefix}${log_msg}");
     }
  
     if ($init_error_msg ne '') {
-	$init_error_msg = $message_prefix.$init_error_msg;
+    	$init_error_msg = $message_prefix.$init_error_msg;
     }
     return($init_error_msg);
 }

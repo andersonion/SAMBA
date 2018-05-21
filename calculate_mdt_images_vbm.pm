@@ -185,6 +185,15 @@ sub calculate_average_mdt_image {
     my ($cmd,$avg_cmd,$update_cmd,$cleanup_cmd,$copy_cmd);
     my ($out_file, $intermediate_file);
 	$out_file = "${current_path}/MDT_${contrast}.nii.gz";
+    
+    my $test_dim =  `fslhd ${intermediate_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;
+    my $opt_e_string='';
+    if ($intermediate_file =~ /tensor/) {
+        $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
+    } elsif ($test_dim > 1) {
+        $opt_e_string = ' -e 3 ';
+    } 
+
     if ($mdt_creation_strategy eq 'iterative') {
 
 	my $warp_train_car = " -t ${last_update_warp} ";
@@ -192,7 +201,7 @@ sub calculate_average_mdt_image {
 
 	#$out_file = "${current_path}/MDT_${contrast}.nii.gz"; #moved outside of if statement
 	$intermediate_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
- 	$update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";
+ 	$update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";
 	$cleanup_cmd = "if [[ -f ${out_file} ]]; then rm ${intermediate_file}; fi\n";
 	if ($contrast eq $mdt_contrast) { # This needs to be adapted to support multiple mdt contrasts!
 	    my $backup_file = "${master_template_dir}/${template_name}_i${current_iteration}.nii.gz";

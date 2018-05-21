@@ -24,6 +24,8 @@ use List::MoreUtils qw(uniq);
 use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $syn_params $permissions $valid_formats_string $nodes $reservation $mdt_to_reg_start_time $civm_ecosystem);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
 
+use text_sheet_utils;
+
 ## This may be hacky, but I'm sick of trying to point this to the right place. 19 December 2017
 if (! -d $WORKSTATION_DATA) {
 if ($WORKSTATION_DATA =~ s/\.\.\/data/\.\.\/CIVMdata/) {}
@@ -39,7 +41,7 @@ $permissions = 0755;
 my $interval = 0.1; ##Normally 1
 $valid_formats_string = 'hdr|img|nii|nhdr';
 
-$civm_ecosystem = 0; # Begin implementing handling of code that is CIVM-specific
+$civm_ecosystem = 1; # Begin implementing handling of code that is CIVM-specific
 if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
     $civm_ecosystem = 1;
 } elsif ( $ENV{'BIGGUS_DISKUS'} =~ /civmnas4/) {
@@ -196,11 +198,30 @@ $U_code
 $U_species_m00
 
 $image_dimensions
+
+$participants
+
+@comparisons
+@predictors
  );
 
 
 sub vbm_pipeline_workflow { 
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
+
+
+# Define template group
+
+# Create [stat] comparison groups
+# Figure out better method than "group_1" "group_2" etc, maybe a hash structure with group_name/group_description/group_members, etc
+
+
+# Concatanate and uniq comparison list to create reg_to_mdt(?) group list
+
+# Create a master list of all specimen that are to be pre-processed and rigid/affinely aligned
+
+
+## Need to throw errors for empty lists, maybe dump headers for case of header not found; dump values from column in case of existing header
 
 if (! @group_1) {
     if (defined $group_1_runnos) {
@@ -531,9 +552,13 @@ if (defined $do_connectivity) {
     $Hf->set_value('do_connectivity',$do_connectivity);
 }
 
-$Hf->set_value('rigid_atlas_name',$atlas_name);
-$Hf->set_value('rigid_contrast',$rigid_contrast);
+if (defined $atlas_name) {
+    $Hf->set_value('rigid_atlas_name',$atlas_name);
+}
 
+if (defined $rigid_contrast) {
+    $Hf->set_value('rigid_contrast',$rigid_contrast);
+}
 
 $Hf->set_value('mdt_contrast',$mdt_contrast);
 
@@ -558,6 +583,13 @@ if (defined $fixed_image_for_mdt_to_atlas_registratation) {
 }
 
 $Hf->set_value('number_of_nodes_used',$nodes);
+
+
+if ((! defined $create_labels) && (defined $label_atlas_name)){
+    $create_labels = 1;
+} elsif (! defined $label_atlas_name) {
+    $create_labels = 0;
+}
 
 if ($create_labels) {
     my $label_atlas_dir = "${WORKSTATION_DATA}/atlas/${label_atlas_name}";
@@ -1117,7 +1149,26 @@ my $email_content = $subject_line.$completion_message.$results_message.$local_ti
 } #end main
 
 #---------------------
-sub some_subroutine {
+sub find_group_in_tsv {
 #---------------------
 
+my ($tsv_file,$report_field,$_ref_to_criteria_array)=(@_);
+
+
+return();
+
 }
+
+#---------------------
+#sub load_tsv {
+
+#if (! exists $csv_data_file->{"t_line"}) {
+#todo: clobber line endings, run again.
+#my $tmp_path="/tmp/.pipetmp.csv";
+#my $cmd = "sed -E \'s/[\\r]/\\n/g\' ${csv_path} > ${tmp_path}";
+#print "\n\n$cmd\n\n\n";
+#qx($cmd);
+#$csv_data_file=text_sheet_utils::loader($tmp_path,$h_info);
+#`rm $tmp_path`;
+#}
+#}

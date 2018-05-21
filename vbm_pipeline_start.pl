@@ -26,6 +26,8 @@ use List::MoreUtils qw(uniq);
 use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $syn_params $permissions  $valid_formats_string $nodes $reservation $mdt_to_reg_start_time);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
 
+use JSON::Parse qw(json_file_to_perl valid_json assert_valid_json);
+
 my $full_pipeline_path = abs_path($0);
 my ($pipeline_path,$dummy1,$dummy2) = fileparts($full_pipeline_path,2);
 
@@ -204,6 +206,11 @@ $U_species_m00
 $U_code
 
 $image_dimensions
+
+$participants
+
+@comparisons
+@predictors
  );
 
 
@@ -211,20 +218,22 @@ $image_dimensions
 my $kevin_spacey='';
 foreach my $entry ( keys %main:: )  { # Build a string of all initialized variables, etc, that contain only letters, numbers, or '_'.
     if ($entry =~ /^[A-Za-z0-9_]+$/) {
-	$kevin_spacey = $kevin_spacey." $entry ";
+    	$kevin_spacey = $kevin_spacey." $entry ";
     }
 }
 #print "$kevin_spacey\n\n\n";
 my $tmp_rigid_atlas_name='';
 {
-    if ($start_file) {
-	load_SAMBA_parameters($start_file);
+    if ($start_file =~ /.*\.headfile$/) {
+        load_SAMBA_parameters($start_file);
+    } elsif ($start_file =~ /.*\.json$/) {
+        load_SAMBA_json_parameters($start_file); 
     } else {
-	study_variables_vbm();
+        study_variables_vbm();
     }
 
     if (! defined $do_vba) {
-	$do_vba = 1;
+        $do_vba = 1;
     }
     vbm_pipeline_workflow();
 
@@ -244,43 +253,110 @@ sub load_SAMBA_parameters {
 	error_out(" Unable to read SAMBA parameter file ${param_file}."); 
 	return(0);
     }
-    
-    foreach ($tempHf->get_keys) {
-	my $val = $tempHf->get_value($_);
-	if ($val eq '') {
-	    print "$val\n";
-	}
+    my $is_headfile=1;  
+    assign_parameters($tempHf,$is_headfile);
+    }
 
-	if ($kevin_spacey =~ /$_/) {
-	    if ($val) {
-#		print "$_\n";
-		eval("\$$_=\'$val\'");
-#		if (defined ${$_}) {
-		    print "$_ = ${$_}\n";
-#		}	   
-            if ($_ eq 'rigid_atlas_name'){
-                $tmp_rigid_atlas_name=${$_};
+# ------------------
+sub load_SAMBA_json_parameters {
+# ------------------
+    my ($json_file) = (@_);
+    my $tempHf = json_file_to_perl($json_file);
+    if (0){
+    eval {
+        assert_valid_json (  $json_file);
+    };
+    if ($@) {
+        error_out("Invalid .JSON parameter file ${json_file}: $@\n");
+    #}
+    #if (! valid_json($json_file)) {
+    #    error_out(" Invalid .JSON parameter file ${json_file}."); 
+        return(0);
+    }
+    }
+    
+    my $is_headfile=0;
+    assign_parameters($tempHf,$is_headfile);
+
+    }
+
+
+# ------------------
+sub assign_parameters {
+# ------------------
+
+    my ($tempHf,$is_headfile) = (@_); # Current headfile implementation only supports strings/scalars
+
+    if ($is_headfile) {
+        foreach ($tempHf->get_keys) {
+            my $val = $tempHf->get_value($_);
+            if ($val eq '') {
+                print "$val\n";
+            }
+
+            if ($kevin_spacey =~ /$_/) {
+                if ($val) {
+#                   print "$_\n";
+                    eval("\$$_=\'$val\'");
+#               if (defined ${$_}) {
+                    print "$_ = ${$_}\n";
+#                }	   
+                    if ($_ eq 'rigid_atlas_name'){
+                        $tmp_rigid_atlas_name=${$_};
+                    }
+                }
             }
         }
-	}
-    }
-    
-    my @ps_array;
-    if (! defined $project_name){
-	my $project_string = $tempHf->get_value('project_id');
-	@ps_array = split('_',$project_string);
-	shift(@ps_array);
-	my $ps2 = shift(@ps_array);
-	if ($ps2  =~ /^([0-9]+)([a-zA-Z]+)([0-9]+)$/) {
-	    $project_name = "$1.$2.$3";
-    }
+    } else {
+        foreach (keys %{ $tempHf }) {
+            if ($kevin_spacey =~ /\b$_\b/) {
 
-	if (! defined $optional_suffix) {
-	    $optional_suffix = join('_',@ps_array);
-        if ($tmp_rigid_atlas_name ne ''){
-            if ($optional_suffix =~ s/^(${tmp_rigid_atlas_name}[_]?)//) {}
+            #my $val = %{ $tempHf }->{($_)};
+            #print "\n\n$_\n\n"; 
+            my $val = %{ $tempHf }->{$_};
+            if ($val ne '') {
+                #print "LOOK HERE TO SEE NOTHING\$val = ${val}\n";
+                if ($val =~ /^ARRAY\(0x[0-9,a-f]{5,}/){
+                    eval("\@$_=\'@$val\'");
+                    print "$_ = @{$_}\n"; 
+                } elsif ($val =~ /^HASH\(0x[0-9,a-f]{5,}/){
+                    eval("\%$_=\'%$val\'");
+                    print "$_ = %{$_}\n"; 
+
+                } else { # It's just a normal scalar.
+                    eval("\$$_=\'$val\'");
+                    print "$_ = ${$_}\n";   
+                    if ($_ eq 'rigid_atlas_name') {
+                        $tmp_rigid_atlas_name=${$_};
+                    }
+                }
+            }
         }
-	}
+    }
+    }
+    my @ps_array;
+
+    if (! defined $project_name) {
+        my $project_string;
+        if ($is_headfile) {
+            $project_string = $tempHf->get_value('project_id');
+         } else {
+            $project_string = %{ $tempHf }->{"project_id"};
+         }
+
+        @ps_array = split('_',$project_string);
+        shift(@ps_array);
+        my $ps2 = shift(@ps_array);
+        if ($ps2  =~ /^([0-9]+)([a-zA-Z]+)([0-9]+)$/) {
+            $project_name = "$1.$2.$3";
+        }
+
+        if (! defined $optional_suffix) {
+            $optional_suffix = join('_',@ps_array);
+            if ($tmp_rigid_atlas_name ne ''){
+                if ($optional_suffix =~ s/^(${tmp_rigid_atlas_name}[_]?)//) {}
+            }
+        }
 
     }
 
@@ -317,14 +393,27 @@ sub load_SAMBA_parameters {
     }
 
     if (! defined  $atlas_name){
-        my $r_atlas_name = $tempHf->get_value('rigid_atlas_name');
-        my $l_atlas_name = $tempHf->get_value('label_atlas_name');
-        if ($r_atlas_name ne 'NO_KEY') {
-            $atlas_name = $r_atlas_name;
-        } elsif ($l_atlas_name ne 'NO_KEY') {
-            $atlas_name = $l_atlas_name;
+        my ($r_atlas_name,$l_atlas_name);
+        if ($is_headfile) {
+            $r_atlas_name = $tempHf->get_value('rigid_atlas_name');
+            $l_atlas_name = $tempHf->get_value('label_atlas_name');
+            if ($r_atlas_name ne 'NO_KEY') {
+                $atlas_name = $r_atlas_name;
+            } elsif ($l_atlas_name ne 'NO_KEY') {
+                $atlas_name = $l_atlas_name;
+            } else {
+                $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
+            }
         } else {
-            $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
+            $r_atlas_name = %{ $tempHf }->{'rigid_atlas_name'};
+            $l_atlas_name = %{ $tempHf }->{'label_atlas_name'};
+            if ($r_atlas_name ne '') {
+                $atlas_name = $r_atlas_name;
+            } elsif ($l_atlas_name ne '') {
+                $atlas_name = $l_atlas_name;
+            } else {
+                $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
+            }
         }
     }
 
