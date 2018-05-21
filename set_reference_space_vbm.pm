@@ -401,7 +401,7 @@ sub set_reference_space_vbm_Init_check {
     $reference_space_hash{'vbm'}=$Hf->get_value('vbm_reference_space');
     $reference_space_hash{'label'}=$Hf->get_value('label_reference_space');     
 
-    if ((! defined $reference_space_hash{'vbm'}) || ($reference_space_hash{'vbm'} eq ('NO_KEY' || ''))) {
+    if ((! defined $reference_space_hash{'vbm'}) || ($reference_space_hash{'vbm'} eq ('NO_KEY' || '' || 'UNDEFINED_VALUE'))) {
         $log_msg=$log_msg."\tNo VBM reference space specified.  Will use native image space.\n";
         $reference_space_hash{'vbm'} = 'native';
     }

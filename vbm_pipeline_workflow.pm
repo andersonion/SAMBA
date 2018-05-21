@@ -443,7 +443,10 @@ if (defined $image_dimensions) {
     $Hf->set_value('image_dimensions',3);
 }
 
-$Hf->set_value('vbm_reference_space',$vbm_reference_space);
+if (defined $vbm_reference_space) {
+    $Hf->set_value('vbm_reference_space',$vbm_reference_space);
+}
+
 if ($label_reference ne '') {
     $Hf->set_value('label_reference_space',$label_reference);
 }
