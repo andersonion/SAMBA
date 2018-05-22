@@ -1,0 +1,125 @@
+VBA Pipeline checklist, 22 May 2018, BJ Anderson
+
+These notes assume:
+1) diffusion scalars and 4-d nifti will be used in the pipeline
+2) tensor_create has already been ran for all runnos
+3) the standard tensor_create inputs/work/results exist either on the cluster, on a CIVM workstation, or have been archived
+4) images were acquired in standard orientation (ARI)
+5) you have full credentials on the cluster, and have a scratch space that exists
+
+
+Main tasks:
+1) Copy and appropriately rename the generic startup headfile.
+2) Adjust values in headfile to meet your needs.
+3) Initialize pipeline with headfile.
+4) Visually inspect results of automated skull stripping [Optional, but highly recommended].
+
+
+Task 1:
+Copy the generic startup headfile to your home directory.
+In a cluster terminal:
+
+pipeline_run_description=make_BTBR_template; # This variable is only for your purposes, so name it something that makes sense to you.
+cp /cm/shared/CIVMdata/SAMBA_startup_template.headfile ~/${pipeline_run_description}.headfile
+
+Task 2:
+Open your headfile in the text editor of your choice. Matlab works well enough for this task.
+In a cluster terminal:
+
+rad_mat ~/${pipeline_run_description}.headfile
+
+This comments in this headfile attempt to be self-explanatory.
+As a reminder, here are the important ones that must be filled in by the user:
+project_name
+control_comma_list
+
+Double-check these to make sure they have the desired value:
+rigid_atlas_name
+label_atlas_name
+do_mask
+do_connectivity
+do_vba
+
+If performing vba, pay attention to these:
+group_1
+group_2
+template_predictor
+
+
+Save and close when done.
+
+
+Task 3:
+Start the pipeline up with the following command (in a cluster terminal):
+
+SAMBA_startup ${start_headfile}
+
+If you have a cluster reservation, set it as a variable and add it to the command:
+
+reservation_name=rja20_2
+SAMBA_startup ${start_headfile} ${reservation_name}
+
+
+Optional Task 4:
+If masking, it is worthwhile to visually inspect the results before letting the pipeline to run on too long.
+You can test to see if masked images exist in a cluster terminal:
+
+work_folder=${BIGGUS_DISKUS}/VBM_16gaj38_chass166-work/ # You will need to set this, but it usually looks something like this.
+ls -arlth ${work_folder}preprocess/*masked.nii*
+
+Once they exist, you can visually inspect them with ImageJ.
+If you do not already have an instance of ImageJ running on the cluster, use the following commands in a cluster terminal:
+
+ijstart='java -mx160000M -jar /cm/shared/apps/ImageJ/ij.jar -ijpath /cm/shared/apps/ImageJ/plugins/..'
+$ijstart
+
+First open, the atlas reference image; in the ImageJ menu:
+File->Open
+Navigate to your pipeline work folder, then to preprocess/base_images
+Select the file that has the name of your target atlas.  For example:
+chass_symmetric2_DWI.nii.gz
+
+Now open all your masked images:
+In the ImageJ menu:
+Plugins->000_james_imagemacros->all-open files in directory recursively regex
+
+Navigate to your pipeline work folder, then to preprocess/base_images
+
+For the regular expression, (assuming you have dwi images) use ".*dwi_masked.nii[\.gz]+$" without the quotes.
+
+Once all images have finished loading:
+Use the slider at the bottom of one image to navigate to any slice near the middle of the volume.
+Set the contrast of one in via the menu:
+
+Image->Adjust->Brightness/Contrast
+Press the 'Auto' button
+Press the 'Set' button and in the pop-up, check the box "Propagate to all other open images" and select OK.
+
+In the menu, select:
+Analyze->Tools->Synchronize Windows
+Select "Synchronize All"
+
+In the menu, select:
+Window->Tile
+
+Using one image, use its slider to scroll through the various slices. Locate your atlas image; you want your masked images to roughly match this.
+Check for:
+1) Are all images in the same orientation?
+2) Do any images have too much tissue masked out? In particular pay attention to the two L/R lobes near the brain stem, and the olfactory bulb on the opposite end.
+3) Do any images need more tissue masked out?  Pay attention to the olfactory bulb, as this is often a trouble spot in this regard.
+4) Do any images otherwise look abnormal compared to the rest?
+
+
+Once you have reviewed all the images, look over any you have listed.
+If you have any that are in the control_comma_list (template group) IMMEDIATELY cancel your pipeline:
+In the cluster terminal running the pipeline:
+Press the keys Cntrl+C to kill the pipeline.
+
+Assuming you are not running anything else on the cluster, you can cancel all your jobs witht the following command in your cluster terminal:
+scancel -u $USER
+
+Notify James or BJ to help you review and correct the trouble images before restarting the pipeline.
+
+
+If your list exclusively contains non-control_comma_list, the pipeline can remain running, as most of the work is the template creation.
+While the pipeline runs, notify James or BJ to help you review and correct the trouble images; they will also help you remove an "bad" images.  Once the pipeline fails because it can't find an image that has been removed, the pipeline can be restarted.
