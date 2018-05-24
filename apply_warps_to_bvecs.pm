@@ -422,10 +422,15 @@ sub apply_warps_to_bvecs_Runtime_check {
 
     my $convert_images_to_RAS=$Hf->get_value('convert_labels_to_RAS');
     $ALS_to_RAS = '';
-    $orientation = 'ALS';
+
+    my $current_vorder= $Hf->get_value('working_image_orientation');
+        if (($current_vorder eq 'NO_KEY') || ($current_vorder eq 'UNDEFINED_VALUE') || ($current_vorder eq '')) {
+            $current_vorder= 'ALS';
+        }
+    $orientation = $current_vorder;
     if (($convert_images_to_RAS ne 'NO_KEY') && ($convert_images_to_RAS == 1)) {
-	$ALS_to_RAS = " ALS_to_RAS ";
-	$orientation = 'RAS';
+        $ALS_to_RAS = " ${current_vorder}_to_RAS ";
+        $orientation = 'RAS';
     }	    
 
     $almost_results_dir = "${results_dir}/connectomics/";

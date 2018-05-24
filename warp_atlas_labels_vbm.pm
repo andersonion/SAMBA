@@ -45,6 +45,8 @@ my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 #my $make_ROIs_executable_path = "/glusterspace/BJ/run_Labels_to_ROIs_exec.sh";
 my $make_ROIs_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/Labels_to_ROIs_executable/20161006_1100/run_Labels_to_ROIs_exec.sh";
 
+my $img_transform_executable_path ="/cm/shared/workstation_code_dev/matlab_execs/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
+
 my $current_label_space; # 21 April 2017 -- BJA: Previously this wasn't initialized, but was still imported from the calling .pl (or at least that's my theory).
 
 # ------------------
@@ -330,30 +332,38 @@ sub convert_labels_to_RAS {
     my $final_ROIs_dir;
 
     if ($group eq 'MDT') {
-	$out_file = "${final_MDT_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
-	#$input_labels = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
-	$input_labels = "${current_path}/MDT_labels_${label_atlas_name}.nii.gz";
-	#$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
-	$work_file = "${current_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
-	$final_ROIs_dir = "${final_MDT_results_dir}/MDT_${label_atlas_name}_RAS_ROIs/";
+        $out_file = "${final_MDT_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+        #$input_labels = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
+        $input_labels = "${current_path}/MDT_labels_${label_atlas_name}.nii.gz";
+        #$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+        $work_file = "${current_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+        $final_ROIs_dir = "${final_MDT_results_dir}/MDT_${label_atlas_name}_RAS_ROIs/";
     }else {
-	$out_file = "${final_results_dir}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
-	$input_labels = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
-	$work_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
-	$final_ROIs_dir = "${final_results_dir}/${runno}_ROIs/";
+        $out_file = "${final_results_dir}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
+        $input_labels = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
+        $work_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
+        $final_ROIs_dir = "${final_results_dir}/${runno}_ROIs/";
     }
 
-   if (! -e $final_ROIs_dir) {
-	mkdir ($final_ROIs_dir,$permissions);
+    if (! -e $final_ROIs_dir) {
+        mkdir ($final_ROIs_dir,$permissions);
     }
 
     my $jid_2 = 0;
 
     if (data_double_check($out_file)) {
-	my $current_vorder = 'ALS';
+
+	my $current_vorder= $Hf->get_value('working_image_orientation');
+    if (($current_vorder eq 'NO_KEY') || ($current_vorder eq 'UNDEFINED_VALUE') || ($current_vorder eq '')) {
+        $current_vorder= 'ALS';
+    }
+
 	my $desired_vorder = 'RAS';
+
 	if (data_double_check($work_file)) {
-	    $cmd = $cmd."${make_ROIs_executable_path} ${matlab_path} ${input_labels}  ${final_ROIs_dir} ${current_vorder} ${desired_vorder};\n";	
+        my $matlab_exec_args="${input_labels} ${current_vorder} ${desired_vorder}"; #${output_folder}";
+        $cmd = $cmd."${img_transform_executable_path} ${matlab_path} ${matlab_exec_args};\n";
+        $cmd = $cmd."${make_ROIs_executable_path} ${matlab_path} ${input_labels}  ${final_ROIs_dir} ${current_vorder} ${desired_vorder};\n";	
 	}
 
 	$cmd =$cmd."cp ${work_file} ${out_file}";
@@ -522,15 +532,15 @@ sub warp_atlas_labels_vbm_Runtime_check {
 
     $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
     if ($group ne 'MDT') {
-	$runlist = $Hf->get_value('complete_comma_list');
+        $runlist = $Hf->get_value('complete_comma_list');
     } else {
-	$runlist = 'MDT';
+        $runlist = 'MDT';
     }
  
     if ($runlist eq 'EMPTY_VALUE') {
-	@array_of_runnos = ();
+        @array_of_runnos = ();
     } else {
-	@array_of_runnos = split(',',$runlist);
+        @array_of_runnos = split(',',$runlist);
     }
 
     my $case = 1;

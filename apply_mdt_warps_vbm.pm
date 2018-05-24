@@ -160,17 +160,17 @@ sub apply_mdt_warps_Output_check {
      my $message_prefix ='';
      my ($out_file,$dir_string);
      if ($direction eq 'f' ) {
-	 $dir_string = 'forward';
+        $dir_string = 'forward';
      } elsif ($direction eq 'i') {
-	 $dir_string = 'inverse';
+        $dir_string = 'inverse';
      } else {
-	 error_out("$PM: direction of warp \"$direction \"not recognized. Use \"f\" for forward and \"i\" for inverse.\n");
+        error_out("$PM: direction of warp \"$direction \"not recognized. Use \"f\" for forward and \"i\" for inverse.\n");
      }
      my @file_array=();
      if ($case == 1) {
-  	$message_prefix = "  ${dir_string} MDT warp(s) have already been applied to the ${current_contrast} images for the following runno(s) and will not be recalculated:\n";
+        $message_prefix = "  ${dir_string} MDT warp(s) have already been applied to the ${current_contrast} images for the following runno(s) and will not be recalculated:\n";
      } elsif ($case == 2) {
- 	$message_prefix = "  Unable to apply ${dir_string} MDT warp(s) to the ${current_contrast} image for the following runno(s):\n";
+        $message_prefix = "  Unable to apply ${dir_string} MDT warp(s) to the ${current_contrast} image for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
 
      
@@ -415,24 +415,24 @@ sub convert_images_to_RAS {
     my $fat_out_file;
     my $tmp_file;
     if ($runno eq 'MDT') {
-	#$out_file = "${final_MDT_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
-	$input_image = "${median_images_path}/MDT_${contrast}.nii.gz";
-    $tmp_file= "${median_images_path}/MDT_${contrast}_tmp.nii";
-	#$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
-	#$final_images_dir = "${final_MDT_results_dir}/${runno}_images/";
-	$final_images_dir = "${final_MDT_results_dir}/";
+        #$out_file = "${final_MDT_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+        $input_image = "${median_images_path}/MDT_${contrast}.nii.gz";
+        $tmp_file= "${median_images_path}/MDT_${contrast}_tmp.nii";
+        #$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+        #$final_images_dir = "${final_MDT_results_dir}/${runno}_images/";
+        $final_images_dir = "${final_MDT_results_dir}/";
 
-	$out_file = "${final_images_dir}/MDT_${contrast}_RAS.nii.gz";
-    $fat_out_file = "${final_images_dir}/MDT_${contrast}_tmp_RAS.nii";
+        $out_file = "${final_images_dir}/MDT_${contrast}_RAS.nii.gz";
+        $fat_out_file = "${final_images_dir}/MDT_${contrast}_tmp_RAS.nii";
     }else {
-	#$out_file = "${final_results_dir}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
-	$input_image = "${current_path}/${runno}_${contrast}.nii.gz";
-    $tmp_file= "${current_path}/${runno}_${contrast}_tmp.nii";   
-	#$work_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
-	#$final_images_dir = "${final_results_dir}/${runno}_images/";
-	$final_images_dir = "${final_results_dir}/${runno}/";
-	$out_file = "${final_images_dir}/${runno}_${contrast}_RAS.nii.gz";
-    $fat_out_file = "${final_images_dir}/${runno}_${contrast}_tmp_RAS.nii";
+        #$out_file = "${final_results_dir}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
+        $input_image = "${current_path}/${runno}_${contrast}.nii.gz";
+        $tmp_file= "${current_path}/${runno}_${contrast}_tmp.nii";   
+        #$work_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
+        #$final_images_dir = "${final_results_dir}/${runno}_images/";
+        $final_images_dir = "${final_results_dir}/${runno}/";
+        $out_file = "${final_images_dir}/${runno}_${contrast}_RAS.nii.gz";
+        $fat_out_file = "${final_images_dir}/${runno}_${contrast}_tmp_RAS.nii";
     }
 
 
@@ -445,8 +445,11 @@ sub convert_images_to_RAS {
     #print "out_file = ${out_file}\n\n";
 
     if (data_double_check($out_file)) {
-	my $current_vorder = 'ALS';
-	my $desired_vorder = 'RAS';
+		my $current_vorder= $Hf->get_value('working_image_orientation');
+        if (($current_vorder eq 'NO_KEY') || ($current_vorder eq 'UNDEFINED_VALUE') || ($current_vorder eq '')) {
+            $current_vorder= 'ALS';
+        }
+        my $desired_vorder = 'RAS';
 
     if (($contrast eq 'nii4D') && (data_double_check($fat_out_file))) {
         $cmd =$cmd."if [[ ! -f ${tmp_file} ]]; then\ngunzip -k ${input_image} > ${tmp_file};\nfi\n";
