@@ -1146,8 +1146,10 @@ my $subject_line = "Subject: VBM Pipeline has finished!!!\n";
 #my $email_content = $subject_line.$completion_message.$time_stamp;
 my $email_content = $subject_line.$completion_message.$results_message.$local_time_stamp.$time_stamp;
 `echo "${email_content}" > ${email_file}`;
-`sendmail -f $process.civmcluster1\@dhe.duke.edu rja20\@duke.edu < ${email_file}`;
-`sendmail -f $process.civmcluster1\@dhe.duke.edu 9196128939\@vtext.com < ${email_file}`;
+#`sendmail -f $process.civmcluster1\@dhe.duke.edu rja20\@duke.edu < ${email_file}`;
+my $pwuid = getpwuid( $< );
+my $USER_LIST="$pwuid\@duke.edu,9196128939\@vtext.com,rja20\@duke.edu"
+`sendmail -f $process.civmcluster1\@dhe.duke.edu $USER_LIST < ${email_file}`;
 
 } #end main
 
