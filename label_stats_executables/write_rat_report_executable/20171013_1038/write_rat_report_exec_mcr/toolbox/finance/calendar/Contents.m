@@ -1,2 +1,0 @@
-% Financial Toolbox calendar functions.
-%
