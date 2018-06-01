@@ -405,7 +405,7 @@ sub apply_warps_to_bvecs_Runtime_check {
     $ecc_string = '';
     my $eddy_current_correction = $Hf->get_value('eddy_current_correction');
     if (($eddy_current_correction ne 'NO_KEY') && ($eddy_current_correction == 1)) {
-	$ecc_string = '_ecc';
+        $ecc_string = '_ecc';
     }  
 
     $native_to_ALS = '';

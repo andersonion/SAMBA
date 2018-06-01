@@ -452,7 +452,7 @@ sub convert_images_to_RAS {
         my $desired_vorder = 'RAS';
 
     if (($contrast eq 'nii4D') && (data_double_check($fat_out_file))) {
-        $cmd =$cmd."if [[ ! -f ${tmp_file} ]]; then\ngunzip -k ${input_image} > ${tmp_file};\nfi\n";
+        $cmd =$cmd."if [[ ! -f ${tmp_file} ]]; then\ngunzip -c ${input_image} > ${tmp_file};\nfi\n";
         $input_image=$tmp_file;
      };
 	#$cmd = $cmd."${img_transform_executable_path} ${matlab_path} ${input_image} ${current_vorder} ${desired_vorder} ${final_images_dir};\n";        

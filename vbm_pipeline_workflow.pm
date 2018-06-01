@@ -225,40 +225,53 @@ sub vbm_pipeline_workflow {
 
 if (! @group_1) {
     if (defined $group_1_runnos) {
-	@group_1 = split(',',$group_1_runnos);
+        @group_1 = split(',',$group_1_runnos);
+    } else {
+        @group_1=();
     }
 }
 
 if (! @group_2) {
     if (defined $group_2_runnos) {
-	@group_2 = split(',',$group_2_runnos);
+        @group_2 = split(',',$group_2_runnos);
+    } else {
+        @group_2=();
     }
 }
 
 if (! @control_group) {
     if (defined $control_comma_list) {
-	@control_group = split(',',$control_comma_list);
+        @control_group = split(',',$control_comma_list);
     } elsif ((@group_1) && (@group_2)) {
-	@control_group = uniq(@group_1,@group_2);
+        @control_group = uniq(@group_1,@group_2);
     } elsif (@group_1) {
-	@control_group = uniq(@group_1)
+        @control_group = uniq(@group_1)
     }
 }
 
 if (! @compare_group) {
     if (defined $compare_comma_list) {
-	@compare_group = split(',',$compare_comma_list);
+        @compare_group = split(',',$compare_comma_list);
     } else {
-	@compare_group = @control_group;
+        @compare_group = @control_group;
+    }
+ 
+    if ($group_1[0] ne '') {
+        @compare_group=uniq(@compare_group,@group_1);
+    } 
+    
+    if ($group_2[0] ne '') {
+        @compare_group=uniq(@compare_group,@group_2);
     }
 }
 
 my @all_runnos = uniq(@control_group,@compare_group);
-
+my $single_seg=0;
 if ($#all_runnos < 1) {
     $do_vba = 0;
+    $single_seg=1;
     if (! $optional_suffix) {
-	$optional_suffix = $all_runnos[0];
+        $optional_suffix = $all_runnos[0];
     }
 }
 
@@ -281,10 +294,10 @@ if ($optional_suffix ne '') {
     $optional_suffix = "_${optional_suffix}";
 }
 my $main_folder_prefix;
-if ($do_vba) {
-    $main_folder_prefix = 'VBM_';
-} else  {
+if ($single_seg) {
     $main_folder_prefix = 'SingleSegmentation_';
+} else  {
+    $main_folder_prefix = 'VBM_';
 }
 my @project_components = split(/[.]/,$project_name); # $project_name =~ s/[.]//g;
 my $project_id =  join('',@project_components);
@@ -1148,7 +1161,9 @@ my $email_content = $subject_line.$completion_message.$results_message.$local_ti
 `echo "${email_content}" > ${email_file}`;
 #`sendmail -f $process.civmcluster1\@dhe.duke.edu rja20\@duke.edu < ${email_file}`;
 my $pwuid = getpwuid( $< );
-my $USER_LIST="$pwuid\@duke.edu,9196128939\@vtext.com,rja20\@duke.edu";
+my $pipe_adm="";
+$pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
+my $USER_LIST="$pwuid\@duke.edu$pipe_adm";
 `sendmail -f $process.civmcluster1\@dhe.duke.edu $USER_LIST < ${email_file}`;
 
 } #end main

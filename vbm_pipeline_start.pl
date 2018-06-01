@@ -221,7 +221,10 @@ foreach my $entry ( keys %main:: )  { # Build a string of all initialized variab
     	$kevin_spacey = $kevin_spacey." $entry ";
     }
 }
-#print "$kevin_spacey\n\n\n";
+
+my $test_shit = join(' ',sort(split(' ',$kevin_spacey)))."\n\n\n";
+#print $test_shit;
+#die;
 my $tmp_rigid_atlas_name='';
 {
     if ($start_file =~ /.*\.headfile$/) {
@@ -290,12 +293,12 @@ sub assign_parameters {
     if ($is_headfile) {
         foreach ($tempHf->get_keys) {
             my $val = $tempHf->get_value($_);
-            if ($val eq '') {
-                print "$val\n";
-            }
+            #if ($val eq '') { # Don't know what this code was doing; commenting out 31 May 2018.
+            #    print "$val\n";
+            #}
 
             if ($kevin_spacey =~ /$_/) {
-                if ($val) {
+                if (defined $val) {
 #                   print "$_\n";
                     eval("\$$_=\'$val\'");
 #               if (defined ${$_}) {
