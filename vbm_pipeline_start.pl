@@ -99,7 +99,8 @@ require apply_warps_to_bvecs;
 require Headfile;
 
 ## Example use of printd
-use civm_simple_util qw(printd $debug_val);
+use civm_simple_util qw(activity_log printd $debug_val);
+activity_log();
 #$debug_val = 35;
 #my $msg =  "Your message here!";
 #printd(5,$msg);
