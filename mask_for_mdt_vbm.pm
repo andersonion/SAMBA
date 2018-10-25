@@ -247,6 +247,21 @@ sub mask_for_mdt_vbm_Runtime_check {
     
     $template_contrast = $Hf->get_value('skull_strip_contrast');
 
+    if (($template_contrast eq 'NO_KEY') || ($template_contrast eq 'UNDEFINED_VALUE') || ($template_contrast eq '')) {
+        my $channel_comma_list=$Hf->get_value('channel_comma_list');
+
+        if (${channel_comma_list} =~ /[,]?(dwi)[,]?/i) {
+            $template_contrast=$1;
+
+        } else {
+            my @channels = split(',',$channel_comma_list);
+            $template_contrast=$channels[0];
+
+        }
+
+
+    }
+
     $default_mask_threshold=5;#$Hf->get_value('threshold_code');
     #                         # -1 use imagej (like evan and his dti pipe)
     #                         # 0-100 use threshold_zero 0-100, 

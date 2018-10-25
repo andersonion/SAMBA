@@ -146,10 +146,10 @@ sub warp_atlas_labels_Output_check {
      foreach my $runno (@array_of_runnos) {
 	 if ($group eq 'MDT') {
 	     #$out_file = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
-	     $out_file = "${current_path}/MDT_labels_${label_atlas_name}.nii.gz";
+	     $out_file = "${current_path}/MDT_${label_atlas_name}_labels.nii.gz";
 	     $Hf->set_value("${label_atlas_name}_MDT_labels",$out_file);
 	 }else {
-	     $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
+	     $out_file = "${current_path}/${runno}_${label_atlas_name}_labels.nii.gz";
 	 }
 	
 	# my $out_file      = "$out_file_path_base\.nii";
@@ -196,10 +196,10 @@ sub apply_mdt_warp_to_labels {
     my ($cmd);
     my $out_file;
     if ($group eq 'MDT') {
-	#$out_file = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
-	$out_file = "${current_path}/MDT_labels_${label_atlas_name}.nii.gz";
+	#$out_file = "${median_images_path}/MDT_${label_atlas_name}_labels.nii.gz";
+	$out_file = "${current_path}/MDT_${label_atlas_name}_labels.nii.gz";
     }else {
-	$out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
+	$out_file = "${current_path}/${runno}_${label_atlas_name}_labels.nii.gz";
     }
     my ($start,$stop);
     my $image_to_warp = $atlas_label_path;# get label set from atlas #get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
@@ -332,16 +332,16 @@ sub convert_labels_to_RAS {
     my $final_ROIs_dir;
 
     if ($group eq 'MDT') {
-        $out_file = "${final_MDT_results_dir}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
-        #$input_labels = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
-        $input_labels = "${current_path}/MDT_labels_${label_atlas_name}.nii.gz";
-        #$work_file = "${median_images_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
-        $work_file = "${current_path}/MDT_labels_${label_atlas_name}_RAS.nii.gz";
+        $out_file = "${final_MDT_results_dir}/MDT_${label_atlas_name}_labels_RAS.nii.gz";
+        #$input_labels = "${median_images_path}/MDT_${label_atlas_name}_labels.nii.gz";
+        $input_labels = "${current_path}/MDT_${label_atlas_name}_labels.nii.gz";
+        #$work_file = "${median_images_path}/MDT_${label_atlas_name}_labels_RAS.nii.gz";
+        $work_file = "${current_path}/MDT_${label_atlas_name}_labels_RAS.nii.gz";
         $final_ROIs_dir = "${final_MDT_results_dir}/MDT_${label_atlas_name}_RAS_ROIs/";
     }else {
-        $out_file = "${final_results_dir}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
-        $input_labels = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
-        $work_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}_RAS.nii.gz";
+        $out_file = "${final_results_dir}/${runno}_${label_atlas_name}_labels_RAS.nii.gz";
+        $input_labels = "${current_path}/${runno}_${label_atlas_name}_labels.nii.gz";
+        $work_file = "${current_path}/${runno}_${label_atlas_name}_labels_RAS.nii.gz";
         $final_ROIs_dir = "${final_results_dir}/${runno}_ROIs/";
     }
 

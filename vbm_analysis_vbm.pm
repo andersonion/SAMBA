@@ -1322,7 +1322,8 @@ sub vbm_analysis_vbm_Runtime_check {
 	}
 
 	$directory_prefix = $current_path;
-	if ($directory_prefix =~ s/\/glusterspace//) { }
+	#if ($directory_prefix =~ s/\/glusterspace//) { }
+    if ($directory_prefix =~ s/${BIGGUS_DISKUS}//) { } # Fixed 25 October 2018 (Thurs)
 
 	$software_list = $Hf->get_value('vba_analysis_software');
 	if ($software_list eq 'NO_KEY') { ## Should this go in init_check?

@@ -93,15 +93,15 @@ sub mask_images_vbm {
 	my $atlas_mask =$Hf->get_value('port_atlas_mask_path') ;
 	foreach my $runno (@array_of_runnos) {
 	    my $go = $make_hash{$runno};
-	    if ($go){		
-		my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii.gz';
-		if (data_double_check($ported_mask)) {
-		    ($job) = port_atlas_mask_vbm($runno,$atlas_mask,$ported_mask);
-		    if ($job) {
-			push(@jobs,$job);
-		    }
-		}
-		$mask_hash{$runno} = $ported_mask;
+	    if ($do_mask && $go){		
+            my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii.gz';
+            if (data_double_check($ported_mask)) {
+                ($job) = port_atlas_mask_vbm($runno,$atlas_mask,$ported_mask);
+                if ($job) {
+                    push(@jobs,$job);
+                }
+            }
+            $mask_hash{$runno} = $ported_mask;
 	    }
 	}
 	
@@ -118,17 +118,19 @@ sub mask_images_vbm {
     @jobs=(); # Reset job array;
 ## Apply masks to all images in each runno set.
     foreach my $runno (@array_of_runnos) {
-	if ($make_hash{$runno}) {
-	    foreach my $ch (@channel_array) {
-		my $go = $go_hash{$runno}{$ch};
-		if ($go) {
-		    my ($job) = mask_one_image($runno,$ch);
-		    if ($job) {
-			push(@jobs,$job);
-		    }
-		}
-	    }
-	}
+            foreach my $ch (@channel_array) {
+                my $go = $go_hash{$runno}{$ch};
+                if ($go) {
+                    if ($do_mask) {
+                        my ($job) = mask_one_image($runno,$ch);
+                    } else {
+                        my ($job) = rename_one_image($runno,$ch);
+                    }   
+                    if ($job) {
+                        push(@jobs,$job);
+                    }
+                }
+        }
     }
 
     if (cluster_check() && (@jobs)) {
@@ -174,34 +176,50 @@ sub mask_images_Output_check {
     my $existing_files_message = '';
     my $missing_files_message = '';
 
-    
     if ($case == 1) {
-	$message_prefix = "  Masked images have been found for the following runno(s) and will not be re-processed:\n";
+        if ($do_mask) {
+            $message_prefix = "  Masked images have been found for the following runno(s) and will not be re-processed:\n";
+        } else {
+            $message_prefix = "  Unmasked and properly named images have been found for the following runno(s) and will not be re-processed:\n";
+        }
     } elsif ($case == 2) {
-	 $message_prefix = "  Unable to properly mask images for the following runno(s) and channel(s):\n";
+        if ($do_mask) {
+            $message_prefix = "  Unable to properly mask images for the following runno(s) and channel(s):\n";
+        } else {
+            $message_prefix = "  Unable to properly rename the unmasked images for the following runno(s) and channel(s):\n";
+        }
     }   # For Init_check, we could just add the appropriate cases.
     
     foreach my $runno (@array_of_runnos) {
+
+
 	my $sub_existing_files_message='';
 	my $sub_missing_files_message='';
 	
 
 	foreach my $ch (@channel_array) {
-	    $file_1 = "${current_path}/${runno}_${ch}_masked.nii";
-	    
+
+        if ($do_mask) {
+            $file_1 = "${current_path}/${runno}_${ch}_masked.nii";
+	    } else {
+            $file_1 = "${current_path}/${runno}_${ch}.nii";
+        }
+
 	    if (data_double_check($file_1)) {
-		$file_1 = $file_1.'.gz'; # 8 Feb 2016: added .gz    
+            $file_1 = $file_1.'.gz'; # 8 Feb 2016: added .gz    
 	    }
 	    
-	    if (data_double_check($file_1) ) {
-		$go_hash{$runno}{$ch}=1*$do_mask;
-		push(@file_array,$file_1);
-		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
+        if (data_double_check($file_1) ) { 
+            $go_hash{$runno}{$ch}=1;#*$do_mask; Moving the $do_mask logic elsewhere because we want action either way.
+            push(@file_array,$file_1);
+            $sub_missing_files_message = $sub_missing_files_message."\t$ch";
 	    } else {
-		$go_hash{$runno}{$ch}=0;
-		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
+            $go_hash{$runno}{$ch}=0;
+            $sub_existing_files_message = $sub_existing_files_message."\t$ch";
 	    }
 	}
+
+
 	if (($sub_existing_files_message ne '') && ($case == 1)) {
 	    $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
 	} elsif (($sub_missing_files_message ne '') && ($case == 2)) {
@@ -402,6 +420,58 @@ sub mask_one_image {
   
     return($jid);
 }
+
+# ------------------
+sub rename_one_image {
+# ------------------
+    my ($runno,$ch) = @_;
+    my $centered_path = get_nii_from_inputs($current_path,$runno,$ch); ## THIS IS WHERE THINGS PROBABLY BROKE  24 October 2018 (Wed)
+    my $out_path = "${current_path}/${runno}_${ch}.nii.gz"; # 12 Feb 2016: Added .gz
+    
+    my $rename_cmd = "mv ${centered_path} ${out_path}";
+
+    my $go_message = "$PM: Renaming unmasked image from \"${centered_path}\" to \"${out_path}\"." ;
+    my $stop_message = "$PM: Unable to rename unmasked image from \"${centered_path}\" to \"${out_path}\":\n${rename_cmd}\n";
+    
+    my @test = (0);
+    my $node = '';
+    
+    if (defined $reservation) {
+        @test =(0,$reservation);
+    }
+
+    my $mem_request = 100000; # 12 April 2017, BJA: added higher memory request (60000) because of nii4Ds...may need to even go higher, but really should do this smartly.
+    # 10 July 2017, BJA: Increased from 60000, to 100000, because we were trying to process 8.1GB files
+    my $jid = 0;
+    if (cluster_check) {
+
+    
+	my $cmd = $rename_cmd;
+	
+	my $home_path = $current_path;
+	my $Id= "${runno}_${ch}_rename_unmasked_image";
+	my $verbose = 2; # Will print log only for work done.
+	$jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+	if (! $jid) {
+	    error_out($stop_message);
+	}
+    } else {
+
+	my @cmds = ($rename_cmd);
+	if (! execute($go, $go_message, @cmds) ) {
+	    error_out($stop_message);
+	}
+    }
+
+    if ((data_double_check($out_path)) && (not $jid)) {
+        error_out("$PM: missing unmasked image: ${out_path}");
+    }
+    print "** $PM created ${out_path}\n";
+  
+    return($jid);
+}
+
+
 
 # ------------------
 sub mask_images_vbm_Init_check {
@@ -615,20 +685,20 @@ sub mask_images_vbm_Runtime_check {
                         # 100-inf is set threshold.
 
 
-    $num_morphs = 5;
-    $morph_radius = 2;
+    $num_morphs = 5; # Need to make these user-specifiable for mask tuning
+    $morph_radius = 2; # Need to make these user-specifiable for mask tuning
     #$dim_divisor = 2; #Changed to 1, BJA 14 March 2017
     $dim_divisor = 1;
 
     $status_display_level=0;
 
     if ($mask_dir eq 'NO_KEY') {
-	$mask_dir = "${current_path}/masks";
- 	$Hf->set_value('mask_dir',$mask_dir); # Dammit, "input" or "inputs"??? 	
+        $mask_dir = "${current_path}/masks";
+        $Hf->set_value('mask_dir',$mask_dir); # Dammit, "input" or "inputs"??? 	
     }
 
     if ((! -e $mask_dir) && ($do_mask)) {
-	mkdir ($mask_dir,$permissions);
+        mkdir ($mask_dir,$permissions);
     }
 
     $runlist = $Hf->get_value('complete_comma_list');

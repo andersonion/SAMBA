@@ -365,13 +365,13 @@ sub iterative_pairwise_reg_vbm_Init_check {
 	       $Hf->set_value('starting_iteration_for_template_creation',$starting_iteration);
 	       $Hf->set_value('template_name',$name);
 	       $log_msg = $log_msg."\tAn initialization template has been specified with the name: $name\n";
-	       $log_msg = $log_msg."\tIt appears to be from iteration ${2}; template creation will resume at ${starting_iteration}\n";
+	       $log_msg = $log_msg."\tIt appears to be from iteration ${2}; template creation will resume at ${starting_iteration}.\n";
 
 	   }
 	   else {
 	       $Hf->set_value('template_name',$name);
 	       $log_msg = $log_msg."\tAn initialization template has been specified with the name: $name\n";
-	       $log_msg = $log_msg."\tTemplate creation will attempt to pick up where any previous work may have left off\n";
+	       $log_msg = $log_msg."\tTemplate creation will attempt to pick up where any previous work may have left off.\n";
 	   }
 	}
 
@@ -380,6 +380,13 @@ sub iterative_pairwise_reg_vbm_Init_check {
 	    $match_registration_levels_to_iteration=1;
 	    $Hf->set_value('match_registration_levels_to_iteration',$match_registration_levels_to_iteration);
 	}
+	$mdt_iterations = $Hf->get_value('mdt_iterations');
+	if (($mdt_iterations eq 'NO_KEY') ||($mdt_iterations eq 'UNDEFINED_VALUE'))  {
+	    $mdt_iterations=6; # Default level not set before 23 October 2018 (would default to 0 iterations);
+	    $Hf->set_value('mdt_iterations',$mdt_iterations);
+        $log_msg = $log_msg."\tNumber of iterations for template creation not specified; defaulting to ${mdt_iterations}.\n";
+	}
+
 
 	$diffeo_metric = $Hf->get_value('diffeo_metric');
 	

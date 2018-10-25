@@ -91,6 +91,7 @@ require mask_for_mdt_vbm;
 require calculate_jacobians_vbm;
 require smooth_images_vbm;
 require vbm_analysis_vbm;
+require vbm_write_stats_for_pm;
 
 # Temporary hardcoded variables
 

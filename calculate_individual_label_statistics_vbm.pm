@@ -180,7 +180,7 @@ sub calculate_individual_label_statistics_Output_check {
 sub calculate_label_statistics {
 # ------------------
     my ($runno) = @_;
-    my $input_labels = "${work_dir}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
+    my $input_labels = "${work_dir}/${runno}_${label_atlas}_labels.nii.gz";
 
     #my $exec_args_ ="${runno} {contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";# Save for part 3..
     my $exec_args ="${runno} ${input_labels} ${channel_comma_list_2} ${image_dir} ${current_path} ${space_string} ${label_atlas}";
@@ -216,7 +216,7 @@ sub calculate_label_statistics {
 sub write_rat_report {
 # ------------------
     my ($runno) = @_;
-    my $input_labels = "${work_dir}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
+    my $input_labels = "${work_dir}/${runno}_${label_atlas}_labels.nii.gz";
     my $spec_id = $Hf->get_value('U_specid');
     my $project_id = $Hf->get_value('U_code');
 

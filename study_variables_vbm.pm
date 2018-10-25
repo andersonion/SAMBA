@@ -10,8 +10,8 @@ my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
 
 
-my $obrien = 1;
-my $obrien_invivo=0;
+my $obrien = 0;
+my $obrien_invivo=1;
 my $colton = 0;
 my $colton_invivo = 0;
 my $mcnamara = 0;
@@ -263,7 +263,7 @@ sub study_variables_vbm {
 	$label_atlas_name = 'chass_symmetric2';#'dti148lr';
 	$rigid_contrast = 'dwi';
 	$mdt_contrast = 'fa'; #WAS fa
-	#$compare_contrast = 'dwi';
+	$compare_contrast = 'jac,dwi'; #alex
 	$diffeo_metric = 'CC'; # For MDT creation purposes it was CC
 	#$diffeo_radius = '32'; # For MDT creation purposes it was 4, here it means Number of Bins
 
@@ -278,11 +278,12 @@ sub study_variables_vbm {
 
     } elsif ($obrien_invivo) {
 	
-	$project_name = "14.obrien.02";
-	$custom_predictor_string = "Control_vs_Reacher";
-	$diffeo_transform_parameters = "0.5,3,1";
-	$vbm_reference_space = "native";
-	$create_labels = 1;
+	$project_name = "18.abb.05";
+	$custom_predictor_string = "TerminalReacher_vs_BeginnerReacher";
+	$diffeo_transform_parameters = "0.25,3,0.5";
+	#$vbm_reference_space = '/mnt/abadeaqnap/clusterdata/abadea/VBM_18abb05_chass_symmetric3-work/preprocess/BCS10_dwi_ALS.nii.gz' ;
+    $vbm_reference_space = '/mnt/abadeaqnap/clusterdata/abadea/VBM_18abb05_chass_symmetric3-work/preprocess/BCS10_dwi.nii.gz' ;
+	$create_labels = 0;
 	$label_space = "pre_affine";
 
 	@control_group = qw(
@@ -294,13 +295,36 @@ sub study_variables_vbm {
 	    BCS9
 	    BCU1
 	    BCU7
-            BCW1
-            BCW4
-            BCW6
-            BCW9      
+        BCW1
+        BCW4
+        BCW6
+        BCW9 
+        TCS10
+	    TCS11
+	    TCS4
+	    TCS7
+	    TCS8
+	    TCS9
+	    TCU1
+	    TCU7
+        TCW1
+            TCW4
+            TCW6
+            TCW9     
         );
     
 	@compare_group = qw(
+	    BCS10
+	    BCS11
+	    BCS4
+	    BCS7
+	    BCS8
+	    BCS9
+	    BCU1
+	    BCU7
+        BCW1
+        BCW4
+        BCW6
 	    BRS1
 	    BRS2
 	    BRS3
@@ -313,30 +337,6 @@ sub study_variables_vbm {
             BRW5
             BRW7
             BRW8
-	    ICS10
-	    ICS11
-	    ICS4
-	    ICS7
-	    ICS8
-	    ICS9
-	    ICU1
-	    ICU7
-            ICW1
-            ICW4
-            ICW6
-            ICW9
-	    IRS1
-	    IRS2
-	    IRS3
-	    IRS5
-	    IRS6
-	    IRU2
-	    IRU3
-            IRU5
-            IRW3
-            IRW5
-            IRW7
-            IRW8
 	    TCS10
 	    TCS11
 	    TCS4
@@ -353,7 +353,7 @@ sub study_variables_vbm {
 	    TRU2
 	    TRU3
             TRU5
-            TCW1
+        TCW1
             TCW4
             TCW6
             TCW9
@@ -363,23 +363,55 @@ sub study_variables_vbm {
             TRW8
         );
 
-	@channel_array = qw(T2star); 
+    @group_1=qw(
+	    TRS1
+	    TRS2
+	    TRS3
+	    TRS5
+	    TRS6
+	    TRU2
+	    TRU3
+            TRU5
+            TRW3
+            TRW5
+            TRW7
+            TRW8
+    );
+
+
+    @group_2=qw(
+	    BRS1
+	    BRS2
+	    BRS3
+	    BRS5
+	    BRS6
+	    BRU2
+	    BRU3
+            BRU5
+            BRW3
+            BRW5
+            BRW7
+            BRW8
+
+    );
+
+	@channel_array = qw(dwi fa); 
 
 	$flip_x = 0;
 	$flip_z = 0;
 
-	$optional_suffix = 'SyN3and1';
-	$atlas_name = 'DTI101b';
-	$label_atlas_name = 'DTI101b';
-	$rigid_contrast = 'T2star';
-	$mdt_contrast = 'T2star';
-	$skull_strip_contrast = 'T2star';
+	#$optional_suffix = 'SyN3and1';
+	$atlas_name = 'chass_symmetric3';
+	$label_atlas_name = 'chass_symmetric3';
+	$rigid_contrast = 'dwi';
+	$mdt_contrast = 'fa';
+	$skull_strip_contrast = 'dwi';
 	$threshold_code = 4;
 	$do_mask = 0;
 	$pre_masked = 1;
 
-	$vba_contrast_comma_list = 'jac';
-	$vba_analysis_software = 'spm,surfstat';
+	$vba_contrast_comma_list = 'fa,jac';
+	$vba_analysis_software = 'surfstat';
 
 	$thresh_ref = {};
 
@@ -1204,8 +1236,11 @@ S65541
 	@control_group = qw(S66971);
 	@compare_group = qw();#D66971); ## "You can learn a lot from a dummy..."
 
-	@channel_array = qw(dwi fa colorR colorG colorB adc e1 e2 e3);
-    
+	#@channel_array = qw(dwi fa colorR colorG colorB adc e1 e2 e3);
+    @channel_array = qw(dwi fa);
+    $do_connectivity=1;
+    $eddy_current_correction=1;
+
 	$flip_x = 1;
 	$flip_z = 0;
 	

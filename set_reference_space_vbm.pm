@@ -244,17 +244,17 @@ sub apply_new_reference_space_vbm {
     my ($in_file,$ref_file,$out_file)=@_;
     my $do_registration = 1; 
     
-    my $test_dim =  `fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;
+    my $test_dim = 3;
     my $opt_e_string='';
-    if ($in_file =~ /tensor/) {
-        $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
-    } elsif ($test_dim > 1) {
-        $opt_e_string = ' -e 3 ';
-    }
-
-
     if ($out_file =~ /\.nii(\.gz)?/) {
-	$do_registration = 0;
+        $test_dim =  `fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;
+        
+        if ($in_file =~ /tensor/) {
+            $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
+        } elsif ($test_dim > 1) {
+            $opt_e_string = ' -e 3 ';
+        }
+        $do_registration = 0;
     }
 
     my $interp = "Linear"; # Default    
