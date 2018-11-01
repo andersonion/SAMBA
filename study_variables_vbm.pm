@@ -144,13 +144,15 @@ sub study_variables_vbm {
 	$custom_predictor_string = "Control_vs_Reacher";
 	#$custom_predictor_string = "Control_vs_Phantom";
 	$diffeo_transform_parameters = "0.5,3,0.5";#1";
-	$vbm_reference_space = "native";
+	$vbm_reference_space = '/civmnas4/abadea/obrien_exvivo_100micron_PADDED_ref.nii.gz';
+    $mdt_creation_strategy='iterative';
 	$create_labels = 1; #1
 	#$label_space = "pre_rigid";
 	$label_space = "post_affine";
-
+    $diffeo_iterations="3000x3000x3000x80";
+    
 	my $phantom_run = 0;
-	$template_name = 'faMDT_Control_n12a';  # This is because analysis was originally performed with a "broken MDT", but could not be
+	#$template_name = 'faMDT_Control_n12a';  # This is because analysis was originally performed with a "broken MDT", but could not be
 	                                        # designated as such...faMDT_Control_n12 is actually broken, even though I modified the headfile to say otherwise.
                                                 # faMDT_Control_n12a is the most kosher set...note that the in vivo registration is driven by fa here 
                                                 # faMDT_Control_n12b is the assymetric phantom run
@@ -220,6 +222,18 @@ sub study_variables_vbm {
 	} else {
 
 	@compare_group = qw(
+        controlSpring2013_4
+        controlSpring2013_7
+        controlSpring2013_8
+        controlSpring2013_9
+        controlSpring2013_10
+        controlSpring2013_11
+        controlSummer2012_1
+        controlSummer2012_5
+        controlSummer2012_8
+        controlWinter2012_1
+        controlWinter2012_6
+        controlWinter2012_9
 	reacherSpring2013_1
         reacherSpring2013_2
         reacherSpring2013_3
@@ -258,12 +272,12 @@ sub study_variables_vbm {
 	$flip_x = 0;
 	$flip_z = 0;
 
-	#$optional_suffix = 'clean';
-	$atlas_name = 'DTI101b';
-	$label_atlas_name = 'chass_symmetric2';#'dti148lr';
+	$optional_suffix = '100micron';
+	$atlas_name = 'chass_symmetric3';#'DTI101b'; #changed on 25 October 2018
+	$label_atlas_name = 'chass_symmetric3';#'dti148lr';
 	$rigid_contrast = 'dwi';
 	$mdt_contrast = 'fa'; #WAS fa
-	$compare_contrast = 'jac,dwi'; #alex
+	$compare_contrast = 'dwi'; #alex attempted 'jac,dwi'--NOPE this is contrast used to register to MDT
 	$diffeo_metric = 'CC'; # For MDT creation purposes it was CC
 	#$diffeo_radius = '32'; # For MDT creation purposes it was 4, here it means Number of Bins
 
@@ -279,7 +293,8 @@ sub study_variables_vbm {
     } elsif ($obrien_invivo) {
 	
 	$project_name = "18.abb.05";
-	$custom_predictor_string = "TerminalReacher_vs_BeginnerReacher";
+	#$custom_predictor_string = "TerminalReacher_vs_BeginnerReacher";
+    $custom_predictor_string = "TerminalReacher_vs_TerminalControl";
 	$diffeo_transform_parameters = "0.25,3,0.5";
 	#$vbm_reference_space = '/mnt/abadeaqnap/clusterdata/abadea/VBM_18abb05_chass_symmetric3-work/preprocess/BCS10_dwi_ALS.nii.gz' ;
     $vbm_reference_space = '/mnt/abadeaqnap/clusterdata/abadea/VBM_18abb05_chass_symmetric3-work/preprocess/BCS10_dwi.nii.gz' ;
@@ -380,19 +395,18 @@ sub study_variables_vbm {
 
 
     @group_2=qw(
-	    BRS1
-	    BRS2
-	    BRS3
-	    BRS5
-	    BRS6
-	    BRU2
-	    BRU3
-            BRU5
-            BRW3
-            BRW5
-            BRW7
-            BRW8
-
+	    TCS10
+	    TCS11
+	    TCS4
+	    TCS7
+	    TCS8
+	    TCS9
+	    TCU1
+	    TCU7
+TCW1
+            TCW4
+            TCW6
+            TCW9
     );
 
 	@channel_array = qw(dwi fa); 

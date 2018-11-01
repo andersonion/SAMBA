@@ -144,7 +144,7 @@ sub vbm_analysis_vbm {
 
 #}    
     
-    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@all_jobs);
+    my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@all_jobs);
     print "$PM took ${real_time} seconds to complete.\n";
     
     

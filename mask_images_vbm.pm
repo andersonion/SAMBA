@@ -146,7 +146,7 @@ sub mask_images_vbm {
     my ($dummy,$error_message)=mask_images_Output_check($case);
 
 
-    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
+    my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
 

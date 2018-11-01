@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Switch;
 #
-# WARNING write_stats_for_pm uses the switch module which causes all kinds of syntax trouble!
+# WARNING vbm_write_stats_for_pm uses the switch module which causes all kinds of syntax trouble!
 # WARNING it has been turned into a hidden function using dangerous eval tomfollery!
 # WARNING talk to james about how this works and what should be done!
 #

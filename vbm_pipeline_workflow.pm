@@ -1041,7 +1041,7 @@ if ($nii4D) {
 	    my $case = 2;
 	    my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
 
-	    $real_time = write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time,$MDT_to_atlas_JobID);
+	    $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time,$MDT_to_atlas_JobID);
 	    
 	    if ($error_message ne '') {
 		error_out("${error_message}",0);
@@ -1049,7 +1049,7 @@ if ($nii4D) {
 	}
     
 	if (($MDT_to_atlas_JobID eq 'NO_KEY') || ($MDT_to_atlas_JobID eq 'UNDEFINED_VALUE')) {
-	    $real_time = write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time);
+	    $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time);
 	}
 	print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
 

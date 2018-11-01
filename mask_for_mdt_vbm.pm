@@ -80,9 +80,9 @@ sub mask_for_mdt_vbm {
 
     my $real_time;
     if ($job) {
-	$real_time = write_stats_for_pm($PM,$Hf,$start_time,$job);
+	$real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,$job);
     } else {
-	$real_time = write_stats_for_pm($PM,$Hf,$start_time);
+	$real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time);
     }
     print "$PM took ${real_time} seconds to complete.\n";
 

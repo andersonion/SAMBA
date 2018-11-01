@@ -111,7 +111,7 @@ sub set_reference_space_vbm {  # Main code
     my ($dummy,$error_message)=set_reference_space_Output_check($case);
 
     my @jobs = (@jobs_1,@jobs_2);    
-    my $real_time = write_stats_for_pm($PM,$Hf,$start_time,@jobs);
+    my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
     
@@ -248,13 +248,13 @@ sub apply_new_reference_space_vbm {
     my $opt_e_string='';
     if ($out_file =~ /\.nii(\.gz)?/) {
         $test_dim =  `fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;
-        
+       
         if ($in_file =~ /tensor/) {
             $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
         } elsif ($test_dim > 1) {
             $opt_e_string = ' -e 3 ';
         }
-        $do_registration = 0;
+       $do_registration = 0;
     }
 
     my $interp = "Linear"; # Default    
@@ -732,8 +732,14 @@ sub set_reference_path_vbm {
 	$Hf->set_value('ref_runno',$ref_runno);
 	#$ref_path = get_nii_from_inputs($preprocess_dir,"native_reference",$ref_runno);
 	#$ref_path = get_nii_from_inputs($preprocess_dir,"reference_image_native",$ref_runno);# Updated 1 September 2016
-	
-	$input_ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,""); # Will stick with looking for ANY contrast from $ . 16 March 2017
+
+    my $ch_runlist = $Hf->get_value('channel_comma_list');
+    my @channels=split(',',$ch_runlist);
+    my $c_channel=$channels[0];
+    if ($c_channel =~ /nii4D/) {$c_channel=$channels[1];}
+	#No, not nii4D 26 October 2018
+    $input_ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,$c_channel);
+	#$input_ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,""); # Will stick with looking for ANY contrast from $ . 16 March 2017
 	
 	$error_message='';	
 	

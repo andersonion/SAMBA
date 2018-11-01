@@ -85,7 +85,7 @@ sub calculate_jacobians_vbm {  # Main code
     my $case = 2;
     my ($dummy,$error_message)=calculate_jacobians_Output_check($case,$direction);
 
-    my $real_time = write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
+    my $real_time = vbm_	($PM_code,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
     if ($error_message ne '') {

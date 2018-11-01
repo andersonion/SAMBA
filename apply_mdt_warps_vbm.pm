@@ -99,7 +99,7 @@ sub apply_mdt_warps_vbm {  # Main code
     my $case = 2;
     my ($dummy,$error_message)=apply_mdt_warps_Output_check($case,$direction);
 
-    my $real_time = write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
+    my $real_time = vbm_write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.

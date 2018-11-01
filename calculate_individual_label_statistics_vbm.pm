@@ -86,7 +86,7 @@ sub  calculate_individual_label_statistics_vbm {
     my $case = 2;
     my ($dummy,$error_message)=calculate_individual_label_statistics_Output_check($case);
 
-    my $real_time = write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
+    my $real_time = vbm_write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
