@@ -1078,29 +1078,23 @@ if ($nii4D) {
 	    sleep($interval);
 
 	    foreach my $a_contrast (@current_channel_array) {
-		apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
-		# if ($a_contrast !~ /nii4D/) {
-		#     apply_mdt_warps_vbm($a_contrast,"f",'MDT',$a_label_space); #$PM_code = 64
-		# }
+    		apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
 	    }
 	    
 	    calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
 
-	    if ($multiple_runnos) {
-		tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
-		if ($multiple_groups) {	
-		    label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
-		}
+	    if ($multiple_runnos) { # Temporarily commented out UNDO IMMEDIATELY
+        #   tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
+		#   if ($multiple_groups) {	
+		#       label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
+		#   }
 	    }
 	    if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
-		#apply_mdt_warps_vbm('nii4D',"f",'all',$a_label_space); #
-		apply_warps_to_bvecs($a_label_space);	
+    		apply_warps_to_bvecs($a_label_space);	
 	    }
 	}
 	sleep($interval);
-	
-	## label_statistics_vbm();#$PM_code = 65 # Planned code, implemented as three pm's: 65->65,66,67
-	## sleep($interval);
+
     }   
 
 if ($do_vba) {

@@ -148,7 +148,7 @@ sub study_variables_vbm {
     $mdt_creation_strategy='iterative';
 	$create_labels = 1; #1
 	#$label_space = "pre_rigid";
-	$label_space = "post_affine";
+	$label_space = "pre_affine, post_affine";
     $diffeo_iterations="3000x3000x3000x80";
     
 	my $phantom_run = 0;
@@ -265,7 +265,7 @@ sub study_variables_vbm {
 	}
 
 
-	@channel_array = qw(dwi fa adc); 
+	@channel_array = qw(dwi fa adc jac); 
 #	@channel_array = qw(dwi fa);
 
 
@@ -294,13 +294,14 @@ sub study_variables_vbm {
 	
 	$project_name = "18.abb.05";
 	#$custom_predictor_string = "TerminalReacher_vs_BeginnerReacher";
-    $custom_predictor_string = "TerminalReacher_vs_TerminalControl";
+    #$custom_predictor_string = "TerminalReacher_vs_TerminalControl"; #Moved below to comparison switch code
 	$diffeo_transform_parameters = "0.25,3,0.5";
 	#$vbm_reference_space = '/mnt/abadeaqnap/clusterdata/abadea/VBM_18abb05_chass_symmetric3-work/preprocess/BCS10_dwi_ALS.nii.gz' ;
-    $vbm_reference_space = '/mnt/abadeaqnap/clusterdata/abadea/VBM_18abb05_chass_symmetric3-work/preprocess/BCS10_dwi.nii.gz' ;
-	$create_labels = 0;
-	$label_space = "pre_affine";
-
+    $vbm_reference_space = '/mnt/abadeaqnap/clusterdata/abadea/VBM_18abb05_chass_symmetric3-work/preprocess/base_images/reference_file_c_BCS10dwi.nii.gz' ;
+	$create_labels = 1;
+	$label_space = "pre_affine,post_affine";
+    $template_name = 'faMDT_TerminalReacher_n24';
+    $template_predictor='TerminalReacher';
 	@control_group = qw(
 	    BCS10
 	    BCS11
@@ -340,6 +341,7 @@ sub study_variables_vbm {
         BCW1
         BCW4
         BCW6
+        BCW9
 	    BRS1
 	    BRS2
 	    BRS3
@@ -378,6 +380,67 @@ sub study_variables_vbm {
             TRW8
         );
 
+my $comparison = 1;
+if ( $comparison) {
+$custom_predictor_string = "AllReacher_vs_AllControl";
+ @group_1=qw(
+	    TRS1
+	    TRS2
+	    TRS3
+	    TRS5
+	    TRS6
+	    TRU2
+	    TRU3
+            TRU5
+            TRW3
+            TRW5
+            TRW7
+            TRW8
+	    BRS1
+	    BRS2
+	    BRS3
+	    BRS5
+	    BRS6
+	    BRU2
+	    BRU3
+            BRU5
+            BRW3
+            BRW5
+            BRW7
+            BRW8
+    );
+
+
+    @group_2=qw(
+	    TCS10
+	    TCS11
+	    TCS4
+	    TCS7
+	    TCS8
+	    TCS9
+	    TCU1
+	    TCU7
+TCW1
+            TCW4
+            TCW6
+            TCW9
+	    BCS10
+	    BCS11
+	    BCS4
+	    BCS7
+	    BCS8
+	    BCS9
+	    BCU1
+	    BCU7
+        BCW1
+        BCW4
+        BCW6
+        BCW9
+    );
+
+
+} else {
+$custom_predictor_string = "TerminalReacher_vs_TerminalControl";
     @group_1=qw(
 	    TRS1
 	    TRS2
@@ -408,7 +471,7 @@ TCW1
             TCW6
             TCW9
     );
-
+}
 	@channel_array = qw(dwi fa); 
 
 	$flip_x = 0;
@@ -423,8 +486,9 @@ TCW1
 	$threshold_code = 4;
 	$do_mask = 0;
 	$pre_masked = 1;
-
+$do_vba=1;
 	$vba_contrast_comma_list = 'fa,jac';
+    $vba_contrast_comma_list = 'jac'; # Introduced so we could specify that only jac needs
 	$vba_analysis_software = 'surfstat';
 
 	$thresh_ref = {};

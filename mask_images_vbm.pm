@@ -677,7 +677,20 @@ sub mask_images_vbm_Runtime_check {
     $current_path = $Hf->get_value('preprocess_dir');
     $do_mask = $Hf->get_value('do_mask');
     $mask_dir = $Hf->get_value('mask_dir');
-    $template_contrast = $Hf->get_value('skull_strip_contrast');
+    (my $tc_isbad,$template_contrast) = $Hf->get_value_check('skull_strip_contrast');
+
+    if ($tc_isbad ==0) {
+        
+    #if ($template_contrast eq ('' || 'NO_KEY' || 'UNDEFINED_VALUE')) {
+        my $ch_runlist=$Hf->get_value('channel_comma_list');
+        if ($ch_runlist =~ /(dwi)/i) {
+                $template_contrast = $1;
+            } else {
+                my @channels = split(',',$ch_runlist);
+                $template_contrast = shift(@channels);    
+        }
+        $Hf->set_value('skull_strip_contrast',${template_contrast});
+    }
     $thresh_ref = $Hf->get_value('threshold_hash_reference');
     $default_mask_threshold=$Hf->get_value('threshold_code'); # Do this on an the basis of individual runnos
                         # -1 use imagej (like evan and his dti pipe)
