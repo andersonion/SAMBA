@@ -17,7 +17,6 @@ no strict "refs";
 use warnings;
 no warnings qw(uninitialized bareword);
 
-require pipeline_utilities;
 require Headfile;
 
 use Cwd qw(abs_path);
@@ -34,6 +33,7 @@ my ($pipeline_path,$dummy1,$dummy2) = fileparts($full_pipeline_path,2);
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 $ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
 $ENV{'PIPELINE_PATH'}=$pipeline_path;
+
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
@@ -88,6 +88,9 @@ if (! defined($RADISH_PERL_LIB)) {
     print STDERR "Cannot find good perl directories, quitting\n";
     exit;
 }
+use lib split(':',$RADISH_PERL_LIB);
+use pipeline_utilities;
+
 #my $custom_pipeline_utilities_path ="${WORKSTATION_HOME}/shared/cluster_pipeline_utilities/"; #11 April 2017, BJA: I think this was to avoid having to reconcile our pipeline_utility functions. We might be able to delete that whole folder.
 #$RADISH_PERL_LIB=$custom_pipeline_utilities_path.':'.$RADISH_PERL_LIB;
 use lib split(':',$RADISH_PERL_LIB);

@@ -310,8 +310,10 @@ my ($pristine_input_dir,$work_dir,$result_dir,$result_headfile) = make_process_d
 ## Backwards compatability for rerunning work initially ran on glusterspace
 
 # search start headfile for references to '/glusterspace/'
-if (defined $start_file) {
-    my $start_contents=`more $start_file`;
+if ((defined $start_file) && ( -f $start_file)) {
+    print 'Step 1...\n';
+    my $start_contents=`cat $start_file`;
+    print 'Step 2...\n';
     if ($start_contents =~ /\/glusterspace\//) {
         my $old_pristine_input_dir=$pristine_input_dir;
         if ($pristine_input_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
