@@ -49,7 +49,7 @@ require Headfile;
 use vars qw($Hf $recon_machine $project_name);
 #my $do_connectivity=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
 #my $eddy_current_correction=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
-
+use civm_simple_util qw(write_array_to_file);
 
 
 #---------------------
@@ -105,7 +105,7 @@ sub find_my_tensor_data {
     #  If $recon_machine is set, and a singular and appropriate tensor headfile can be found there, then all data associated with a given runno will
     #  be pulled off of that machine.
     #
-    #  Otherwise, the code will search a list of potential recon machines (including atlasdb), noting all the qualifying headfiles that are found.
+    #  Otherwise, the code will search a list of potential recon machines (including dusom_civm), noting all the qualifying headfiles that are found.
     #  If only one is found, then that runnos data will be pulled from the corresponding recon machines.
     #  If more than one is found, then an error will be thrown, encouraging the user to clean up the recon stations if they are satisfied with the archived data.
     #  If the archived data is bad, and the user is hoping to use a fresh run of tensor_create, then the appropriate_recon machine will need to be specified.
@@ -118,18 +118,17 @@ sub find_my_tensor_data {
     #  weren't warned...
  
     
-    my @recon_machines = qw(atlasdb
-        gluster
-        andros
-        piper
+    my @recon_machines = qw(dusom_civm
         delos
-        vidconfmac
-        sifnos
-        milos
-        panorama
-        rhodos
-        syros
-        tinos); # James has a function to automatically compiling a valid list... 
+        piper); 
+#        andros      
+#        vidconfmac
+#        sifnos
+#        milos
+#        panorama
+#        rhodos
+#        syros
+#        tinos); # James has a function to automatically compiling a valid list... 
 
 # 10 July 2017: removed naxos temporarily until we better address "dead machine" issue.
 # 11 October 2017: removed crete temporarily because we are too lazy to turn it back on now.
@@ -183,7 +182,7 @@ sub find_my_tensor_data {
     my $little_engine_that_did;
     my @possible_tensor_recon_machines;
     if ($tensor_headfile_exists) {
-	## Pull out engine name, and to list of possible locations to look for data, after BIGGUS_DISKUS and atlasdb;
+	## Pull out engine name, and to list of possible locations to look for data, after BIGGUS_DISKUS and dusom_civm;
 	my $temp_tensor_Hf = new Headfile ('rw', $tensor_headfile);
 	my $msg_1 = "tensor headfile = ${tensor_headfile}\n";
 	printd(30,$msg_1); # At the threshold of still printing, but almost clucking.
@@ -195,7 +194,7 @@ sub find_my_tensor_data {
 	my $msg_2 = "little engine that did = ${little_engine_that_did}\n";
 	printd(30,$msg_2);
 
-	@possible_tensor_recon_machines = ('gluster',$little_engine_that_did,'atlasdb'); # 10 July 2017: reversed order of importance
+	@possible_tensor_recon_machines = ('dusom_civm',$little_engine_that_did); # 10 July 2017: reversed order of importance
 	if ((defined $recon_machine) && ($recon_machine ne 'NO_KEY') && ($recon_machine ne '')) {
 	    unshift(@possible_tensor_recon_machines,$recon_machine);
 	}
@@ -216,7 +215,7 @@ sub find_my_tensor_data {
 	if ($keep_checking){
     my $archive_prefix = '';
 	my $machine_suffix = '';		
-	if ($current_recon_machine eq 'atlasdb') {
+	if ($current_recon_machine eq 'dusom_civm') {
 	    $archive_prefix = "${project_name}/research/";
 	} else {
 	    $machine_suffix = "-DTI-results";
@@ -345,18 +344,17 @@ sub find_my_tensor_data {
 #---------------------
 sub pull_civm_tensor_data {
 #---------------------
-    my @recon_machines = qw(atlasdb
-        gluster
-        andros
-        piper
+    my @recon_machines = qw(dusom_civm
         delos
-        vidconfmac
-        sifnos
-        milos
-        panorama
-        rhodos
-        syros
-        tinos); # James has a function to automatically compiling a valid list... 
+        piper);
+#        andros
+#        vidconfmac
+#        sifnos
+#        milos
+#        panorama
+#        rhodos
+#        syros
+#        tinos); # James has a function to automatically compiling a valid list... 
     
 # 10 July 2017: removed naxos temporarily until we better address "dead machine" issue. 
 # 11 October 2017: removed crete temporarily because we are too lazy to turn it back on now.
@@ -445,7 +443,7 @@ sub pull_civm_tensor_data {
 			    foreach my $current_recon_machine (@recon_machines){
 				if (! $raw_machine_found) {
 				    my $archive_prefix_or_runno = $runno."*/";
-				    if ($current_recon_machine eq 'atlasdb') {
+				    if ($current_recon_machine eq 'dusom_civm') {
 					$archive_prefix_or_runno = "${project_name}/";
 				    }
 				
@@ -890,7 +888,7 @@ sub query_data_home{
    #print " this should be \"${data_home}\"\n\n";
    my $archive_prefix = '';
    my $machine_suffix = '';		
-   if ($data_home eq 'atlasdb') {
+   if ($data_home eq 'dusom_civm') {
        $archive_prefix = "${project_name}/research/";
    } else {
        $machine_suffix = "-DTI-results";
