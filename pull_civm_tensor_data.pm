@@ -27,10 +27,6 @@ $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
 $permissions = 0755;
 my $interval = 0.1; ##Normally 1
-$valid_formats_string = 'hdr|img|nii';
-
-# a do it again variable, will allow you to pull data from another vbm_run
-
 
 umask(002); # Despite this, there is almost guaranteed to be issues with permissions for multi-user applications.
 
@@ -664,9 +660,17 @@ sub pull_civm_tensor_data {
 		}
 	    }
 	}
-	
+	my $prev_formats=$valid_formats_string;
 	# get any specified "traditional" dti images
 	foreach my $contrast (@array_of_channels) {
+        ### KLUDGE Begin
+        # get_nii_from_inputs is being used in an unexpected way here to find files which are neither nii's nor images.
+        # This resets the the valid_formats_string every time , and adds txt for any b_table,
+        $valid_formats_string=$prev_formats;
+        if ($contrast eq 'b_table') {
+            $valid_formats_string=$valid_formats_string.'|txt';
+        }
+        ### END KLUDGE
     #Carp::confess("$inputs_dir,$runno,$contrast");
 	    my $test_file =  get_nii_from_inputs($inputs_dir,$runno,$contrast);
 	    my $pull_file_cmd='';
