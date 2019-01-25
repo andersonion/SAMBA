@@ -1,23 +1,15 @@
 #!/usr/local/pipeline-link/perl
 # create_affine_reg_to_atlas_vbm.pm 
-
-
 #  2015/01/02  BJ - added capability to register to any image, not just atlas; for use with full-affine registration.
 
+use strict;
+use warnings;
 
 my $PM = "create_affine_reg_to_atlas_vbm.pm";
 my $VERSION = "2015/01/02";
 my $NAME = "Create bulk rigid/affine registration to a specified atlas";
 my $DESC = "ants";
 my $ggo = 1;  # Needed for compatability with seg_pipe code
-
-use strict;
-use warnings;
-no warnings qw(uninitialized bareword);
-
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $create_labels $nodes $permissions $dims $ants_verbosity $reservation);
-require Headfile;
-require pipeline_utilities;
 
 my ($rigid_atlas,$contrast, $runlist,$work_path,$current_path,$label_atlas,$label_path);
 my ($affine_metric,$affine_shrink_factors,$affine_iterations,$affine_gradient_step,$affine_convergence_thres);
@@ -31,7 +23,7 @@ my $job;
 my ($do_rigid,$affine_target,$q_string,$r_string,$other_xform_suffix,$mdt_to_atlas,$mdt_contrast_string,$mdt_contrast,$mdt_contrast_2,$mdt_path);
 my $ants_affine_suffix = "0GenericAffine.mat";
 my $mem_request;
-my $log_msg;
+my $log_msg="";
 my $swap_fixed_and_moving=0;
 
 my (%xform_paths,%pipeline_names,%alt_result_path_bases);
@@ -85,12 +77,14 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 		`cp ${affine_identity} ${pipeline_name}`;
 	    } else {
 		($xform_path,$job) = create_affine_transform_vbm($to_xform_path,  $alt_result_path_base, $runno);
+
 		# We are setting atlas as fixed and current runno as moving...this is opposite of what happens in seg_pipe_mc, 
 		# when you are essential passing around the INVERSE of that registration to atlas step,
 		# but accounting for it by setting "-i 1" with $do_inverse_bool.
+
+        $xform_paths{$runno}=$xform_path;
 		if ($swap_fixed_and_moving) {
 		    print "swap_fixed_and_moving is activated\n\n\n";
-		    $xform_paths{$runno}=$xform_path;
 		} else {
 		    print "swap_fixed_and_moving is TURNED OFF (as it probably should be)\n\n\n";
 		    `ln -s ${xform_path}  ${pipeline_name}`;
@@ -109,7 +103,9 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 		# }
 	    }
 	}
+
 	my $mdt_flag = 0;
+
 	foreach my $current_runno (@array_of_control_runnos) {
 	    if ($runno eq $current_runno) {
 		$mdt_flag = 1;
@@ -153,21 +149,20 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 
    
     foreach my $runno (@array_of_runnos) {
-	if ($go) {
-	    if (! ((! $do_rigid) && ($runno eq $affine_target ))) {
-		$xform_path = $xform_paths{$runno};
-		my $pipeline_name = $pipeline_names{$runno};
-		my $alt_pipeline_name = $alt_result_path_bases{$runno}.$xform_suffix;
-		if ($swap_fixed_and_moving) {
-		    `if [ -f "${xform_path}" ]; then mv ${xform_path}  ${alt_pipeline_name}; fi`;
-		    create_explicit_inverse_of_ants_affine_transform($alt_pipeline_name,$pipeline_name); 
-		    `if [ -f "${pipeline_name}" ]; then rm ${alt_pipeline_name}; fi`;
-		} else {
-		    `if [ -f "${xform_path}" ]; then mv ${xform_path}  ${pipeline_name}; fi`;
-		    
-		}
-	    }
-	}
+        if ($go) {
+            if (! ((! $do_rigid) && ($runno eq $affine_target ))) {
+                $xform_path = $xform_paths{$runno};
+                my $pipeline_name = $pipeline_names{$runno};
+                my $alt_pipeline_name = $alt_result_path_bases{$runno}.$xform_suffix;
+                if ($swap_fixed_and_moving) {
+                    `if [ -f "${xform_path}" ]; then mv ${xform_path}  ${alt_pipeline_name}; fi`;
+                    create_explicit_inverse_of_ants_affine_transform($alt_pipeline_name,$pipeline_name); 
+                    `if [ -f "${pipeline_name}" ]; then rm ${alt_pipeline_name}; fi`;
+                } else {
+                    `if [ -f "${xform_path}" ]; then mv ${xform_path}  ${pipeline_name}; fi`;
+                }
+            }
+        }
     }
     
     my $case = 2;
@@ -178,7 +173,10 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     `chmod 777 ${write_path_for_Hf}`;
 
     # Clean up derived transforms.
-    `rm ${current_path}/*Derived*mat`;
+
+    # Bash syntax below: if "ls" command is successful (finds existing items), then executes "rm" command.
+    # "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
+    `ls ${current_path}/*Derived*mat  2> /dev/null && rm ${current_path}/*Derived*mat`;
 
 
     my $PM_code;
@@ -237,7 +235,7 @@ sub create_affine_reg_to_atlas_Output_check {
 	} else {
 	    $full_file_1 = "${current_path}/${runno}_${xform_suffix}";
 	}
-	if (data_double_check($full_file_1)) {
+	if (data_double_check($full_file_1,$case-1)) {
 	    $go_hash{$runno}=1;
 	    push(@file_array,$full_file_1);
 	    #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
@@ -274,10 +272,10 @@ sub create_affine_transform_vbm {
     my $transform_path="${result_transform_path_base}0GenericAffine.mat";
 
     if (($xform_code ne 'rigid1') && (! $mdt_to_atlas)){
-	$transform_path="${result_transform_path_base}1Affine.mat"; #2Affine.mat      
+        $transform_path="${result_transform_path_base}1Affine.mat"; #2Affine.mat      
     }
     
-    my ($q,$r);
+    my ($q,$r)=('','');
     if ((! $do_rigid) && (! $mdt_to_atlas)) {
 	$r_string = "${current_path}/${moving_runno}_${other_xform_suffix}";
     }
@@ -369,6 +367,7 @@ sub create_affine_transform_vbm {
 	my ($home_path,$dummy1,$dummy2) = fileparts($result_transform_path_base,2);
 	my $Id= "${moving_runno}_create_affine_registration";
 	my $verbose = 2; # Will print log only for work done.
+
 	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);
 	
 	if (not $jid) {
@@ -382,7 +381,7 @@ sub create_affine_transform_vbm {
     # my $transform_path = "${result_transform_path_base}Affine.txt"; # From previous version of Ants, perhaps?
     
        
-    if (data_double_check($transform_path) && $go && (not $jid)) {
+    if (data_double_check($transform_path,1) && $go && (not $jid)) {
 	error_out("$PM: create_transform: did not find result xform: $transform_path");
 	print "** $PM: create_transform $xform_code created $transform_path\n";
     }
@@ -405,11 +404,13 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
             $rigid_contrast = $affine_contrast;
             $log_msg=$log_msg."\tNo rigid contrast specified; inheriting contrast used for affine registration: \"${rigid_contrast}\" for rigid  registrations.\n";
         } else {
+            my $channel_comma_list = $Hf->get_value('channel_comma_list');
+            
             if ($channel_comma_list =~ /(dwi)/i) {
                 $rigid_contrast = $1;
                 $log_msg=$log_msg."\tNo rigid contrast specified; using default contrast: \"${rigid_contrast}\" for rigid  registrations.\n";
             } else {
-                my @channels = split(',',$Hf->get_value('channel_comma_list'));
+                my @channels = split(',',${channel_comma_list});
                 $rigid_contrast = shift(@channels);
                 #$Hf->set_value('affine_contrast',$affine_contrast);
                 $log_msg=$log_msg."\tNo rigid contrast specified; using first specified contrast: \"${rigid_contrast}\" for rigid  registrations.\n";
@@ -417,6 +418,22 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
         }
         $Hf->set_value('rigid_contrast',$rigid_contrast);
     }
+
+    my $rigid_work_dir= $Hf->get_value('rigid_work_dir');
+	if ($rigid_work_dir eq 'NO_KEY') {
+        my $w_path = $Hf->get_value('dir_work');
+		$rigid_work_dir = "${w_path}/${rigid_contrast}";
+		$Hf->set_value('rigid_work_dir',$rigid_work_dir);
+	}
+	if (-d $rigid_work_dir) {
+        my $affine_tag="${rigid_work_dir}/affine_target.txt";
+        if ( -f $affine_tag) {
+            my $found_affine_target = `cat ${affine_tag}`;
+            $Hf->set_value('affine_target', $found_affine_target);
+        } else {
+            # BJ desperately wants to use a diff against the identity matrix to find a previously used affine target...will have to do it behind James' back.
+        }
+	}
 
     if ($affine_contrast eq ('' || 'NO_KEY' || 'UNDEFINED_VALUE')) {
 	#$affine_contrast = $defaults_Hf->get_value('affine_contrast');
@@ -745,6 +762,10 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
     }
     $Hf->set_value('affine_sampling_options',$affine_sampling_options);
    
+
+    ## 
+
+
     ## ADD FUNCTIONALITY: Create an affine MDT (once per study) and allow that to be the affine target.
     # $affine_target=$Hf->set_value('affine_target');
     # if (  $affine_target eq ('' || 'NO_KEY')) {
@@ -840,7 +861,9 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 
 	if ($#mdt_contrasts > 0) {
 	    $mdt_contrast_2 = $mdt_contrasts[1];
-	}
+	} else {
+        $mdt_contrast_2 = '';
+    }
 
 	if ($do_rigid) {
 	    $xform_code = 'rigid1';
@@ -888,14 +911,71 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 	    $q_string = '';
 	    $r_string = '';
 	} else {
+        #  25 January 2019: Default behavior is changing in a data-dependent way:
+        #  If we change the control group (mdt group) population, then a different affine target might be selected.
+        #  Apart from introducing a headfile checkpoint, we need to guard against a different affine target
+        #  being used on a later run.  This is handled by dropping a short text file in the directory indicating
+        #  which runno was used; this will take precedence over all other methods of target selection.
+        #  For backwards compatability, a quick 'diff' check on all *_affine.mat files in directory,
+        #  compared to the static identity matrix, will quickly tell us which one was previously used as the target.
+        #  This will be done during the Init check?
+        $contrast = $Hf->get_value('affine_contrast');
+        
 	    $affine_target = $Hf->get_value('affine_target'); # $affine_target = $Hf->get_value('affine_target_image');
 	    if ($affine_target eq 'NO_KEY') {
-		my @controls = split(',',($Hf->get_value('control_comma_list')));
-		$affine_target = shift(@controls);
-		$Hf->set_value('affine_target',$affine_target); #	$Hf->set_value('affine_target_image',$affine_target);
-	    }
-	    
-	    $contrast = $Hf->get_value('affine_contrast');
+            my @controls = split(',',($Hf->get_value('control_comma_list')));
+            #if ($affine_target eq 'first_control') {
+            #    $affine_target = shift(@controls);
+            #} elsif ( $affine_target eq 'median') {
+
+                # This code is a lazy way of setting the affine target to approximately the average-ish value.
+                # In practice we use the median of the masked volume of the control images.
+                # If there are an even number of control images, it will select the larger/smaller of the middle two.
+            
+                if (scalar @controls > 2) {
+                # James's CRAZY finder funtion, uses open dir, and a regex to match.
+                # this regex is (runnoA|runnoB).*$contrast.*[.]n.*
+                # note this finds any .n* images
+                # could/should set the "acceptable" images someplace and use that as part of the regex
+                # some annoying conrtasts may collide... like fa./fa_color.... 
+                # BJ says: this makes it harder to control when all we want to return is runno to use, not the whole file name
+                #my @control_images=civm_simple_util::find_file_by_pattern($inputs_dir, '('.join("|",@controls).').*_'.$contrast.'_masked[.]n.{2,5}$');
+                
+                my %volume_hash;
+                for my $c_runno (uniq(@controls)) {
+
+                    my $c_file = get_nii_from_inputs($inputs_dir, $c_runno, "${contrast}_masked");
+
+                        if ($c_file !~ /[\n]+/) {
+                           my $volume = `fslstats ${c_file} -V | cut -d ' ' -f2`;
+                            chomp($volume);
+                            $volume_hash{$volume}=$c_runno;
+                        }
+                    
+                }
+                    use List::Util qw(sum);
+                    use civm_simple_util qw(round);
+                    
+                    my @sorted_v = sort(keys %volume_hash);
+                    my $v_index = round($#sorted_v/2);
+                    my $mean_v= round(sum(@sorted_v)/scalar(@sorted_v));
+                    for(my $i=0;$i<scalar(@sorted_v);$i++) {
+                        if( abs($sorted_v[$v_index]-$mean_v) > abs($sorted_v[$i]-$mean_v) ) {
+                            $v_index=$i;
+                        }
+                    }
+                    $affine_target=$volume_hash{$sorted_v[$v_index]};
+                } else {
+                    $affine_target = shift(@controls);
+                }
+                my $affine_tag = "${current_path}/affine_target.txt";
+                `echo -n ${affine_target} > ${affine_tag}`;
+            #}
+        }# else
+        #die $affine_target;
+        
+        $Hf->set_value('affine_target',$affine_target); #	$Hf->set_value('affine_target_image',$affine_target);
+
 	    $xform_code = 'full_affine';
 	    $xform_suffix = $Hf->get_value('affine_transform_suffix');
 	    $other_xform_suffix = $Hf->get_value('rigid_transform_suffix');

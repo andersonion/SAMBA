@@ -17,11 +17,16 @@ use strict;
 use warnings;
 #no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $reservation $dim $ants_verbosity);
-require Headfile;
-require pipeline_utilities;
-#require convert_to_nifti_util;
-
+use Env qw(RADISH_PERL_LIB);
+if (! defined($RADISH_PERL_LIB)) {
+    print STDERR "Cannot find good perl directories, quitting\n";
+    exit;
+}
+use lib split(':',$RADISH_PERL_LIB);
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
+#use vars used to be here
+use Headfile;
+use pipeline_utilities;
 
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$do_mask,$mask_dir,$template_contrast);
 my ($thresh_ref,$mask_threshold,$default_mask_threshold,$num_morphs,$morph_radius,$dim_divisor, $status_display_level);
@@ -50,97 +55,97 @@ sub mask_images_vbm {
 
 ## Make masks for each runno using the template contrast (usually dwi).
     foreach my $runno (@array_of_runnos) {
-	my $go = $make_hash{$runno};
-	if ($go) {
-	    my $current_file=get_nii_from_inputs($current_path,$runno,$template_contrast);
-	    if (($thresh_ref ne "NO_KEY") && ($$thresh_ref{$runno})){
-		$mask_threshold = $$thresh_ref{$runno};
-	    } else {
-		$mask_threshold=$default_mask_threshold;
-	    }
-	    my $mask_path     = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
-	    my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
+        my $go = $make_hash{$runno};
+        if ($go) {
+            my $current_file=get_nii_from_inputs($current_path,$runno,$template_contrast);
+            if (($thresh_ref ne "NO_KEY") && ($$thresh_ref{$runno})){
+                $mask_threshold = $$thresh_ref{$runno};
+            } else {
+                $mask_threshold=$default_mask_threshold;
+            }
+            my $mask_path     = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
+            my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
 
-	    $mask_hash{$runno} = $mask_path;
+            $mask_hash{$runno} = $mask_path;
 
-	    if (! -e $mask_path) {
-		if ( ( (! $port_atlas_mask)) || (($port_atlas_mask) && (! -e $ported_mask) && (! -e $ported_mask.'.gz')) ) {
-		    #my $nifti_args ="\'$current_file\', $dim_divisor, $mask_threshold, \'$mask_path\',$num_morphs , $morph_radius,$status_display_level";
-		    #my $nifti_command = make_matlab_command('strip_mask',$nifti_args,"${runno}_${template_contrast}_",$Hf,0); # 'center_nii'
-		    #execute(1, "Creating mask for $runno using ${template_contrast} channel", $nifti_command);
-		    ($job) =  strip_mask_vbm($current_file,$mask_path);
-		    if ($job) {
-			push(@jobs,$job);
-		    }
-		}
-	    }
-	}
+            if (! -e $mask_path) {
+                if ( ( (! $port_atlas_mask)) || (($port_atlas_mask) && (! -e $ported_mask) && (! -e $ported_mask.'.gz')) ) {
+                    #my $nifti_args ="\'$current_file\', $dim_divisor, $mask_threshold, \'$mask_path\',$num_morphs , $morph_radius,$status_display_level";
+                    #my $nifti_command = make_matlab_command('strip_mask',$nifti_args,"${runno}_${template_contrast}_",$Hf,0); # 'center_nii'
+                    #execute(1, "Creating mask for $runno using ${template_contrast} channel", $nifti_command);
+                    ($job) =  strip_mask_vbm($current_file,$mask_path);
+                    if ($job) {
+                        push(@jobs,$job);
+                    }
+                }
+            }
+        }
     }
 
     if (cluster_check() && (@jobs)) {
-	my $interval = 2;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-	
-	if ($done_waiting) {
-	    print STDOUT  " Automated skull-stripping/mask generation based on ; moving on to next step.\n";
-	}
+        my $interval = 2;
+        my $verbose = 1;
+        my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+        
+        if ($done_waiting) {
+            print STDOUT  " Automated skull-stripping/mask generation based on ; moving on to next step.\n";
+        }
     }
 
     @jobs=();
 
     if ($port_atlas_mask) {
-	my $atlas_mask =$Hf->get_value('port_atlas_mask_path') ;
-	foreach my $runno (@array_of_runnos) {
-	    my $go = $make_hash{$runno};
-	    if ($do_mask && $go){		
-            my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii.gz';
-            if (data_double_check($ported_mask)) {
-                ($job) = port_atlas_mask_vbm($runno,$atlas_mask,$ported_mask);
-                if ($job) {
-                    push(@jobs,$job);
-                }
-            }
-            $mask_hash{$runno} = $ported_mask;
-	    }
-	}
-	
-	if (cluster_check() && ($#jobs != -1)) {
-	    my $interval = 2;
-	    my $verbose = 1;
-	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-	    
-	    if ($done_waiting) {
-		print STDOUT  "  All port_atlas_mask jobs have completed; moving on to next step.\n";
-	    }
-	}
-     }
-    @jobs=(); # Reset job array;
-## Apply masks to all images in each runno set.
-    foreach my $runno (@array_of_runnos) {
-            foreach my $ch (@channel_array) {
-                my $go = $go_hash{$runno}{$ch};
-                if ($go) {
-                    if ($do_mask) {
-                        my ($job) = mask_one_image($runno,$ch);
-                    } else {
-                        my ($job) = rename_one_image($runno,$ch);
-                    }   
+        my $atlas_mask =$Hf->get_value('port_atlas_mask_path') ;
+        foreach my $runno (@array_of_runnos) {
+            my $go = $make_hash{$runno};
+            if ($do_mask && $go){               
+                my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii.gz';
+                if (data_double_check($ported_mask)) {
+                    ($job) = port_atlas_mask_vbm($runno,$atlas_mask,$ported_mask);
                     if ($job) {
                         push(@jobs,$job);
                     }
                 }
+                $mask_hash{$runno} = $ported_mask;
+            }
+        }
+        
+        if (cluster_check() && ($#jobs != -1)) {
+            my $interval = 2;
+            my $verbose = 1;
+            my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+            
+            if ($done_waiting) {
+                print STDOUT  "  All port_atlas_mask jobs have completed; moving on to next step.\n";
+            }
+        }
+    }
+    @jobs=(); # Reset job array;
+## Apply masks to all images in each runno set.
+    foreach my $runno (@array_of_runnos) {
+        foreach my $ch (@channel_array) {
+            my $go = $go_hash{$runno}{$ch};
+            if ($go) {
+                if ($do_mask) {
+                    ($job) = mask_one_image($runno,$ch);
+                } else {
+                    ($job) = rename_one_image($runno,$ch);
+                }   
+                if ($job) {
+                    push(@jobs,$job);
+                }
+            }
         }
     }
 
     if (cluster_check() && (@jobs)) {
-	my $interval = 1;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+        my $interval = 1;
+        my $verbose = 1;
+        my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
 
-	if ($done_waiting) {
-	    print STDOUT  "  All input images have been masked; moving on to next step.\n";
-	}
+        if ($done_waiting) {
+            print STDOUT  "  All input images have been masked; moving on to next step.\n";
+        }
     }
     my $case = 2;
     my ($dummy,$error_message)=mask_images_Output_check($case);
@@ -151,15 +156,15 @@ sub mask_images_vbm {
 
 
     if (($error_message ne '') && ($do_mask)) {
-	error_out("${error_message}",0);
+        error_out("${error_message}",0);
     } else {
-    # Clean up matlab junk
-	if (`ls ${work_dir} | grep -E /.m$/`) {
-	    `rm ${work_dir}/*.m`;
-	}
-	if (`ls ${work_dir} | grep -E /matlab/`) {
- 	    `rm ${work_dir}/*matlab*`;
-	}
+        # Clean up matlab junk
+        if (`ls ${work_dir} | grep -E /.m$/`) {
+            `rm ${work_dir}/*.m`;
+        }
+        if (`ls ${work_dir} | grep -E /matlab/`) {
+            `rm ${work_dir}/*matlab*`;
+        }
     }
 }
 
@@ -416,7 +421,7 @@ sub mask_one_image {
     if ((data_double_check($out_path)) && (not $jid)) {
 	error_out("$PM: missing masked image: ${out_path}");
     }
-    print "** $PM created ${out_path}\n";
+    print "** $PM expected output: ${out_path}\n";
   
     return($jid);
 }
@@ -466,7 +471,7 @@ sub rename_one_image {
     if ((data_double_check($out_path)) && (not $jid)) {
         error_out("$PM: missing unmasked image: ${out_path}");
     }
-    print "** $PM created ${out_path}\n";
+    print "** $PM expected output: ${out_path}\n";
   
     return($jid);
 }
@@ -482,6 +487,11 @@ sub mask_images_vbm_Init_check {
 
     $pre_masked = $Hf->get_value('pre_masked');
     $do_mask = $Hf->get_value('do_mask');
+
+    if ($do_mask !~ /^(1|0)$/) {
+        $init_error_msg=$init_error_msg."Variable 'do_mask' (${do_mask}) is not valid; please change to 1 or 0.";
+    }
+
     $port_atlas_mask = $Hf->get_value('port_atlas_mask');
 
     if ($pre_masked  == 1) {
@@ -607,6 +617,7 @@ sub mask_images_vbm_Init_check {
             }
         }
     }
+
 
     if (($do_mask == 1) && ($port_atlas_mask == 1)) {
         #print "Port atlas mask path = ${port_atlas_mask_path}\n\n";

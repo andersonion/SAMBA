@@ -2,25 +2,19 @@
 # apply_warps_to_bvecs.pm 
 # Originally written by BJ Anderson, CIVM
 
-
-
+use strict;
+use warnings;
 
 my $PM = "apply_warps_to_bvecs.pm";
 my $VERSION = "2017/04/03";
 my $NAME = "Application of affine transforms to bvecs.";
 my $DESC = "ants";
 
-use strict;
-use warnings;
-no warnings qw(uninitialized bareword);
-
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $permissions $ants_verbosity $reservation $dims);
-require Headfile;
-require pipeline_utilities;
 
 use civm_simple_util qw(printd $debug_val);
 use List::Util qw(max);
 
+use pull_civm_tensor_data;
 
 my $do_inverse_bool = 0;
 my ($runlist,$rigid_path,$current_path,$write_path_for_Hf);
@@ -31,12 +25,13 @@ my @jobs=();
 my (%go_hash);
 my $go = 1;
 my $job;
-my ($orientation,$ALS_to_RAS,$native_to_ALS,$ecc_string,$ecc_affine_xform,$nifti_flip,$scanner_flip);
+my ($orientation,$ALS_to_RAS,$ecc_string,$ecc_affine_xform,$nifti_flip,$scanner_flip);#$native_to_ALS
 my ($results_dir,$final_MDT_results_dir,$almost_results_dir,$almost_MDT_results_dir,$median_images_path, $final_results_dir);
 
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 #my $bvec_transform_executable_path = "/nas4/rja20/bvec_transform_executable/AM/run_transform_bvecs.sh"; # Updated from 'AL' version, 7 June 2017, BJA
-my $bvec_transform_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/bvec_transform_executable/20170607_1100/run_transform_bvecs.sh";
+#my $bvec_transform_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/bvec_transform_executable/20170607_1100/run_transform_bvecs.sh";
+my $bvec_transform_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/transform_bvecs_executable/stable/run_transform_bvecs.sh"; # As of 25 January 2019, 'stable' points to '20190125_1444'
 my ($current_contrast,$affine_target);
 my $current_label_space;
 
@@ -67,7 +62,7 @@ sub apply_warps_to_bvecs {  # Main code
     }
      
 
-    if (cluster_check() && ($jobs[0] ne '')) {
+    if (cluster_check() && (scalar @jobs)) {
 	my $interval = 2;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
@@ -77,6 +72,7 @@ sub apply_warps_to_bvecs {  # Main code
 	}
     }
     my $case = 2;
+
     my ($dummy,$error_message)=apply_warps_to_bvecs_Output_check($case,$direction);
 
     my $real_time = vbm_write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
@@ -85,9 +81,9 @@ sub apply_warps_to_bvecs {  # Main code
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
 
     if ($error_message ne '') {
-	error_out("${error_message}",0);
+        error_out("${error_message}",0);
     } else {
-	$Hf->write_headfile($write_path_for_Hf);
+        $Hf->write_headfile($write_path_for_Hf);
     }
 }
 
@@ -100,17 +96,17 @@ sub apply_warps_to_bvecs_Output_check {
      my $message_prefix ='';
      my ($out_file,$dir_string);
      if ($direction eq 'f' ) {
-	 $dir_string = 'forward';
+        $dir_string = 'forward';
      } elsif ($direction eq 'i') {
-	 $dir_string = 'inverse';
+        $dir_string = 'inverse';
      } else {
-	 error_out("$PM: direction of warp \"$direction \"not recognized. Use \"f\" for forward and \"i\" for inverse.\n");
+        error_out("$PM: direction of warp \"$direction \"not recognized. Use \"f\" for forward and \"i\" for inverse.\n");
      }
      my @file_array=();
      if ($case == 1) {
-  	$message_prefix = "  ${dir_string} affine rotations have already been applied to the bvecs for the following runno(s) and will not be recalculated:\n";
+         $message_prefix = "  ${dir_string} affine rotations have already been applied to the bvecs for the following runno(s) and will not be recalculated:\n";
      } elsif ($case == 2) {
- 	$message_prefix = "  Unable to apply ${dir_string} affine rotations to the bvecs for the following runno(s):\n";
+         $message_prefix = "  Unable to apply ${dir_string} affine rotations to the bvecs for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
 
      
@@ -118,40 +114,35 @@ sub apply_warps_to_bvecs_Output_check {
      my $missing_files_message = '';
      
      foreach my $runno (@array_of_runnos) {
-	 if ($direction eq 'f' ) {
-	     $out_file = "${current_path}/${runno}_${orientation}${ecc_string}_bvecs.txt";
-	 } #elsif ($direction eq 'i') {
-	   #  $out_file =  "${current_path}/MDT_to_${runno}_${current_contrast}.nii.gz";  #Added '.gz', 2 September 2015
-	 #}
 
-	 if (data_double_check($out_file)) {
-	     if (data_double_check($out_file)) {
-		 $go_hash{$runno}=1;
-		 push(@file_array,$out_file);
-		 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-		 $missing_files_message = $missing_files_message."\t$runno\n";
+        if ($direction eq 'f' ) {
+            $out_file = "${current_path}/${runno}_${orientation}_uhz${ecc_string}_bvecs.txt";
+        } 
+
+	    if (data_double_check($out_file,$case-1)) {
+            $go_hash{$runno}=1;
+            push(@file_array,$out_file);
+            #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+            $missing_files_message = $missing_files_message."\t$runno\n";
 	     } else {
-		 $go_hash{$runno}=0;
-		 $existing_files_message = $existing_files_message."\t$runno\n";
+            $go_hash{$runno}=0;
+            $existing_files_message = $existing_files_message."\t$runno\n";
 	     }
 	     
-	 } else {
-	     $go_hash{$runno}=0;
-	     $existing_files_message = $existing_files_message."\t$runno\n";
-	 }
+
      }
      if (($existing_files_message ne '') && ($case == 1)) {
-	 $existing_files_message = $existing_files_message."\n";
+        $existing_files_message = $existing_files_message."\n";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $missing_files_message = $missing_files_message."\n";
+        $missing_files_message = $missing_files_message."\n";
      }
      
      my $error_msg='';
 
      if (($existing_files_message ne '') && ($case == 1)) {
-	 $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
+        $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
+        $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
      }
 
      my $file_array_ref = \@file_array;
@@ -211,65 +202,136 @@ sub apply_affine_rotation {
 
     # my $image_to_warp = get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
     my $original_bvecs = $Hf->get_value("original_bvecs_${runno}");
+
+    if ( ! -f ${original_bvecs}) {
+        pull_civm_tensor_data_Init_check();       
+        $original_bvecs = $Hf->get_value("original_bvecs_${runno}");
+        if ( ! -f ${original_bvecs}) {
+            pull_civm_tensor_data($runno,'b_table');
+            $original_bvecs = $Hf->get_value("original_bvecs_${runno}");
+        }
+    }
+
     my $max_bval_test = $Hf->get_value("max_bvalue_${runno}");
     my $bval_string = '';
     if ($max_bval_test ne 'NO_KEY') {
 	$bval_string = " -b ${max_bval_test} ";
     }
 
+    # Determine what we have set as the native orientation for a given runno
+    # (from convert_all_to_nifti_vbm)
+
+		    my $Hf_key = "original_orientation_${runno}";
+		    #my $Hf_key = "original_orientation_${runno}_${ch}";# May need to evolve to where each image is checked for proper orientation.
+		    my $current_orientation= $Hf->get_value($Hf_key);# Insert orientation finder function here? No, want to out-source, I think.
+		    if ($current_orientation eq 'NO_KEY') {
+			$Hf_key = "original_study_orientation";
+			$current_orientation= $Hf->get_value($Hf_key);
+			if ($current_orientation eq 'NO_KEY') {
+			    if ((defined $flip_x) || ($flip_z)) { # Going to assume that these archaic notions will come in pairs.
+				if (($flip_x) && ($flip_z)) {
+				    $current_orientation = 'PLI';
+				} elsif ($flip_x) {
+				    $current_orientation = 'PRS';
+				} elsif ($flip_z) {
+				    $current_orientation = 'ARI';
+				} else {
+				    $current_orientation = 'ALS';
+				}
+			    } else {
+				$current_orientation = 'ALS';
+			    }
+			}
+		    }
+        my $current_vorder= $Hf->get_value('working_image_orientation');
+        if (($current_vorder eq 'NO_KEY') || ($current_vorder eq 'UNDEFINED_VALUE') || ($current_vorder eq '')) {
+            $current_vorder= 'ALS';
+        }
+
+    my $native_to_ALS = $current_orientation.'_to_'.$current_vorder;
+
+
+    # Find the right format for calling ecc_xforms ($exes_from_zeros, $xform_type), if requested
     my $exes_from_zeros;
     my $temp_runno = $runno;
 
+    my $xform_type='';
     if ($eddy_current_correction) {
-	my $zero_tester = '1';
-	if ($temp_runno =~ s/(\_m[0]+)$//){}
-	my $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.nii0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
-	if (data_double_check($test_ecc_affine_xform)) {
-	    $zero_tester = '01';
-	    $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.nii0GenericAffine.mat";
-	    if (data_double_check($test_ecc_affine_xform)) {
-		$zero_tester = '001';
-		$test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.nii0GenericAffine.mat";
-		if (data_double_check($test_ecc_affine_xform)) {
-		    $eddy_current_correction=0; 
-		} else {
-		    $exes_from_zeros = 'XXX'
-		}
+        my $zero_tester = '1';
+        if ($temp_runno =~ s/(\_m[0]+)$//){}
+    my $xforms_found=0;
+    
+        for my $type ('nii','nhdr'){
+            if ($xforms_found==0) {
+            my $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.${type}0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
+            if (data_double_check($test_ecc_affine_xform)) {
+                $zero_tester = '01';
+                $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.${type}0GenericAffine.mat";
+                if (data_double_check($test_ecc_affine_xform)) {
+                    $zero_tester = '001';
+                    $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.${type}0GenericAffine.mat";
+                    if (data_double_check($test_ecc_affine_xform)) {
+
+                    } else {
+                        $exes_from_zeros = 'XXX';
+                        $xforms_found=1;
+                    }
 		
-	    } else {
-		$exes_from_zeros = 'XX'
-	    }
-	} else {
-	    $exes_from_zeros = 'X';
-	}
+                } else {
+                $exes_from_zeros = 'XX';
+                $xforms_found=1;
+            }
+        } else {
+            $exes_from_zeros = 'X';
+            $xforms_found=1;
+        }   
+        }
+        if ($xforms_found) {
+            $xform_type=$type;
+        } 
     }
- 
+
+    if (! $xforms_found) {
+        $eddy_current_correction=0; 
+        die ("You dirty rat, you don't have the xforms you need to do ecc!");
+    }
+ }
     if ($eddy_current_correction) {
-	$ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${exes_from_zeros}.nii0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
-	$ecc_string = '_ecc';
+        $ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${exes_from_zeros}.${xform_type}0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
+        $ecc_string = '_ecc';
     } else {
-	$ecc_affine_xform = '';
-	$ecc_string = '';
-	my $message_prefix="$PM:\n";
-	my $log_msg = "No eddy current correction has been applied to bvecs for runno ${runno}.";
+        $ecc_affine_xform = '';
+        $ecc_string = '';
+        my $message_prefix="$PM:\n";
+        my $log_msg = "No eddy current correction has been applied to bvecs for runno ${runno}.";
 	    log_info("${message_prefix}${log_msg}");
     }
     
-    $out_file = "${current_path}/${runno}_${orientation}${ecc_string}_bvecs.txt";
-    my $out_file_prefix =  "${current_path}/${runno}_${orientation}${ecc_string}";
+    $out_file = "${current_path}/${runno}_${orientation}_uhz${ecc_string}_bvecs.txt";
+    my $out_file_prefix =  "${current_path}/${runno}_${orientation}";
     my $warp_string = $Hf->get_value("${direction_string}_xforms_${runno}");
     if ($warp_string eq 'NO_KEY') {
-	$warp_string=$Hf->get_value("mdt_${direction_string}_xforms_${runno}")
+        $warp_string=$Hf->get_value("mdt_${direction_string}_xforms_${runno}")
     }
 
     my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
     
     if ($current_label_space eq 'atlas') {
-	$mdt_warp_train=format_transforms_for_command_line($mdt_warp_string);
-	$warp_train= $mdt_warp_train.' '.$warp_train;
+        $mdt_warp_train=format_transforms_for_command_line($mdt_warp_string);
+        $warp_train= $mdt_warp_train.' '.$warp_train;
     }
 
-    $cmd = "${bvec_transform_executable_path} ${matlab_path} ${original_bvecs} -o ${out_file_prefix} ${bval_string} ${ALS_to_RAS} ${warp_train} ${native_to_ALS} ${ecc_affine_xform} ${nifti_flip} ${scanner_flip};\n";  
+
+    # If co-reg is performed with nhdr (nrrd headers), then the (-1,-1,1 aka -z) so-called nifti-flip AFTER ecc affine xforms
+    # REMEMBER: this means that it will appear BEFORE it in the transform stack, since the transforms are applied in reverse order a la ANTs
+
+    my $ecc_and_affine_flips= " ${ecc_affine_xform} ${nifti_flip} ";
+    if ($xform_type eq 'nhdr') {
+        $ecc_and_affine_flips= " ${nifti_flip} ${ecc_affine_xform} ";
+    }
+
+
+    $cmd = "${bvec_transform_executable_path} ${matlab_path} ${original_bvecs} -o ${out_file_prefix} ${bval_string} ${ALS_to_RAS} ${warp_train} ${native_to_ALS} ${ecc_and_affine_flips} ${scanner_flip};\n";  
  
     if ($convert_labels_to_RAS){
 	my $copy_bvecs_cmd= "cp ${out_file} ${RAS_results_dir};\n";
@@ -309,8 +371,8 @@ sub apply_affine_rotation {
     if ((!-e $out_file) && (not $jid)) {
 	error_out("$PM: missing bvecs with ${direction_string} affine rotations  applied for ${runno}: ${out_file}");
     }
-    print "** $PM created ${out_file}\n";
-  
+    #print "** $PM expected output: ${out_file}\n";
+    print "** $PM expected output: ${out_file}\n";
     return($jid,$out_file);
 }
 
@@ -327,8 +389,6 @@ sub apply_warps_to_bvecs_Init_check {
     if (($do_connectivity ne 'NO_KEY') && ($do_connectivity == 1)) {
 	
 	$eddy_current_correction = $Hf->get_value('eddy_current_correction');
-	#$Hf->get_value("original_bvecs_${runno}");
-	
 
 	if ($init_error_msg ne '') {
 	    $init_error_msg = $message_prefix.$init_error_msg;
@@ -371,14 +431,8 @@ sub apply_warps_to_bvecs_Runtime_check {
 
     $label_path=$Hf->get_value('labels_dir');
     $label_results_path=$Hf->get_value('label_results_path');
-   
     
     $current_path=$Hf->get_value('label_images_dir');
-
-
-
-
-    
     
     my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
     
@@ -407,18 +461,20 @@ sub apply_warps_to_bvecs_Runtime_check {
     if (($eddy_current_correction ne 'NO_KEY') && ($eddy_current_correction == 1)) {
         $ecc_string = '_ecc';
     }  
-
-    $native_to_ALS = '';
-    my $flip_x = $Hf->get_value('flip_x');
-    my $flip_z = $Hf->get_value('flip_z');
-
-    if ($flip_x) {
-	$native_to_ALS = $native_to_ALS." -z ";
-    }
     
-    if ($flip_z) {
-	$native_to_ALS = $native_to_ALS." -x ";
-    }
+   # 22 January 2019, BJA: Moved this code to actual apply xform sub; need to determine
+   # "native" for each runno, via code copied from convert_all_to_nifti_vbm
+   # $native_to_ALS = ''; # Previously global to this PM
+   # my $flip_x = $Hf->get_value('flip_x');
+   # my $flip_z = $Hf->get_value('flip_z');
+
+   # if ($flip_x) {
+   #	$native_to_ALS = $native_to_ALS." -z ";
+   # }
+    
+   # if ($flip_z) {
+   #	$native_to_ALS = $native_to_ALS." -x ";
+   # }
 
     my $convert_images_to_RAS=$Hf->get_value('convert_labels_to_RAS');
     $ALS_to_RAS = '';

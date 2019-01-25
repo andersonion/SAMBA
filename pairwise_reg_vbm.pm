@@ -8,9 +8,9 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized);
+#no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $dims $ants_verbosity $reservation $nodes $permissions);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
@@ -25,7 +25,7 @@ my (%go_hash);
 my $go = 1;
 my ($job,$job_count);
 my $id_warp;
-my $log_msg;
+my $log_msg="";
 my ($expected_number_of_jobs,$hash_errors);
 my ($mem_request,$mem_request_2,$jobs_in_first_batch);
 my $batch_folder;
@@ -65,7 +65,7 @@ sub pairwise_reg_vbm {  # Main code
     ($mem_request,$mem_request_2,$jobs_in_first_batch) = memory_estimator_2($expected_number_of_jobs,$nodes);
 
     my @remaining_runnos = @sorted_runnos;
-    for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
+    for ((my $moving_runno = $remaining_runnos[0]); (scalar @remaining_runnos > 1); (shift(@remaining_runnos)))  {
 	$moving_runno = $remaining_runnos[0];
 	foreach my $fixed_runno (@remaining_runnos) {
 	    $go = $go_hash{$moving_runno}{$fixed_runno};
@@ -121,7 +121,7 @@ sub pairwise_reg_Output_check {
 
      $expected_number_of_jobs = 0;
 
-     for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
+     for ((my $moving_runno = $remaining_runnos[0]); (scalar @remaining_runnos > 1); (shift(@remaining_runnos)))  {
 	 $moving_runno = $remaining_runnos[0];
 	 foreach my $fixed_runno (@remaining_runnos) {
 	     $file_1 = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz";
@@ -266,7 +266,7 @@ sub create_pairwise_warps {
     if (((!-e $new_warp) | (! -e $new_inverse)) && (not $jid)) {
 	error_out($stop_message);
     }
-    print "** $PM created ${new_warp} and ${new_inverse}\n";
+    print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
   
     return($jid);
 }

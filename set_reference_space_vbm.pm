@@ -11,13 +11,10 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $dims $reservation $ants_verbosity);
-require Headfile;
-require pipeline_utilities;
-require civm_simple_util;
-require convert_all_to_nifti_vbm;
+use civm_simple_util;
+use convert_all_to_nifti_vbm;
+
 
 my ($inputs_dir,$pristine_in_folder,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$original_rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
 my (%reference_space_hash,%reference_path_hash,%input_reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
@@ -74,7 +71,7 @@ sub set_reference_space_vbm {  # Main code
 	     }   
 	 }
 
-	 if (cluster_check() && ($#jobs_1 != -1)) {
+	 if (cluster_check() && (scalar @jobs_1)) {
 	     my $interval = 1;
 	     my $verbose = 1;
 	     my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_1);
@@ -97,7 +94,7 @@ sub set_reference_space_vbm {  # Main code
      }
     
     
-     if (cluster_check() && ($#jobs_2 != -1)) {
+     if (cluster_check() && (scalar @jobs_2)) {
 	 my $interval = 2;
 	 my $verbose = 1;
 	 my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_2);
@@ -120,7 +117,10 @@ sub set_reference_space_vbm {  # Main code
     } else {
 	foreach my $space (@spaces) {
 	    `mv ${refspace_folder_hash{$space}}/refspace.txt.tmp ${refspace_folder_hash{$space}}/refspace.txt`;
-	    `gzip ${refspace_folder_hash{$space}}/*.nii`;
+
+        # Bash syntax below: if "ls" command is successful (finds existing items), then executes "gzip" command.
+        # "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
+        `ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null && gzip ${refspace_folder_hash{$space}}/*.nii`;
 	}
     }
 }
@@ -183,28 +183,28 @@ sub set_reference_space_Output_check {
 	     print ".";
 	     my $tester = ((data_double_check($out_file)) && (data_double_check($out_file.'.gz')));
 	     #print "tester = ${tester} for out_file = ${out_file}\n\n";
-	     if ((data_double_check($out_file)) && (data_double_check($out_file.'.gz'))) {
-		 if ($case == 1) {
-		    # print "\n${out_file} added to list of files to be re-referenced.\n";
-		     my $test_file = $file;
-		     if ($test_file =~ s/(_masked)//i){}
-		     if ($test_file =~ /^([^\.]+)_([^_\.])+\..+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016 ## Forgot about "masked"...OOF, that hurt! 14 October 2016
-			 my $runno = $1;
-			 my $contrast = $2;
-			 if (! defined $runno_hash{$runno}) {
-			     $runno_hash{$runno}= $preprocess_dir.'/'.$file;
-			    # print "runno_hash{${runno}}= $runno_hash{$runno}\n\n"; ##
-			 }
-		     }
-		 }
-		 push(@file_array,$out_file);	     
-		 $missing_files_message = $missing_files_message."   $file \n";
+	     if (data_double_check($out_file, $out_file.'.gz') == 2) { # This will return the total of files NOT found--ask for 2, and didn't find 2
+            if ($case == 1) {
+                # print "\n${out_file} added to list of files to be re-referenced.\n";
+                my $test_file = $file;
+                if ($test_file =~ s/(_masked)//i){}
+                if ($test_file =~ /^([^\.]+)_([^_\.])+\..+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016 ## Forgot about "masked"...OOF, that hurt! 14 October 2016
+                    my $runno = $1;
+                    my $contrast = $2;
+                    if (! defined $runno_hash{$runno}) {
+                        $runno_hash{$runno}= $preprocess_dir.'/'.$file;
+                    # print "runno_hash{${runno}}= $runno_hash{$runno}\n\n"; ##
+                    }
+                 }
+            }
+            push(@file_array,$out_file);	     
+            $missing_files_message = $missing_files_message."   $file \n";
 	     } elsif (! compare_two_reference_spaces($out_file,$refspace)) {
-		 print "\n${out_file} added to list of files to be re-referenced.\n";
-		 push(@file_array,$out_file);	     
-		 $missing_files_message = $missing_files_message."   $file \n";
+            print "\n${out_file} added to list of files to be re-referenced.\n";
+            push(@file_array,$out_file);	     
+            $missing_files_message = $missing_files_message."   $file \n";
 	     } else {
-		 $existing_files_message = $existing_files_message."   $file \n";
+            $existing_files_message = $existing_files_message."   $file \n";
 	     }
 	 }
 	 #print "\n";
@@ -261,13 +261,13 @@ sub apply_new_reference_space_vbm {
     my $in_spacing = get_spacing_from_header($in_file);
     my $ref_spacing = get_spacing_from_header($ref_file);
     if ($in_spacing eq $ref_spacing) {
-	$interp = "NearestNeighbor";
+        $interp = "NearestNeighbor";
     }
     if ($in_file =~ /(mask|Mask|MASK)\./) {
-	$interp="NearestNeighbor";
+        $interp="NearestNeighbor";
     }
     
-    my $cmd;
+    my $cmd='';
     my @cmds;
     my $translation_transform;
 
@@ -452,7 +452,6 @@ sub set_reference_space_vbm_Init_check {
             return($init_error_msg);
         } else {
 
-
             $Hf->set_value("${V_or_L}_reference_path",$reference_path_hash{$V_or_L});
             $Hf->set_value("${V_or_L}_input_reference_path",$input_reference_path_hash{$V_or_L});
             $Hf->set_value("${V_or_L}_reference_space",$reference_space_hash{$V_or_L});
@@ -542,7 +541,7 @@ sub set_reference_space_vbm_Init_check {
     # Changed 1 September 2016: Implemented uniform processing for reference files. Feed source directly into function
     #    for creating a centered binary mass in the reference image.  This should automatically handle all centering 
     #    issues, including re-centering the rigid atlas target.
-
+    my $string=$refspace_folder_hash{'vbm'};
     $Hf->set_value('vbm_refspace_folder',$refspace_folder_hash{'vbm'});
     $Hf->set_value("vbm_reference_path",$reference_path_hash{'vbm'});
 
@@ -641,12 +640,12 @@ sub set_reference_space_vbm_Init_check {
     
     
     
-    if ($log_msg ne '') {
-	log_info("${message_prefix}${log_msg}");
+    if ((defined $log_msg) && ($log_msg ne '') ) {
+        log_info("${message_prefix}${log_msg}");
     }
     
-    if ($init_error_msg ne '') {
-	$init_error_msg = $message_prefix.$init_error_msg;
+    if ((defined $init_error_msg) && ($init_error_msg ne '') ) {
+        $init_error_msg = $message_prefix.$init_error_msg;
     }
     return($init_error_msg);
     
@@ -658,7 +657,7 @@ sub set_reference_path_vbm {
     my ($ref_option,$for_labels) = @_;
     my $ref_string; 
     $inputs_dir = $Hf->get_value('inputs_dir');
-    my $ref_path;
+    my $ref_path='';
     my $input_ref_path;
     my $error_message;
     
@@ -670,7 +669,7 @@ sub set_reference_path_vbm {
 
     if (! data_double_check($ref_option)) {
 	my ($r_path,$r_name,$r_extension) = fileparts($ref_option,2);
-	print "r_name = ${r_name}\n\n\n\n";
+#	print "r_name = ${r_name}\n\n\n\n";
 	if ($r_extension =~ m/^[.]{1}(hdr|img|nii|nii\.gz)$/) {
 	    $log_msg=$log_msg."\tThe selected ${which_space} reference space is an [acceptable] arbitrary file: ${ref_option}\n";
 	    $input_ref_path=$ref_option;

@@ -8,21 +8,28 @@
 # Ironically, it is being split so we can reuse this same code as a segmentation pipeline
 
 
-# All my includes and requires are belong to us.
+# All my includes and uses are belong to us.
 # use ...
 
 my $PM = 'vbm_pipeline_workflow.pm'; 
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
 
 use Cwd qw(abs_path);
 use File::Basename;
 use List::Util qw(min max reduce);
 use List::MoreUtils qw(uniq);
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $syn_params $permissions $valid_formats_string $nodes $reservation $mdt_to_reg_start_time $civm_ecosystem);
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
+
+use Env qw(RADISH_PERL_LIB);
+if (! defined($RADISH_PERL_LIB)) {
+    print STDERR "Cannot find good perl directories, quitting\n";
+    exit;
+}
+use lib split(':',$RADISH_PERL_LIB);
+
+#use vars used to be here
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
 use text_sheet_utils;
 
@@ -30,7 +37,7 @@ use text_sheet_utils;
 if (! -d $WORKSTATION_DATA) {
 if ($WORKSTATION_DATA =~ s/\.\.\/data/\.\.\/CIVMdata/) {}
 }
-print "WORKSTATION_DATA = ${WORKSTATION_DATA}\n\n\n";
+#print "WORKSTATION_DATA = ${WORKSTATION_DATA}\n\n\n";
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 $ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
@@ -39,7 +46,7 @@ $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
 $permissions = 0755;
 my $interval = 0.1; ##Normally 1
-$valid_formats_string = 'hdr|img|nii|nhdr';
+$valid_formats_string = 'hdr|img|nii|nhdr|nrrd';
 
 $civm_ecosystem = 1; # Begin implementing handling of code that is CIVM-specific
 if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
@@ -64,148 +71,43 @@ if (! defined($RADISH_PERL_LIB)) {
 }
 use lib split(':',$RADISH_PERL_LIB);
 
-# require ...
-require Headfile;
-require retrieve_archived_data;
-require study_variables_vbm;
-require pull_civm_tensor_data;
 
-require convert_all_to_nifti_vbm;
-require set_reference_space_vbm;
-require create_rd_from_e2_and_e3_vbm;
-require mask_images_vbm;
-require create_affine_reg_to_atlas_vbm;
-require iterative_pairwise_reg_vbm;
-require pairwise_reg_vbm;
-require calculate_mdt_warps_vbm;
-require iterative_calculate_mdt_warps_vbm;
-require apply_mdt_warps_vbm;
-require calculate_mdt_images_vbm;
-require compare_reg_to_mdt_vbm;
-require mdt_reg_to_atlas_vbm;
-require warp_atlas_labels_vbm;
-require calculate_individual_label_statistics_vbm;
-require	tabulate_label_statistics_by_contrast_vbm;
-require label_stat_comparisons_between_groups_vbm;
-require mask_for_mdt_vbm;
-require calculate_jacobians_vbm;
-require smooth_images_vbm;
-require vbm_analysis_vbm;
-require vbm_write_stats_for_pm;
+# use ...
+use Headfile;
+use civm_simple_util qw(sleep_with_countdown    );
+use retrieve_archived_data;
+use study_variables_vbm;
+use ssh_call;
+use pull_civm_tensor_data;
+
+use convert_all_to_nifti_vbm;
+use set_reference_space_vbm;
+use create_rd_from_e2_and_e3_vbm;
+use mask_images_vbm;
+use create_affine_reg_to_atlas_vbm;
+use iterative_pairwise_reg_vbm;
+use pairwise_reg_vbm;
+use calculate_mdt_warps_vbm;
+use iterative_calculate_mdt_warps_vbm;
+use apply_mdt_warps_vbm;
+use calculate_mdt_images_vbm;
+use compare_reg_to_mdt_vbm;
+use mdt_reg_to_atlas_vbm;
+use warp_atlas_labels_vbm;
+use calculate_individual_label_statistics_vbm;
+use	tabulate_label_statistics_by_contrast_vbm;
+use label_stat_comparisons_between_groups_vbm;
+use mask_for_mdt_vbm;
+use calculate_jacobians_vbm;
+use smooth_images_vbm;
+use vbm_analysis_vbm;
+use vbm_write_stats_for_pm;
 
 # Temporary hardcoded variables
 
 # variables, set up by the study vars script(study_variables_vbm.pm)
-use vars qw(
-$start_file
 
-$project_name 
-@control_group
-$control_comma_list
-@compare_group
-$compare_comma_list
-
-$complete_comma_list
-
-@group_1
-$group_1_runnos
-@group_2
-$group_2_runnos
-$all_groups_comma_list
-
-@channel_array
-$channel_comma_list
-
-$custom_predictor_string
-$template_predictor
-$template_name
-
-$flip_x
-$flip_z 
-$optional_suffix
-$atlas_name
-$label_atlas_name
-
-$skull_strip_contrast
-$threshold_code
-$do_mask
-$pre_masked
-$port_atlas_mask
-$port_atlas_mask_path
-$thresh_ref
-
-$rigid_contrast
-
-$affine_contrast
-$affine_metric
-$affine_radius
-$affine_shrink_factors
-$affine_iterations
-$affine_gradient_step
-$affine_convergence_thresh
-$affine_convergence_window
-$affine_smoothing_sigmas
-$affine_sampling_options
-$affine_target
-
-$mdt_contrast
-$mdt_creation_strategy
-$mdt_iterations
-$mdt_convergence_threshold
-$initial_template
-
-$compare_contrast
-
-$diffeo_metric
-$diffeo_radius
-$diffeo_shrink_factors
-$diffeo_iterations
-$diffeo_transform_parameters
-$diffeo_convergence_thresh
-$diffeo_convergence_window
-$diffeo_smoothing_sigmas
-$diffeo_sampling_options
-
-$vbm_reference_space
-$reference_path
-$create_labels
-$label_space
-$label_reference
-
-$do_vba
-$fdr_masks
-
-$convert_labels_to_RAS
-$eddy_current_correction
-$do_connectivity
-$recon_machine
-
-$fixed_image_for_mdt_to_atlas_registratation
-
-$vba_contrast_comma_list
-$vba_analysis_software
-$smoothing_comma_list
-
-$original_study_orientation
-$working_image_orientation
-
-$nonparametric_permutations
-$tfce_extent
-$tfce_height
-$fsl_cluster_size
-
-$U_specid
-$U_code
-$U_species_m00
-
-$image_dimensions
-
-$participants
-
-@comparisons
-@predictors
- );
-
+$schedule_backup_jobs=0;
 
 sub vbm_pipeline_workflow { 
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
@@ -257,11 +159,11 @@ if (! @compare_group) {
         @compare_group = @control_group;
     }
  
-    if ($group_1[0] ne '') {
+    if ( scalar (@group_1) && $group_1[0] ne '') {
         @compare_group=uniq(@compare_group,@group_1);
     } 
     
-    if ($group_2[0] ne '') {
+    if ( scalar (@group_2) && $group_2[0] ne '') {
         @compare_group=uniq(@compare_group,@group_2);
     }
 }
@@ -274,6 +176,8 @@ if ($#all_runnos < 1) {
     if (! $optional_suffix) {
         $optional_suffix = $all_runnos[0];
     }
+
+    $mdt_creation_strategy='pairwise';
 }
 
 if (! defined $do_vba) {
@@ -311,9 +215,9 @@ my ($pristine_input_dir,$work_dir,$result_dir,$result_headfile) = make_process_d
 
 # search start headfile for references to '/glusterspace/'
 if ((defined $start_file) && ( -f $start_file)) {
-    print 'Step 1...\n';
+
     my $start_contents=`cat $start_file`;
-    print 'Step 2...\n';
+
     if ($start_contents =~ /\/glusterspace\//) {
         my $old_pristine_input_dir=$pristine_input_dir;
         if ($pristine_input_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
@@ -349,12 +253,19 @@ if ($test_for_inputs eq '') {
 
 $import_data = 0;
 
-#  Mini-kludge
-
-
 ## Headfile setup code starts here
+if ( -e $result_headfile) {
+    my $last_result_headfile = $result_headfile =~ s/\.headfile/_last\.headfile/;
+    `mv -f ${result_headfile} ${last_result_headfile}`;
+}
+$Hf = new Headfile ('nf',$result_headfile );
+if (! $Hf->check()){
+    # We expect this to happen when a file with the same name as $result_headfile was not successfully moved a few lines above-
+    # probably due to permissions issues, which is a huge red flag.
+    croak("Is this your data? If not, you will need the original owner to run the pipeline.")
+}
 
-$Hf = new Headfile ('rw',$result_headfile );
+
 my $log_file = open_log($result_dir);
 my $stats_file = $log_file;
 if ($stats_file =~ s/pipeline_info/job_stats/) {
@@ -463,7 +374,7 @@ if (defined $vbm_reference_space) {
     $Hf->set_value('vbm_reference_space',$vbm_reference_space);
 }
 
-if ($label_reference ne '') {
+if (defined $label_reference) {
     $Hf->set_value('label_reference_space',$label_reference);
 }
 
@@ -688,6 +599,8 @@ if ((defined $start_file) && ($start_file ne '')) {
 	return(0);
    }
 
+
+
     foreach my $c_runno (@all_runnos) {
 	my $c_key = "original_orientation_${c_runno}";
 	my $temp_orientation = $tempHf->get_value($c_key);
@@ -697,6 +610,49 @@ if ((defined $start_file) && ($start_file ne '')) {
     }
 }
 
+# Check for previous run (startup headfile in inputs?)
+
+my $c_input_headfile="${pristine_input_dir}/current_inputs.headfile";
+
+if ( -f ${c_input_headfile}) {
+# If exists, compare with current inputs
+
+    my $tempHf = new Headfile ('rw', "${start_file}");
+    $tempHf->read_headfile;
+
+    my $ci_Hf = new Headfile ('rw', "${c_input_headfile}");
+    if (! ${ci_Hf}->check()) {
+        error_out(" Unable to open current inputs parameter file ${c_input_headfile}.");
+        return(0);
+    }
+    if (! ${ci_Hf}->read_headfile) {
+        error_out(" Unable to read current inputs parameter file ${c_input_headfile}."); 
+        return(0);
+   }
+
+    my @excluded_keys=qw(hfpcmt);
+    my $include=0;
+    my $Hf_comp = '';
+    $Hf_comp = compare_headfiles($ci_Hf,$tempHf,$include,@excluded_keys);		    
+	if ($Hf_comp eq '') {
+        print "Input headfile matches current headfile!\n\n";
+	} else {
+        # If different, warn with 10 sec pause or need to press Enter
+	    log_info(" $PM: ${Hf_comp}\nARE YOU ABSOLUTELY SURE YOU WANT TO CONTINUE?\n(If not, cancel now)"); # Is this the right place for this?
+        sleep_with_countdown(10);
+	}
+}
+# Save current to inputs and results, renaming as necessary
+
+my $pipeline_inputs_file = $log_file;
+if ($pipeline_inputs_file =~ s/pipeline_info/input_parameters/) {
+    if ($pipeline_inputs_file =~ s/\.txt$/\.headfile/) {
+        `cp -p ${start_file} ${pipeline_inputs_file}`;
+        $Hf->set_value('timestamped_inputs_file',${pipeline_inputs_file});
+    }
+}
+
+`cp -p ${start_file} ${c_input_headfile}`;
 
 ##
 if (defined $working_image_orientation) {
@@ -814,28 +770,38 @@ print STDOUT " Running the main code of $PM. \n";
      compare_reg_to_mdt_vbm
      mdt_reg_to_atlas_vbm
      warp_atlas_labels_vbm
+     calculate_individual_label_statistics_vbm
      tabulate_label_statistics_by_contrast_vbm
      label_stat_comparisons_between_groups_vbm
-     calculate_individual_label_statistics_vbm
      calculate_jacobians_vbm
      vbm_analysis_vbm
      apply_warps_to_bvecs
       );
     # 20 July 2017, BJA: swapped check order of mask images and set reference space
+    
+    my %init_dispatch_table;
+    
+
     my $checkCall; # Using camelCase here to avoid the potential need for playing the escape character game when calling command with backticks, etc.
-    my $Init_suffix = "_Init_check()";
+    my $Init_suffix = "_Init_check";
     
    
    # for (my $mm = $#modules_for_Init_check; $mm >=0; $mm--)) { # This checks backwards
     for (my $mm = 0; $mm <= $#modules_for_Init_check; $mm++) { # This checks forwards
-	my $module = $modules_for_Init_check[$mm];	 
+    my $module = $modules_for_Init_check[$mm];
+		 
 	$checkCall = "${module}${Init_suffix}";
+    $init_dispatch_table{$checkCall}=eval('\&$checkCall'); # MUST USE SINGLE QUOTES on RHS!!!
+
+
 	print STDOUT "Check call is $checkCall\n";
 	my $temp_error_msg = '';
+    $temp_error_msg=$init_dispatch_table{$checkCall}();
+        #$temp_error_msg=set_reference_space_vbm_Init_check();
 
-	($temp_error_msg) = eval($checkCall);
-	
-	if ($temp_error_msg ne '') {
+ #if ( $module =~ /set_ref/) {die $module."____".$temp_error_msg;}
+
+	if ((defined $temp_error_msg) && ($temp_error_msg ne '')  ) {
 	    if ($init_error_msg ne '') {
 		$init_error_msg = "${init_error_msg}\n------\n\n${temp_error_msg}"; # This prints the results forwards
 		# $init_error_msg = "${temp_error_msg}\n------\n\n${init_error_msg}"; # This prints the results backwards
@@ -854,7 +820,6 @@ print STDOUT " Running the main code of $PM. \n";
     
   
 # Finish headfile
-
 
 # Begin work:
 
@@ -922,7 +887,6 @@ if ($nii4D) {
     $channel_comma_list = $original_channel_comma_list;
     $Hf->set_value('channel_comma_list',$channel_comma_list);
 }
-
 
 # Register all to atlas
     my $do_rigid = 1;   
@@ -1072,8 +1036,6 @@ if ($nii4D) {
 	
 	@current_channel_array = uniq(@current_channel_array);
 
-
-
 	foreach my $a_label_space (@label_spaces) {
 
 	    warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
@@ -1189,3 +1151,4 @@ return();
 #`rm $tmp_path`;
 #}
 #}
+1;

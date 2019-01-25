@@ -2,9 +2,6 @@
 # apply_mdt_warps_vbm.pm 
 # Originally written by BJ Anderson, CIVM
 
-
-
-
 my $PM = "apply_mdt_warps_vbm.pm";
 my $VERSION = "2015/02/19";
 my $NAME = "Application of warps derived from the calculation of the Minimum Deformation Template.";
@@ -12,9 +9,9 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
+#no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $permissions $ants_verbosity $reservation $dims);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 
@@ -38,7 +35,7 @@ my $img_transform_executable_path ="/cm/shared/workstation_code_dev/matlab_execs
 
 my $current_label_space;
 
-my $convert_images_to_RAS;
+my $convert_images_to_RAS=0;
 
 my ($results_dir,$final_MDT_results_dir,$almost_results_dir,$almost_MDT_results_dir,$median_images_path, $final_results_dir);
 
@@ -188,7 +185,7 @@ sub apply_mdt_warps_Output_check {
 	     $out_file =  "${current_path}/MDT_to_${runno}_${current_contrast}.nii.gz";  #Added '.gz', 2 September 2015
 	 }
 
-	 if (data_double_check($out_file)) {
+	 if (data_double_check($out_file,$case-1)) {
 	     #if ($out_file =~ s/\.gz$//) {
 		 #if (data_double_check($out_file)) {
 		     $go_hash{$runno}=1;
@@ -253,8 +250,10 @@ sub apply_mdt_warp {
     if ($gid == 2 ) {
 	$out_file = "${current_path}/${runno}_${current_contrast}.nii${gz}"; # Added '.gz', 2 September 2015
 	$reference_image = $label_reference_path;
-
-	if ($direction eq 'f') {
+    
+    if (! defined $current_label_space) {die "\$current_label_space error! It is not being defined when $PM is called with \$group_name = \"all\". See your local programmer.";}
+    
+    if ($direction eq 'f') {
 	    $direction_string = 'forward';
 	    if ($current_label_space eq 'pre_rigid') {
 		$start=0;
@@ -298,7 +297,7 @@ sub apply_mdt_warp {
 
     my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
 ##
-    if ($current_label_space eq 'atlas') {
+    if ((defined $current_label_space) && ($current_label_space eq 'atlas') ) {
 	$mdt_warp_train=format_transforms_for_command_line($mdt_warp_string,$option_letter);
 	$warp_train= $mdt_warp_train.' '.$warp_train;
     }
@@ -324,7 +323,7 @@ sub apply_mdt_warp {
         $opt_e_string = ' -e 3 ';
     } 
     
-    if (($current_contrast eq 'nii4D') && (! data_double_check($out_file))) {
+    if (($current_contrast eq 'nii4D') && (! data_double_check($out_file,1))) {
     #skip apply warp
     } else {
       $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} ${opt_e_string} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";  
@@ -394,7 +393,7 @@ sub apply_mdt_warp {
     if ((!-e $out_file) && (not $jid)) {
 	error_out("$PM: missing ${current_contrast} image with ${direction_string} MDT warp(s) applied for ${runno}: ${out_file}");
     }
-    print "** $PM created ${out_file}\n";
+    print "** $PM expected output: ${out_file}\n";
   
     return($jid,$out_file);
 }
@@ -451,12 +450,12 @@ sub convert_images_to_RAS {
         }
         my $desired_vorder = 'RAS';
 
-    if (($contrast eq 'nii4D') && (data_double_check($fat_out_file))) {
+    if (($contrast eq 'nii4D') && (data_double_check($fat_out_file,1))) {
         $cmd =$cmd."if [[ ! -f ${tmp_file} ]]; then\ngunzip -c ${input_image} > ${tmp_file};\nfi\n";
         $input_image=$tmp_file;
      };
 	#$cmd = $cmd."${img_transform_executable_path} ${matlab_path} ${input_image} ${current_vorder} ${desired_vorder} ${final_images_dir};\n";        
-    if ($contrast eq 'nii4D' && (! data_double_check($fat_out_file))) {
+    if ($contrast eq 'nii4D' && (! data_double_check($fat_out_file,1))) {
     # Do nothing
     } else {
         $cmd = $cmd."${img_transform_executable_path} ${matlab_path} ${input_image} ${current_vorder} ${desired_vorder} ${final_images_dir};\n";    
@@ -495,7 +494,7 @@ sub convert_images_to_RAS {
 	if ((!-e $out_file) && (not $jid_2)) {
 	    error_out("$PM: missing RAS version of ${label_atlas_name} label set for ${runno}: ${out_file}");
 	}
-	print "** $PM created ${out_file}\n";
+	print "** $PM expected output: ${out_file}\n";
     }
     
     return($jid_2,$out_file);
@@ -578,7 +577,8 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	} else {
 	    $msg="current_label_space has been explicitly set to: ${current_label_space}\n";
 	}
-	printd(35,$msg);
+	#printd(0,$msg);die;
+    printd(35,$msg);
 
 	$label_path=$Hf->get_value('labels_dir');
 	$label_results_path=$Hf->get_value('label_results_path');

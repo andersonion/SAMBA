@@ -10,11 +10,7 @@ my $NAME = "Calculate label-wide statistics for all contrast, for an individual 
 
 use strict;
 use warnings;
-no warnings qw(bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $permissions $reservation);
-require Headfile;
-require pipeline_utilities;
 use List::MoreUtils qw(uniq);
 
 my ($current_path, $image_dir,$work_dir,$runlist,$ch_runlist,$in_folder,$out_folder);
@@ -199,7 +195,7 @@ sub tabulate_label_statistics_by_contrast {
 } 
 
 # ------------------
-sub  tabulate_label_statistics_by_contrast_Init_check {
+sub  tabulate_label_statistics_by_contrast_vbm_Init_check {
 # ------------------
    my $init_error_msg='';
    my $message_prefix="$PM initialization check:\n";

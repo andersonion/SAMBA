@@ -14,7 +14,7 @@ use strict;
 use warnings;
 #no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $reservation);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
@@ -213,7 +213,7 @@ sub mask_for_mdt_Output_check {
      if ((data_double_check($out_path)) && (not $jid)) {
  	error_out("$PM: Missing eroded MDT mask: ${out_path}");
      }
-     print "** $PM created ${out_path}\n";
+     print "** $PM expected output: ${out_path}\n";
   
      return($jid,$out_path);
 }

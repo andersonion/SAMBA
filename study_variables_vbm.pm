@@ -5,6 +5,10 @@
 # Created 2014/12/23 BJ Anderson for use in VBM pipeline.
 
 
+use strict;
+use warnings;
+
+
 my $PM = "study_variables_vbm.pm";
 my $VERSION = "2015/02/11";
 my $NAME = "In lieu of commandline functionality, here is the place to define various variables.";
@@ -32,97 +36,6 @@ my $spectrin = 0;
 my $ankB = 0;
 
 my $connectomics_control_test = 0;
-
-use strict;
-use warnings;
-
-use vars qw($test_mode);
-
-use vars qw(
-$project_name 
-@control_group
-@compare_group
-
-@group_1
-@group_2
-
-@channel_array
-$custom_predictor_string
-$template_predictor
-$template_name
-
-$flip_x
-$flip_z 
-$optional_suffix
-$atlas_name
-$label_atlas_name
-
-$skull_strip_contrast
-$threshold_code
-$do_mask
-$pre_masked
-$port_atlas_mask
-$port_atlas_mask_path
-$thresh_ref
-
-$rigid_contrast
-
-$affine_contrast
-$affine_metric
-$affine_radius
-$affine_shrink_factors
-$affine_iterations
-$affine_gradient_step
-$affine_convergence_thresh
-$affine_convergence_window
-$affine_smoothing_sigmas
-$affine_sampling_options
-$affine_target
-
-$mdt_contrast
-$mdt_creation_strategy
-$mdt_iterations
-$mdt_convergence_threshold
-$initial_template
-
-$compare_contrast
-
-$diffeo_metric
-$diffeo_radius
-$diffeo_shrink_factors
-$diffeo_iterations
-$diffeo_transform_parameters
-$diffeo_convergence_thresh
-$diffeo_convergence_window
-$diffeo_smoothing_sigmas
-$diffeo_sampling_options
-
-$native_reference_space
-$vbm_reference_space
-$create_labels
-$label_space
-$label_reference
-
-$do_vba
-
-$convert_labels_to_RAS
-$eddy_current_correction
-$do_connectivity
-$recon_machine
-
-$fixed_image_for_mdt_to_atlas_registratation
-
-$vba_contrast_comma_list
-$vba_analysis_software
-$smoothing_comma_list
-
-$nonparametric_permutations
-
-$image_dimensions
-
-$working_image_orientation
-$ref_runno
-); # Need to replace $native_reference_space with $reference_space
 
 
 sub study_variables_vbm {

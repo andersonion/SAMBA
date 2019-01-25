@@ -8,11 +8,7 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode  $nodes $ants_verbosity $permissions $dims $reservation);
-require Headfile;
-require pipeline_utilities;
 #use PDL::Transform;
 
 my ($mdt_contrast,$mdt_contrast_string,$compare_contrast_string,$mdt_contrast_2, $runlist,$rigid_path,$mdt_path,$template_path,$median_images_path,$current_path,$inputs_dir);
@@ -28,8 +24,8 @@ my ($mem_request,$mem_request_2,$jobs_in_first_batch);
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
-my $log_msg;
-my $batch_folder;
+my $log_msg="";
+my $batch_folder='';
 my ($match_registration_levels_to_iteration,$mdt_creation_strategy);
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
@@ -101,8 +97,9 @@ sub compare_reg_to_mdt_vbm {  # Main code
 	headfile_list_handler($Hf,"inverse_xforms_${runno}",$i_xform_path,1);
     }
     
-    print "batch folder = ${batch_folder}\n\n";    
-    if (cluster_check() && ($jobs[0] ne '')) {
+      
+    if (cluster_check() && (scalar @jobs)) {
+    #print "batch folder = ${batch_folder}\n\n";  
 	my $interval = 15;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
@@ -240,12 +237,12 @@ sub reg_to_mdt {
 	$r_string = format_transforms_for_command_line($moving_string,"r",$start,$stop);
 	
 	
-	if ($mdt_contrast_2 ne '') {
+	if ((defined $mdt_contrast_2 ) && ($mdt_contrast_2 ne '') ) {
 	    $fixed_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii.gz";
 	}
 	
 	$moving = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
-	if ($mdt_contrast_2 ne '') {
+	if ((defined $mdt_contrast_2 ) && ($mdt_contrast_2 ne '') ) {
 	    $moving_2 = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast_2) ;
 	    $second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius}${diffeo_sampling_options}] ";
 	}
@@ -319,7 +316,7 @@ sub reg_to_mdt {
 	if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
 	    error_out("$PM: missing one or both of the warp results ${new_warp} and ${new_inverse}");
 	}
-	print "** $PM created ${new_warp} and ${new_inverse}\n";
+	print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
     }
     return($jid,$new_warp,$new_inverse);
 }

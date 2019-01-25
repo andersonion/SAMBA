@@ -10,9 +10,9 @@ my $NAME = "Calculate label-wide statistics for all contrast, for an individual 
 
 use strict;
 use warnings;
-no warnings qw(bareword);
+#no warnings qw(bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $permissions $reservation);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 use List::MoreUtils qw(uniq);
@@ -212,7 +212,7 @@ sub label_stat_comparisons_between_groups {
 } 
 
 # ------------------
-sub  label_stat_comparisons_between_groups_Init_check {
+sub  label_stat_comparisons_between_groups_vbm_Init_check {
 # ------------------
    my $init_error_msg='';
    my $message_prefix="$PM initialization check:\n";

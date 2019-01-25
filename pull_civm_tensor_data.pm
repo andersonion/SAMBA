@@ -17,7 +17,7 @@ use Cwd qw(abs_path);  # Verified as "necessary".
 use File::Basename;
 use List::Util qw(min max reduce); # Verified as "necessary".
 use List::MoreUtils qw(uniq first_index); # Verfified as "necessary".
-use vars qw($Hf $BADEXIT $GOODEXIT $permissions $valid_formats_string $nodes $reservation);
+#use vars used to be here
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
@@ -42,13 +42,7 @@ if (! defined($RADISH_PERL_LIB)) {
 }
 use lib split(':',$RADISH_PERL_LIB);
 
-# require ...
-require Headfile;
-#require retrieve_archived_data;
-#require study_variables_vbm;
-use vars qw($Hf $recon_machine $project_name);
-#my $do_connectivity=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
-#my $eddy_current_correction=1; ### ONLY TEMPORARY--SHOULD BE DELETED ASAP!!!!
+use Headfile;
 use civm_simple_util qw(write_array_to_file);
 
 
@@ -69,15 +63,14 @@ sub pull_civm_tensor_data_Init_check {
 	    my $gradient_file='';
 	    if (-d $inputs_dir) {
 		opendir(DIR, $inputs_dir);
-		my @input_files_0= grep(/^($runno).*(gradient_matrix)(\.txt)?$/i ,readdir(DIR));
+		my @input_files_0= grep(/^($runno).*(gradient_matrix|b_table)(\.txt)?$/i ,readdir(DIR));
 		if (@input_files_0) {
 		    $gradient_file = $inputs_dir.'/'.$input_files_0[0];
-		    if ($gradient_file =~ s/(\/\/)/\//) {}
+		    $gradient_file =~ s/(\/\/)/\//g;
 		}
 	    }
-
-	    if ($gradient_file ne '') {
-		$Hf->set_value("original_bvecs_${runno}",$gradient_file);
+	    if ((defined $gradient_file ) && ($gradient_file ne '') ) {
+            $Hf->set_value("original_bvecs_${runno}",$gradient_file);
 		$log_msg = $log_msg."\tSetting the [presumed] original bvecs for runno \"${runno}\" as ${gradient_file}.\n";
 	    }
 	}
@@ -258,10 +251,19 @@ sub find_my_tensor_data {
 	    }
 	} else {
 	    print("pulling tensor${local_runno}*.headfile to $local_folder\n");
-	    $pull_headfile_cmd = "puller_simple -D 0 -f file -or ${current_recon_machine} ${archive_prefix}tensor${local_runno}*${machine_suffix}/tensor${local_runno}*headfile ${local_folder}/";
-	    print "pull headfile cmd XX = ${pull_headfile_cmd}\n\n\n";
-	    `${pull_headfile_cmd} 2>&1`;
-	    my $unsuccessful_pull_of_tensor_headfile = $?;
+	    my $unsuccessful_pull_of_tensor_headfile=1;
+        $pull_headfile_cmd = "puller_simple -D 0 -f file -or ${current_recon_machine} ${archive_prefix}tensor${local_runno}*${machine_suffix}/tensor${local_runno}*headfile ${local_folder}/";
+        # Insert ssh_call::works here to see if we can use the current_recon_machine
+
+        my $td = load_deps(${current_recon_machine},'nas');
+
+        if ( ( ($td->get_value('nas_use_ssh') && ssh_call::works($td->get_value('nas_host_name'))) || $td->get_value('nas_use_mount')) ) {
+	        print "pull headfile cmd XX = ${pull_headfile_cmd}\n\n\n";
+            `${pull_headfile_cmd} 2>&1`;
+	        $unsuccessful_pull_of_tensor_headfile = $?;
+        } else {
+            $tmp_log_msg = "$tmp_log_msg\n SKIPPED $current_recon_machine beacuase ssh_call::works is FALSE\n";
+        }
 	    #print "\$unsuccessful_pull_of_tensor_headfile = ${unsuccessful_pull_of_tensor_headfile}\n\n";
 	    if ($unsuccessful_pull_of_tensor_headfile) {
 		$tmp_log_msg = "Unable to find a valid tensor headfile for runno \"${local_runno}\" on machine: ${current_recon_machine}\n\tTrying other locations...\n";
@@ -282,7 +284,7 @@ sub find_my_tensor_data {
 		$tmp_log_msg = "Tensor headfile for runno \"${local_runno}\" found on machine: ${current_recon_machine}\n";
 		$log_msg = $log_msg.$tmp_log_msg;
 	    }
-        if ($tensor_recon_machines[0] eq $recon_machine) {
+        if ( scalar(@tensor_recon_machines) && $tensor_recon_machines[0] eq $recon_machine) {
             $keep_checking = 0;
         }
     }
@@ -341,6 +343,7 @@ sub find_my_tensor_data {
     return($tensor_headfile,$tensor_recon_machine,$log_msg,$error_msg);
 
 }
+
 #---------------------
 sub pull_civm_tensor_data {
 #---------------------
@@ -363,12 +366,21 @@ sub pull_civm_tensor_data {
     }
     @recon_machines = uniq(@recon_machines);
 
-    my $complete_runno_list=$Hf->get_value('complete_comma_list');
+
+    my ($complete_runno_list,$complete_channel_list)=@_;
+    if (! defined $complete_runno_list){
+        $complete_runno_list=$Hf->get_value('complete_comma_list');
+    }
     my @array_of_runnos = split(',',$complete_runno_list);
     @array_of_runnos = uniq(@array_of_runnos);
-    my $complete_channel_list=$Hf->get_value('channel_comma_list');
-    my @array_of_channels = split(',',$complete_channel_list);
     
+    if (! defined $complete_channel_list) {
+        $complete_channel_list=$Hf->get_value('channel_comma_list');
+    }
+    
+    my @array_of_channels = split(',',$complete_channel_list);
+    @array_of_channels = uniq(@array_of_channels);
+
     my %where_to_find_tensor_data;
 
     my $inputs_dir = $Hf->get_value('pristine_input_dir');
@@ -390,8 +402,8 @@ sub pull_civm_tensor_data {
 	my $local_folder = "${inputs_dir}/${runno}_tmp2/";
 	
 	my $tensor_headfile;
-
-	if ($do_connectivity) {
+    my $raw_headfile;
+	if (0 && $do_connectivity) {
 	    ## Look for local tensor headfile
 	    if (-d $inputs_dir) {
 		opendir(DIR, $inputs_dir);	
@@ -419,11 +431,22 @@ sub pull_civm_tensor_data {
 		# 10 April 2017, BJA: it's too much of a hassle to pull the bvecs file then try to figure out how to incorporate the bvals...
 		#     From now on we'll process these ourselves from the tensor headfile.
 		
-		my $original_gradient_location = $tensor_Hf->get_value('dti-recon-gradmat-file'); ## Unsure if this will work for Bruker...
-		my ($o_grad_path,$grad_filename,$grad_ext) = fileparts($original_gradient_location,2);
-		my $gradient_file = "${inputs_dir}/${runno}_${grad_filename}${grad_ext}";
-		my ($num_bvecs,$v_dim,@Hf_gradients);
-		my $raw_headfile;
+		my ($v_ok,$original_gradient_location) = $tensor_Hf->get_value_check('dti-recon-gradmat-file'); ## Unsure if this will work for Bruker...
+        my ($o_grad_path,$grad_filename,$grad_ext)=('','gradient_matrix','.txt');
+   
+        if ($v_ok) {
+    		 ($o_grad_path,$grad_filename,$grad_ext)= fileparts($original_gradient_location,2);
+        }
+
+		$gradient_file = "${inputs_dir}/${runno}_${grad_filename}${grad_ext}";
+
+        if (data_double_check($gradient_file)) {
+            use File::Which;
+            if ( -x which("gradmaker") ) {
+                `gradmaker ${tensor_headfile} ${gradient_file}`;
+            }
+        }
+     
 		if (data_double_check($gradient_file)) {
 		    ## Look for local raw headfile
 		    if (-d $inputs_dir) {
@@ -507,7 +530,7 @@ sub pull_civm_tensor_data {
 			$log_msg = $log_msg.$tmp_log_msg;
 		    }
 		
-		
+		my ($num_bvecs,$v_dim,@Hf_gradients);
 		    if ( -f $raw_headfile) {
 			($num_bvecs,$v_dim,@Hf_gradients) =  build_bvec_array_from_raw_headfile($raw_headfile);
 		    } else{
@@ -547,7 +570,7 @@ sub pull_civm_tensor_data {
 			}
 			
 			## combine bvals and bvecs into one table
-			
+
 			my @gradient_matrix;
 			for (my $bb=0;($bb < $num_bvecs); $bb++) {
 			    $tmp_log_msg = "Creating combined bval/bvec b-table from headfile: ${tensor_headfile}.";
@@ -600,10 +623,13 @@ sub pull_civm_tensor_data {
 	
 	# Look for more then two xform_$runno...mat files (ecc affine transforms)
 	if ($do_connectivity){
+        push(@array_of_channels,'b_table');
+        @array_of_runnos = uniq(@array_of_runnos);
+
 	    if ((defined $eddy_current_correction) && ($eddy_current_correction ne 'NO_KEY') && ($eddy_current_correction == 1)) {
 		my $temp_runno = $runno;
 		if ($temp_runno =~ s/(\_m[0]+)$//){}
-		my $number_of_ecc_xforms =  `ls ${inputs_dir}/xform_${temp_runno}*.mat | wc -l`;
+		my $number_of_ecc_xforms =  `ls ${inputs_dir}/xform_${temp_runno}*.mat 2> /dev/null | wc -l `;
 		
 		print "number_of_ecc_xforms = ${number_of_ecc_xforms}\n\n";
 		if ($number_of_ecc_xforms < 6) { # For DTI, the minimum number of non-b0's is 6!
@@ -641,11 +667,15 @@ sub pull_civm_tensor_data {
 	
 	# get any specified "traditional" dti images
 	foreach my $contrast (@array_of_channels) {
+    #Carp::confess("$inputs_dir,$runno,$contrast");
 	    my $test_file =  get_nii_from_inputs($inputs_dir,$runno,$contrast);
 	    my $pull_file_cmd='';
-	    
+	    my $file_suffix='nii';
+        if ($contrast eq 'b_table') {
+            $file_suffix='txt';
+        }
 	    if ($test_file =~ /[\n]+/) {
-		if ($look_in_local_folder) {
+		if ($look_in_local_folder || ( -d $local_folder ) ) {
 		    $test_file =  get_nii_from_inputs($local_folder,$runno,$contrast);
 		    if ($test_file =~ /[\n]+/) {
 
@@ -659,9 +689,9 @@ sub pull_civm_tensor_data {
 			$error_msg=$error_msg.$find_error_msg;
 		
 			if ($data_home eq 'gluster') {
-			    $pull_file_cmd = "cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
+			    $pull_file_cmd = "cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*_${contrast}.${file_suffix}* ${inputs_dir}/";
 			} else {
-			    $pull_file_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
+			    $pull_file_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*_${contrast}.${file_suffix}* ${inputs_dir}/";
 			}
 			`${pull_file_cmd} 2>&1`;
 			
@@ -684,19 +714,12 @@ sub pull_civm_tensor_data {
                 #print  "machine suffix = ${machine_suffix}\n\n\n";  
 			}
 		    if ($data_home eq 'gluster') {
-			$pull_file_cmd = "cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
+			$pull_file_cmd = "cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*_${contrast}.${file_suffix}* ${inputs_dir}/";
 		    } else {
-			$pull_file_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
+			$pull_file_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*_${contrast}.${file_suffix}* ${inputs_dir}/";
 		    }
 		    ### print "pull file command YY = ${pull_file_cmd}\n\n\n"; ########
 		    `${pull_file_cmd} 2>&1`;
-		    #if ($data_home eq 'gluster') {
-			#$tmp_log_msg = `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/`;
-		    #} else {
-		        #$pull_file_cmd = "puller_simple -f file -or ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*${contrast}.nii* ${inputs_dir}/";
-			#$tmp_log_msg = `${pull_file_cmd}`;
-		    #}
-		    #$log_msg = $log_msg.$tmp_log_msg;
 		}
 	    }
 	}
@@ -785,78 +808,16 @@ sub pull_civm_tensor_data {
     #`rm ${inputs_dir}/._*`; # James fixed this bug on 24 April 2017
 }
 
+
 #---------------------
-sub  build_bvec_array_from_raw_headfile{ # Code extracted and lightly adapted from diffusion/tensor_pipe/main_tensor.pl, 24 April 2017, BJA
+sub process_input_gradient_matrix {
 #---------------------
-    my ($input_headfile,$data_prefix) =@_;
-    if (! defined $data_prefix) {
-	$data_prefix = 'z_Agilent_';
-    }
-    
-    my $grad_max=0; 
-    my $grad_min=100000000000000;
-    my $n_Bvalues;
-    my @Hf_gradients;
-    my $vector_dimension = 3; # We will assume 3D vectors
-    
-    #print "Opening input data headfile: ${input_headfile}\n";
-    my $HfInput = new Headfile ('ro', $input_headfile);
-    if (! $HfInput->check)         {error_out("Problem opening input runno headfile; ${input_headfile}");}
-    
-    if (! $HfInput->read_headfile) {error_out("Could not read input runno headfile: ${input_headfile}");}
 
-    if ( $HfInput->get_value_like("${data_prefix}dro") !~ "(NO_KEY|UNDEFINED_VALUE|EMPTY_VALUE)" )  {
-	#if ( $HfInput->get_value_like("${data_prefix}array") ne '(dro,dpe,dsl)' ) {
-	if ( $HfInput->get_value_like("${data_prefix}array(\$|_)") ne '(dro,dpe,dsl)' ) {	
-	    error_out('Agilent gradient table may not be in proper format, NOTIFIY JAMES');
-	} #elsif ( $HfInput->get_value_like("${data_prefix}array) ne '(dro,dpe,dsl)' ) {
-	 #   error_out('Agilent gradient table may not be in proper format, NOTIFIY JAMES');
-	#}
 
-	#vector data format, dim1:dim2:dimn, data1 data2 datan[:NEWLINE:]
 
-	my ($xd,$yd,$zd);
-	my ($xv,$yv,$zv);
-	my (@xva,@yva,@zva);
-	($xd,$xv)=split(',',$HfInput->get_value_like("${data_prefix}dro"));
-	($yd,$yv)=split(',',$HfInput->get_value_like("${data_prefix}dpe"));
-	($zd,$zv)=split(',',$HfInput->get_value_like("${data_prefix}dsl"));
-	@xva=split(' ',$xv);
-	@yva=split(' ',$yv);
-	@zva=split(' ',$zv);
-
-	$n_Bvalues = $#xva + 1;
-
-	if ( (reduce { $a * $b } 1,split(':',$xd)) !=($#xva+1) 
-	     || (reduce { $a * $b } 1,split(':',$yd)) !=($#yva+1) 
-	     || (reduce { $a * $b } 1,split(':',$zd)) !=($#zva+1) ) {
-	    my@nvals;
-	    push(@nvals,reduce { $a * $b } 1,split(':',$xd));
-	    push(@nvals,reduce { $a * $b } 1,split(':',$yd));
-	    push(@nvals,reduce { $a * $b } 1,split(':',$zd));
-	    my @elem;
-	    push(@elem,$#xva+1);
-	    push(@elem,$#yva+1);
-	    push(@elem,$#zva+1);
-	    error_out("Did not get agilent table properly ".join(" ",@nvals)." doesnt match ".join(" " ,@elem));
-	}
-	for(my $i=0;$i<$n_Bvalues;$i++){
-	    my ($xg,$yg,$zg)=-1;
-	    $xg=$xva[$i];
-	    $yg=$yva[$i];
-	    $zg=$zva[$i];
-	    push(@Hf_gradients,($xg, $yg, $zg));
-	    my $min_v=min( (abs($xg), abs($yg), abs($zg) ) );
-	    if ($min_v<$grad_min){$grad_min=$min_v;}
-	    my $max_v=max( (abs($xg), abs($yg), abs($zg) ) );
-	    if ($max_v>$grad_max){$grad_max=$max_v;}
-	}
-    } else {
-	error_out("Did not find Agilent variable \"${data_prefix}dro\"".$HfInput->get_value_like("${data_prefix}dro") ) ;
-    }		
-
-    return ($n_Bvalues,$vector_dimension,@Hf_gradients);    
 }
+
+
 
 #---------------------
 sub query_data_home{
@@ -895,3 +856,4 @@ sub query_data_home{
    }
    return ($found_headfile,$data_home,$log_msg,$find_error_msg,$archive_prefix,$machine_suffix);
 }
+1;

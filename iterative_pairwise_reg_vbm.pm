@@ -8,11 +8,6 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized);
-
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $ants_verbosity $nodes $reservation $permissions $dims);
-require Headfile;
-require pipeline_utilities;
 #use PDL::Transform;
 
 my ($mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$rigid_path,$mdt_path,$current_path,$inputs_dir);
@@ -24,7 +19,7 @@ my (%go_hash);
 my $go = 1;
 my ($job,$job_count);
 my $id_warp;
-my $log_msg;
+my $log_msg="";
 my ($expected_number_of_jobs,$hash_errors);
 my ($mem_request,$mem_request_2,$jobs_in_first_batch);
 my $max_iterations;
@@ -77,9 +72,11 @@ sub iterative_pairwise_reg_vbm {  # Main code
 #    my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
    ($mem_request,$mem_request_2,$jobs_in_first_batch) = memory_estimator_2($expected_number_of_jobs,$nodes);
 #    my $template_group ='';
-   my @remaining_runnos = @sorted_runnos;
-   for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
-       $moving_runno = $remaining_runnos[0];
+
+#   my @remaining_runnos = @sorted_runnos;
+#   for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
+#       $moving_runno = $remaining_runnos[0];
+   for my $moving_runno (@sorted_runnos) {
        my $current_file = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
        $go = $go_hash{$moving_runno};
        my $forward_out =  "${current_path}/${moving_runno}_to_MDT_warp.nii.gz";
@@ -154,12 +151,13 @@ sub iterative_pairwise_reg_Output_check {
 
      my $existing_files_message = '';
      my $missing_files_message = '';
-     my @remaining_runnos = @sorted_runnos;
 
      $expected_number_of_jobs = 0;
+     #my @remaining_runnos = @sorted_runnos;
+     #for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
+	 #$moving_runno = $remaining_runnos[0];
 
-     for ((my $moving_runno = $remaining_runnos[0]); ($remaining_runnos[0] ne ''); (shift(@remaining_runnos)))  {
-	 $moving_runno = $remaining_runnos[0];
+     for my $moving_runno (@sorted_runnos) {
 	 $file_1 = "${current_path}/${moving_runno}_to_MDT_warp.nii.gz";
 	 $file_2 = "${current_path}/MDT_to_${moving_runno}_warp.nii.gz";
 	 
@@ -241,7 +239,7 @@ sub create_iterative_pairwise_warps {
     
     $fixed = $current_target;
     $moving = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
-    if ($mdt_contrast_2 ne '') { # Need to revisit this functionality
+    if ((defined $mdt_contrast_2) && ($mdt_contrast_2 ne '') ) { # Need to revisit this functionality
 	##$fixed_2 = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast_2) ; # Need to "fix" this, chuckle chuckle.
 	#$moving_2 = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast_2) ;
 	#$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
@@ -318,7 +316,7 @@ sub create_iterative_pairwise_warps {
     if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
 	error_out($stop_message);
     }
-    print "** $PM created ${new_warp} and ${new_inverse}\n";
+    print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
   
     return($jid);
 }
@@ -684,8 +682,8 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     @mdt_contrasts = split('_',$mdt_contrast_string); 
     $mdt_contrast = $mdt_contrasts[0];
 
-    if ($#mdt_contrasts > 0) {
-	$mdt_contrast_2 = $mdt_contrasts[1];
+    if (scalar @mdt_contrasts > 1) {
+        $mdt_contrast_2 = $mdt_contrasts[1];
     }  #The working assumption is that we will not expand beyond using two contrasts for registration...
 
     $inputs_dir = $Hf->get_value('inputs_dir');
@@ -755,15 +753,15 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     my $number_of_template_runnos = $#sorted_runnos + 1;
 
     if ($template_name eq 'NO_KEY') {
-	$template_name = "${mdt_contrast}MDT_${template_predictor}_n${number_of_template_runnos}";
-	$Hf->set_value('template_name',$template_name);
+        $template_name = "${mdt_contrast}MDT_${template_predictor}_n${number_of_template_runnos}";
+        $Hf->set_value('template_name',$template_name);
     }
     if ($template_path eq 'NO_KEY') {
-	$template_path = "${mdt_path}/${template_name}_i${current_iteration}"; # Unsure if I should add current iteration here.
+        $template_path = "${mdt_path}/${template_name}_i${current_iteration}"; # Unsure if I should add current iteration here.
     }
     
     if ($current_path eq 'NO_KEY') {
-	$current_path = "${template_path}/MDT_diffeo";
+        $current_path = "${template_path}/MDT_diffeo";
     }
     my $original_template_name = $template_name;
 #if ($template_path eq 'NO_KEY') {
@@ -841,58 +839,67 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               fdr_masks
                               thresh_masks
                               ROI_masks
+                              timestamped_inputs_file
                               number_of_nonparametric_seeds); # affine_target_image will need to be removed from this list once we fully support it.
-
-	#$temp_template_name = $template_name;
 	$max_iterations = $Hf->get_value('mdt_iterations');
-	for (my $i=0; $template_match== 0; $i++) {
+#  we check all letters, and let us know the first match?(or the first valid path after the last non-match)
+# This loops job is to set $current_iteration and $template_name (w/wo letter). 
+# We use the chosen_template variable to help with this by setting it when we like a template.
+    my @found_templates=();
+    my $chosen_template=$template_name;
+    printd(85,"Template search ...\n");
+    for ( my $i=0;( ( $i< scalar(@alphabet) )&& ( $template_match == 0  )  ); $i++ ) {
 	    my $letter = $alphabet[$i];
-	   my $temp_template_name = $template_name.$letter;
-	   # print "current_letter = ${letter}\n";
-	    #$temp_current_path = $current_path;
-	   # print "Original current path = ${temp_current_path}\n\n\n";
-	    my $iteration_found = 0;
-	    for (my $iter=$max_iterations; (($iteration_found== 0) && ($iter > -1)); $iter--) { # -1 or 0 before resetting # previously: ($max_iteration-1)
-		$temp_current_path = $mdt_path.'/'.$temp_template_name."_i${iter}/MDT_diffeo" ;
-		#if ($temp_current_path =~ s/(\/[A-Za-z_]+[\/]?)$/${letter}_i${iter}$1/) {
-		    #print "Temp_current_path = ${temp_current_path}\n\n\n";		    
+	    my $temp_template_name = $template_name.$letter;
+	    my $iteration_found = -1; 
+        # $iter -1 or 0 before resetting # previously: ($max_iteration-1)(
+	    for (my $iter=$max_iterations; $iter > -1; $iter--) {
+            printd(85,"iter = $letter$iter\n");
+		    $temp_current_path = $mdt_path.'/'.$temp_template_name."_i${iter}/MDT_diffeo" ;
 		    my $current_tempHf = find_temp_headfile_pointer($temp_current_path);
-		    my $Hf_comp = '';
-		    #print "current_iteration = ${iter}\n";
-		    if ($current_tempHf ne "0"){# numeric compare vs string?
-			$iteration_found = $iter;
-			$Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);		    
-			if ($Hf_comp eq '') {
-			    $template_match = 1;
-			} else {
-			    print " $PM: ${Hf_comp}\n"; # Is this the right place for this?
-			}
-		    }
-		#}
-	    }  
-
-	    if ($template_match || (! $iteration_found)) {
-		$template_match=1;
-		$template_name = $template_name.$letter; 
-		#$template_path = $temp_template_path.$letter;
-		#$current_path = $temp_current_path;
-		if ($template_name ne $original_template_name) {   
-		    print " At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n";
-		}
-	    }
-	    
-	    if ($iteration_found) {
-		$current_iteration = $iteration_found;
-		print " Evidence of previous iterations found; starting at highest iteration, Iteration ${current_iteration}.\n";
-	    }
-	    #$template_path = $template_path.$letter."_i".$current_iteration;
-	}
+            my $Hf_comp = '';
+		    if (defined $current_tempHf) { 
+                push(@found_templates,$temp_current_path);
+                $iteration_found = $iter;
+                $Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);		    
+                if ($Hf_comp eq '') {
+                    $template_match = 1;
+                } else {
+                    print " $PM: ${Hf_comp}\n"; # Is this the right place for this?        
+                }
+                last;
+		    } else {
+                if (-d ${temp_current_path}) {
+                    die "Please remove ${temp_current_path} to restart.";
+                }
+            }
+	    } # END FOR LOOP DOING ITERATION CHECK
+        # $iteration_found will either be -1 for non found, or highest found(including 0 ; )  )
+        # state 1, $template_match=1, iteration_found = any  :: set chosen_template to this one and STOP LOOKING.
+        # state 2, $template_match=0, $iteration_found= none :: keep searching.
+        # state 3, $template_match 0, $iteration_found= >-1  :: set chosen to next letter, ( note this may get set again next time through the loop and thats ok).
+        if ( $template_match ) {
+            $chosen_template = $temp_template_name;
+            $current_iteration=$iteration_found;
+            print " Evidence of previous iterations found; starting at highest iteration, Iteration ${current_iteration}.\n";
+            last; # this is guarded against in the main loop anyway, this is mostly just to make it more clear what we intend.
+        } elsif ( $iteration_found>= 0)  {
+            $chosen_template=$template_name.$alphabet[$i+1];
+            $current_iteration=0;
+        } 
+    }#### END template_name/current_iteration finder.
+    Data::Dump::dump(["Previous Templates", @found_templates]) if scalar(@found_templates)>1;
+    $template_name=$chosen_template;
+    }# end template checkpoint.
 	$Hf->set_value('template_checkpoint_completed',1);
+    if ($template_name ne $original_template_name) {
+        Carp::confess ($template_name.'____'.$current_iteration); # for testing purposes, dont want the auto new set for the time being... .  
+        print " At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n";
     }
     $template_path = $mdt_path.'/'.$template_name."_i".$current_iteration;
     print "Current template_path = ${template_path}\n\n";
     if (! -e $template_path) {
-	mkdir ($template_path,$permissions);
+        mkdir ($template_path,$permissions);
     }
     $Hf->set_value('template_work_dir',$template_path);
 #####
@@ -901,7 +908,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     $current_path = "${template_path}/MDT_diffeo";
     $Hf->set_value('mdt_diffeo_path',$current_path);
     if (! -e $current_path) {
-	mkdir ($current_path,$permissions);
+        mkdir ($current_path,$permissions);
     }
     $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
  
@@ -911,18 +918,18 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
 
 # Adjust number of registration levels if need be.
     if ($match_registration_levels_to_iteration) {
-	if ($current_iteration < $diffeo_levels) {
-	    my @iteration_array = split('x',$diffeo_iterations);
-	    my @new_iteration_array;
-	    for (my $ii = 0; $ii < $diffeo_levels ; $ii++) {
-		if ($ii < $current_iteration) {
-		    push(@new_iteration_array,$iteration_array[$ii]);
-		} else {
-		    push(@new_iteration_array,'0');
-		}
-	    }
-	    $diffeo_iterations = join('x',@new_iteration_array);
-	}
+        if ($current_iteration < $diffeo_levels) {
+            my @iteration_array = split('x',$diffeo_iterations);
+            my @new_iteration_array;
+            for (my $ii = 0; $ii < $diffeo_levels ; $ii++) {
+                if ($ii < $current_iteration) {
+                    push(@new_iteration_array,$iteration_array[$ii]);
+                } else {
+                    push(@new_iteration_array,'0');
+                }
+            }
+            $diffeo_iterations = join('x',@new_iteration_array);
+        }
     }
 
 
@@ -933,7 +940,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     my $first_image = get_nii_from_inputs($inputs_dir,$first_runno,$mdt_contrast);
 
     if (data_double_check($id_warp)) {
-	make_identity_warp($first_image,$Hf,$master_template_dir);
+        make_identity_warp($first_image,$Hf,$master_template_dir);
     }
     
     ##
@@ -942,7 +949,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     my ($dummy,$skip_message)=iterative_pairwise_reg_Output_check($case);
 	
    if ($skip_message ne '') {
-	print "${skip_message}";
+        print "${skip_message}";
     }
 	
 # check for needed input files to produce output files which need to be produced in this step?

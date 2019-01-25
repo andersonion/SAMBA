@@ -12,9 +12,9 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
+#no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $permissions $valid_formats_string $dims $nodes $reservation);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 
@@ -246,7 +246,7 @@ sub smooth_images {
     if ((!-e $last_in_file) && (not $jid)) {
 	error_out("$PM: missing smoothed image: ${last_in_file} (and probably others from the same batch)");
     }
-    print "** $PM created ${last_in_file}\n";
+    print "** $PM expected output: ${last_in_file}\n";
   
     return($jid);
  }

@@ -8,9 +8,9 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
+#no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $reservation $dims $ants_verbosity $reservation $permissions);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 
@@ -77,7 +77,7 @@ sub calculate_mdt_images_vbm {  # Main code
     }
 
     my $case = 2;
-    my ($dummy,$error_message);
+    my ($dummy,$error_message)=('','');
     foreach my $contrast (@contrast_list) {
 	my $temp_message;
 	($dummy,$temp_message)=calculate_mdt_images_Output_check($case,$contrast);
@@ -92,10 +92,10 @@ sub calculate_mdt_images_vbm {  # Main code
     @jobs=(); # Clear out the job list, since it will remember everything when this module is used iteratively.
 
     if ($error_message ne '') {
-	error_out("${error_message}",0);
+        error_out("${error_message}",0);
     } else {
-	$Hf->write_headfile($write_path_for_Hf);
-#	symbolic_link_cleanup($pairwise_path);
+        $Hf->write_headfile($write_path_for_Hf);
+    #	symbolic_link_cleanup($pairwise_path);
     }
  
 }
@@ -182,40 +182,44 @@ sub calculate_mdt_images_Input_check {
 sub calculate_average_mdt_image {
 # ------------------
     my ($contrast) = @_;
-    my ($cmd,$avg_cmd,$update_cmd,$cleanup_cmd,$copy_cmd);
+    my ($cmd,$avg_cmd,$update_cmd,$cleanup_cmd,$copy_cmd)=('','','','','');
     my ($out_file, $intermediate_file);
 	$out_file = "${current_path}/MDT_${contrast}.nii.gz";
-    
-    my $test_dim =  `fslhd ${intermediate_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;
-    my $opt_e_string='';
-    if ($intermediate_file =~ /tensor/) {
-        $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
-    } elsif ($test_dim > 1) {
-        $opt_e_string = ' -e 3 ';
-    } 
 
     if ($mdt_creation_strategy eq 'iterative') {
 
-	my $warp_train_car = " -t ${last_update_warp} ";
-	my $warp_train = $warp_train_car.$warp_train_car.$warp_train_car.$warp_train_car;
+        my $warp_train_car = " -t ${last_update_warp} ";
+        my $warp_train = $warp_train_car.$warp_train_car.$warp_train_car.$warp_train_car;
 
-	#$out_file = "${current_path}/MDT_${contrast}.nii.gz"; #moved outside of if statement
-	$intermediate_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
- 	$update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";
-	$cleanup_cmd = "if [[ -f ${out_file} ]]; then rm ${intermediate_file}; fi\n";
-	if ($contrast eq $mdt_contrast) { # This needs to be adapted to support multiple mdt contrasts!
-	    my $backup_file = "${master_template_dir}/${template_name}_i${current_iteration}.nii.gz";
-	    $copy_cmd = "cp ${out_file} ${backup_file}\n";
-	}
+        $intermediate_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
+
+        # For "-e " option, test to see if we have a tensor or time-series, otherwise default to scalar.
+        # See nifti standard documentation for explanation of dim0 (this code may not cover certain 2D data situations, etc.
+
+        my $dim_test_file = "${mdt_images_path}/${array_of_runnos[0]}_${contrast}_to_MDT.nii.gz";
+        my $test_dim_0 =  `fslhd ${dim_test_file} | grep dim0 | grep -v pix | xargs | cut -d ' ' -f2`;
+        my $opt_e_string='';
+        if ($dim_test_file =~ /tensor/) {
+            $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
+        } elsif (${test_dim_0} != 3) {
+            $opt_e_string = ' -e 3 ';
+        } 
+        $update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";
+        $cleanup_cmd = "if [[ -f ${out_file} ]]; then rm ${intermediate_file}; fi\n";
+        if ($contrast eq $mdt_contrast) { # This needs to be adapted to support multiple mdt contrasts!
+            my $backup_file = "${master_template_dir}/${template_name}_i${current_iteration}.nii.gz";
+            $copy_cmd = "cp ${out_file} ${backup_file}\n";
+        }
     } else {
-	$intermediate_file = $out_file;
+        $intermediate_file = $out_file;
     }
     if ($int_go_hash{$contrast}) { 
-	$avg_cmd =" AverageImages 3 ${intermediate_file} 0";
-	foreach my $runno (@array_of_runnos) {
-	    $avg_cmd = $avg_cmd." ${mdt_images_path}/${runno}_${contrast}_to_MDT.nii.gz";
-	}
-	$avg_cmd = $avg_cmd.";\n";
+        $avg_cmd =" AverageImages 3 ${intermediate_file} 0";
+
+        foreach my $runno (@array_of_runnos) {
+            $avg_cmd = $avg_cmd." ${mdt_images_path}/${runno}_${contrast}_to_MDT.nii.gz";
+        }
+        $avg_cmd = $avg_cmd.";\n";
     }
 
     $cmd = $avg_cmd.$update_cmd.$cleanup_cmd.$copy_cmd;
@@ -250,7 +254,7 @@ sub calculate_average_mdt_image {
     if ((!-e $out_file) && (not $jid)) {
 	error_out("$PM: missing average MDT image for contrast: ${contrast}: ${out_file}");
     }
-    print "** $PM created ${out_file}\n";
+    print "** $PM expected output: ${out_file}\n";
   
     return($jid,$out_file);
 }
@@ -320,8 +324,8 @@ sub calculate_mdt_images_vbm_Runtime_check {
 	}
     }
 	
-    if ($skip_message ne '') {
-	print "${skip_message}";
+    if ((defined $skip_message) && ($skip_message ne '') ) {
+        print "${skip_message}";
     }
 
 # check for needed input files to produce output files which need to be produced in this step?

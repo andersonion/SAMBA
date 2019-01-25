@@ -15,12 +15,17 @@ my $NAME = "Convert input data into the proper format, flipping x and/or z if ne
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $permissions $civm_ecosystem);
-require Headfile;
-require pipeline_utilities;
-require pull_civm_tensor_data;
+use Env qw(RADISH_PERL_LIB);
+if (! defined($RADISH_PERL_LIB)) {
+    print STDERR "Cannot find good perl directories, quitting\n";
+    exit;
+}
+use lib split(':',$RADISH_PERL_LIB);
+use Headfile;
+use pipeline_utilities;
+use pull_civm_tensor_data;
+#use vars used to be here
 #require convert_to_nifti_util;
 
 
@@ -44,7 +49,7 @@ sub convert_all_to_nifti_vbm {
 # convert the source image volumes used in this SOP to nifti format (.nii)
 # could use image name (suffix) to figure out datatype
     ($skip) = @_;
-    if ($skip eq '') {$skip = 0;}
+    if ( ! defined($skip) || (defined($skip) && $skip eq '' )  ) {$skip = 0;}
     my $start_time = time;
     my $run_again = 1;  
     my $second_run=0;  
@@ -183,20 +188,21 @@ sub convert_all_to_nifti_Output_check {
 	my $sub_missing_files_message='';
 	foreach my $ch (@channel_array) {
 	    $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
-	   # print "File_1 = ${file_1}\n\n";
+	   print "File_1 = ${file_1}\n\n";
 	    my $unfounded =0;
 	    if ($file_1 =~ /[\n]+/) {
-		$file_1 = "${current_path}/${runno}_${ch}.nii";
-		$unfounded = 1;
+            $file_1 = "${current_path}/${runno}_${ch}.nii";
+            $unfounded = 1;
 	    }
-	    if ((data_double_check($file_1) && data_double_check($file_1.'.gz')) || ((! $pre_masked) && $unfounded &&  ($file_1 !~ /.*masked\.nii/))) { # 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).
+#die "here";
+	    if ((data_double_check($file_1,$file_1.'.gz') == 2 ) || ((! $pre_masked) && $unfounded &&  ($file_1 !~ /.*masked\.nii/))) { # 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).
 	   # if ((data_double_check($file_1) ) || ((! $do_mask) &&  (($file_1 =~ /.*masked\.nii/) || ($file_1 =~ /.*masked\.nii\.gz/)))) { # 6 January 2016: updated to look for .nii.gz as well.
-		$go_hash{$runno}{$ch}=1;
-		push(@file_array,$file_1);
-		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
+            $go_hash{$runno}{$ch}=1;
+            push(@file_array,$file_1);
+            $sub_missing_files_message = $sub_missing_files_message."\t$ch";
 	    } else {
-		$go_hash{$runno}{$ch}=0;
-		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
+            $go_hash{$runno}{$ch}=0;
+            $sub_existing_files_message = $sub_existing_files_message."\t$ch";
 	    }
 	}
 	if (($sub_existing_files_message ne '') && ($case == 1)) {
@@ -271,9 +277,12 @@ sub convert_all_to_nifti_vbm_Init_check {
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
 
-    my $optional_runno_string;
+    my $optional_runno_string=''; 
+    # TODO: BJ, finish this thought, whatever it was. It seems like I had planned on looping over the outlier runnos, if any. 
+    # OR this was anticipating a pm to autodetect coarse orientation.
+        
     my $orientation_type = 'working_image_orientation';
-    my $orientation_error_msg_prefix="I'm sorry, but an invalid ${orientation_type} has been requested${optional_runno_string}: ";    
+    my $orientation_error_msg_prefix="I'm sorry, but an invalid ${orientation_type} has been requested ${optional_runno_string}: ";    
     my $orientation_error_msg_suffix=".\n\tOrientation must be allcaps and contain 3 of the following letters: A or P, L or R, S or I.\n"; 
     my $desired_orientation = $Hf->get_value($orientation_type);
     my $da = $desired_orientation;

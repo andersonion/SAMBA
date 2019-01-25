@@ -10,9 +10,9 @@ my $NAME = "Calculate label-wide statistics for all contrast, for an individual 
 
 use strict;
 use warnings;
-no warnings qw(bareword);
+#no warnings qw(bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $permissions $reservation);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 use List::MoreUtils qw(uniq);
@@ -252,7 +252,7 @@ sub write_rat_report {
 
 
 # ------------------
-sub  calculate_individual_label_statistics_Init_check {
+sub  calculate_individual_label_statistics_vbm_Init_check {
 # ------------------
    my $init_error_msg='';
    my $message_prefix="$PM initialization check:\n";

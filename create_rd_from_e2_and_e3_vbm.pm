@@ -12,9 +12,9 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
+#no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $reservation $schedule_backup_jobs);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 
@@ -175,7 +175,7 @@ sub average_e2_and_e3_images {
     if ((data_double_check($out_file)) && ( not $jid)) {
 	error_out("$PM: missing rd image for ${runno}: ${out_file}");
     }
-    print "** $PM created ${out_file}\n";
+    print "** $PM expected output: ${out_file}\n";
   
     return($jid);
 }

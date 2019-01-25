@@ -14,10 +14,9 @@ my $NAME = "Run vbm analysis with software of choice.";
 use strict;
 use warnings;
 use Scalar::Util qw(looks_like_number);
-no warnings qw(bareword);
+#no warnings qw(bareword);
 
-use Env qw(PIPELINE_PATH);
-use vars qw($Hf $BADEXIT $GOODEXIT $valid_formats_string $permissions $reservation $schedule_backup_jobs);
+#use vars used to be here
 $schedule_backup_jobs = 1; # Will probably want to make this universal eventually...
 require Headfile;
 require pipeline_utilities;
@@ -44,7 +43,8 @@ my $use_template_images;
 
 my ($nonparametric_permutations,$number_of_nonparametric_seeds,$number_of_test_contrasts,$nii4D,$con_file,$mat_file,$fsl_cluster_size,$tfce_extent,$tfce_height,$variance_smoothing_kernal_in_mm,$randomise_options,$default_nonparametric_job_size,$local_work_dir,$local_sub_name,$label_atlas_name,$mdt_labels); # Nonparametric testing variables.
 my ($cmbt_analysis,$cbt_analysis,$tfce_analysis);
-my $randomise_cleanup_script="${PIPELINE_PATH}/support/fsl_randomise_parallel_cleanup_bash_script.txt";
+
+my $randomise_cleanup_script=dirname(__FILE__)."/support/fsl_randomise_parallel_cleanup_bash_script.txt";
 if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
 if (! defined $dims) {$dims = 3;}
@@ -276,7 +276,7 @@ sub antsr_analysis_vbm {
     # if (((!-e $new_warp) | (!-e $new_inverse)) && ($jid == 0)) {
     # 	error_out($stop_message);
     # }
-    # print "** $PM created ${new_warp} and ${new_inverse}\n";
+    # print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
   
     return($jid);
 }

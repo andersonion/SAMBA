@@ -12,9 +12,9 @@ my $NAME = "Folder compactor/dekompressor for archive or intermediate storage.";
 use strict;
 use warnings;
 use File::stat;
-no warnings qw(uninitialized);
+#no warnings qw(uninitialized);
 
-#use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $permissions);
+#use vars used to be here
 #require Headfile;
 require '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/mask_warps_standalone.pl';
 

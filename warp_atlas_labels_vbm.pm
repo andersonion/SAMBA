@@ -14,7 +14,7 @@ use strict;
 use warnings;
 #no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $reference_path $ants_verbosity $reservation);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 use List::Util qw(max);
@@ -154,7 +154,7 @@ sub warp_atlas_labels_Output_check {
 	
 	# my $out_file      = "$out_file_path_base\.nii";
 
-	 if  (data_double_check($out_file)) {
+	 if  (data_double_check($out_file,$case-1)) {
 	     $go_hash{$runno}=1;
 	     push(@file_array,$out_file);
 	     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
@@ -242,7 +242,7 @@ sub apply_mdt_warp_to_labels {
     $reference_image = $label_reference_path;
 
     if (data_double_check($reference_image)) {
-	$reference_image=$reference_image.'.gz';
+        $reference_image=$reference_image.'.gz';
     }
 
     if ($current_label_space ne 'atlas') {
@@ -316,7 +316,7 @@ sub apply_mdt_warp_to_labels {
     if ((!-e $out_file) && (not $jid)) {
 	error_out("$PM: missing ${label_atlas_name} label set for ${runno}: ${out_file}");
     }
-    print "** $PM created ${out_file}\n";
+    print "** $PM expected output: ${out_file}\n";
   
     return($jid,$out_file);
 }
@@ -397,7 +397,7 @@ sub convert_labels_to_RAS {
 	if ((!-e $out_file) && (not $jid_2)) {
 	    error_out("$PM: missing RAS version of ${label_atlas_name} label set for ${runno}: ${out_file}");
 	}
-	print "** $PM created ${out_file}\n";
+	print "** $PM expected output: ${out_file}\n";
     }
     
     return($jid_2,$out_file);

@@ -8,9 +8,9 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
+#no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT $forward_xform_hash $inverse_xform_hash $test_mode $reservation $intermediate_affine $permissions $broken);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 
@@ -32,8 +32,7 @@ my $go = 1;
 my $job;
 my $current_checkpoint = 1; # Bound to change! Change here!
 my $number_of_template_runnos;
-my $log_msg;
-
+my $log_msg="";
 # my @parents = qw(pairwise_reg_vbm);
 # my @children = qw (apply_mdt_warps_vbm);
 
@@ -87,10 +86,10 @@ sub calculate_mdt_warps_vbm {  # Main code
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
-    if ($error_message ne '') {
-	error_out("${error_message}",0);
+    if ((defined $error_message) && ($error_message ne '') ) {
+        error_out("${error_message}",0);
     } else {
-	symbolic_link_cleanup($pairwise_path,$PM);
+        symbolic_link_cleanup($pairwise_path,$PM);
     }
     
 }
@@ -102,7 +101,7 @@ sub calculate_mdt_warps_Output_check {
 # ------------------
      my ($case, $direction) = @_;
      my $message_prefix ='';
-     my ($out_file,$dir_string);
+     my ($out_file,$dir_string)=('','');
      if ($direction eq 'f' ) {
 	 $dir_string = 'forward';
      } elsif ($direction eq 'i') {
@@ -235,7 +234,7 @@ sub calculate_average_mdt_warp {
     if ((data_double_check($out_file)) && (not $jid)) {
 	error_out("$PM: missing ${dir_string} MDT warp results for ${runno}: ${out_file}");
     }
-    print "** $PM created ${out_file}\n";
+    print "** $PM expected output: ${out_file}\n";
   
     return($jid,$out_file);
 }
@@ -433,6 +432,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               fdr_masks
                               thresh_masks
                               ROI_masks
+                              timestamped_inputs_file
                               number_of_nonparametric_seeds); # affine_target_image will need to be removed from this list once we fully support it.
 
 
@@ -446,7 +446,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 		my $current_tempHf = find_temp_headfile_pointer($temp_current_path);
 		my $Hf_comp = '';
 		
-		if ($current_tempHf ne "0"){# numeric compare vs string?
+		if (defined $current_tempHf){
 		    $Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);
 		    
 		    if ($Hf_comp eq '') {

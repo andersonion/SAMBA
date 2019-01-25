@@ -12,9 +12,9 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
+#no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $intermediate_affine $permissions $reservation);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 
@@ -248,7 +248,7 @@ sub calculate_jacobian {
 	error_out("$PM: missing jacobian image in ${space_string} space for ${runno}: ${out_file}");
     }
 
-    print "** $PM created ${out_file}\n"; #Added '.gz' 2 September 2015 -- Don't have a clue why I thought that would be useful...
+    print "** $PM expected output: ${out_file}\n"; #Added '.gz' 2 September 2015 -- Don't have a clue why I thought that would be useful...
   
     return($jid,$out_file);
  }

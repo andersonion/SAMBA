@@ -8,9 +8,9 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized bareword);
+#no warnings qw(uninitialized bareword);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $reservation $permissions $dims);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 
@@ -24,7 +24,7 @@ my @jobs=();
 my (%go_hash);
 my $go = 1;
 my $job;
-my $log_msg;
+my $log_msg="";
 my ($update_step_size,$update_string);
 # my @parents = qw(pairwise_reg_vbm);
 # my @children = qw (apply_mdt_warps_vbm);
@@ -52,7 +52,7 @@ sub iterative_calculate_mdt_warps_vbm {  # Main code
 	$last_update_warp = "${current_path}/shape_update_warp_${update_string}.nii.gz";
     }
 
-    if (cluster_check()) {
+    if (cluster_check() && (scalar @jobs) ) {
 	my $interval = 2;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
@@ -206,7 +206,7 @@ sub iterative_calculate_average_mdt_warp {
     if ((data_double_check($out_file_1)) && (not $jid)) {
 	error_out("$PM: missing update warp: ${out_file_1}");
     }
-    print "** $PM created ${out_file_1}\n";
+    print "** $PM expected output: ${out_file_1}\n";
   
     return($jid,$out_file_1);
 }
@@ -226,8 +226,8 @@ sub iterative_calculate_mdt_warps_vbm_Init_check {
     }
 
 
-    if ($log_msg ne '') {
-	log_info("${message_prefix}${log_msg}");
+    if (defined $log_msg) {
+        log_info("${message_prefix}${log_msg}");
     }
 
     if ($init_error_msg ne '') {

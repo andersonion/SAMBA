@@ -13,33 +13,44 @@
 my $PM = 'vbm_pipeline_start.pl'; 
 
 use strict;
-no strict "refs";
 use warnings;
-no warnings qw(uninitialized bareword);
-
-require Headfile;
 
 use Cwd qw(abs_path);
 use File::Basename;
 use List::MoreUtils qw(uniq);
-use vars qw($Hf $BADEXIT $GOODEXIT $test_mode $syn_params $permissions  $valid_formats_string $nodes $reservation $mdt_to_reg_start_time);
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
+
+use lib dirname(abs_path($0));
+use SAMBA_global_variables;
+
+use Env qw(RADISH_PERL_LIB);
+if (! defined($RADISH_PERL_LIB)) {
+    print STDERR "Cannot find good perl directories, quitting\n";
+    exit;
+}
+use lib split(':',$RADISH_PERL_LIB);
+use pipeline_utilities;
+use Headfile;
+
+
+
+$schedule_backup_jobs=1;
+
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
 use JSON::Parse qw(json_file_to_perl valid_json assert_valid_json);
 
-my $full_pipeline_path = abs_path($0);
-my ($pipeline_path,$dummy1,$dummy2) = fileparts($full_pipeline_path,2);
+#my $full_pipeline_path = abs_path($0);
+#($pipeline_path, my $dummy1, my $dummy2) = fileparts($full_pipeline_path,2);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 $ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
-$ENV{'PIPELINE_PATH'}=$pipeline_path;
 
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
 $permissions = 0755;
 my $interval = 1;
-$valid_formats_string = 'hdr|img|nii';
+#$valid_formats_string = 'hdr|img|nii';
 
 
 # a do it again variable, will allow you to pull data from another vbm_run
@@ -82,24 +93,13 @@ if ($reservation) {
 }
 umask(002);
 
-use lib dirname(abs_path($0));
-use Env qw(RADISH_PERL_LIB);
-if (! defined($RADISH_PERL_LIB)) {
-    print STDERR "Cannot find good perl directories, quitting\n";
-    exit;
-}
-use lib split(':',$RADISH_PERL_LIB);
-use pipeline_utilities;
-
 #my $custom_pipeline_utilities_path ="${WORKSTATION_HOME}/shared/cluster_pipeline_utilities/"; #11 April 2017, BJA: I think this was to avoid having to reconcile our pipeline_utility functions. We might be able to delete that whole folder.
 #$RADISH_PERL_LIB=$custom_pipeline_utilities_path.':'.$RADISH_PERL_LIB;
-use lib split(':',$RADISH_PERL_LIB);
 
 # require ...
 require study_variables_vbm;
-require vbm_pipeline_workflow;
-require apply_warps_to_bvecs;
-require Headfile;
+use vbm_pipeline_workflow;
+use apply_warps_to_bvecs;
 
 ## Example use of printd
 use civm_simple_util qw(activity_log printd $debug_val);
@@ -109,113 +109,6 @@ activity_log();
 #printd(5,$msg);
 
 # variables, set up by the study vars script(study_variables_vbm.pm)
-use vars qw(
-$project_name 
-@control_group
-$control_comma_list
-@compare_group
-$compare_comma_list
-
-$complete_comma_list
-
-@group_1
-$group_1_runnos
-@group_2
-$group_2_runnos
-$all_groups_comma_list
-
-@channel_array
-$channel_comma_list
-
-$custom_predictor_string
-$template_predictor
-$template_name
-
-$flip_x
-$flip_z 
-$optional_suffix
-$atlas_name
-$label_atlas_name
-
-$skull_strip_contrast
-$threshold_code
-$do_mask
-$pre_masked
-$port_atlas_mask
-$port_atlas_mask_path
-$thresh_ref
-
-$rigid_contrast
-
-$affine_contrast
-$affine_metric
-$affine_radius
-$affine_shrink_factors
-$affine_iterations
-$affine_gradient_step
-$affine_convergence_thresh
-$affine_convergence_window
-$affine_smoothing_sigmas
-$affine_sampling_options
-$affine_target
-
-$mdt_contrast
-$mdt_creation_strategy
-$mdt_iterations
-$mdt_convergence_threshold
-$initial_template
-
-$compare_contrast
-
-$diffeo_metric
-$diffeo_radius
-$diffeo_shrink_factors
-$diffeo_iterations
-$diffeo_transform_parameters
-$diffeo_convergence_thresh
-$diffeo_convergence_window
-$diffeo_smoothing_sigmas
-$diffeo_sampling_options
-
-$vbm_reference_space
-$reference_path
-$create_labels
-$label_space
-$label_reference
-
-$do_vba
-$fdr_masks
-$tfce_extent
-$tfce_height
-$fsl_cluster_size
-
-$nonparametric_permutations
-
-$convert_labels_to_RAS
-$eddy_current_correction
-$do_connectivity
-$recon_machine
-
-$original_study_orientation
-$working_image_orientation
-
-$fixed_image_for_mdt_to_atlas_registratation
-
-$vba_contrast_comma_list
-$vba_analysis_software
-$smoothing_comma_list
-
-$U_specid
-$U_species_m00
-$U_code
-
-$image_dimensions
-
-$participants
-
-@comparisons
-@predictors
- );
 
 
 
@@ -226,9 +119,10 @@ foreach my $entry ( keys %main:: )  { # Build a string of all initialized variab
     }
 }
 
-my $test_shit = join(' ',sort(split(' ',$kevin_spacey)))."\n\n\n";
+#my $test_shit = join(' ',sort(split(' ',$kevin_spacey)))."\n\n\n";
 #print $test_shit;
 #die;
+
 my $tmp_rigid_atlas_name='';
 {
     if ($start_file =~ /.*\.headfile$/) {
@@ -303,11 +197,9 @@ sub assign_parameters {
 
             if ($kevin_spacey =~ /$_/) {
                 if (defined $val) {
-#                   print "$_\n";
                     eval("\$$_=\'$val\'");
-#               if (defined ${$_}) {
-                    print "$_ = ${$_}\n";
-#                }	   
+                    print $_." = $val\n";
+   
                     if ($_ eq 'rigid_atlas_name'){
                         $tmp_rigid_atlas_name=${$_};
                     }
@@ -320,7 +212,11 @@ sub assign_parameters {
 
             #my $val = %{ $tempHf }->{($_)};
             #print "\n\n$_\n\n"; 
-            my $val = %{ $tempHf }->{$_};
+            die "json mode requires revalidation!!!";
+            my $val;
+            $val = %{ $tempHf ->{$_}}; # Option A: take hash in tempHf and store as scalar
+            $val = $tempHf->{$_};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
+            #my $val = %{ $tempHf }->{$_}; # This is as originally formulated, but not quite right.
             if ($val ne '') {
                 #print "LOOK HERE TO SEE NOTHING\$val = ${val}\n";
                 if ($val =~ /^ARRAY\(0x[0-9,a-f]{5,}/){
@@ -348,7 +244,10 @@ sub assign_parameters {
         if ($is_headfile) {
             $project_string = $tempHf->get_value('project_id');
          } else {
-            $project_string = %{ $tempHf }->{"project_id"};
+            die "json mode requires revalidation!!!";
+            $project_string = %{ $tempHf ->{"project_id"}}; # Option A: take hash in tempHf and store as scalar
+            $project_string = $tempHf->{"project_id"};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
+            # $project_string = %{ $tempHf }->{"project_id"}; # This is as originally formulated, but not quite right.
          }
 
         @ps_array = split('_',$project_string);
@@ -412,8 +311,15 @@ sub assign_parameters {
                 $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
             }
         } else {
-            $r_atlas_name = %{ $tempHf }->{'rigid_atlas_name'};
-            $l_atlas_name = %{ $tempHf }->{'label_atlas_name'};
+            die "json mode requires revalidation!!!";
+            $r_atlas_name = %{ $tempHf ->{'rigid_atlas_name'}}; # Option A: take hash in tempHf and store as scalar
+            $r_atlas_name = $tempHf->{'rigid_atlas_name'};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
+            #$r_atlas_name = %{ $tempHf }->{'rigid_atlas_name'}; # This is as originally formulated, but not quite right.
+
+            $l_atlas_name = %{ $tempHf ->{'label_atlas_name'}}; # Option A: take hash in tempHf and store as scalar
+            $l_atlas_name = $tempHf->{'label_atlas_name'};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
+            # $l_atlas_name = %{ $tempHf }->{'label_atlas_name'};
+
             if ($r_atlas_name ne '') {
                 $atlas_name = $r_atlas_name;
             } elsif ($l_atlas_name ne '') {

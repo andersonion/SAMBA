@@ -12,15 +12,15 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-no warnings qw(uninitialized);
+#no warnings qw(uninitialized);
 
-use vars qw($Hf $BADEXIT $GOODEXIT  $test_mode $permissions $nodes $dims $ants_verbosity $reservation $mdt_to_reg_start_time);
+#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 #use PDL::Transform;
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$mdt_path,$median_images_path,$current_path);
-my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path);
+my ($xform_code,$xform_path,$xform_suffix);
 my ($diffeo_metric,$diffeo_radius,$diffeo_shrink_factors,$diffeo_iterations,$diffeo_transform_parameters);
 my ($diffeo_convergence_thresh,$diffeo_convergence_window,$diffeo_smoothing_sigmas,$diffeo_sampling_options);
 my ($label_path);
@@ -50,10 +50,10 @@ my $affine = 0;
 # ------------------
 sub mdt_reg_to_atlas_vbm {  # Main code
 # ------------------
-    
+    # BJ is uncertain what the purpose $type/$affine was, unless it was vestigial, maybe?
     my ($type) = @_;
-    if ($type eq "a") {
-	$affine = 1;
+    if ((defined $type) && ($type eq "a") ) {
+        $affine = 1;
     }
     $mdt_to_reg_start_time = time;
     mdt_reg_to_atlas_vbm_Runtime_check();
@@ -277,7 +277,7 @@ sub mdt_reg_to_atlas {
     if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
 	error_out("$PM: missing one or both of the warp results ${new_warp} and ${new_inverse}");
     }
-    print "** $PM created ${new_warp} and ${new_inverse}\n";
+    print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
   
     return($jid,$new_warp,$new_inverse);
 }
@@ -410,13 +410,13 @@ sub mdt_reg_to_atlas_vbm_Runtime_check {
     $mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
     @mdt_contrasts = split('_',$mdt_contrast_string); 
     $mdt_contrast = $mdt_contrasts[0];
-    if ($#mdt_contrasts > 0) {
-	$mdt_contrast_2 = $mdt_contrasts[1];
-	
-	$domain_dir   = $Hf->get_value ('label_atlas_dir');   
-	$domain_path  = "$domain_dir/${label_atlas}_${mdt_contrast_2}.nii"; # potential error by not converting to .gz
 
-    }  #The working assumption is that we will not expand beyond using two contrasts for registration...
+    #The working assumption is that we will not expand beyond using two contrasts for registration...
+    if (scalar @mdt_contrasts > 1) {
+        $mdt_contrast_2 = $mdt_contrasts[1];
+    }  else {
+        $mdt_contrast_2 = '';
+    }
 
     $mdt_path = $Hf->get_value('mdt_work_dir');
     
