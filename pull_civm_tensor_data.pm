@@ -122,9 +122,9 @@ sub find_my_tensor_data {
 # 10 July 2017: removed naxos temporarily until we better address "dead machine" issue.
 # 11 October 2017: removed crete temporarily because we are too lazy to turn it back on now.
     if ((defined $recon_machine) && ($recon_machine ne 'NO_KEY') && ($recon_machine ne '')) {
-	unshift(@recon_machines,$recon_machine);
+        unshift(@recon_machines,$recon_machine);
     } else {
-	$recon_machine='';
+        $recon_machine='';
     }
     @recon_machines = uniq(@recon_machines);
     
@@ -155,41 +155,41 @@ sub find_my_tensor_data {
     my $tensor_headfile_exists = 0;
     my $raw_headfile_exists = 0;
     if (-d $inputs_dir) {
-	opendir(DIR, $inputs_dir);
-	## Look for local tensor headfile
-	my @input_files_1= grep(/^tensor($local_runno).*\.headfile(\.gz)?$/i ,readdir(DIR));
-	if ($#input_files_1 > 0) {
-	    confess("More than 1 tensor headfile detected for runno \"${local_runno}\"; it appears invalid and/or ambiguous runnos are being used.");
-	}
-	$tensor_headfile = $input_files_1[0];
-	if ((defined $tensor_headfile) && ($tensor_headfile ne '')) {
-	    $tensor_headfile_exists=1;
-	    $tensor_headfile = "${inputs_dir}/${tensor_headfile}";
-	}
+        opendir(DIR, $inputs_dir);
+        ## Look for local tensor headfile
+        my @input_files_1= grep(/^tensor($local_runno).*\.headfile(\.gz)?$/i ,readdir(DIR));
+        if ($#input_files_1 > 0) {
+            confess("More than 1 tensor headfile detected for runno \"${local_runno}\"; it appears invalid and/or ambiguous runnos are being used.");
+        }
+        $tensor_headfile = $input_files_1[0];
+        if ((defined $tensor_headfile) && ($tensor_headfile ne '')) {
+            $tensor_headfile_exists=1;
+            $tensor_headfile = "${inputs_dir}/${tensor_headfile}";
+        }
     }
     
     my $little_engine_that_did;
     my @possible_tensor_recon_machines;
     if ($tensor_headfile_exists) {
-	## Pull out engine name, and to list of possible locations to look for data, after BIGGUS_DISKUS and dusom_civm;
-	my $temp_tensor_Hf = new Headfile ('rw', $tensor_headfile);
-	my $msg_1 = "tensor headfile = ${tensor_headfile}\n";
-	printd(30,$msg_1); # At the threshold of still printing, but almost clucking.
-	$temp_tensor_Hf->read_headfile;
-	$little_engine_that_did = $temp_tensor_Hf->get_value('engine');
-	if ($little_engine_that_did eq 'NO_KEY') {
-	    $little_engine_that_did = $temp_tensor_Hf->get_value('engine-computer-name');
-	}
-	my $msg_2 = "little engine that did = ${little_engine_that_did}\n";
-	printd(30,$msg_2);
+        ## Pull out engine name, and to list of possible locations to look for data, after BIGGUS_DISKUS and dusom_civm;
+        my $temp_tensor_Hf = new Headfile ('rw', $tensor_headfile);
+        my $msg_1 = "tensor headfile = ${tensor_headfile}\n";
+        printd(30,$msg_1); # At the threshold of still printing, but almost clucking.
+        $temp_tensor_Hf->read_headfile;
+        $little_engine_that_did = $temp_tensor_Hf->get_value('engine');
+        if ($little_engine_that_did eq 'NO_KEY') {
+            $little_engine_that_did = $temp_tensor_Hf->get_value('engine-computer-name');
+        }
+        my $msg_2 = "little engine that did = ${little_engine_that_did}\n";
+        printd(30,$msg_2);
 
-	@possible_tensor_recon_machines = ('dusom_civm',$little_engine_that_did); # 10 July 2017: reversed order of importance
-	if ((defined $recon_machine) && ($recon_machine ne 'NO_KEY') && ($recon_machine ne '')) {
-	    unshift(@possible_tensor_recon_machines,$recon_machine);
-	}
-	@possible_tensor_recon_machines = uniq(@possible_tensor_recon_machines);
+    	@possible_tensor_recon_machines = ('dusom_civm',$little_engine_that_did); # 10 July 2017: reversed order of importance
+        if ((defined $recon_machine) && ($recon_machine ne 'NO_KEY') && ($recon_machine ne '')) {
+            unshift(@possible_tensor_recon_machines,$recon_machine);
+        }
+        @possible_tensor_recon_machines = uniq(@possible_tensor_recon_machines);
     } else {
-	@possible_tensor_recon_machines = @recon_machines;
+        @possible_tensor_recon_machines = @recon_machines;
     }
     
     
@@ -200,121 +200,119 @@ sub find_my_tensor_data {
     
     my $keep_checking = 1;
     foreach my $current_recon_machine (@possible_tensor_recon_machines){
-	print("searching ${current_recon_machine}...\n");
-	if ($keep_checking){
-    my $archive_prefix = '';
-	my $machine_suffix = '';		
-	if ($current_recon_machine eq 'dusom_civm') {
-	    $archive_prefix = "${project_name}/research/";
-	} else {
-	    $machine_suffix = "-DTI-results";
-	}
+        print("searching ${current_recon_machine}...\n");
+        if ($keep_checking){
+            my $archive_prefix = '';
+            my $machine_suffix = '';		
+            if ($current_recon_machine eq 'dusom_civm') {
+                $archive_prefix = "${project_name}/research/";
+            } else {
+                $machine_suffix = "-DTI-results";
+            }
 	
-	my $pull_headfile_cmd;
-	if ($current_recon_machine eq 'gluster') {
-	    ## Look for local tensor results directory
-	    my $main_dir = "/${BIGGUS_DISKUS}/";
-	    if (-d $main_dir) {
-		opendir(DIR, $main_dir);
-		my @gluster_contents= grep(/^tensor($local_runno).*${machine_suffix}$/i ,readdir(DIR));
-		if ($#gluster_contents > -1){
-		    for my $current_dir (@gluster_contents) {
-			if (-d $current_dir) {
-			    push(@tensor_recon_machines,'gluster');
-			    
-			    $tmp_log_msg = "Tensor_create \"results\" folder for runno \"${local_runno}\" found locally at ${current_dir}\n";
-			    $log_msg = $log_msg.$tmp_log_msg;
-			    if (! $tensor_headfile_exists) {
-				`cp ${current_dir}/tensor${local_runno}*headfile ${inputs_dir}/`;
-				my $latest_headfile = `ls -rt ${local_folder}/tensor*headfile | tail -1`;
-				chomp($latest_headfile);
-				my ($dummy_1,$f,$e) = fileparts($latest_headfile,3);
-				my $temp_headfile_name = $local_folder.'/'.$current_recon_machine.'_'.$f.$e;
-				`mv ${latest_headfile} ${temp_headfile_name}`;
-				push(@original_tensor_headfiles,$latest_headfile);
-				push(@temp_tensor_headfiles,$temp_headfile_name);
-				$tensor_headfile_exists=1;
-				$tensor_headfile = $latest_headfile;
-				$tmp_log_msg =$tmp_log_msg."tensor headfile \"${tensor_headfile}\" successfully copied to inputs directory.\n";
-			    }
-			    
-			}
-		    }
-		} else {
-		    $tmp_log_msg = "Unable to find a valid tensor headfile for runno \"${local_runno}\" on machine: ${current_recon_machine}\n\tTrying other locations...\n";
-		    $log_msg = $log_msg.$tmp_log_msg;
-		}
-	    }
-	} else {
-	    print("pulling tensor${local_runno}*.headfile to $local_folder\n");
-	    my $unsuccessful_pull_of_tensor_headfile=1;
-        $pull_headfile_cmd = "puller_simple -D 0 -f file -or ${current_recon_machine} ${archive_prefix}tensor${local_runno}*${machine_suffix}/tensor${local_runno}*headfile ${local_folder}/";
-        # Insert ssh_call::works here to see if we can use the current_recon_machine
+            my $pull_headfile_cmd;
+            if ($current_recon_machine eq 'gluster') {
+                ## Look for local tensor results directory
+                my $main_dir = "/${BIGGUS_DISKUS}/";
+                if (-d $main_dir) {
+                    opendir(DIR, $main_dir);
+                    my @gluster_contents= grep(/^tensor($local_runno).*${machine_suffix}$/i ,readdir(DIR));
+                    if ($#gluster_contents > -1){
+                        for my $current_dir (@gluster_contents) {
+                            if (-d $current_dir) {
+                                push(@tensor_recon_machines,'gluster');  
+                                $tmp_log_msg = "Tensor_create \"results\" folder for runno \"${local_runno}\" found locally at ${current_dir}\n";
+                                $log_msg = $log_msg.$tmp_log_msg;
+                                if (! $tensor_headfile_exists) {
+                                    `cp ${current_dir}/tensor${local_runno}*headfile ${inputs_dir}/`;
+                                    my $latest_headfile = `ls -rt ${local_folder}/tensor*headfile | tail -1`;
+                                    chomp($latest_headfile);
+                                    my ($dummy_1,$f,$e) = fileparts($latest_headfile,3);
+                                    my $temp_headfile_name = $local_folder.'/'.$current_recon_machine.'_'.$f.$e;
+                                    `mv ${latest_headfile} ${temp_headfile_name}`;
+                                    push(@original_tensor_headfiles,$latest_headfile);
+                                    push(@temp_tensor_headfiles,$temp_headfile_name);
+                                    $tensor_headfile_exists=1;
+                                    $tensor_headfile = $latest_headfile;
+                                    $tmp_log_msg =$tmp_log_msg."tensor headfile \"${tensor_headfile}\" successfully copied to inputs directory.\n";
+                                }
+                            }
+                        }
+                    } else {
+                        $tmp_log_msg = "Unable to find a valid tensor headfile for runno \"${local_runno}\" on machine: ${current_recon_machine}\n\tTrying other locations...\n";
+                        $log_msg = $log_msg.$tmp_log_msg;
+                    }
+                }
+            } else {
+                print("pulling tensor${local_runno}*.headfile to $local_folder\n");
+                my $unsuccessful_pull_of_tensor_headfile=1;
+                $pull_headfile_cmd = "puller_simple -D 0 -f file -or ${current_recon_machine} ${archive_prefix}tensor${local_runno}*${machine_suffix}/tensor${local_runno}*headfile ${local_folder}/";
+                # Insert ssh_call::works here to see if we can use the current_recon_machine
 
-        my $td = load_deps(${current_recon_machine},'nas');
+                my $td = load_deps(${current_recon_machine},'nas');
 
-        if ( ( ($td->get_value('nas_use_ssh') && ssh_call::works($td->get_value('nas_host_name'))) || $td->get_value('nas_use_mount')) ) {
-	        print "pull headfile cmd XX = ${pull_headfile_cmd}\n\n\n";
-            `${pull_headfile_cmd} 2>&1`;
-	        $unsuccessful_pull_of_tensor_headfile = $?;
-        } else {
-            $tmp_log_msg = "$tmp_log_msg\n SKIPPED $current_recon_machine beacuase ssh_call::works is FALSE\n";
-        }
-	    #print "\$unsuccessful_pull_of_tensor_headfile = ${unsuccessful_pull_of_tensor_headfile}\n\n";
-	    if ($unsuccessful_pull_of_tensor_headfile) {
-		$tmp_log_msg = "Unable to find a valid tensor headfile for runno \"${local_runno}\" on machine: ${current_recon_machine}\n\tTrying other locations...\n";
-		$log_msg = $log_msg.$tmp_log_msg;
-		#print "Puller command =\n${pull_headfile_cmd}\n\n${tmp_log_msg}\n\n\n";
-	    } else {
-	       	push(@tensor_recon_machines,$current_recon_machine);
-		my $latest_headfile = `ls -rt ${local_folder}/tensor*headfile | tail -1`;
-		chomp($latest_headfile);
-		my ($dummy_1,$f,$e) = fileparts($latest_headfile,3);
-		my $temp_headfile_name = $local_folder.'/'.$current_recon_machine.'_'.$f.$e;
-		`mv ${latest_headfile} ${temp_headfile_name}`;
-		push(@original_tensor_headfiles,$latest_headfile);
-		push(@temp_tensor_headfiles,$temp_headfile_name);
+                if ( ( ($td->get_value('nas_use_ssh') && ssh_call::works($td->get_value('nas_host_name'))) || $td->get_value('nas_use_mount')) ) {
+                    print "pull headfile cmd XX = ${pull_headfile_cmd}\n\n\n";
+                    `${pull_headfile_cmd} 2>&1`;
+                    $unsuccessful_pull_of_tensor_headfile = $?;
+                } else {
+                    $tmp_log_msg = "$tmp_log_msg\n SKIPPED $current_recon_machine beacuase ssh_call::works is FALSE\n";
+                }
+                #print "\$unsuccessful_pull_of_tensor_headfile = ${unsuccessful_pull_of_tensor_headfile}\n\n";
+                if ($unsuccessful_pull_of_tensor_headfile) {
+                    $tmp_log_msg = "Unable to find a valid tensor headfile for runno \"${local_runno}\" on machine: ${current_recon_machine}\n\tTrying other locations...\n";
+                    $log_msg = $log_msg.$tmp_log_msg;
+                    #print "Puller command =\n${pull_headfile_cmd}\n\n${tmp_log_msg}\n\n\n";
+                } else {
+                    push(@tensor_recon_machines,$current_recon_machine);
+                    my $latest_headfile = `ls -rt ${local_folder}/tensor*headfile | tail -1`;
+                    chomp($latest_headfile);
+                    my ($dummy_1,$f,$e) = fileparts($latest_headfile,3);
+                    my $temp_headfile_name = $local_folder.'/'.$current_recon_machine.'_'.$f.$e;
+                    `mv ${latest_headfile} ${temp_headfile_name}`;
+                    push(@original_tensor_headfiles,$latest_headfile);
+                    push(@temp_tensor_headfiles,$temp_headfile_name);
 		
-		$tensor_headfile = $temp_headfile_name;#temp solution only !!!
- 
-		$tmp_log_msg = "Tensor headfile for runno \"${local_runno}\" found on machine: ${current_recon_machine}\n";
-		$log_msg = $log_msg.$tmp_log_msg;
-	    }
-        if ( scalar(@tensor_recon_machines) && $tensor_recon_machines[0] eq $recon_machine) {
-            $keep_checking = 0;
-        }
-    }
-	}	
+                	$tensor_headfile = $temp_headfile_name;#temp solution only !!!
+    
+                    $tmp_log_msg = "Tensor headfile for runno \"${local_runno}\" found on machine: ${current_recon_machine}\n";
+                    $log_msg = $log_msg.$tmp_log_msg;
+                }
+                if ( scalar(@tensor_recon_machines) && $tensor_recon_machines[0] eq $recon_machine) {
+                    $keep_checking = 0;
+                }
+            }
+    	}	
     }
     #print "${tensor_headfile}\n\n";
     my $pos;
     if ((! defined $tensor_headfile) || ($tensor_headfile eq '')) {
-	$tmp_error_msg = "No proper tensor headfile found ANYWHERE for runno: \"${local_runno}\".\n";
-	$error_msg = $error_msg.$tmp_error_msg;
-	$tensor_recon_machine='';
-#	print "NO Tensor found anywhere...\n\n\n";
+        $tmp_error_msg = "No proper tensor headfile found ANYWHERE for runno: \"${local_runno}\".\n";
+        $error_msg = $error_msg.$tmp_error_msg;
+        $tensor_recon_machine='';
+    #	print "NO Tensor found anywhere...\n\n\n";
     } elsif ((@tensor_recon_machines) && ($#tensor_recon_machines > 0) && (($recon_machine eq '') || ($recon_machine eq 'NO_KEY'))) {
-	$tmp_error_msg = "Multiple tensor headfiles found for runno: \"${local_runno}\" on these machines:\n";
-	$error_msg = $error_msg.$tmp_error_msg;
-	for (@tensor_recon_machines) {
-	    $error_msg=$error_msg."\t$_\n";
-	}
-	$tmp_error_msg = "If this data has been satisfactorally archived, please clean up the corresponding folders and files on the workstations.\n".
+        $tmp_error_msg = "Multiple tensor headfiles found for runno: \"${local_runno}\" on these machines:\n";
+        $error_msg = $error_msg.$tmp_error_msg;
+        for (@tensor_recon_machines) {
+            $error_msg=$error_msg."\t$_\n";
+        }
+        $tmp_error_msg = "If this data has been satisfactorally archived, please clean up the corresponding folders and files on the workstations.\n".
 	    "Otherwise, you may be able to successfully pull the data by setting the variable \$recon_machine to the machine where the desired data lives,".
 	    " and then running again.\n";
-	$error_msg = $error_msg.$tmp_error_msg;
+        $error_msg = $error_msg.$tmp_error_msg;
     } elsif ($#tensor_recon_machines == 0) {
-	#$tmp_log_msg = "Only one tensor headfile for  runno \"${local_runno}\" was found on ${tensor_recon_machines}[0]\n\tAny missing data will be pulled from here.\n";
-	$tmp_log_msg = "Only one tensor headfile for runno \"${local_runno}\" was found on ${tensor_recon_machines[0]}\n\tAny missing data will be pulled from here.\n";
-	$log_msg = $log_msg.$tmp_log_msg;
-	$pos = 0;
-	$tensor_recon_machine = $tensor_recon_machines[0];
+        #$tmp_log_msg = "Only one tensor headfile for  runno \"${local_runno}\" was found on ${tensor_recon_machines}[0]\n\tAny missing data will be pulled from here.\n";
+        $tmp_log_msg = "Only one tensor headfile for runno \"${local_runno}\" was found on ${tensor_recon_machines[0]}\n\tAny missing data will be pulled from here.\n";
+        $log_msg = $log_msg.$tmp_log_msg;
+        $pos = 0;
+        $tensor_recon_machine = $tensor_recon_machines[0];
     } elsif (($recon_machine ne '') && ($recon_machine ne 'NO_KEY')) {
-	#$pos = grep { $tensor_recon_machines[$_] eq "${recon_machine}" } 0..$#tensor_recon_machines;
-	$pos = first_index { /${recon_machine}/ } @tensor_recon_machines;
-	$tensor_recon_machine =  $tensor_recon_machines[$pos];
-	$tmp_log_msg = "A tensor headfile for runno \"${local_runno}\" was found on \$recon_machine ${tensor_recon_machine}\n\tAny missing data will be pulled from here.\n";
-	$log_msg = $log_msg.$tmp_log_msg;
+        #$pos = grep { $tensor_recon_machines[$_] eq "${recon_machine}" } 0..$#tensor_recon_machines;
+        $pos = first_index { /${recon_machine}/ } @tensor_recon_machines;
+        $tensor_recon_machine =  $tensor_recon_machines[$pos];
+        $tmp_log_msg = "A tensor headfile for runno \"${local_runno}\" was found on \$recon_machine ${tensor_recon_machine}\n\tAny missing data will be pulled from here.\n";
+        $log_msg = $log_msg.$tmp_log_msg;
     }
 	
     if (defined $pos) {
@@ -428,7 +426,7 @@ sub pull_civm_tensor_data {
 		#     From now on we'll process these ourselves from the tensor headfile.
 		
 		my ($v_ok,$original_gradient_location) = $tensor_Hf->get_value_check('dti-recon-gradmat-file'); ## Unsure if this will work for Bruker...
-        my ($o_grad_path,$grad_filename,$grad_ext)=('','gradient_matrix','.txt');
+        my ($o_grad_path,$grad_filename,$grad_ext)=('','gradient_matrix','.txt');tensor
    
         if ($v_ok) {
     		 ($o_grad_path,$grad_filename,$grad_ext)= fileparts($original_gradient_location,2);
