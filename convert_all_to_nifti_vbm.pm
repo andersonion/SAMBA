@@ -188,7 +188,7 @@ sub convert_all_to_nifti_Output_check {
 	my $sub_missing_files_message='';
 	foreach my $ch (@channel_array) {
 	    $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
-	   print "File_1 = ${file_1}\n\n";
+	   #print "File_1 = ${file_1}\n\n";
 	    my $unfounded =0;
 	    if ($file_1 =~ /[\n]+/) {
             $file_1 = "${current_path}/${runno}_${ch}.nii";

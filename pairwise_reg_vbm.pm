@@ -8,12 +8,6 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-#no warnings qw(uninitialized);
-
-#use vars used to be here
-require Headfile;
-require pipeline_utilities;
-#use PDL::Transform;
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);
@@ -65,18 +59,19 @@ sub pairwise_reg_vbm {  # Main code
     ($mem_request,$mem_request_2,$jobs_in_first_batch) = memory_estimator_2($expected_number_of_jobs,$nodes);
 
     my @remaining_runnos = @sorted_runnos;
-    for ((my $moving_runno = $remaining_runnos[0]); (scalar @remaining_runnos > 1); (shift(@remaining_runnos)))  {
-	$moving_runno = $remaining_runnos[0];
-	foreach my $fixed_runno (@remaining_runnos) {
-	    $go = $go_hash{$moving_runno}{$fixed_runno};
-	    if ($go) {
-		($job) = create_pairwise_warps($moving_runno,$fixed_runno);
-	#	sleep(0.25);
-		if ($job) {
-		    push(@jobs,$job);
-		}
-	    }
-	}
+
+    for ((my $moving_runno = $remaining_runnos[0]); (scalar @remaining_runnos > 0); (shift(@remaining_runnos)))  {
+
+    	$moving_runno = $remaining_runnos[0];
+        foreach my $fixed_runno (@remaining_runnos) {
+            $go = $go_hash{$moving_runno}{$fixed_runno};
+            if ($go) {
+                ($job) = create_pairwise_warps($moving_runno,$fixed_runno);
+        		if ($job) {
+                    push(@jobs,$job);
+                }
+            }
+        }
     }
     
     if (cluster_check() && (@jobs)) {
@@ -121,29 +116,29 @@ sub pairwise_reg_Output_check {
 
      $expected_number_of_jobs = 0;
 
-     for ((my $moving_runno = $remaining_runnos[0]); (scalar @remaining_runnos > 1); (shift(@remaining_runnos)))  {
-	 $moving_runno = $remaining_runnos[0];
-	 foreach my $fixed_runno (@remaining_runnos) {
-	     $file_1 = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz";
-	     $file_2 = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
+     for ((my $moving_runno = $remaining_runnos[0]); (scalar @remaining_runnos > 0); (shift(@remaining_runnos)))  {
+        $moving_runno = $remaining_runnos[0];
+        foreach my $fixed_runno (@remaining_runnos) {
+            $file_1 = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz";
+            $file_2 = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
 
-	     if (data_double_check($file_1, $file_2)) {
-		 $go_hash{$moving_runno}{$fixed_runno}=1;
-		 if ($file_1 ne $file_2) {
-		     $expected_number_of_jobs++;
-		 }
-		 push(@file_array,$file_1,$file_2);
-		 $missing_files_message = $missing_files_message."\t${moving_runno}<-->${fixed_runno}";
-	     } else {
-		 $go_hash{$moving_runno}{$fixed_runno}=0;
-		 $existing_files_message = $existing_files_message."\t${moving_runno}<-->${fixed_runno}";
-	     }
-	 }
-	 if (($existing_files_message ne '') && ($case == 1)) {
-	     $existing_files_message = $existing_files_message."\n";
-	 } elsif (($missing_files_message ne '') && ($case == 2)) {
-	     $missing_files_message = $missing_files_message."\n";
-	 }
+            if (data_double_check($file_1, $file_2,$case-1) == 2) {
+                $go_hash{$moving_runno}{$fixed_runno}=1;
+                if ($file_1 ne $file_2) {
+                    $expected_number_of_jobs++;
+                }
+        		push(@file_array,$file_1,$file_2);
+                $missing_files_message = $missing_files_message."\t${moving_runno}<-->${fixed_runno}";
+            } else {
+                $go_hash{$moving_runno}{$fixed_runno}=0;
+                $existing_files_message = $existing_files_message."\t${moving_runno}<-->${fixed_runno}";
+            }
+        }
+        if (($existing_files_message ne '') && ($case == 1)) {
+            $existing_files_message = $existing_files_message."\n";
+        } elsif (($missing_files_message ne '') && ($case == 2)) {
+            $missing_files_message = $missing_files_message."\n";
+        }
      }
      
      my $error_msg='';
@@ -228,18 +223,18 @@ sub create_pairwise_warps {
     my $node = '';
 
     if ($fixed_runno eq $moving_runno) {
-	$pairwise_cmd = "cp ${id_warp} ${new_warp}";
-	$rename_cmd = '';
-	$node = "civmcluster1";
-	@test=(1,$node);
+    	$pairwise_cmd = "cp ${id_warp} ${new_warp}";
+        $rename_cmd = '';
+        $node = "civmcluster1";
+        @test=(1,$node);
     } else {
-	$job_count++;
-	if ($job_count > $jobs_in_first_batch){
-	    $mem_request = $mem_request_2;
-	}
-	if (defined $reservation) {
-	    @test =(0,$reservation);
-	}
+        $job_count++;
+        if ($job_count > $jobs_in_first_batch){
+            $mem_request = $mem_request_2;
+        }
+        if (defined $reservation) {
+            @test =(0,$reservation);
+        }
     }
 
     my $jid = 0;
@@ -606,18 +601,14 @@ sub pairwise_reg_vbm_Runtime_check {
 	@array_of_runnos = split(',',$runlist);
     }
 
-
-
-
     @sorted_runnos=sort(@array_of_runnos);
-
 
     ## Generate an identity warp for our general purposes ##
 
     $id_warp = "${current_path}/identity_warp.nii.gz";
     my $first_runno = $array_of_runnos[0];
     my $first_image = get_nii_from_inputs($inputs_dir,$first_runno,$mdt_contrast);
-    print "current path = ${current_path}\n\n";
+    # print "current path = ${current_path}\n\n";
     if (data_double_check($id_warp)) {
 	make_identity_warp($first_image,$Hf,$current_path);
     }

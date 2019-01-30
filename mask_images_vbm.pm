@@ -15,7 +15,6 @@ my $NAME = "Convert input data into the proper format, flipping x and/or z if ne
 
 use strict;
 use warnings;
-#no warnings qw(uninitialized bareword);
 
 use Env qw(RADISH_PERL_LIB);
 if (! defined($RADISH_PERL_LIB)) {
@@ -24,7 +23,7 @@ if (! defined($RADISH_PERL_LIB)) {
 }
 use lib split(':',$RADISH_PERL_LIB);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
-#use vars used to be here
+
 use Headfile;
 use pipeline_utilities;
 
@@ -214,7 +213,7 @@ sub mask_images_Output_check {
             $file_1 = $file_1.'.gz'; # 8 Feb 2016: added .gz    
 	    }
 	    
-        if (data_double_check($file_1) ) { 
+        if (data_double_check($file_1,$case-1) ) { 
             $go_hash{$runno}{$ch}=1;#*$do_mask; Moving the $do_mask logic elsewhere because we want action either way.
             push(@file_array,$file_1);
             $sub_missing_files_message = $sub_missing_files_message."\t$ch";
