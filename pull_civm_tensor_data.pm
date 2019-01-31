@@ -426,7 +426,7 @@ sub pull_civm_tensor_data {
 		#     From now on we'll process these ourselves from the tensor headfile.
 		
 		my ($v_ok,$original_gradient_location) = $tensor_Hf->get_value_check('dti-recon-gradmat-file'); ## Unsure if this will work for Bruker...
-        my ($o_grad_path,$grad_filename,$grad_ext)=('','gradient_matrix','.txt');tensor
+        my ($o_grad_path,$grad_filename,$grad_ext)=('','gradient_matrix','.txt');
    
         if ($v_ok) {
     		 ($o_grad_path,$grad_filename,$grad_ext)= fileparts($original_gradient_location,2);
