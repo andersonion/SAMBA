@@ -93,14 +93,6 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 		if ($job) {
 		    push(@jobs,$job);
 		}
-		## 17 October 2017, BJA: Move this code to after all jobs have completed.
-		# if ($swap_fixed_and_moving) {
-		#     my $alt_pipeline_name = $alt_result_path_base.$xform_suffix;
-		#     `ln -s ${xform_path}  ${alt_pipeline_name}`;
-		#     create_explicit_inverse_of_ants_affine_transform($alt_pipeline_name,$pipeline_name); 
-		# } else {
-		#     `ln -s ${xform_path}  ${pipeline_name}`;
-		# }
 	    }
 	}
 
