@@ -440,7 +440,7 @@ sub pull_civm_tensor_data {
                 `gradmaker ${tensor_headfile} ${gradient_file}`;
             }
         }
-     die;
+   #Carp::confess;
 		if (data_double_check($gradient_file)) {
 		    ## Look for local raw headfile
 		    if (-d $inputs_dir) {
