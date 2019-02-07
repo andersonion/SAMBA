@@ -43,6 +43,12 @@ $flip_z
 $optional_suffix
 $atlas_name
 $label_atlas_name
+$label_transform_chain
+$label_input_file
+$label_atlas_nickname
+$make_individual_ROIs
+
+
 
 $skull_strip_contrast
 $threshold_code

@@ -320,8 +320,8 @@ if ($do_vba) {
     my $group_2_runnos;
     #if (defined @group_1)  {
     if (@group_1)  {
-	$group_1_runnos = join(',',uniq(@group_1));
-	$Hf->set_value('group_1_runnos',$group_1_runnos);
+        $group_1_runnos = join(',',uniq(@group_1));
+        $Hf->set_value('group_1_runnos',$group_1_runnos);
     }
 
     #if (defined @group_2) {
@@ -524,13 +524,31 @@ if ((! defined $create_labels) && (defined $label_atlas_name)){
 if ($create_labels) {
     my $label_atlas_dir = "${WORKSTATION_DATA}/atlas/${label_atlas_name}";
     if (! -d $label_atlas_dir) {
-	if ($label_atlas_dir =~ s/\/data/\/CIVMdata/) {}
+        if ($label_atlas_dir =~ s/\/data/\/CIVMdata/) {}
     }
+
+    if (defined $label_transform_chain) {
+        $Hf->set_value('label_transform_chain',$label_transform_chain);
+    }
+
+    if (defined $make_individual_ROIs){
+        $Hf->set_value('make_individual_ROIs',$make_individual_ROIs);
+    }
+
+    if (defined $label_input_file) {
+        $Hf->set_value('label_input_file',$label_input_file);
+    }
+
+    if (defined $label_atlas_nickname) {
+        $Hf->set_value('label_atlas_nickname',$label_atlas_nickname);
+    }
+
+
 
     $Hf->set_value('label_atlas_dir',$label_atlas_dir);
     $Hf->set_value('label_atlas_name',$label_atlas_name);
     if (! defined $label_space) {
-	$label_space = "pre_affine"; # Pre-affine is the tentative default label space.
+        $label_space = "pre_affine"; # Pre-affine is the tentative default label space.
     }
     $Hf->set_value('label_space',$label_space);
 }
@@ -1128,10 +1146,27 @@ my $USER_LIST="$pwuid\@duke.edu$pipe_adm";
 } #end main
 
 #---------------------
+sub add_defined_variables_to_headfile {
+#---------------------
+
+my ($Hf,@variable_names)=@_;
+
+#    for my $variable_name (@variable_names) {
+#        my $variable_value = eval($${variable_value});
+#        if (eval("defined $${variable_name}") {
+#            $Hf->set_value($variable_name,$do_vba);
+#        }
+#    }
+    $Hf->print();die;
+    return();
+
+}
+
+#---------------------
 sub find_group_in_tsv {
 #---------------------
 
-my ($tsv_file,$report_field,$_ref_to_criteria_array)=(@_);
+my ($tsv_file,$report_field,$_ref_to_criteria_array)=@_;
 
 
 return();

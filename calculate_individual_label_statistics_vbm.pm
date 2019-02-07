@@ -18,7 +18,7 @@ require pipeline_utilities;
 use List::MoreUtils qw(uniq);
 
 my ($current_path, $image_dir,$work_dir,$runlist,$ch_runlist,$in_folder,$out_folder);
-my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_atlas,$label_path);
+my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_path,$label_atlas_name,$label_atlas_nickname);
 my (@array_of_runnos,@channel_array);
 #my ($predictor_id); # SAVE FOR LAST ROUND OF LABEL STATS CODE
 my @jobs=();
@@ -91,7 +91,7 @@ sub  calculate_individual_label_statistics_vbm {
 
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
 
-    my $write_path_for_Hf = "${current_path}/${label_atlas}_${space_string}_temp.headfile";
+    my $write_path_for_Hf = "${current_path}/${label_atlas_nickname}_${space_string}_temp.headfile";
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);
@@ -127,7 +127,7 @@ sub calculate_individual_label_statistics_Output_check {
 	my $sub_existing_files_message='';
 	my $sub_missing_files_message='';
 	
-	my $file_1 = "${current_path}/${runno}_${label_atlas}_labels_in_${space_string}_space_stats.txt" ;
+	my $file_1 = "${current_path}/${runno}_${label_atlas_nickname}_labels_in_${space_string}_space_stats.txt" ;
 #	print "${file_1}\n\n\n";
 	if (data_double_check($file_1)) {
 	    $go_hash{$runno}=1;
@@ -180,10 +180,10 @@ sub calculate_individual_label_statistics_Output_check {
 sub calculate_label_statistics {
 # ------------------
     my ($runno) = @_;
-    my $input_labels = "${work_dir}/${runno}_${label_atlas}_labels.nii.gz";
+    my $input_labels = "${work_dir}/${runno}_${label_atlas_nickname}_labels.nii.gz";
 
     #my $exec_args_ ="${runno} {contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";# Save for part 3..
-    my $exec_args ="${runno} ${input_labels} ${channel_comma_list_2} ${image_dir} ${current_path} ${space_string} ${label_atlas}";
+    my $exec_args ="${runno} ${input_labels} ${channel_comma_list_2} ${image_dir} ${current_path} ${space_string} ${label_atlas_nickname}";
 
     my $go_message = "$PM: Calculating individual label statistics for runno: ${runno}\n" ;
     my $stop_message = "$PM: Failed to properly calculate individual label statistics for runno: ${runno} \n" ;
@@ -216,7 +216,7 @@ sub calculate_label_statistics {
 sub write_rat_report {
 # ------------------
     my ($runno) = @_;
-    my $input_labels = "${work_dir}/${runno}_${label_atlas}_labels.nii.gz";
+    my $input_labels = "${work_dir}/${runno}_${label_atlas_nickname}_labels.nii.gz";
     my $spec_id = $Hf->get_value('U_specid');
     my $project_id = $Hf->get_value('U_code');
 
@@ -274,7 +274,12 @@ sub  calculate_individual_label_statistics_Runtime_check {
 # ------------------
     
     $mdt_contrast = $Hf->get_value('mdt_contrast');
-    $label_atlas = $Hf->get_value('label_atlas_name');
+    $label_atlas_nickname = $Hf->get_value('label_atlas_nickname');
+    $label_atlas_name = $Hf->get_value('label_atlas_name');
+    if ($label_atlas_nickname eq 'NO_KEY') {
+        $label_atlas_nickname=$label_atlas_name;
+    }
+
 
     my $msg;
     if (! defined $current_label_space) {
@@ -304,7 +309,7 @@ sub  calculate_individual_label_statistics_Runtime_check {
     my $label_refname = $Hf->get_value('label_refname');
     my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
     $image_dir = "${intermediary_path}/images/";
-    $work_dir="${intermediary_path}/${label_atlas}/";
+    $work_dir="${intermediary_path}/${label_atlas_name}/";
 
     my $stat_path = "${work_dir}/stats/";
     if (! -e $stat_path) {

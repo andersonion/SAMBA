@@ -31,12 +31,12 @@ my (%go_hash);
 my $go = 1;
 my $job;
 my $group='all';
-
-my ($label_atlas,$atlas_label_dir,$atlas_label_path);
+my $extra_transform_string='';
+my ($label_atlas,$atlas_label_dir,$atlas_label_path,$label_atlas_nickname);
 my ($convert_labels_to_RAS,$final_ROI_path);
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
-
+my $make_individual_ROIs=0;
 my $final_MDT_results_dir;
 my $almost_results_dir;
 my $almost_MDT_results_dir;
@@ -82,7 +82,7 @@ sub warp_atlas_labels_vbm {  # Main code
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
 	
 	if ($done_waiting) {
-	    print STDOUT  " Label sets have been created from the ${label_atlas_name} atlas labels for all runnos; moving on to next step.\n";
+	    print STDOUT  " Label sets have been created from the ${label_atlas_nickname} atlas labels for all runnos; moving on to next step.\n";
 	}
     }
     my $case = 2;
@@ -116,7 +116,7 @@ sub warp_atlas_labels_vbm {  # Main code
 	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_2);
 	    
 	    if ($done_waiting) {
-		print STDOUT  " RAS label sets have been created from the ${label_atlas_name} atlas labels for all runnos; moving on to next step.\n";
+		print STDOUT  " RAS label sets have been created from the ${label_atlas_nickname} atlas labels for all runnos; moving on to next step.\n";
 	    }
 	}
     }
@@ -134,9 +134,9 @@ sub warp_atlas_labels_Output_check {
      my ($out_file);
      my @file_array=();
      if ($case == 1) {
-  	$message_prefix = "  ${label_atlas_name} label sets have already been created for the following runno(s) and will not be recalculated:\n";
+  	$message_prefix = "  ${label_atlas_nickname} label sets have already been created for the following runno(s) and will not be recalculated:\n";
      } elsif ($case == 2) {
- 	$message_prefix = "  Unable to create ${label_atlas_name} label sets for the following runno(s):\n";
+ 	$message_prefix = "  Unable to create ${label_atlas_nickname} label sets for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
 
      
@@ -145,11 +145,10 @@ sub warp_atlas_labels_Output_check {
      #my $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
      foreach my $runno (@array_of_runnos) {
 	 if ($group eq 'MDT') {
-	     #$out_file = "${median_images_path}/MDT_labels_${label_atlas_name}.nii.gz";
-	     $out_file = "${current_path}/MDT_${label_atlas_name}_labels.nii.gz";
-	     $Hf->set_value("${label_atlas_name}_MDT_labels",$out_file);
+	     $out_file = "${current_path}/MDT_${label_atlas_nickname}_labels.nii.gz";
+	     $Hf->set_value("${label_atlas_nickname}_MDT_labels",$out_file);
 	 }else {
-	     $out_file = "${current_path}/${runno}_${label_atlas_name}_labels.nii.gz";
+	     $out_file = "${current_path}/${runno}_${label_atlas_nickname}_labels.nii.gz";
 	 }
 	
 	# my $out_file      = "$out_file_path_base\.nii";
@@ -190,20 +189,113 @@ sub warp_atlas_labels_Input_check {
 
 
 # ------------------
+sub reveal_label_source_components {
+# ------------------
+
+# $direction=1: transform chain will be moving images from atlas to target
+# $direction=0: transform chain will be moving images from target to atlas
+my ($atlas_image_path,$direction) = @_;
+
+
+if (! defined $direction) {
+    $direction =1;
+}
+
+my $transform_chain='';
+my $original_source_found=0;
+my $c_path=$atlas_image_path;
+
+#while (! $original_source_found
+# Look in atlas folder for folder named warps_${any_old_atlas}
+# Grab first one
+# Look in forward or inverse folder and capture numbered names of warps/xforms
+# Add to transform_chain
+
+# We will develop this thought more later...want to search until we have backtracked to our 
+
+# After finding the right warp directory nested in an atlaas dir, use ls to grab the pre-ordered file names
+#$c_string = `ls -r ${c_warp_dir}/_*`;
+
+#return($new_source_labels,$transform_chain);
+
+}
+
+
+# ------------------
+sub resolve_transform_chain {
+# ------------------
+
+my ($chain_comma_string,$direction) = @_;
+use Env('WORKSTATION_DATA');
+my $atlases_path="${WORKSTATION_DATA}/atlas";
+if (! defined $direction) {$direction =1;}
+
+my $transform_chain='';
+
+my @nodes = split(',',$chain_comma_string);
+my @node_names=();
+my @node_folders=();
+
+# Resolve node_name and node_folder for each input node
+for my $c_node (@nodes) {
+    my $c_node_name='';
+    my $c_node_folder='';
+    # Test to to see if we have been given an explicit/arbitrary path to an atlas-like package
+    if ( -e $c_node) {
+        $c_node_folder=$c_node;
+        (my $dummy_path , $c_node_name) = fileparts($c_node,2);
+        push(@node_names,$c_node_name);
+        push(@node_folders,$c_node_folder);
+    } else {
+        $c_node_name=$c_node;
+        $c_node_folder = "${atlases_path}/${c_node}";
+        push(@node_names,$c_node_name);
+        push(@node_folders,$c_node_folder);
+    }
+}
+#Data::Dump::dump(\@node_names);die;
+for (my $ii=1;$ii<(scalar @node_names);$ii++) {
+    my $edge_string = '';
+    my $other_node_name = $node_names[$ii-1];
+    my $c_node_name = $node_names[$ii];
+    my ($test_dir_1 )= glob("${node_folders[$ii]}/transforms_${other_node_name}/${other_node_name}_to_*");
+    if ((defined $test_dir_1) && (-e ${test_dir_1})) {
+        $edge_string = `ls -r ${test_dir_1}/_*| xargs`;
+    } else {
+        my ($test_dir_2) = glob("${node_folders[$ii-1]}/transforms_${c_node_name}/${other_node_name}_to_${c_node_name}");
+        $edge_string = `ls -r ${test_dir_2}/_* |xargs`;
+    }
+    chomp($edge_string);
+    # check if edge is empty.
+  
+
+    $transform_chain = "${edge_string} ${transform_chain}";
+
+}
+
+return(${node_folders[0]},$transform_chain);
+
+}
+
+
+
+# ------------------
 sub apply_mdt_warp_to_labels {
 # ------------------
     my ($runno) = @_;
     my ($cmd);
     my $out_file;
     if ($group eq 'MDT') {
-	#$out_file = "${median_images_path}/MDT_${label_atlas_name}_labels.nii.gz";
-	$out_file = "${current_path}/MDT_${label_atlas_name}_labels.nii.gz";
+        $out_file = "${current_path}/MDT_${label_atlas_nickname}_labels.nii.gz";
     }else {
-	$out_file = "${current_path}/${runno}_${label_atlas_name}_labels.nii.gz";
+        $out_file = "${current_path}/${runno}_${label_atlas_nickname}_labels.nii.gz";
     }
     my ($start,$stop);
     my $image_to_warp = $atlas_label_path;# get label set from atlas #get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
     my $reference_image; ## 28 April 2017: NEED TO FURTHER INVESTIGATE WHAT REF IMAGE WE WANT OR NEED FOR MASS CONNECTIVITY COMPARISONS...!
+
+    # 01 February 2019 (Fri): Adding support for substituting a source label file and extended 
+
 
     # if (! $native_reference_space) {
     # 	$reference_image = $image_to_warp;
@@ -246,52 +338,65 @@ sub apply_mdt_warp_to_labels {
     }
 
     if ($current_label_space ne 'atlas') {
-	$mdt_warp_train=format_transforms_for_command_line($mdt_warp_string);
+        $mdt_warp_train=format_transforms_for_command_line($mdt_warp_string);
     }
 
     if (($current_label_space ne 'MDT') && ($current_label_space ne 'atlas')) {
-	if ($runno ne 'MDT'){
-	    $warp_string = $Hf->get_value("inverse_xforms_${runno}");
-	    if ($warp_string eq 'NO_KEY') {
-		$warp_string=$Hf->get_value("mdt_inverse_xforms_${runno}")
-	    }
-	    $stop=3;
-	    if ($current_label_space eq 'pre_rigid') {
-		$start=1;
-	    } elsif (($current_label_space eq 'pre_affine') || ($current_label_space eq 'post_rigid')) {
-		$start=2;
-	    } elsif ($current_label_space eq 'post_affine') {
-		$start= 3;	
-	    } 
+        if ($runno ne 'MDT'){
+            $warp_string = $Hf->get_value("inverse_xforms_${runno}");
+            if ($warp_string eq 'NO_KEY') {
+                $warp_string=$Hf->get_value("mdt_inverse_xforms_${runno}")
+            }
+            $stop=3;
+            if ($current_label_space eq 'pre_rigid') {
+                $start=1;
+            } elsif (($current_label_space eq 'pre_affine') || ($current_label_space eq 'post_rigid')) {
+                $start=2;
+            } elsif ($current_label_space eq 'post_affine') {
+                $start= 3;	
+            } 
 	    
-	    $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
-	}
+            $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
+        }
     }
     
     if (($warp_train ne '') || ($mdt_warp_train ne '')) {
-	$warp_train=$warp_prefix.$warp_train.' '.$mdt_warp_train;
+        $warp_train=$warp_prefix.$warp_train.' '.$mdt_warp_train;
     }
+    
+    $warp_train=$warp_train.$extra_transform_string;
 
-    $create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n NearestNeighbor ${warp_train};\n";
+    my $use_pre_Feb2019_code=0;
+    # Before 6 Feb 2019, we would use NearestNeighbor, then run a second smoothing command
+    # Using MultiLabel does nearly the same thing, but seems to do a slightly better job 
+    # of avoiding orphaned islands.
+    if ($use_pre_Feb2019_code) {
+        $create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n NearestNeighbor ${warp_train};\n"; 
+        my $smoothing_sigma = 1;
+        my $smooth_cmd = "SmoothImage 3 ${out_file} ${smoothing_sigma} ${out_file} 0 1;\n";
+        $create_cmd=$create_cmd.$smooth_cmd;
+    } else {
+       my @ref_array=split( ' ',$Hf->get_value('label_refspace'));
+       my $voxel_size=pop(@ref_array);
+       $create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n MultiLabel[$voxel_size,2] ${warp_train};\n";
 
-    my $smoothing_sigma = 1;
-    my $smooth_cmd = "SmoothImage 3 ${out_file} ${smoothing_sigma} ${out_file} 0 1;\n";
+    }
  
     my $byte_cmd = "fslmaths ${out_file} -add 0 ${out_file} -odt char;\n"; # Formerly..."ImageMath 3 ${out_file} Byte ${out_file};\n";...but this would renormalize our labelsets and confound the matter
     my $short_cmd = "fslmaths ${out_file} -add 0 ${out_file} -odt short;\n";
     if ($do_byte) { # Smoothing added 15 March 2017
-	$cmd =$create_cmd.$smooth_cmd.$byte_cmd;
+        $cmd =$create_cmd.$byte_cmd;
     } else {
-	$cmd = $create_cmd.$smooth_cmd.$short_cmd;
+        $cmd = $create_cmd.$short_cmd;
     }
 
-    my $go_message =  "$PM: create ${label_atlas_name} label set for ${runno}";
-    my $stop_message = "$PM: could not create ${label_atlas_name} label set for ${runno}:\n${cmd}\n";
+    my $go_message =  "$PM: create ${label_atlas_nickname} label set for ${runno}";
+    my $stop_message = "$PM: could not create ${label_atlas_nickname} label set for ${runno}:\n${cmd}\n";
 
 
     my @test=(0);
     if (defined $reservation) {
-	@test =(0,$reservation);
+        @test =(0,$reservation);
     }
     
     my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
@@ -300,7 +405,7 @@ sub apply_mdt_warp_to_labels {
     my $jid = 0;
     if (cluster_check) {
 	my $home_path = $current_path;
-	my $Id= "create_${label_atlas_name}_labels_for_${runno}";
+	my $Id= "create_${label_atlas_nickname}_labels_for_${runno}";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
@@ -314,7 +419,7 @@ sub apply_mdt_warp_to_labels {
     }
 
     if ((!-e $out_file) && (not $jid)) {
-	error_out("$PM: missing ${label_atlas_name} label set for ${runno}: ${out_file}");
+	error_out("$PM: missing ${label_atlas_nickname} label set for ${runno}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
   
@@ -332,21 +437,20 @@ sub convert_labels_to_RAS {
     my $final_ROIs_dir;
 
     if ($group eq 'MDT') {
-        $out_file = "${final_MDT_results_dir}/MDT_${label_atlas_name}_labels_RAS.nii.gz";
-        #$input_labels = "${median_images_path}/MDT_${label_atlas_name}_labels.nii.gz";
-        $input_labels = "${current_path}/MDT_${label_atlas_name}_labels.nii.gz";
-        #$work_file = "${median_images_path}/MDT_${label_atlas_name}_labels_RAS.nii.gz";
-        $work_file = "${current_path}/MDT_${label_atlas_name}_labels_RAS.nii.gz";
-        $final_ROIs_dir = "${final_MDT_results_dir}/MDT_${label_atlas_name}_RAS_ROIs/";
+        $out_file = "${final_MDT_results_dir}/MDT_${label_atlas_nickname}_labels_RAS.nii.gz";
+        $input_labels = "${current_path}/MDT_${label_atlas_nickname}_labels.nii.gz";
+        $work_file = "${current_path}/MDT_${label_atlas_nickname}_labels_RAS.nii.gz";
+        $final_ROIs_dir = "${final_MDT_results_dir}/MDT_${label_atlas_nickname}_RAS_ROIs/";
     }else {
-        $out_file = "${final_results_dir}/${runno}_${label_atlas_name}_labels_RAS.nii.gz";
-        $input_labels = "${current_path}/${runno}_${label_atlas_name}_labels.nii.gz";
-        $work_file = "${current_path}/${runno}_${label_atlas_name}_labels_RAS.nii.gz";
+        $out_file = "${final_results_dir}/${runno}_${label_atlas_nickname}_labels_RAS.nii.gz";
+        $input_labels = "${current_path}/${runno}_${label_atlas_nickname}_labels.nii.gz";
+        $work_file = "${current_path}/${runno}_${label_atlas_nickname}_labels_RAS.nii.gz";
         $final_ROIs_dir = "${final_results_dir}/${runno}_ROIs/";
     }
-
-    if (! -e $final_ROIs_dir) {
-        mkdir ($final_ROIs_dir,$permissions);
+    if ($make_individual_ROIs) {
+        if (! -e $final_ROIs_dir) {
+            mkdir ($final_ROIs_dir,$permissions);
+        }
     }
 
     my $jid_2 = 0;
@@ -363,13 +467,15 @@ sub convert_labels_to_RAS {
 	if (data_double_check($work_file)) {
         my $matlab_exec_args="${input_labels} ${current_vorder} ${desired_vorder}"; #${output_folder}";
         $cmd = $cmd."${img_transform_executable_path} ${matlab_path} ${matlab_exec_args};\n";
-        $cmd = $cmd."${make_ROIs_executable_path} ${matlab_path} ${input_labels}  ${final_ROIs_dir} ${current_vorder} ${desired_vorder};\n";	
+        if ($make_individual_ROIs) {
+            $cmd = $cmd."${make_ROIs_executable_path} ${matlab_path} ${input_labels}  ${final_ROIs_dir} ${current_vorder} ${desired_vorder};\n";
+        }
 	}
 
 	$cmd =$cmd."cp ${work_file} ${out_file}";
  
-	my $go_message =  "$PM: converting ${label_atlas_name} label set for ${runno} to RAS orientation";
-	my $stop_message = "$PM: could not convert ${label_atlas_name} label set for ${runno} to RAS orientation:\n${cmd}\n";
+	my $go_message =  "$PM: converting ${label_atlas_nickname} label set for ${runno} to RAS orientation";
+	my $stop_message = "$PM: could not convert ${label_atlas_nickname} label set for ${runno} to RAS orientation:\n${cmd}\n";
 	
 	
 	my @test=(0);
@@ -381,7 +487,7 @@ sub convert_labels_to_RAS {
 	my $go_2 = 1;
 	if (cluster_check) {
 	    my $home_path = $current_path;
-	    my $Id= "converting_${label_atlas_name}_labels_for_${runno}_to_RAS_orientation";
+	    my $Id= "converting_${label_atlas_nickname}_labels_for_${runno}_to_RAS_orientation";
 	    my $verbose = 2; # Will print log only for work done.
 	    $jid_2 = cluster_exec($go_2, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	    if (not $jid_2) {
@@ -395,7 +501,7 @@ sub convert_labels_to_RAS {
 	}
 	
 	if ((!-e $out_file) && (not $jid_2)) {
-	    error_out("$PM: missing RAS version of ${label_atlas_name} label set for ${runno}: ${out_file}");
+	    error_out("$PM: missing RAS version of ${label_atlas_nickname} label set for ${runno}: ${out_file}");
 	}
 	print "** $PM expected output: ${out_file}\n";
     }
@@ -421,9 +527,28 @@ sub warp_atlas_labels_vbm_Runtime_check {
 # 	$median_images_path = $Hf->get_value('median_images_path');
 #    }
 # # Set up work
+    my $label_transform_chain = $Hf->get_value('label_transform_chain');
+    my $label_input_file = $Hf->get_value('label_input_file');
+    $label_atlas_nickname = $Hf->get_value('label_atlas_nickname');
     $label_atlas = $Hf->get_value('label_atlas_name');
-    $atlas_label_dir   = $Hf->get_value('label_atlas_dir');   
-    $atlas_label_path  = get_nii_from_inputs($atlas_label_dir,$label_atlas,'labels');
+    
+    if ($label_atlas_nickname eq 'NO_KEY') {
+        $label_atlas_nickname=$label_atlas;
+    }
+    
+    if ($label_transform_chain eq 'NO_KEY') {     
+        $atlas_label_dir   = $Hf->get_value('label_atlas_dir');   
+        $atlas_label_path  = get_nii_from_inputs($atlas_label_dir,$label_atlas,'labels');
+    } else {        
+        (my $source_label_folder, $extra_transform_string)=resolve_transform_chain($label_transform_chain);
+        if ($label_input_file ne 'NO_KEY') {
+            $atlas_label_path = $label_input_file;
+        } else {
+            $atlas_label_path  ="${source_label_folder}/chass_symmetric3_labels.nii.gz"; # THIS IS HARDCODED ONLY FOR TESTING   
+    
+        }      
+    }
+
     $label_reference_path = $Hf->get_value('label_reference_path');    
     $label_refname = $Hf->get_value('label_refname');
     $mdt_contrast = $Hf->get_value('mdt_contrast');
@@ -437,12 +562,12 @@ sub warp_atlas_labels_vbm_Runtime_check {
     my $header_output = `PrintHeader ${atlas_label_path}`;
     my $max_label_number;
     if ($header_output =~ /Range[\s]*\:[\s]*\[[^,]+,[\s]*([0-9\-\.e\+]+)/) {
-	$max_label_number = $1;
-	print "Max_label_number = ${max_label_number}\n"; 
+        $max_label_number = $1;
+        print "Max_label_number = ${max_label_number}\n"; 
     }
     $do_byte = 0;
     if ($max_label_number <= 255) {
-	$do_byte = 1;
+        $do_byte = 1;
     }
 
     #print "Convert labels to Byte = ${do_byte}\n";
@@ -451,8 +576,8 @@ sub warp_atlas_labels_vbm_Runtime_check {
     $work_path = $Hf->get_value('regional_stats_dir');
 
     if ($label_path eq 'NO_KEY') {
-	$label_path = "${work_path}/labels";
-	$Hf->set_value('labels_dir',$label_path);
+        $label_path = "${work_path}/labels";
+        $Hf->set_value('labels_dir',$label_path);
 	if (! -e $label_path) {
 	    mkdir ($label_path,$permissions);
 	}
@@ -523,6 +648,13 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	    #$Hf->set_value('final_label_results_dir',$final_results_dir);
 	    $Hf->set_value('final_connectomics_results_dir',$final_results_dir);
 	}
+
+
+    $make_individual_ROIs=$Hf->get_value('make_individual_ROIs');
+    if ($make_individual_ROIs eq 'NO_KEY') {
+        $make_individual_ROIs=0;
+    }
+
 
 	#$final_ROIs_dir = "${final_results_dir}/ROIs";
 	#if (! -e $final_ROIs_dir) {

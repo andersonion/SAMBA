@@ -840,6 +840,9 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               thresh_masks
                               ROI_masks
                               timestamped_inputs_file
+                              label_transform_chain
+                              label_atlas_nickname
+                              label_input_file
                               number_of_nonparametric_seeds); # affine_target_image will need to be removed from this list once we fully support it.
 	$max_iterations = $Hf->get_value('mdt_iterations');
 #  we check all letters, and let us know the first match?(or the first valid path after the last non-match)
