@@ -103,6 +103,15 @@ sub set_reference_space_vbm {  # Main code
 	     print STDOUT  "  All referencing jobs have completed; moving on to next step.\n";
 	 }
      }
+
+	foreach my $space (@spaces) {
+	    `mv ${refspace_folder_hash{$space}}/refspace.txt.tmp ${refspace_folder_hash{$space}}/refspace.txt`;
+
+        # Bash syntax below: if "ls" command is successful (finds existing items), then executes "gzip" command.
+        # "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
+        `ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null && gzip ${refspace_folder_hash{$space}}/*.nii`;
+	}
+
     
     my $case = 2;
     my ($dummy,$error_message)=set_reference_space_Output_check($case);
@@ -114,15 +123,7 @@ sub set_reference_space_vbm {  # Main code
     
     if ($error_message ne '') {
 	error_out("${error_message}",0);
-    } else {
-	foreach my $space (@spaces) {
-	    `mv ${refspace_folder_hash{$space}}/refspace.txt.tmp ${refspace_folder_hash{$space}}/refspace.txt`;
-
-        # Bash syntax below: if "ls" command is successful (finds existing items), then executes "gzip" command.
-        # "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
-        `ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null && gzip ${refspace_folder_hash{$space}}/*.nii`;
-	}
-    }
+    } 
 }
 
 
@@ -176,14 +177,19 @@ sub set_reference_space_Output_check {
 	     my $out_file;
 	     if ($case == 1) {
 		 # $in_file = $preprocess_dir.'/'.$file;
-		 $out_file = $work_folder.'/'.$file;
+    		 $out_file = $work_folder.'/'.$file;
+
+             # The snippet of code below will find 0 or 1 instances of '.gz' at the end of the filename, and 'replace' it with '.gz.
+             # Functionally, this will just add '.gz.' to any un-gzipped files
+             # In this case, the we are looking for an output file (which will ALWAYS be gzipped)
+             # that corresponds to an input file that may or may not be gzipped.
+             $out_file =~ s/(\.gz)?$/\.gz/;
 	     } else {
-		 $out_file = $file;
+        	 $out_file = $file;
 	     }
 	     print ".";
-	     my $tester = ((data_double_check($out_file)) && (data_double_check($out_file.'.gz')));
-	     #print "tester = ${tester} for out_file = ${out_file}\n\n";
-	     if (data_double_check($out_file, $out_file.'.gz') == 2) { # This will return the total of files NOT found--ask for 2, and didn't find 2
+
+	     if (data_double_check($out_file,$case-1)) { # This will return the total of files NOT found--ask for 2, and didn't find 2
             if ($case == 1) {
                 # print "\n${out_file} added to list of files to be re-referenced.\n";
                 my $test_file = $file;
@@ -239,6 +245,14 @@ sub set_reference_space_Output_check {
 }
 
 # ------------------
+sub get_translation_xform_to_ref_space_vbm {
+# ------------------
+
+    my ($in_file,$ref_file,$out_file)=@_;
+
+}
+
+# ------------------
 sub apply_new_reference_space_vbm {
 # ------------------
     my ($in_file,$ref_file,$out_file)=@_;
@@ -275,30 +289,30 @@ sub apply_new_reference_space_vbm {
    # print "Test output = ${test}\n\n\n";
    # print "Do registration? ${do_registration}\n\n\n";
     if ($do_registration) {
-	$translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
-	if (! compare_two_reference_spaces($in_file,$ref_file)) {	  
-	    my ($out_path,$dummy_1,$dummy_2) = fileparts($out_file,2);
-	    if (! -d $out_path ) {
-		mkdir ($out_path,$permissions);
-	    }
+        $translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
+        if (! compare_two_reference_spaces($in_file,$ref_file)) {	  
+            my ($out_path,$dummy_1,$dummy_2) = fileparts($out_file,2);
+            if (! -d $out_path ) {
+                mkdir ($out_path,$permissions);
+            }
 
 	    #$translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
 	    my $excess_transform =  "${out_file}1Translation.mat" ;
 	    if (data_double_check($translation_transform)) {
 
-		my $test_dim =  `PrintHeader ${in_file} 2`;
-		my @dim_array = split('x',$test_dim);
-		my $real_dim = $#dim_array +1;
-		my $opt_e_string='';
-		if ($real_dim == 4) {
-		    $opt_e_string = ' -e 3 ';
-		}
+            my $test_dim =  `PrintHeader ${in_file} 2`;
+            my @dim_array = split('x',$test_dim);
+            my $real_dim = $#dim_array +1;
+            my $opt_e_string='';
+            if ($real_dim == 4) {
+                $opt_e_string = ' -e 3 ';
+            }
 
 
-		my $translation_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ${opt_e_string} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file};\n";
-		my $remove_cmd = "rm ${excess_transform};\n";
-		$cmd = $translation_cmd.$remove_cmd;
-		@cmds = ($translation_cmd,$remove_cmd);
+    		my $translation_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ${opt_e_string} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file};\n";
+        	my $remove_cmd = "rm ${excess_transform};\n";
+            $cmd = $translation_cmd.$remove_cmd;
+            @cmds = ($translation_cmd,$remove_cmd);
 	    } 
 	} else {
 	    my $affine_identity = $Hf->get_value('affine_identity_matrix');
@@ -316,14 +330,14 @@ sub apply_new_reference_space_vbm {
 	    my ($out_path,$out_name,$dummy_2) = fileparts($out_file,2);
 	    $out_file = $out_file.'.gz';
 	    if ($out_name =~ s/(_masked)//i) {}
-	    if ($out_name =~ /([^\.]+)_[^_\.]+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016
-		$runno = $1;
-	    }
+            if ($out_name =~ /([^\.]+)_[^_\.]+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016
+                $runno = $1;
+            }
 
-	    $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
-	    $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform};\n"; 
-	    @cmds = ($cmd);
-	}  
+            $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
+            $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform};\n"; 
+            @cmds = ($cmd);
+        }  
     }
 	
     my @list = split('/',$in_file);
@@ -354,10 +368,7 @@ sub apply_new_reference_space_vbm {
 		error_out($stop_message);
 	    }
 	}
-	if (data_double_check($out_file)  && (not $jid)) {
-	    error_out("$PM: could not properly create translation transform and/or apply reference: ${out_file}");
-	    print "** $PM: apply reference created ${out_file}\n";
-	}
+
     }
     
     return($jid);
@@ -818,30 +829,38 @@ sub set_reference_space_vbm_Runtime_check {
 
 ## TRYING TO MOVE THIS CODE TO INIT_CHECK, 16 March 2017 --> Just kidding, keep this here, rerun init check if native ref file not found. 20 March 2017
     if ($process_dir_for_labels) {
-	@spaces = ("vbm","label");
+    	@spaces = ("vbm","label");
     } else {
-	@spaces = ("vbm");
+        @spaces = ("vbm");
     }
     foreach my $V_or_L (@spaces) {
-	$reference_space_hash{$V_or_L} = $Hf->get_value("${V_or_L}_reference_space");
-	my $inpath = $Hf->get_value("${V_or_L}_input_reference_path");
-	my $outpath = $Hf->get_value("${V_or_L}_reference_path");
-	$refspace_hash{$V_or_L} = $Hf->get_value("${V_or_L}_refspace");
-	$refname_hash{$V_or_L} =  $Hf->get_value("${V_or_L}_refname");
+        $reference_space_hash{$V_or_L} = $Hf->get_value("${V_or_L}_reference_space");
+        my $inpath = $Hf->get_value("${V_or_L}_input_reference_path");
+        my $outpath = $Hf->get_value("${V_or_L}_reference_path");
+        $refspace_hash{$V_or_L} = $Hf->get_value("${V_or_L}_refspace");
+        $refname_hash{$V_or_L} =  $Hf->get_value("${V_or_L}_refname");
 
-	if (data_double_check($inpath)) {
-	    $inpath="${inpath}.gz"; # We're assuming that it exists, but isn't found because it has been gzipped. 16 March 2017
-	}
+    	if (data_double_check($inpath)) {
+            $inpath="${inpath}.gz"; # We're assuming that it exists, but isn't found because it has been gzipped. 16 March 2017
+        }
 
-	if (data_double_check($outpath)) {
-	    my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
-	    my $nifti_args = "\'${inpath}\' , \'${outpath}\'";
-	    my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
-	    execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
-	}
+    	if (data_double_check($outpath)) {
+            my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
+            my $nifti_args = "\'${inpath}\' , \'${outpath}\'";
+            my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
+            execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
+    	}
+
+        # 4 Feb 2019--use ResampleImageBySpacing here to create up/downsampled working space if desired.
+            $Hf->get_value('resample_images');
+            #ResampleImageBySpacing 3 $in_ref $out_ref 0.18 0.18 0.18 0 0 1
+            #my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header(${out_ref});
+
+            #$refspace_hash{$V_or_L} = $bounding_box_and_spacing;
+            #$Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
 
         # write refspace_temp.txt (for human purposes, in case this module fails)
-	write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp")
+    	write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp")
     }
 
 
