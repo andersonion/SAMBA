@@ -41,7 +41,7 @@ $template_name
 $flip_x
 $flip_z 
 $optional_suffix
-$atlas_name
+$rigid_atlas_name
 $label_atlas_name
 $label_transform_chain
 $label_input_file
@@ -92,6 +92,10 @@ $diffeo_sampling_options
 
 $vbm_reference_space
 $reference_path
+$resample_images
+$resample_factor
+
+$register_MDT_to_atlas
 $create_labels
 $label_space
 $label_reference

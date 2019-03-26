@@ -1,6 +1,6 @@
-%compile mev
+function compile_command_for_compare_group_stats()
 script_name = 'compare_group_stats';
-version = 1;
+version = 2;
 
 if (version == 1)
     v_string = '';
@@ -9,8 +9,27 @@ elseif (version > 1)
 end
 
 
+source_dir='/cm/shared/workstation_code_dev/analysis/SAMBA/label_stats/';
+source_filename = ['compare_group_stats_exec' v_string '.m'];
+source_file = [source_dir source_filename];
+
+include_files = {'/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats/fdr_bh/fdr_bh.m' ...
+    '/cm/shared/apps/MATLAB/R2015b/toolbox/bioinfo/microarray/mattest.m' ...
+    '/cm/shared/apps/MATLAB/R2015b/toolbox/stats/stats/ttest2.m'};
+
+
+addpath([getenv('WORKSTATION_HOME') '/recon/CSv2']);
+compile_command__allpurpose(source_file,include_files,'');
+
+return
+
+
+%% The code below was the former full code used for compiling and copying, etc.
+%  It has been replaced with the codified compile_command__allpurpose
+
+
 matlab_path = '/cm/shared/apps/MATLAB/R2015b/';
-master_dir = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats_executables/';
+master_dir = '/cm/shared/workstation_code_dev/analysis/SAMBA/label_stats_executables/';
 main_dir = [master_dir script_name '_executable/'];
 
 if ~exist(main_dir,'dir')
@@ -25,15 +44,7 @@ my_dir = [main_dir compile_time '/']
 mkdir(my_dir)
 eval(['!chmod a+rwx ' my_dir]);
 
-source_dir='/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats/';
-source_filename = ['compare_group_stats_exec' v_string '.m'];
-source_file = [source_dir source_filename]
-
 include_string =[];
-include_files = {'/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats/fdr_bh/fdr_bh.m' ...
-    '/cm/shared/apps/MATLAB/R2015b/toolbox/bioinfo/microarray/mattest.m' ...
-    '/cm/shared/apps/MATLAB/R2015b/toolbox/stats/stats/ttest2.m'};
-
 for ff = 1:length(include_files)
     include_string = [include_string ' -a ' include_files{ff} ' '];
 end

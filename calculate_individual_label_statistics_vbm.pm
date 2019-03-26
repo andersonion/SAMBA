@@ -27,13 +27,15 @@ my $log_msg='';
 my $skip=0;
 my $go = 1;
 my $job;
+my $label_type;
 my $PM_code = 65;
 
-my $pipe_home = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/";
+my $pipe_home = "/cm/shared/workstation_code_dev/analysis/SAMBA/";
 
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";  #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
-my $compilation_date = "20180227_1439";#"20170616_2204"; Updated 27 Feb 2018, BJA--will now ignore any voxels with contrast values of zero (assumed to be masked)
-my $write_individual_stats_executable_path = "${pipe_home}label_stats_executables/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec.sh"; 
+#my $compilation_date = "20180227_1439";#"20170616_2204"; Updated 27 Feb 2018, BJA--will now ignore any voxels with contrast values of zero (assumed to be masked)
+my $compilation_date = "stable";
+my $write_individual_stats_executable_path = "${pipe_home}label_stats_executables/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec_v2.sh"; 
 my $write_rat_report_executable_path = '${pipe_home}label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh';
 
 #if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
@@ -52,7 +54,13 @@ sub  calculate_individual_label_statistics_vbm {
     foreach my $runno (@array_of_runnos) {
 	$go = $go_hash{$runno};
 	if ($go) {
-	    ($job) = calculate_label_statistics($runno);
+
+        my $input_labels = "${work_dir}/${runno}_${label_atlas_nickname}_${label_type}.nii.gz";
+        my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
+        if ($local_lookup eq 'NO_KEY') {
+            undef $local_lookup;
+        }
+	    ($job) = calculate_label_statistics($runno,$input_labels,$local_lookup);
 
 	    if ($job) {
 		push(@jobs,$job);
@@ -117,50 +125,72 @@ sub calculate_individual_label_statistics_Output_check {
 
     
     if ($case == 1) {
-	$message_prefix = "  Complete label statistics have been found for the following runnos and will not be re-calculated:\n";
+        $message_prefix = "  Complete label statistics have been found for the following runnos and will not be re-calculated:\n";
     } elsif ($case == 2) {
-	 $message_prefix = "  Unable to properly scalculate label statistics for the following runnos:\n";
+        $message_prefix = "  Unable to properly calculate label statistics for the following runnos:\n";
     }   # For Init_check, we could just add the appropriate cases.
 
     foreach my $runno (@array_of_runnos) {
-	#print "$runno\n\n";
-	my $sub_existing_files_message='';
-	my $sub_missing_files_message='';
-	
-	my $file_1 = "${current_path}/${runno}_${label_atlas_nickname}_labels_in_${space_string}_space_stats.txt" ;
-#	print "${file_1}\n\n\n";
-	if (data_double_check($file_1)) {
-	    $go_hash{$runno}=1;
-	    push(@file_array,$file_1);
-	    $sub_missing_files_message = $sub_missing_files_message."\t$runno";
-	} else {
-	    my $header_string = `head -1 ${file_1}`;
-	    my @c_array_1 = split('=',$header_string);
-	    my @completed_contrasts = split(',',$c_array_1[1]);
-	    my $completed_contrasts_string = join(' ',@completed_contrasts);
-	    my $missing_contrasts = 0;
-	    foreach my $ch (@channel_array) {
-		if (! $missing_contrasts) {
-		    if ($completed_contrasts_string !~ /($ch)/) {
-			$missing_contrasts = 1;
-		    }
-		}
-	    }
-	    if ($missing_contrasts) {
-		$go_hash{$runno}=1;
-		push(@file_array,$file_1);
-		$sub_missing_files_message = $sub_missing_files_message."\t$runno";
-	    } else {
-		$go_hash{$runno}=0;
-		$sub_existing_files_message = $sub_existing_files_message."\t$runno";
-	    }
-	}
+        #print "$runno\n\n";
+        my $sub_existing_files_message='';
+        my $sub_missing_files_message='';
 
-	if (($sub_existing_files_message ne '') && ($case == 1)) {
-	    $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
-	} elsif (($sub_missing_files_message ne '') && ($case == 2)) {
-	    $missing_files_message =$missing_files_message. $runno."\t".$sub_missing_files_message."\n";
-	}
+        my $file_1 = "${current_path}/${runno}_${label_atlas_nickname}_labels_in_${space_string}_space_stats.txt" ;
+        my $file_found=0;
+        my $missing_contrasts = 0;
+        my @completed_contrasts;
+        if (data_double_check($file_1)) {
+
+            # 19 March 2019: 'labels' is not a sufficient descriptor anymore, thanks to CCF3_quagmire, etc.
+            # Switching to 'measured' as now is hardcoded by write_individual_stats_exec_v2.m
+            # $file_1 => "${current_path}/${runno}_${label_atlas_nickname}_measured_in_${space_string}_space_stats.txt" ;
+        
+                $file_1 =~ s/_labels_in_/_measured_in_/;
+                if (data_double_check($file_1)) {
+                    $go_hash{$runno}=1;
+                    push(@file_array,$file_1);
+                    $sub_missing_files_message = $sub_missing_files_message."\t$runno";
+                } else {
+                    $file_found=1;
+                    my $header_string = `head -1 ${file_1}`;
+                    my @c_array_1 = split("\t",$header_string);
+                    foreach (@c_array_1) {
+                        if ($_ =~ /^(.*)_mean/) {
+                            push(@completed_contrasts,$1);
+                        }
+                    }
+                }
+            } else {
+                $file_found=1;
+                my $header_string = `head -1 ${file_1}`;
+                my @c_array_1 = split('=',$header_string);
+                @completed_contrasts = split(',',$c_array_1[1]);    
+            }
+
+            if ($file_found) {
+                my $completed_contrasts_string = join(' ',@completed_contrasts);
+                foreach my $ch (@channel_array) {
+                    if (! $missing_contrasts) {
+                        if ($completed_contrasts_string !~ /($ch)/) {
+                            $missing_contrasts = 1;
+                        }
+                    }
+                }
+                if ($missing_contrasts) {
+                    $go_hash{$runno}=1;
+                    push(@file_array,$file_1);
+                    $sub_missing_files_message = $sub_missing_files_message."\t$runno";
+                } else {
+                    $go_hash{$runno}=0;
+                    $sub_existing_files_message = $sub_existing_files_message."\t$runno";
+                }
+            }
+
+        if (($sub_existing_files_message ne '') && ($case == 1)) {
+            $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
+        } elsif (($sub_missing_files_message ne '') && ($case == 2)) {
+            $missing_files_message =$missing_files_message. $runno."\t".$sub_missing_files_message."\n";
+        }
     }
  
     my $error_msg='';
@@ -179,11 +209,16 @@ sub calculate_individual_label_statistics_Output_check {
 # ------------------
 sub calculate_label_statistics {
 # ------------------
-    my ($runno) = @_;
-    my $input_labels = "${work_dir}/${runno}_${label_atlas_nickname}_labels.nii.gz";
-
-    #my $exec_args_ ="${runno} {contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";# Save for part 3..
-    my $exec_args ="${runno} ${input_labels} ${channel_comma_list_2} ${image_dir} ${current_path} ${space_string} ${label_atlas_nickname}";
+    my ($runno,$input_labels,$lookup_table) = @_;
+    
+    # 15 March 2019, when this option is turned on, intersection of ROI=0 
+    #   and the zeros of the first listed contrast (we attempt to force this to DWI,
+    #   if present) will be treated as null for all contrasts.  This is mainly
+    #   to improved memory used by tracking all the indices representing these voxels.
+    my ${mask_with_first_contrast}=1;
+    
+    if (! defined $lookup_table) { $lookup_table='';}
+    my $exec_args ="${runno} ${input_labels} ${channel_comma_list_2} ${image_dir} ${current_path} ${space_string} ${label_atlas_nickname} ${lookup_table} ${mask_with_first_contrast}";
 
     my $go_message = "$PM: Calculating individual label statistics for runno: ${runno}\n" ;
     my $stop_message = "$PM: Failed to properly calculate individual label statistics for runno: ${runno} \n" ;
@@ -196,9 +231,7 @@ sub calculate_label_statistics {
     my $jid = 0;
     if (cluster_check) {
 	my $go =1;	    
-#	my $cmd = $pairwise_cmd.$rename_cmd;
 	my $cmd = "${write_individual_stats_executable_path} ${matlab_path} ${exec_args}";
-	
 	my $home_path = $current_path;
 	my $Id= "${runno}_calculate_individual_label_statistics";
 	my $verbose = 2; # Will print log only for work done.
@@ -280,6 +313,10 @@ sub  calculate_individual_label_statistics_Runtime_check {
         $label_atlas_nickname=$label_atlas_name;
     }
 
+    $label_type = $Hf->get_value('label_type',$label_type);
+    if ($label_type eq 'NO_KEY') {
+        $label_type = 'labels';
+    }
 
     my $msg;
     if (! defined $current_label_space) {
@@ -309,7 +346,7 @@ sub  calculate_individual_label_statistics_Runtime_check {
     my $label_refname = $Hf->get_value('label_refname');
     my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
     $image_dir = "${intermediary_path}/images/";
-    $work_dir="${intermediary_path}/${label_atlas_name}/";
+    $work_dir="${intermediary_path}/${label_atlas_nickname}/";
 
     my $stat_path = "${work_dir}/stats/";
     if (! -e $stat_path) {
@@ -328,45 +365,25 @@ sub  calculate_individual_label_statistics_Runtime_check {
 
     @array_of_runnos = split(',',$runlist);
  
-
-    # $predictor_id = $Hf->get_value('predictor_id'); # SAVE THIS FOR PART TRES OF LABEL STATS! REMOVE OTHERWISE!
-    # if ($predictor_id eq 'NO_KEY') {
-    # 	$group_1_name = 'control';
-    # 	$group_2_name = 'treated';
-	
-    # } else {	
-    # 	if ($predictor_id =~ /([^_]+)_(''|vs_|VS_|Vs_){1}([^_]+)/) {
-    # 	    $group_1_name = $1;
-    # 	    if (($3 ne '') || (defined $3)) {
-    # 		$group_2_name = $3;
-    # 	    } else {
-    # 		$group_2_name = 'others';
-    # 	    }
-    # 	}
-    # }
-
-    # my $group_1_runnos = $Hf->get_value('group_1_runnos');
-    # if ($group_1_runnos eq 'NO_KEY') {
-    # 	$group_1_runnos = $Hf->get_value('control_comma_list');
-    # }
-    # @group_1_runnos = split(',',$group_1_runnos);
-
-    # my $group_2_runnos = $Hf->get_value('group_2_runnos');
-    # if ($group_2_runnos eq 'NO_KEY'){ 
-    # 	$group_2_runnos = $Hf->get_value('compare_comma_list');
-    # }
-    # @group_2_runnos = split(',',$group_2_runnos);
-
- 
     $ch_runlist = $Hf->get_value('channel_comma_list');
     my @initial_channel_array = split(',',$ch_runlist);
-
+    my $dwi='';
     foreach my $contrast (@initial_channel_array) {
-	if ($contrast !~ /^(ajax|jac|nii4D)/) {
-	    push(@channel_array,$contrast);
+	if ($contrast !~ /^(ajax|jac|nii4D)$/i) {
+	    
+        if ($contrast =~ /^(dwi)$/i) {
+            $dwi=$1;
+        } else {
+            push(@channel_array,$contrast);
+        }
 	}
     }
+    if ( $dwi ne '') {
+        unshift(@channel_array,$dwi);
+    }
+
     @channel_array=uniq(@channel_array);
+    
 
     $channel_comma_list_2 = join(',',@channel_array);
 

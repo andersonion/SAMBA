@@ -33,11 +33,12 @@ my $job;
 my $PM_code = 67;
 
 
-my $pipe_home = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/";
+my $pipe_home = "/cm/shared/workstation_code_dev/analysis/SAMBA/";
 
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";  #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
-my $compilation_date = "20170619_1420";
-my $compare_group_stats_executable_path = "${pipe_home}label_stats_executables/compare_group_stats_executable/${compilation_date}/run_compare_group_stats_exec.sh"; 
+#my $compilation_date = "20170619_1420";
+my $compilation_date = "stable";
+my $compare_group_stats_executable_path = "${pipe_home}label_stats_executables/compare_group_stats_executable/${compilation_date}/run_compare_group_stats_exec_v2.sh"; 
 
 
 #if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}

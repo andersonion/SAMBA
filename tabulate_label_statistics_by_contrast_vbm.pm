@@ -14,7 +14,7 @@ use warnings;
 use List::MoreUtils qw(uniq);
 
 my ($current_path, $image_dir,$work_dir,$runlist,$ch_runlist,$in_folder,$out_folder);
-my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_atlas,$label_path);
+my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_atlas,$label_atlas_nickname,$label_path);
 my ($individual_stat_dir);
 my (@array_of_runnos,@channel_array,@initial_channel_array);
 #my ($predictor_id); # SAVE FOR LAST ROUND OF LABEL STATS CODE
@@ -26,11 +26,12 @@ my $go = 1;
 my $job;
 my $PM_code = 66;
 
-my $pipe_home = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/";
+my $pipe_home = "/cm/shared/workstation_code_dev/analysis/SAMBA/";
 
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";  #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
-my $compilation_date = "20170619_1151";
-my $tabulate_study_stats_executable_path = "${pipe_home}label_stats_executables/study_stats_by_contrast_executable/${compilation_date}/run_study_stats_by_contrast_exec.sh"; 
+#my $compilation_date = "20170619_1151";
+my $compilation_date = "stable";
+my $tabulate_study_stats_executable_path = "${pipe_home}label_stats_executables/study_stats_by_contrast_executable/${compilation_date}/run_study_stats_by_contrast_exec_v2.sh"; 
 
 
 #if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
@@ -52,12 +53,12 @@ sub  tabulate_label_statistics_by_contrast_vbm {
 	    ($job) = tabulate_label_statistics_by_contrast($contrast);
 
 	    if ($job) {
-		push(@jobs,$job);
+            push(@jobs,$job);
 	    }
 	} 
     }
 
-    if (cluster_check() && ($jobs[0] ne '')) {
+    if (cluster_check() && (scalar @jobs)) {
 	my $interval = 2;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
@@ -74,7 +75,7 @@ sub  tabulate_label_statistics_by_contrast_vbm {
 
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
 
-    my $write_path_for_Hf = "${current_path}/${label_atlas}_${space_string}_temp.headfile";
+    my $write_path_for_Hf = "${current_path}/${label_atlas_nickname}_${space_string}_temp.headfile";
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);
@@ -216,8 +217,11 @@ sub  tabulate_label_statistics_by_contrast_vbm_Init_check {
 sub  tabulate_label_statistics_by_contrast_Runtime_check {
 # ------------------
     
-    #$mdt_contrast = $Hf->get_value('mdt_contrast');
+    $label_atlas_nickname = $Hf->get_value('label_atlas_nickname');
     $label_atlas = $Hf->get_value('label_atlas_name');
+    if ($label_atlas_nickname eq 'NO_KEY') {
+        $label_atlas_nickname=$label_atlas;
+    }
 
     if (! defined $current_label_space) {
 	$current_label_space = $Hf->get_value('label_space');
@@ -241,7 +245,7 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
     my $label_refname = $Hf->get_value('label_refname');
     my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
     #$image_dir = "${intermediary_path}/images/";
-    $work_dir="${intermediary_path}/${label_atlas}/";
+    $work_dir="${intermediary_path}/${label_atlas_nickname}/";
 
     my $stat_path = "${work_dir}/stats/";
     $individual_stat_dir = "${stat_path}/individual_label_statistics/";
@@ -259,37 +263,6 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
     #@array_of_runnos = split(',',$runlist);
  
 
-    # $predictor_id = $Hf->get_value('predictor_id'); # SAVE THIS FOR PART TRES OF LABEL STATS! REMOVE OTHERWISE!
-    # if ($predictor_id eq 'NO_KEY') {
-    # 	$group_1_name = 'control';
-    # 	$group_2_name = 'treated';
-	
-    # } else {	
-    # 	if ($predictor_id =~ /([^_]+)_(''|vs_|VS_|Vs_){1}([^_]+)/) {
-    # 	    $group_1_name = $1;
-    # 	    if (($3 ne '') || (defined $3)) {
-    # 		$group_2_name = $3;
-    # 	    } else {
-    # 		$group_2_name = 'others';
-    # 	    }
-    # 	}
-    # }
-
-    # my $group_1_runnos = $Hf->get_value('group_1_runnos');
-    # if ($group_1_runnos eq 'NO_KEY') {
-    # 	$group_1_runnos = $Hf->get_value('control_comma_list');
-    # }
-    # @group_1_runnos = split(',',$group_1_runnos);
-
-    # my $group_2_runnos = $Hf->get_value('group_2_runnos');
-    # if ($group_2_runnos eq 'NO_KEY'){ 
-    # 	$group_2_runnos = $Hf->get_value('compare_comma_list');
-    # }
-    # @group_2_runnos = split(',',$group_2_runnos);
-
- 
-    #$ch_runlist = $Hf->get_value('channel_comma_list');
-    #my @initial_channel_array = split(',',$ch_runlist);
 
     foreach my $contrast (@initial_channel_array) {
 	if ($contrast !~ /^(ajax|jac|nii4D)/) {

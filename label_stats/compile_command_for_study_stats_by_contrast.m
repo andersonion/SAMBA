@@ -1,6 +1,6 @@
-%compile mev
+function compile_command_for_study_stats_by_contrast()
 script_name = 'study_stats_by_contrast';
-version = 1;
+version = 2;
 
 if (version == 1)
     v_string = '';
@@ -8,10 +8,25 @@ elseif (version > 1)
     v_string = ['_v' num2str(version)];
 end
 
+source_dir='/cm/shared/workstation_code_dev/analysis/SAMBA/label_stats/';
+source_filename = ['study_stats_by_contrast_exec' v_string '.m'];
+source_file = [source_dir source_filename];
+
+include_string =[];
+include_files = {};
+
+addpath([getenv('WORKSTATION_HOME') '/recon/CSv2']);
+compile_command__allpurpose(source_file,include_files,'');
+
+return 
+
+%% The code below was the former full code used for compiling and copying, etc.
+%  It has been replaced with the codified compile_command__allpurpose
 
 matlab_path = '/cm/shared/apps/MATLAB/R2015b/';
-master_dir = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats_executables/';
+master_dir = '/cm/shared/workstation_code_dev/analysis/SAMBA/label_stats_executables/';
 main_dir = [master_dir script_name '_executable/'];
+
 
 if ~exist(main_dir,'dir')
     mkdir(main_dir)
@@ -25,12 +40,8 @@ my_dir = [main_dir compile_time '/']
 mkdir(my_dir)
 eval(['!chmod a+rwx ' my_dir]);
 
-source_dir='/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/label_stats/';
-source_filename = ['study_stats_by_contrast_exec' v_string '.m'];
-source_file = [source_dir source_filename]
 
-include_string =[];
-include_files = {};
+
 
 for ff = 1:length(include_files)
     include_string = [include_string ' -a ' include_files{ff} ' '];
