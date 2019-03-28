@@ -1,4 +1,4 @@
-function [out_file]=proto_wrapper_script_for_calculate_coeffecient_of_variation(runno_or_id,stats_files,string_of_contrasts,atlas_label_prefix)
+function [out_file]=proto_wrapper_script_for_calculate_coeffecient_of_variation(runno_or_id,stats_files,string_of_contrasts,atlas_label_prefix,delta)
 cleanup=1;
 
 if ~exist('runno_or_id','var')
@@ -22,7 +22,11 @@ end
 volume_order_file='/cm/shared/CIVMdata/atlas/xmas2015rat_symmetric_cropped/labels_xmas2015rat_symmetric_cropped/xmas2015rat_symmetric_cropped_20190118/xmas2015rat_symmetric_cropped_xmas2015rat_symmetric_cropped_20190118_labels_volume_sort.txt';
 atlas_lookup_table=[atlas_label_prefix '_lookup.txt'];
 
-delta=1000;
+if ~exist('delta','var')
+    delta=1000;
+end
+
+
 if exist(volume_order_file,'file')
     order_T=readtable(volume_order_file,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t');
 end
