@@ -1,4 +1,10 @@
-function [out_file]=proto_wrapper_script_for_calculate_coeffecient_of_variation(runno_or_id,stats_files,string_of_contrasts,atlas_label_prefix,delta)
+function [out_file]=generate_QA_for_coeffecient_of_variation(runno_or_id,stats,string_of_contrasts,atlas_label_prefix,delta)
+% function [out_file]=generate_QA_for_coeffecient_of_variation(runno_or_id,stats,string_of_contrasts,atlas_label_prefix,delta)
+% runno_or_id, 
+% stats - the path to the stats file, routinely  ...measured_in_native_space.txt
+% string_of_contrasts - the comma list of stuff, volume,dwi,fa,nqa_mean etc.
+% atlas_label_prefix - 
+% delta - when using offset labels, this lets us connect left and right. 
 cleanup=1;
 
 if ~exist('runno_or_id','var')
@@ -7,16 +13,15 @@ if ~exist('runno_or_id','var')
 end
 if ~exist('stats_files','var')
     %stats_files='/civmnas4/rja20/N57009_chass_symmetric3_RAS_labels_in_rigid_space_stats.txt';
-    stats_files='/civmnas4/rja20/SingleSegmentation_15gaj36_xmas2015rat_symmetric_proto_cropped_S66971-work/dwi/fa/faMDT_NoNameYet_n1/stats_by_region/labels/pre_rigid_native_space/xmas2015rat_symmetric_cropped_20190118/stats/individual_label_statistics/S66971_xmas2015rat_symmetric_cropped_20190118_labels_in_native_space_stats.txt';
-    
+    stats='/civmnas4/rja20/SingleSegmentation_15gaj36_xmas2015rat_symmetric_proto_cropped_S66971-work/dwi/fa/faMDT_NoNameYet_n1/stats_by_region/labels/pre_rigid_native_space/xmas2015rat_symmetric_cropped_20190118/stats/individual_label_statistics/S66971_xmas2015rat_symmetric_cropped_20190118_labels_in_native_space_stats.txt';
 end
 if ~exist('string_of_contrasts','var')
     string_of_contrasts='volume_mm3,dwi,fa';
 end
-
 if ~exist('atlas_label_prefix','var')
     %atlas_label_prefix='/cm/shared/CIVMdata/atlas/chass_symmetric3_RAS/chass_symmetric3_RAS_labels';
     atlas_label_prefix='/cm/shared/CIVMdata/atlas/xmas2015rat_symmetric_cropped/labels_xmas2015rat_symmetric_cropped/xmas2015rat_symmetric_cropped_20190118/xmas2015rat_symmetric_cropped_20190118_labels';
+    error('Need our input variables!');
 end
 %volume_order_file=[atlas_label_prefix '_volume_sort.txt'];
 volume_order_file='/cm/shared/CIVMdata/atlas/xmas2015rat_symmetric_cropped/labels_xmas2015rat_symmetric_cropped/xmas2015rat_symmetric_cropped_20190118/xmas2015rat_symmetric_cropped_xmas2015rat_symmetric_cropped_20190118_labels_volume_sort.txt';
@@ -26,38 +31,36 @@ if ~exist('delta','var')
     delta=1000;
 end
 
-
 if exist(volume_order_file,'file')
     order_T=readtable(volume_order_file,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t');
 end
 
 %sorted_ROIs=order_T.ROI;
-if ~iscell(stats_files)
-    files={stats_files};
-    [outdir,~,~]=fileparts(files{1});
+if ~iscell(stats)
+    files={stats};
 else
-    files=stats_files;
-    [outdir,~,~]=fileparts(files);
+    files=stats;
 end
+[outdir,~,~]=fileparts(files{1});
 
+%{
+% Commented out because the code doesnt actually support cell input
 if ~iscell(runno_or_id)
     names={runno_or_id};%{'xmas2015rat_symmetric_cropped'}
 else
     names=runno_or_id;
 end
-
+%}
 
 contrasts=strsplit(string_of_contrasts,','); %{'volume_mm3' 'adc' 'dwi' 'e1' 'e2' 'e3' 'fa' 'rd' 'b0'}
 for CC=1:numel(contrasts)
     contrast=contrasts{CC};
-    
     % Moved to later in loop
     %{
     c_fig(CC)=figure(CC);
     c_fig(CC).Units='Inches';
     c_fig(CC).Position=[1 CC*2 16 4]
     %}
-    
     % for FF=1:numel(files)
     % file=files{FF};
     file=files{1};
@@ -75,7 +78,6 @@ for CC=1:numel(contrasts)
     % Build lookup table for visual QA with green/yellow/red motif
     % In the future, want to make thresholds dynamic, i.e. account for
     % quality (or lack thereof) in input labels and/or label volume
-    
     red_thresh=0.1;
     red_RGB=[255 0 0];
     
@@ -116,8 +118,6 @@ for CC=1:numel(contrasts)
     QA_lookup_path=regexprep(file,'_labels_.*txt',['_labels_lookup_outliers_in_CoV_of_' contrast '.txt']);
     %writetable(QA_lookup_T,QA_lookup_path,'Delimiter',' ')
     writetable(QA_lookup_T,QA_lookup_path,'Delimiter','\t');
-    %
-    %
     
     plot_option='log_volume';
     %plot_option='sorted_by_volume'
@@ -167,7 +167,6 @@ for CC=1:numel(contrasts)
     if numel(new_ind)>annotate_up_to
         new_ind((annotate_up_to+1):end)=[];
     end
-    
     space_for_legend = 0.1875*numel(new_ind)+1*(numel(new_ind)>0);
     
     c_fig(CC)=figure(CC);
@@ -179,34 +178,25 @@ for CC=1:numel(contrasts)
     c_fig(CC).Position=[1 1 8 11];
     c_fig(CC).Color=[1 1 1];
     
-    
     plot(x_axis,y_axis,'o','LineWidth',1);
-    
     switch plot_option
         case 'sorted_by_volume'
             xlabel('ROI rank small to large')
-            
         case 'log_volume'
             xlabel('log(volume mm3)')
-            
         otherwise
             xlabel('ROI')
     end
     %xlim([0 max(x_axis(:))])
     xlim([min_range max_range])
     
-    
     ylabel(strrep([field ' COV'],'_','\_'))
-    
     y_max=0.25;
     ylim(1*[0 y_max])
     %ylim(1*[0 0.25])
     hold on
     
-    
-    
     legendary=struct; % structure or cell array?
-    
     for rr=1:numel(new_ind)
         flag_ind=new_ind(rr);
         %text(CoV_array(1,flag_ind)-2,min(CoV_array(2,flag_ind)*1.2,y_max),num2str(CoV_array(1,flag_ind)),'FontName','Ariel','FontSize',14,'FontWeight','Bold')
@@ -245,8 +235,6 @@ for CC=1:numel(contrasts)
         hold on
     end
     
-    
-    
     hold on;plot(min_range:step:max_range,ones([rng 1])*0.05,'--','Color', [0.9290 0.6940 0.1250], 'LineWidth',2)
     hold on;plot(min_range:step:max_range,ones([rng 1])*0.1,'--r','LineWidth',1.5)
     %for LL = 1: numel(legendary)
@@ -263,7 +251,6 @@ for CC=1:numel(contrasts)
         leg.Units='inches';
         %leg.Position(1)=1;
     end
-    
     
     %c_fig(CC).Position(4)=c_fig(CC).Position(4)+leg.Position(4);
     set(gca,'FontName','Ariel','FontSize',16,'FontWeight','Bold')
@@ -287,7 +274,7 @@ if cleanup && exist(final_file,'file')
         cmd = ['rm ' out_pdf{cc}];
         system(cmd);
     end
-else 
+else
     if cleanup
         warning(['Error creating ' final_file '; not cleaning up component pdfs.']);
     end
