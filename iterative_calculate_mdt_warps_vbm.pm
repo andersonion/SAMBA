@@ -49,7 +49,7 @@ sub iterative_calculate_mdt_warps_vbm {  # Main code
 		push(@jobs,$job);
 	    }
     } else {
-	$last_update_warp = "${current_path}/shape_update_warp_${update_string}.nii.gz";
+        $last_update_warp = "${current_path}/shape_update_warp_${update_string}.nii.gz";
     }
 
     if (cluster_check() && (scalar @jobs) ) {

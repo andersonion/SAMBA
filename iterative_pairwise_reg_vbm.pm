@@ -795,6 +795,8 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               do_connectivity
                               do_vba
                               eddy_current_correction
+                              flip_x
+                              flip_z
                               fsl_cluster_size
                               group_1_runnos
                               group_2_runnos
@@ -843,7 +845,8 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               label_transform_chain
                               label_atlas_nickname
                               label_input_file
-                              number_of_nonparametric_seeds); # affine_target_image will need to be removed from this list once we fully support it.
+                              stop_after_mdt_creation
+                              number_of_nonparametric_seeds);
 	$max_iterations = $Hf->get_value('mdt_iterations');
 #  we check all letters, and let us know the first match?(or the first valid path after the last non-match)
 # This loops job is to set $current_iteration and $template_name (w/wo letter). 
@@ -896,7 +899,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     }# end template checkpoint.
 	$Hf->set_value('template_checkpoint_completed',1);
     if ($template_name ne $original_template_name) {
-        Carp::confess ($template_name.'____'.$current_iteration); # for testing purposes, dont want the auto new set for the time being... .  
+        # Carp::confess ($template_name.'____'.$current_iteration); # for testing purposes, dont want the auto new set for the time being... .  
         print " At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n";
     }
     $template_path = $mdt_path.'/'.$template_name."_i".$current_iteration;

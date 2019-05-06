@@ -17,12 +17,12 @@ function compare_group_stats_exec(stats_file,contrast,group_1_name,group_2_name,
 vols=0;
 
 if ~isdeployed
-    contrast='e1';
-    stats_file=['/glusterspace/VBM_13colton01_chass_symmetric2_April2017analysis-work/dwi/SyN_0p5_3_0p5_fa/faMDT_nos2_n28_i6/stats_by_region/labels/post_rigid_native_space/chass_symmetric2/stats/studywide_stats_for_' contrast '.txt'];
-    group_1_name='nos2';
-    group_2_name='cvn';
-    group_1_runno_string='N51211,N51221,N51231,N51383,N51386,N51404,N51406,N51193';
-    group_2_runno_string='N51136,N51201,N51234,N51241,N51252,N51282,N51390,N51392,N51393,N51133,N51388,N51124,N51130,N51131,N51164,N51182,N51151,N51622,N51620,N51617';
+    contrast='fa';
+    stats_file=['/civmnas4/rja20/studywide_stats_for_' contrast '.txt'];
+    group_1_name='us';
+    group_2_name='them';
+    group_1_runno_string='N57008,N57009';
+    group_2_runno_string='N57010,N57020';
     [out_dir,~,~]=fileparts(stats_file);
     vols=0;
 end
@@ -70,7 +70,8 @@ out_file=[out_dir '/' contrast '_group_stats_' group_1_name '_n' num2str(num_g1)
 
 
 % Load stats file as a table
-stats_table = readtable(stats_file,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t');
+%stats_table = readtable(stats_file,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t','TreatAsEmpty',{'NA','NaN','NULL'} );
+stats_table = readtable(stats_file,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t' );
 
 num_labels = size(stats_table,1)-skip_first_row; % We are assuming ROI "0" is the exterior
 
@@ -135,8 +136,10 @@ difference=-(mean(g1_array')-mean(g2_array'))*100./mean(g1_array');
 
 ci_l_g2=mean(g2_array')-1.96*std(g2_array');
 ci_h_g2=mean(g2_array')+1.96*std(g2_array');
-ci_l_g1=mean(g1_array')-1.96*std(g1_array');
-ci_h_g1=mean(g1_array')+1.96*std(g1_array');
+%ci_l_g1=mean(g1_array')-1.96*std(g1_array');
+%ci_h_g1=mean(g1_array')+1.96*std(g1_array');
+ci_l_g1=nanmean(g1_array')-1.96*nanstd(g1_array');
+ci_h_g1=nanmean(g1_array')+1.96*nanstd(g1_array');
 
 
 %%

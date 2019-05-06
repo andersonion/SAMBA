@@ -103,16 +103,15 @@ sub set_reference_space_vbm {  # Main code
 	     print STDOUT  "  All referencing jobs have completed; moving on to next step.\n";
 	 }
      }
-
-	foreach my $space (@spaces) {
-	    `mv ${refspace_folder_hash{$space}}/refspace.txt.tmp ${refspace_folder_hash{$space}}/refspace.txt`;
-
+    
+    foreach my $space (@spaces) {
+	`mv ${refspace_folder_hash{$space}}/refspace.txt.tmp ${refspace_folder_hash{$space}}/refspace.txt`;
+	
         # Bash syntax below: if "ls" command is successful (finds existing items), then executes "gzip" command.
         # "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
         `ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null && gzip ${refspace_folder_hash{$space}}/*.nii`;
-	}
-
-    
+    }
+        
     my $case = 2;
     my ($dummy,$error_message)=set_reference_space_Output_check($case);
 
@@ -393,6 +392,40 @@ sub set_reference_space_vbm_Init_check {
 	    mkdir ($inputs_dir,$permissions);
     }
 
+    my $resample_images = $Hf->get_value('resample_images');
+    my $resample_factor = $Hf->get_value('resample_factor');
+    if (($resample_factor ne 'NO_KEY') ||($resample_images ne 'NO_KEY') ) { ## Need to finish fleshing out this logic!
+        if (($resample_images == 0) || ($resample_images =~ /^(no|off)$/i) ) {
+            $resample_images=0;
+            $resample_factor=1;
+        } else {    
+            if (($resample_images == 1) || ($resample_images == 2) || ($resample_images =~ /^(yes|on)$/i) ) {
+                # Default is downsample by a factor of 2x
+                $resample_images=1;
+                $resample_factor=2;
+            } elsif ($resample_images !~ /[\-a-zA-Z]/) {
+                # We're going to cross our fingers and hope that by excluding letters and negative signs
+                # that we're left with valid positive numbers by which we can multiply the voxelsize
+                # Also note that "resample factor" is more accurately "downsample factor"
+    
+               
+            } else {
+                # Throw dying error.
+                my $resample_error="Bad resample_images field specified ${resample_images}. Only positive real numbers allowed.\n";
+                $init_error_msg=$init_error_msg.$resample_error;
+                
+            }
+        }
+    
+    } elsif (($resample_images eq 'NO_KEY' ) && ($resample_factor ne 'NO_KEY') ) {
+        # We assume that the resample factor has already been checked & will automatically be passed on
+        $resample_images=1;
+    } else {
+        $resample_images=0;
+        $resample_factor=1;
+    }
+
+
     my $create_labels= $Hf->get_value('create_labels');
 
     my $do_mask= $Hf->get_value('do_mask');
@@ -442,11 +475,9 @@ sub set_reference_space_vbm_Init_check {
     }
     
     foreach my $V_or_L (@spaces) {    
-        my ($ref_error,$for_labels);
+        my ($ref_error,$for_labels)=('',0);
         if ($V_or_L eq "label") {
             $for_labels = 1;
-        } else {	
-            $for_labels = 0;
         }
 
         ($input_reference_path_hash{$V_or_L},$reference_path_hash{$V_or_L},$refname_hash{$V_or_L},$ref_error) = set_reference_path_vbm($reference_space_hash{$V_or_L},$for_labels);
@@ -472,7 +503,7 @@ sub set_reference_space_vbm_Init_check {
             $refspace_hash{$V_or_L} = $bounding_box_and_spacing;
             $Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
 
-            if ($ref_error ne '') {
+            if ((defined $ref_error) && ($ref_error ne '')) {
                 $init_error_msg=$init_error_msg.$ref_error;
             }
 
@@ -748,11 +779,10 @@ sub set_reference_path_vbm {
     my $c_channel=$channels[0];
     if ($c_channel =~ /nii4D/) {$c_channel=$channels[1];}
 	#No, not nii4D 26 October 2018
-    $input_ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,$c_channel);
+	$input_ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,$c_channel);
 	#$input_ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,""); # Will stick with looking for ANY contrast from $ . 16 March 2017
 	
 	$error_message='';	
-	
 	if ($input_ref_path =~ /[\n]+/) {
 	    $rerun_init_flag = $Hf->get_value('rerun_init_check');
 	    if (($rerun_init_flag ne 'NO_KEY') && ($rerun_init_flag == 1)) {
@@ -852,7 +882,7 @@ sub set_reference_space_vbm_Runtime_check {
     	}
 
         # 4 Feb 2019--use ResampleImageBySpacing here to create up/downsampled working space if desired.
-            $Hf->get_value('resample_images');
+            #$Hf->get_value('resample_images');
             #ResampleImageBySpacing 3 $in_ref $out_ref 0.18 0.18 0.18 0 0 1
             #my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header(${out_ref});
 

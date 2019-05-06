@@ -263,11 +263,12 @@ sub main {
 		#if( $_ !~ /^.*(txt)|(nhdr)|(nii([.]gz)?)$/ ) {
 		#    next;
 		#}
-		my $n=basename$_;
-		my $o=$n;
+		#my $n=basename$_;
+		my ($t_p,$t_n,$t_e)=fileparts($_);
+		my $o=$t_n;
 		$o=~s/MDT/$mdtname/;
-		print "\t".$n."->".$o."\n";
-		$o=File::Spec->catfile($lo,$o);
+		print "\t".$t_n."->".$o."\n";
+		$o=File::Spec->catfile($lo,$o.$t_e);
 		qx(mv $_ $o);
 	    }	    
 	}
@@ -402,9 +403,9 @@ sub main {
     }
 # END arranging
     
-    print("#You may want to copy this output to $WORKSTATION_DATA/atlas, you could also just use symbolic links :D !\n");
+    #print("#You may want to copy this output to $WORKSTATION_DATA/atlas, you could also just use symbolic links :D !\n");
     my $atlased_dir="$WORKSTATION_DATA/atlas/$mdtname";
-    if (  -e $atlased_dir ) {
+    if (  -e $atlased_dir && 0 ) {
 	my @empties;
 	my @files=run_and_watch("find $atlased_dir/ -maxdepth 1 -type f -print");
 	chomp @files;

@@ -33,44 +33,44 @@ sub create_rd_from_e2_and_e3_vbm {  # Main code
     my $start_time = time;
     create_rd_from_e2_and_e3_vbm_Runtime_check();
     if ($create_rd) {
-	foreach my $runno (@array_of_runnos) {
-	    $go = $go_hash{$runno};
-	    if ($go) {
-		($job) =  average_e2_and_e3_images($runno);
-		
-		if ($job) {
-		    push(@jobs,$job);
-		}
-	    }
-	}
+        foreach my $runno (@array_of_runnos) {
+            $go = $go_hash{$runno};
+            if ($go) {
+            ($job) =  average_e2_and_e3_images($runno);
 
-	my $done_waiting;
-	if (cluster_check() && ($jobs[0] ne '')) {
-	    my $interval = 2;
-	    my $verbose = 1;
-	    $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-	} else {
-	    $done_waiting = 1;
-	}
+            if ($job) {
+                push(@jobs,$job);
+            }
+            }
+        }
 
-	if ($done_waiting) {
-	    print STDOUT  "  Rd images have been created for all runnos; moving on to next step.\n";
-	}
-	
-	my $case = 2;
-	my ($dummy,$error_message)=create_rd_from_e2_and_e3_Output_check($case);
+        my $done_waiting;
+        if (cluster_check() && (@jobs)) {
+            my $interval = 2;
+            my $verbose = 1;
+            $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+        } else {
+            $done_waiting = 1;
+        }
+
+        if ($done_waiting) {
+            print STDOUT  "  Rd images have been created for all runnos; moving on to next step.\n";
+        }
+
+        my $case = 2;
+        my ($dummy,$error_message)=create_rd_from_e2_and_e3_Output_check($case);
 
 
-	my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
-	print "$PM took ${real_time} seconds to complete.\n";
-	
-	if ($error_message ne '') {
-	    error_out("${error_message}",0);
-	} elsif ($create_rd) {
-	    $channel_comma_list=$channel_comma_list.',rd';
-	    $Hf->set_value('channel_comma_list',$channel_comma_list);
-	    $Hf->set_value('rd_channel_added',1);    
-	}
+        my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
+        print "$PM took ${real_time} seconds to complete.\n";
+
+        if ($error_message ne '') {
+            error_out("${error_message}",0);
+        } elsif ($create_rd) {
+            $channel_comma_list=$channel_comma_list.',rd';
+            $Hf->set_value('channel_comma_list',$channel_comma_list);
+            $Hf->set_value('rd_channel_added',1);    
+        }
     }
     return($create_rd);
 }

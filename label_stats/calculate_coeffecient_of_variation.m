@@ -11,7 +11,16 @@ isf=individual_stat_file;
 
 do_process=1;
 if exist(isf, 'file')
-    master_T = readtable( isf,'ReadVariableNames',1,'HeaderLines',4,'Delimiter','\t');
+    % this line fails when we have header lines... like in the old days : (
+    master_T = readtable( isf,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t');
+    % so we'll read the table twice.... once the new way, and once the old
+    % way, if the old way has more columns, we'll use that. 
+    master_T_o = readtable( isf,'ReadVariableNames',1,'HeaderLines',4,'Delimiter','\t');
+    if size(master_T,2)<size(master_T_o,2)
+        warning('OLD data detected! This is probably fine, just wanted to leave a mess in your console :D !');
+        master_T=master_T_o;
+    end
+    clear master_T_o;
 else
     CoV_array=0;
     do_process=0;

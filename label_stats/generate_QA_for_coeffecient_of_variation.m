@@ -11,7 +11,7 @@ if ~exist('runno_or_id','var')
     %runno_or_id='N57009';
     runno_or_id='S66971';
 end
-if ~exist('stats_files','var')
+if ~exist('stats','var')
     %stats_files='/civmnas4/rja20/N57009_chass_symmetric3_RAS_labels_in_rigid_space_stats.txt';
     stats='/civmnas4/rja20/SingleSegmentation_15gaj36_xmas2015rat_symmetric_proto_cropped_S66971-work/dwi/fa/faMDT_NoNameYet_n1/stats_by_region/labels/pre_rigid_native_space/xmas2015rat_symmetric_cropped_20190118/stats/individual_label_statistics/S66971_xmas2015rat_symmetric_cropped_20190118_labels_in_native_space_stats.txt';
 end
@@ -25,6 +25,7 @@ if ~exist('atlas_label_prefix','var')
 end
 %volume_order_file=[atlas_label_prefix '_volume_sort.txt'];
 volume_order_file='/cm/shared/CIVMdata/atlas/xmas2015rat_symmetric_cropped/labels_xmas2015rat_symmetric_cropped/xmas2015rat_symmetric_cropped_20190118/xmas2015rat_symmetric_cropped_xmas2015rat_symmetric_cropped_20190118_labels_volume_sort.txt';
+volume_order_file='DISABLED';
 atlas_lookup_table=[atlas_label_prefix '_lookup.txt'];
 
 if ~exist('delta','var')
@@ -68,11 +69,26 @@ for CC=1:numel(contrasts)
     [ CoV_array ] = calculate_coeffecient_of_variation( file,field,delta);
     CoV_T=table(CoV_array(1,:)',CoV_array(2,:)','VariableNames',{'ROI' [contrast '_CoV']});
     
+    try
+        atlas_lookup_T=readtable(atlas_lookup_table,'ReadVariableNames', false,'HeaderLines',0,'Delimiter',' ' ...
+            ,'Format','%d64 %s %d %d %d %d %s','CommentStyle','#');
+    catch
+        atlas_lookup_T=readtable(atlas_lookup_table,'ReadVariableNames', true,'Delimiter','\t');
+    end
+    % atlas_lookup_T.Properties.VariableNames={'ROI' 'Structure' 'R' 'G' 'B' 'A' 'Comments'};
+    %atlas_lookup_T.Properties.VariableNames={'ROI' 'structure' 'R' 'G' 'B' 'A' 'Comments'};
+    atlas_lookup_T.Properties.VariableNames{1}='ROI';
+    atlas_lookup_T.Properties.VariableNames{2}='structure';
+    atlas_lookup_T.Properties.VariableNames{3}='R';
+    atlas_lookup_T.Properties.VariableNames{4}='G';
+    atlas_lookup_T.Properties.VariableNames{5}='B';
+    atlas_lookup_T.Properties.VariableNames{6}='A';
     if exist(volume_order_file,'file')
         full_T=sortrows(outerjoin(order_T,CoV_T,'Keys','ROI','Type','left','MergeKeys',true),'sort_order');
     else
-        full_T=CoV_T;
+        full_T=sortrows(outerjoin(atlas_lookup_T,CoV_T,'Keys','ROI','Type','left','MergeKeys',true),'ROI');
     end
+    
     %CoV_array(1,(sorted_ROIs==CoV_array(1,:)'));
     
     % Build lookup table for visual QA with green/yellow/red motif
@@ -107,20 +123,32 @@ for CC=1:numel(contrasts)
     lookup_T_right.ROI=lookup_T_right.ROI+delta;
     lookup_T=union(lookup_T_left,lookup_T_right);
     
-    atlas_lookup_T=readtable(atlas_lookup_table,'ReadVariableNames', false,'HeaderLines',0,'Delimiter',' ' ...
-        ,'Format','%d64 %s %d %d %d %d %s','CommentStyle','#');
-    % atlas_lookup_T.Properties.VariableNames={'ROI' 'Structure' 'R' 'G' 'B' 'A' 'Comments'};
-    atlas_lookup_T.Properties.VariableNames={'ROI' 'structure' 'R' 'G' 'B' 'A' 'Comments'};
     
-    % QA_lookup_T=outerjoin(atlas_lookup_T,lookup_T,'Key','ROI','LeftVariables',{'ROI' 'Structure'},'MergeKeys',true);
-    QA_lookup_T=outerjoin(atlas_lookup_T,lookup_T,'Key','ROI','LeftVariables',{'ROI' 'structure'},'MergeKeys',true);
     
-    QA_lookup_path=regexprep(file,'_labels_.*txt',['_labels_lookup_outliers_in_CoV_of_' contrast '.txt']);
+    %%% QA_lookup_T=outerjoin(atlas_lookup_T,lookup_T,'Key','ROI','LeftVariables',{'ROI' 'Structure'},'MergeKeys',true);
+    %QA_lookup_T=outerjoin(atlas_lookup_T,lookup_T,'Key','ROI','LeftVariables',{'ROI' 'structure'},'MergeKeys',true);
+    QA_lookup_T=outerjoin(atlas_lookup_T,lookup_T,... 'Type','Left',...
+        'LeftKeys',{'ROI' },...
+        'RightKeys',1,...
+        'LeftVariables',{'ROI','structure'},...
+        'MergeKeys',true);
+    QA_lookup_path=regexprep(file,'_(labels|measured)_.*txt',['_labels_lookup_outliers_in_CoV_of_' contrast '.txt']);
     %writetable(QA_lookup_T,QA_lookup_path,'Delimiter',' ')
-    writetable(QA_lookup_T,QA_lookup_path,'Delimiter','\t');
+    if ~exist(QA_lookup_path,'file')
+        % had som errant spaces hiding in structure name. this cleared
+        % those out, they should be squashed at the source!
+        QA_lookup_T.structure=regexprep(QA_lookup_T.structure,' ','_');
+        writetable(QA_lookup_T,QA_lookup_path,'Delimiter','\t','WriteVariableNames',0);
+    else
+        warning('Existing qa lookup, NOT RE-SAVING! (%s)',QA_lookup_path);
+    end
     
     plot_option='log_volume';
     %plot_option='sorted_by_volume'
+    if strcmp(plot_option,'log_volume') ...
+            && isempty(cell2mat(regexpi(full_T.Properties.VariableNames,'^volume_mm3$')))
+        plot_option='OTHER';
+    end
     switch plot_option
         case 'sorted_by_volume'
             %plot(full_T.sort_order,full_T.([contrast '_CoV']),'o','LineWidth',1); \
@@ -229,7 +257,7 @@ for CC=1:numel(contrasts)
                 %legend(rr).string=[num2str(full_T.ROI(flag_ind)) ' ' full_T.Structure{flag_ind}];
                 legendary(rr).string=[letter ': '  full_T.structure{flag_ind} ' (ROI ' num2str(full_T.ROI(flag_ind)) ') - ' sprintf('%0.1f',100*sorted_flags(rr)) '%' ];
             otherwise
-                legendary(rr).string=[letter ': (ROI' num2str(CoV_array(1,flag_ind)) ') - ' num2str(sCoV_array(2,flag_ind))  '%'];
+                legendary(rr).string=[letter ': (ROI' num2str(CoV_array(1,flag_ind)) ') - ' num2str(CoV_array(2,flag_ind))  '%'];
         end
         legendary(rr).string=strrep(legendary(rr).string,'_','\_');
         hold on

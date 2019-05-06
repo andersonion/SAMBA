@@ -12,12 +12,6 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-#no warnings qw(uninitialized);
-
-#use vars used to be here
-require Headfile;
-require pipeline_utilities;
-#use PDL::Transform;
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$mdt_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix);
@@ -178,9 +172,9 @@ sub mdt_reg_to_atlas {
     my ($runno) = @_;
 
     if ($swap_fixed_and_moving) {
-	$warp_suffix = "0Warp.nii.gz";
-	$inverse_suffix = "0InverseWarp.nii.gz";
-	$affine_suffix = "0GenericAffine.mat";
+        $warp_suffix = "0Warp.nii.gz";
+        $inverse_suffix = "0InverseWarp.nii.gz";
+        $affine_suffix = "0GenericAffine.mat";
     }
 
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
@@ -377,6 +371,7 @@ sub mdt_reg_to_atlas_vbm_Runtime_check {
 
     #$dims=$Hf->get_value('image_dimensions');
     $label_atlas = $Hf->get_value('label_atlas_name');
+
     $work_path = $Hf->get_value('regional_stats_dir');
     $label_path=$Hf->get_value('labels_dir');
     $current_path = $Hf->get_value('label_transform_dir');

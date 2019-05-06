@@ -336,11 +336,13 @@ sub convert_all_to_nifti_vbm_Runtime_check {
     if ($original_study_orientation eq 'NO_KEY') {
 	$flip_x = $Hf->get_value('flip_x'); # Will phase out soon...
 	if ($flip_x eq 'NO_KEY') {
-	    undef $flip_x;
+	    #undef $flip_x;
+         $Hf->set_value('flip_x',0);
 	}
 	$flip_z = $Hf->get_value('flip_z'); # Will phase out soon...
 	if ($flip_z eq 'NO_KEY') {
-	    undef $flip_z;
+	    #undef $flip_z;
+        $Hf->set_value('flip_z',0);
 	}
     }
 

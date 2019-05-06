@@ -48,8 +48,6 @@ $label_input_file
 $label_atlas_nickname
 $make_individual_ROIs
 
-
-
 $skull_strip_contrast
 $threshold_code
 $do_mask
@@ -77,6 +75,7 @@ $mdt_creation_strategy
 $mdt_iterations
 $mdt_convergence_threshold
 $initial_template
+$stop_after_mdt_creation
 
 $compare_contrast
 

@@ -13,13 +13,13 @@ use warnings;
 
 use List::MoreUtils qw(uniq);
 
-my ($current_path, $image_dir,$work_dir,$runlist,$ch_runlist,$in_folder,$out_folder);
-my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_atlas,$label_atlas_nickname,$label_path);
+my ($current_path, $image_dir,$runlist,$ch_runlist,$in_folder,$out_folder);
+my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_atlas_name,$label_atlas_nickname,$label_path);
 my ($individual_stat_dir);
 my (@array_of_runnos,@channel_array,@initial_channel_array);
 #my ($predictor_id); # SAVE FOR LAST ROUND OF LABEL STATS CODE
 my @jobs=();
-my (%go_hash,%go_mask,%results_dir_hash,%work_dir_hash);
+my (%go_hash,%go_mask);
 my $log_msg='';
 my $skip=0;
 my $go = 1;
@@ -175,23 +175,24 @@ sub tabulate_label_statistics_by_contrast {
     
     my @test=(0);
     if (defined $reservation) {
-	@test =(0,$reservation);
+        @test =(0,$reservation);
     }
     my $mem_request = '10000';
     my $jid = 0;
+
     if (cluster_check) {
-	my $go =1;	    
-	my $cmd = "${tabulate_study_stats_executable_path} ${matlab_path} ${exec_args}";
-	
-	my $home_path = $current_path;
-	my $Id= "${current_contrast}_tabulate_label_statistics_by_contrast";
-	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (! $jid) {
-	    error_out($stop_message);
-	} else {
-	    return($jid);
-	}
+        my $go =1;	    
+        my $cmd = "${tabulate_study_stats_executable_path} ${matlab_path} ${exec_args}";
+
+        my $home_path = ${current_path};
+        my $Id= "${current_contrast}_tabulate_label_statistics_by_contrast";
+        my $verbose = 2; # Will print log only for work done.
+        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+        if (! $jid) {
+            error_out($stop_message);
+        } else {
+            return($jid);
+        }
     }
 } 
 
@@ -218,46 +219,44 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
 # ------------------
     
     $label_atlas_nickname = $Hf->get_value('label_atlas_nickname');
-    $label_atlas = $Hf->get_value('label_atlas_name');
+    $label_atlas_name = $Hf->get_value('label_atlas_name');
     if ($label_atlas_nickname eq 'NO_KEY') {
-        $label_atlas_nickname=$label_atlas;
+        $label_atlas_nickname=$label_atlas_name;
     }
 
     if (! defined $current_label_space) {
-	$current_label_space = $Hf->get_value('label_space');
+        $current_label_space = $Hf->get_value('label_space');
     }
     
     $space_string='rigid'; # Default
 
     if ($current_label_space eq 'pre_rigid') {
-	$space_string = 'native';
+        $space_string = 'native';
     } elsif (($current_label_space eq 'pre_affine') || ($current_label_space eq 'post_rigid')) {
-	$space_string = 'rigid';
+        $space_string = 'rigid';
     } elsif ($current_label_space eq 'post_affine') {
-	$space_string = 'affine';
+        $space_string = 'affine';
     } elsif ($current_label_space eq 'MDT') {
-	$space_string = 'mdt';
+        $space_string = 'mdt';
     } elsif ($current_label_space eq 'atlas') {
-	$space_string = 'atlas';
+        $space_string = 'atlas';
     }
 
     $label_path = $Hf->get_value('labels_dir');
     my $label_refname = $Hf->get_value('label_refname');
     my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
-    #$image_dir = "${intermediary_path}/images/";
-    $work_dir="${intermediary_path}/${label_atlas_nickname}/";
 
-    my $stat_path = "${work_dir}/stats/";
+    my $stat_path = $Hf->get_value('stat_path');
     $individual_stat_dir = "${stat_path}/individual_label_statistics/";
 
     $current_path = "${stat_path}/studywide_label_statistics/";
     if (! -e $current_path) {
-	mkdir ($current_path,$permissions);
+        mkdir ($current_path,$permissions);
     }
 
     $runlist = $Hf->get_value('all_groups_comma_list');
     if ($runlist eq 'NO_KEY') {
-	$runlist = $Hf->get_value('complete_comma_list');
+        $runlist = $Hf->get_value('complete_comma_list');
     }
 
     #@array_of_runnos = split(',',$runlist);

@@ -119,7 +119,15 @@ for cc = 1:length(contrast_or_contrasts_cell)
                     contrast=def_vol;
                 end
                 
-                c_data = eval(['T.' contrast]);
+                % After 19 Feb 2019 we start explicitly providing stats beyond
+                % the implied mean value of the contrast
+                try 
+                    c_data = T.([contrast '_mean']);
+                catch
+                    % Backwards compatible line
+                    c_data = T.(contrast); 
+                end
+                    
                 if ~current_width;
                     master_T.ROI = T.ROI;
                     current_width = 1;

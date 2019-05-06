@@ -125,9 +125,12 @@ foreach my $entry ( keys %main:: )  { # Build a string of all initialized variab
 
 my $tmp_rigid_atlas_name='';
 {
+    use Cwd qw(abs_path);
     if ($start_file =~ /.*\.headfile$/) {
+        $start_file = abs_path($start_file);
         load_SAMBA_parameters($start_file);
     } elsif ($start_file =~ /.*\.json$/) {
+        $start_file = abs_path($start_file);
         load_SAMBA_json_parameters($start_file); 
     } else {
         study_variables_vbm();
@@ -201,7 +204,7 @@ sub assign_parameters {
                     print $_." = $val\n";
    
                     if ($_ eq 'rigid_atlas_name'){
-                        $tmp_rigid_atlas_name=${$_};
+                        eval("\$tmp_rigid_atlas_name=\'$val\'");
                     }
                 }
             }
@@ -230,7 +233,7 @@ sub assign_parameters {
                     eval("\$$_=\'$val\'");
                     print "$_ = ${$_}\n";   
                     if ($_ eq 'rigid_atlas_name') {
-                        $tmp_rigid_atlas_name=${$_};
+                        eval("\$tmp_rigid_atlas_name=\'$val\'");
                     }
                 }
             }
@@ -298,6 +301,8 @@ sub assign_parameters {
 	$channel_comma_list = join(',',@channel_array);
     }
 
+if (0) { # We want to retire the confusing concept of $atlas_name, when we really mean $rigid_atlas_name
+    my $atlas_name; # Only used here so perl won't throw up trying to check this code.
     if (! defined  $atlas_name){
         my ($r_atlas_name,$l_atlas_name);
         if ($is_headfile) {
@@ -329,10 +334,10 @@ sub assign_parameters {
             }
         }
     }
-
+}
 	if (! defined $optional_suffix) {
 	    $optional_suffix = join('_',@ps_array);
-        if ($optional_suffix =~ s/^(${atlas_name}[_]?)//) {}
+        if ($optional_suffix =~ s/^(${rigid_atlas_name}[_]?)//) {}
 	}
 
 }

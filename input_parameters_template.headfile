@@ -90,7 +90,14 @@ do_connectivity=0
 
 # Label options
 create_labels=1
-label_atlas_name=chass_symmetric2
+label_atlas_name=chass_symmetric3_RAS
+## Hint: This is the name of the ANATOMY (i.e. images) upon which your source labels are overlaid
+
+label_input_file=
+## Hint: If the name of your labels does not exactly match the label_atlas_name--perhaps due to multiple
+##       versions of labels for the same anatomicaly atlas
+
+
 label_space=pre_rigid
 ## Hint: Multiple, comma-limited label_space options can be specified, and include:
 ##       'pre_rigid': Native space of incoming images without any transforms applied

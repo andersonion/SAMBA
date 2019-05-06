@@ -37,6 +37,8 @@ $affine_suffix = "0GenericAffine.mat";
 my $affine = 0;
 my $expected_number_of_jobs=0;
 
+my $skip=0;
+
 #$test_mode=0;
 
 
@@ -46,79 +48,78 @@ sub compare_reg_to_mdt_vbm {  # Main code
     
     my ($type) = @_;
     if ($type eq "a") {
-	$affine = 1;
+        $affine = 1;
+    } elsif ($type eq "skip") {
+        $skip = 1;
     }
     my $start_time = time;
-
-    compare_reg_to_mdt_vbm_Runtime_check();
 
    # my ($expected_number_of_jobs,$hash_errors) = hash_summation(\%go_hash);
     $job_count = 0;
     my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
     if (($MDT_to_atlas_JobID ne 'NO_KEY') && ($MDT_to_atlas_JobID ne 'UNDEFINED_VALUE' )) {
-	$expected_number_of_jobs++;
-	$job_count++;
+        $expected_number_of_jobs++;
+        $job_count++;
     }
- 
-    ($mem_request,$mem_request_2,$jobs_in_first_batch) = memory_estimator_2($expected_number_of_jobs,$nodes);    
- 
-    foreach my $runno (@array_of_runnos) {
-	my ($f_xform_path,$i_xform_path);
+    my $error_message;
+    if ( ! $skip) {
+        compare_reg_to_mdt_vbm_Runtime_check();
+        ($mem_request,$mem_request_2,$jobs_in_first_batch) = memory_estimator_2($expected_number_of_jobs,$nodes);    
 
-	$go = $go_hash{$runno};
+        foreach my $runno (@array_of_runnos) {
+            my ($f_xform_path,$i_xform_path);
 
-	
-	if ($go) {
-	    ($job,$f_xform_path,$i_xform_path) = reg_to_mdt($runno);
-	    #	sleep(0.25);
-	    if ($job) {
-		push(@jobs,$job);
-	    }
-	} else {
-	    $f_xform_path = "${current_path}/${runno}_to_MDT_warp.nii.gz";
-	    $i_xform_path = "${current_path}/MDT_to_${runno}_warp.nii.gz";
-	}
-   
-	my $xform_string=$Hf->get_value("forward_xforms_${runno}");
-	if ($xform_string eq 'NO_KEY') {
-	    $xform_string=$Hf->get_value("mdt_forward_xforms_${runno}");
-	    my @xform_array = split(',',$xform_string);
-	    shift(@xform_array);
-	    $xform_string = join(',',@xform_array);
-	    $Hf->set_value("forward_xforms_${runno}",$xform_string);
+            $go = $go_hash{$runno};
 
-	    my $inverse_xform_string=$Hf->get_value("mdt_inverse_xforms_${runno}");
-	    my @inverse_xform_array = split(',',$inverse_xform_string);
-	    pop(@inverse_xform_array);
-	    $inverse_xform_string = join(',',@inverse_xform_array);
-	    $Hf->set_value("inverse_xforms_${runno}",$inverse_xform_string);
-	}
-	headfile_list_handler($Hf,"forward_xforms_${runno}",$f_xform_path,0);
-	headfile_list_handler($Hf,"inverse_xforms_${runno}",$i_xform_path,1);
-    }
-    
+
+            if ($go) {
+                ($job,$f_xform_path,$i_xform_path) = reg_to_mdt($runno); 
+                if ($job) {
+                    push(@jobs,$job);
+                }
+            } else {
+                $f_xform_path = "${current_path}/${runno}_to_MDT_warp.nii.gz";
+                $i_xform_path = "${current_path}/MDT_to_${runno}_warp.nii.gz";
+            }
+
+            my $xform_string=$Hf->get_value("forward_xforms_${runno}");
+            if ($xform_string eq 'NO_KEY') {
+                $xform_string=$Hf->get_value("mdt_forward_xforms_${runno}");
+                my @xform_array = split(',',$xform_string);
+                shift(@xform_array);
+                $xform_string = join(',',@xform_array);
+                $Hf->set_value("forward_xforms_${runno}",$xform_string);
+
+                my $inverse_xform_string=$Hf->get_value("mdt_inverse_xforms_${runno}");
+                my @inverse_xform_array = split(',',$inverse_xform_string);
+                pop(@inverse_xform_array);
+                $inverse_xform_string = join(',',@inverse_xform_array);
+                $Hf->set_value("inverse_xforms_${runno}",$inverse_xform_string);
+            }
+            headfile_list_handler($Hf,"forward_xforms_${runno}",$f_xform_path,0);
+            headfile_list_handler($Hf,"inverse_xforms_${runno}",$i_xform_path,1);
+        }
       
-    if (cluster_check() && (scalar @jobs)) {
-    #print "batch folder = ${batch_folder}\n\n";  
-	my $interval = 15;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
+        if (cluster_check() && (scalar @jobs)) {
+            #print "batch folder = ${batch_folder}\n\n";  
+            my $interval = 15;
+            my $verbose = 1;
+            my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
 
-	if ($done_waiting) {
-	    print STDOUT  "  All diffeomorphic \"to-MDT\" registration jobs have completed; moving on to next step.\n";
-	}
+            if ($done_waiting) {
+                print STDOUT  "  All diffeomorphic \"to-MDT\" registration jobs have completed; moving on to next step.\n";
+            }
+        }
+        my $case = 2;
+        (my $dummy,$error_message)=compare_reg_to_mdt_Output_check($case);
     }
-    my $case = 2;
-    my ($dummy,$error_message)=compare_reg_to_mdt_Output_check($case);
-
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
     if ($error_message ne '') {
-	error_out("${error_message}",0);
+        error_out("${error_message}",0);
     }
 }
-
 
 
 # ------------------
@@ -129,9 +130,9 @@ sub compare_reg_to_mdt_Output_check {
      my ($file_1,$file_2);
      my @file_array=();
      if ($case == 1) {
-	 $message_prefix = " Diffeomorphic warps to the MDT already exist for the following runno(s) and will not be recalculated:\n";
+        $message_prefix = " Diffeomorphic warps to the MDT already exist for the following runno(s) and will not be recalculated:\n";
      } elsif ($case == 2) {
-	 $message_prefix = "  Unable to create diffeomorphic warps to the MDT for the following runno(s):\n";
+        $message_prefix = "  Unable to create diffeomorphic warps to the MDT for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
      
      
@@ -139,36 +140,36 @@ sub compare_reg_to_mdt_Output_check {
      my $missing_files_message = '';
      
      foreach my $runno (@array_of_runnos) {
-	 if ($runno eq 'EMPTY_VALUE') {
-	     $go_hash{$runno}=0;
-	 } else {
-	     $file_1 = "${current_path}/${runno}_to_MDT_warp.nii.gz";
-	     $file_2 = "${current_path}/MDT_to_${runno}_warp.nii.gz";
-	     if (data_double_check($file_1,$file_2)) {
-		 $go_hash{$runno}=1;
-		 $expected_number_of_jobs++;
-		 push(@file_array,$file_1,$file_2);
-		 $missing_files_message = $missing_files_message."\t${runno}\n";
-	     } else {
-		 $go_hash{$runno}=0;
-		 $existing_files_message = $existing_files_message."\t${runno}\n";
-	     }
-	 }
+         if ($runno eq 'EMPTY_VALUE') {
+             $go_hash{$runno}=0;
+         } else {
+             $file_1 = "${current_path}/${runno}_to_MDT_warp.nii.gz";
+             $file_2 = "${current_path}/MDT_to_${runno}_warp.nii.gz";
+             if (data_double_check($file_1,$file_2)) {
+                 $go_hash{$runno}=1;
+                 $expected_number_of_jobs++;
+                 push(@file_array,$file_1,$file_2);
+                 $missing_files_message = $missing_files_message."\t${runno}\n";
+             } else {
+                 $go_hash{$runno}=0;
+                 $existing_files_message = $existing_files_message."\t${runno}\n";
+             }
+         }
      }
 
      if (($existing_files_message ne '') && ($case == 1)) {
-	 $existing_files_message = $existing_files_message."\n";
+        $existing_files_message = $existing_files_message."\n";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $missing_files_message = $missing_files_message."\n";
+        $missing_files_message = $missing_files_message."\n";
      }
      
      
 	 my $error_msg='';
      
      if (($existing_files_message ne '') && ($case == 1)) {
-	 $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
+        $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
+        $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
      }
      
      my $file_array_ref = \@file_array;

@@ -62,12 +62,17 @@ sub mask_images_vbm {
             } else {
                 $mask_threshold=$default_mask_threshold;
             }
-            my $mask_path     = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
+
+            my $mask_path = get_nii_from_inputs($current_path,$runno,'mask');
+            if (data_double_check($mask_path,0))  {
+                $mask_path = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
+            }
+
             my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
 
             $mask_hash{$runno} = $mask_path;
 
-            if (! -e $mask_path) {
+            if ((! -e $mask_path) && (! -e $mask_path.".gz") ){
                 if ( ( (! $port_atlas_mask)) || (($port_atlas_mask) && (! -e $ported_mask) && (! -e $ported_mask.'.gz')) ) {
                     #my $nifti_args ="\'$current_file\', $dim_divisor, $mask_threshold, \'$mask_path\',$num_morphs , $morph_radius,$status_display_level";
                     #my $nifti_command = make_matlab_command('strip_mask',$nifti_args,"${runno}_${template_contrast}_",$Hf,0); # 'center_nii'

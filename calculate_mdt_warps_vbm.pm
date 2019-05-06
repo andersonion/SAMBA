@@ -213,7 +213,7 @@ sub calculate_average_mdt_warp {
 	@test =(0,$reservation);
     }
     #die;
-    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+    my $mem_request = 60000;  # Added 23 November 2016,  Will need to make this smarter later.
     my $go_message = "$PM: create ${dir_string} MDT warp for ${runno}";
     my $jid = 0;
     if (cluster_check()) {
@@ -392,6 +392,8 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               do_connectivity
                               do_vba
                               eddy_current_correction
+                              flip_x
+                              flip_z
                               fsl_cluster_size
                               group_1_runnos
                               group_2_runnos
@@ -436,7 +438,8 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               label_transform_chain
                               label_atlas_nickname
                               label_input_file
-                              number_of_nonparametric_seeds); # affine_target_image will need to be removed from this list once we fully support it.
+                              stop_after_mdt_creation
+                              number_of_nonparametric_seeds); #
 
 
 	for (my $i=0; $template_match== 0; $i++) {

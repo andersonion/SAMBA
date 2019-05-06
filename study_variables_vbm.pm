@@ -186,7 +186,7 @@ sub study_variables_vbm {
 	$flip_z = 0;
 
 	$optional_suffix = '100micron';
-	$atlas_name = 'chass_symmetric3';#'DTI101b'; #changed on 25 October 2018
+	$rigid_atlas_name = 'chass_symmetric3';#'DTI101b'; #changed on 25 October 2018
 	$label_atlas_name = 'chass_symmetric3';#'dti148lr';
 	$rigid_contrast = 'dwi';
 	$mdt_contrast = 'fa'; #WAS fa
@@ -391,7 +391,7 @@ TCW1
 	$flip_z = 0;
 
 	#$optional_suffix = 'SyN3and1';
-	$atlas_name = 'chass_symmetric3';
+	$rigid_atlas_name = 'chass_symmetric3';
 	$label_atlas_name = 'chass_symmetric3';
 	$rigid_contrast = 'dwi';
 	$mdt_contrast = 'fa';
@@ -462,8 +462,8 @@ $do_vba=1;
 	$flip_z = 0;
 	
 	
-	#$atlas_name = 'DTI101b';
-	$atlas_name = 'chass_symmetric2';
+	#$rigid_atlas_name = 'DTI101b';
+	$rigid_atlas_name = 'chass_symmetric2';
 	$label_atlas_name = 'chass_symmetric2';#'DTI101b';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
@@ -563,7 +563,7 @@ B03248);
 	$flip_z = 0;
 	
 	
-	$atlas_name = 'DTI'; #DTI
+	$rigid_atlas_name = 'DTI'; #DTI
 	$label_atlas_name = 'DTI'; #DTI
 	$rigid_contrast = 'T1';
 	$affine_contrast = 'T1';
@@ -719,7 +719,7 @@ B03248);
 	
         $optional_suffix='zippy';#SyN_1_3_1';
 	#$optional_suffix='quick';
-	$atlas_name = 'DTI101b';
+	$rigid_atlas_name = 'DTI101b';
 #	$label_atlas_name = 'DTI101b';
 	$label_atlas_name = 'chass_symmetric2';
 	$rigid_contrast = 'dwi';
@@ -753,7 +753,7 @@ B03248);
 	$flip_z = 0;
 	
 	$optional_suffix = '';
-	$atlas_name = 'whs';
+	$rigid_atlas_name = 'whs';
 	$label_atlas_name = 'whs';
 	$rigid_contrast = 'T2star';
 	$affine_contrast = 'T2star';
@@ -792,7 +792,7 @@ GIT1_111024_5);
      $flip_z = 1;
      
      $optional_suffix = 'CT';
-     $atlas_name = 'AWHS';
+     $rigid_atlas_name = 'AWHS';
      $label_atlas_name = '';
      $rigid_contrast = 'ct';
      $affine_contrast = 'ct';
@@ -819,7 +819,7 @@ GIT1_111024_5);
 	$flip_z = 1;
 	
 	$optional_suffix = '';
-	$atlas_name = 'whs';#
+	$rigid_atlas_name = 'whs';#
 	$label_atlas_name = 'whs';#
 	
 	$rigid_contrast = 'dwi';
@@ -1025,7 +1025,7 @@ N52863
 	
 
 	$optional_suffix = 'spec'.$specimen;
-	$atlas_name = 'DTI101b';
+	$rigid_atlas_name = 'DTI101b';
 	$label_atlas_name = 'DTI101b';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
@@ -1062,7 +1062,7 @@ dummy
 	
 
 	$optional_suffix = 'group';
-	$atlas_name = 'DTI101b';
+	$rigid_atlas_name = 'DTI101b';
 	$label_atlas_name = 'DTI101b';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
@@ -1150,7 +1150,7 @@ S65541
 	$flip_z = 0;
 	
 	$optional_suffix = '';
-	$atlas_name = 'rat2';#rat2
+	$rigid_atlas_name = 'rat2';#rat2
 	$label_atlas_name = 'rat2';#
 	
 	$rigid_contrast = 'dwi';
@@ -1202,7 +1202,7 @@ S65541
 	$flip_z = 0;
 	
 	$optional_suffix = '';
-	$atlas_name = 'DTI101';
+	$rigid_atlas_name = 'DTI101';
 	$label_atlas_name = 'DTI101';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
@@ -1236,7 +1236,7 @@ S65541
 	$flip_z = 0;
 	
 	$optional_suffix = '';
-	$atlas_name = 'rat2';#
+	$rigid_atlas_name = 'rat2';#
 	$label_atlas_name = 'rat2';#
 	
 	$rigid_contrast = 'dwi';
@@ -1300,7 +1300,7 @@ S65541
 	$flip_z = 0;
 	
 	$optional_suffix = '';
-	$atlas_name = 'chass_symmetric';#
+	$rigid_atlas_name = 'chass_symmetric';#
 	$label_atlas_name = 'chass_symmetric2';#$label_atlas_name = 'chass_symmetric';
 	
 	$rigid_contrast = 'T2';
@@ -1367,7 +1367,7 @@ S65541
 	$flip_z = 0;
 	
 	$optional_suffix = 'norm_youngmice';
-	$atlas_name = 'chass_symmetric2';#
+	$rigid_atlas_name = 'chass_symmetric2';#
 	$label_atlas_name = 'chass_symmetric2';#
 	
 	$rigid_contrast = 'T2';
@@ -1423,7 +1423,7 @@ elsif ($john_multicoil)
 	$flip_z = 1;
 	
 	$optional_suffix = 'test';
-	$atlas_name = 'chass_symmetric2';#'DTI101b';#
+	$rigid_atlas_name = 'chass_symmetric2';#'DTI101b';#
 	$label_atlas_name = 'chass_symmetric2';#
 	
 	$rigid_contrast = 'dwi';
@@ -1481,7 +1481,7 @@ elsif ($nian_connectome)
 	$flip_z = 1;
 	
 	$optional_suffix = '45p4um';
-	$atlas_name = 'DTI101b';#
+	$rigid_atlas_name = 'DTI101b';#
 	$label_atlas_name = 'chass_symmetric2';#
 	
 	$rigid_contrast = 'dwi';
@@ -1555,7 +1555,7 @@ elsif ($nian_connectome)
 	$flip_z = 1;
 	
         $optional_suffix='spectrin';
-	$atlas_name = 'chass_symmetric2';
+	$rigid_atlas_name = 'chass_symmetric2';
 	$label_atlas_name = 'chass_symmetric2';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
@@ -1615,7 +1615,7 @@ elsif ($nian_connectome)
 	$flip_z = 1;
 	
         $optional_suffix='ankB';
-	$atlas_name = 'chass_symmetric2';
+	$rigid_atlas_name = 'chass_symmetric2';
 	$label_atlas_name = 'chass_symmetric2';
 	$rigid_contrast = 'dwi';
 	$affine_contrast = 'dwi';
@@ -1677,7 +1677,7 @@ elsif ($nian_connectome)
 	$flip_z = 1; #1
 	
         $optional_suffix='connectomics';
-	$atlas_name = 'chass_symmetric2';
+	$rigid_atlas_name = 'chass_symmetric2';
 	#$label_atlas_name = 'chass_ALS_whole';
 	$label_atlas_name = 'chass_symmetric2';
 	$rigid_contrast = 'dwi';

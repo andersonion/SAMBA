@@ -16,13 +16,13 @@ use List::Util qw(max);
 
 use pull_civm_tensor_data;
 
-my $do_inverse_bool = 0;
-my ($runlist,$rigid_path,$current_path,$write_path_for_Hf);
-my ($pristine_inputs_dir,$inputs_dir,$mdt_creation_strategy);
-my ($interp,$template_path, $template_name, $diffeo_path,$work_done,$vbm_reference_path,$label_reference_path,$label_refname,$label_results_path,$label_path);
+
+my ($runlist,$current_path,$write_path_for_Hf);
+my ($pristine_inputs_dir);
+my ($template_name,$label_refname,$label_path);
 my (@array_of_runnos,@files_to_create,@files_needed);
 my @jobs=();
-my (%go_hash);
+my (%go_hash,$go_message);
 my $go = 1;
 my $job;
 my ($orientation,$ALS_to_RAS,$ecc_string,$ecc_affine_xform,$nifti_flip,$scanner_flip);#$native_to_ALS
@@ -32,7 +32,7 @@ my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 #my $bvec_transform_executable_path = "/nas4/rja20/bvec_transform_executable/AM/run_transform_bvecs.sh"; # Updated from 'AL' version, 7 June 2017, BJA
 #my $bvec_transform_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/bvec_transform_executable/20170607_1100/run_transform_bvecs.sh";
 my $bvec_transform_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/transform_bvecs_executable/stable/run_transform_bvecs.sh"; # As of 25 January 2019, 'stable' points to '20190125_1444'
-my ($current_contrast,$affine_target);
+my ($current_contrast);
 my $current_label_space;
 
 
@@ -285,10 +285,11 @@ sub apply_affine_rotation {
             $exes_from_zeros = 'X';
             $xforms_found=1;
         }   
+
+            if ($xforms_found) {
+                $xform_type=$type;
+            } 
         }
-        if ($xforms_found) {
-            $xform_type=$type;
-        } 
     }
 
     if (! $xforms_found) {
@@ -336,13 +337,13 @@ sub apply_affine_rotation {
     if ($convert_labels_to_RAS){
 	my $copy_bvecs_cmd= "cp ${out_file} ${RAS_results_dir};\n";
 	   $cmd=$cmd.$copy_bvecs_cmd;
-	if ($out_file =~ s/(bvecs\.txt)$/bvals\.txt/) {
+	($out_file) =~ s/(bvecs\.txt)$/bvals\.txt/;
 	    my $copy_bvals_cmd= "cp ${out_file} ${RAS_results_dir};\n";
 	    $cmd=$cmd.$copy_bvals_cmd;
-	}
+		
     }
 
-    my $go_message =  "$PM: apply ${direction_string} affine rotations to bvecs for ${runno}";
+    $go_message =  "$PM: apply ${direction_string} affine rotations to bvecs for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} affine rotations to bvecs  for  ${runno}:\n${cmd}\n";
 
     my @test=(0);
@@ -388,12 +389,15 @@ sub apply_warps_to_bvecs_Init_check {
     
     if (($do_connectivity ne 'NO_KEY') && ($do_connectivity == 1)) {
 	
-	$eddy_current_correction = $Hf->get_value('eddy_current_correction');
-
+        $eddy_current_correction = $Hf->get_value('eddy_current_correction');
+        if ($eddy_current_correction eq 'NO_KEY') {
+            $Hf->set_value('eddy_current_correction',0)
+        }
+    }
 	if ($init_error_msg ne '') {
 	    $init_error_msg = $message_prefix.$init_error_msg;
 	}
-    }
+    
     return($init_error_msg);
 }
 
@@ -404,20 +408,11 @@ sub apply_warps_to_bvecs_Runtime_check {
     my ($direction)=@_;
  
 # # Set up work
-
-    $inputs_dir = $Hf->get_value('inputs_dir');
     $pristine_inputs_dir = $Hf->get_value('pristine_input_dir');
-    $rigid_path = $Hf->get_value('rigid_work_dir');
 
-    $template_path = $Hf->get_value('template_work_dir');
     $template_name = $Hf->get_value('template_name');
-
-    $affine_target = $Hf->get_value('affine_target_image');
-    $vbm_reference_path = $Hf->get_value('vbm_reference_path');
-
-    $inputs_dir = $Hf->get_value('label_refspace_folder');
     $label_reference = $Hf->get_value('label_reference');
-    $label_reference_path = $Hf->get_value('label_reference_path');
+
     $label_refname = $Hf->get_value('label_refname');
     
     my $msg;
@@ -430,7 +425,6 @@ sub apply_warps_to_bvecs_Runtime_check {
     printd(35,$msg);
 
     $label_path=$Hf->get_value('labels_dir');
-    $label_results_path=$Hf->get_value('label_results_path');
     
     $current_path=$Hf->get_value('label_images_dir');
     
@@ -508,27 +502,26 @@ sub apply_warps_to_bvecs_Runtime_check {
     $scanner_flip='';
     my $scanner = $Hf->get_value('scanner');
     if ($scanner eq 'Agilent_9T') {
-	$scanner_flip=' -x  '; # This has been tested...may need a better methods for figuring this shit out.
+        $scanner_flip=' -x  '; # This has been tested...may need a better methods for figuring this shit out.
     } elsif ($scanner eq 'Agilent_7T') {
-	$scanner_flip=' -y  '; # This has NOT been tested and should be WRONG...may need a better methods for figuring this shit out.
+        $scanner_flip=' -y  '; # This has NOT been tested and should be WRONG...may need a better methods for figuring this shit out.
     } elsif ($scanner eq 'Bruker_7T') {
-	$scanner_flip=' -z  '; # This has NOT  been tested and should be WRONG...may need a better methods for figuring this shit out.
+        $scanner_flip=' -z  '; # This has NOT  been tested and should be WRONG...may need a better methods for figuring this shit out.
     } else {
-	$scanner_flip = ' -x '; # Let's assume it's 9T data for now.
+        $scanner_flip = ' -x '; # Let's assume it's 9T data for now.
     }
 
     $nifti_flip = ' -z '; # For now we will assume that we are using default niis.  Can get the proper info from PrintHeader if we want to get fancy.
 
 #   Functionize?
     if ($runlist eq 'EMPTY_VALUE') {
-	@array_of_runnos = ();
+        @array_of_runnos = ();
     } else {
-	@array_of_runnos = split(',',$runlist);
+        @array_of_runnos = split(',',$runlist);
     }    
 
 #
 
-    $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
 
     my $case = 1;
     my ($dummy,$skip_message)=apply_warps_to_bvecs_Output_check($case,$direction);

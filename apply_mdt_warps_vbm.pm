@@ -39,7 +39,7 @@ my $convert_images_to_RAS=0;
 
 my ($results_dir,$final_MDT_results_dir,$almost_results_dir,$almost_MDT_results_dir,$median_images_path, $final_results_dir);
 
-my ($current_contrast,$group,$gid,$affine_target);
+my ($current_contrast,$group,$gid);
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
@@ -528,7 +528,6 @@ sub apply_mdt_warps_vbm_Runtime_check {
     $template_path = $Hf->get_value('template_work_dir');
     $template_name = $Hf->get_value('template_name');
 
-    $affine_target = $Hf->get_value('affine_target_image');
     $vbm_reference_path = $Hf->get_value('vbm_reference_path');
 
     if ($gid == 1) {
@@ -632,7 +631,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	    
 	    $final_results_dir = "${almost_results_dir}/${current_label_space}_${label_refname}_space/";
 	    if (! -e $final_results_dir) {
-		mkdir ($final_results_dir,$permissions);
+            mkdir ($final_results_dir,$permissions);
 	    }
 	    #$Hf->set_value('final_label_results_dir',$final_results_dir);
 	    #$Hf->set_value('final_connectomics_results_dir',$final_results_dir);

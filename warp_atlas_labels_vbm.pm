@@ -361,9 +361,9 @@ sub apply_mdt_warp_to_labels {
     if (($warp_train ne '') || ($mdt_warp_train ne '')) {
         $warp_train=$warp_prefix.$warp_train.' '.$mdt_warp_train;
     }
-
-    $warp_train=$warp_train.$extra_transform_string;
-
+    if (defined $extra_transform_string) {
+        $warp_train=$warp_train.$extra_transform_string;
+    }
     my $use_pre_Feb2019_code=0;
     # Before 6 Feb 2019, we would use NearestNeighbor, then run a second smoothing command
     # Using MultiLabel does nearly the same thing, but seems to do a slightly better job 
@@ -611,6 +611,12 @@ sub warp_atlas_labels_vbm_Runtime_check {
                 }
 
                 if ($label_input_file ne 'NO_KEY') {
+                    # In this case, it takes use specified filename: *_labels.nii.gz or *_quagmire.nii.gz or *_mess.nii.gz
+                    # In general this must be a file name with extension, but no directory
+                    # But in theory, anything in the form *_* (where there are NO underscores in the second wildcard string)
+                    # The first wildcard string is the parent folder, which in turn is in the labels_${label_atlas} folder
+                    # NOTE: If there is a discrepency between the name of the parent folder and the name of the label file
+                    #       up to but not including the last underscore, the full file path will need to be specified
                     my $second_folder= $label_input_file;
                     $second_folder =~ s/_[^_]*$//;
                     $atlas_label_path  = "${labels_folder}/${second_folder}/${label_input_file}";
@@ -784,7 +790,6 @@ sub warp_atlas_labels_vbm_Runtime_check {
                 $Hf->set_value("${runno}_${label_atlas_nickname}_label_lookup_table",$local_lookup);
             } else {
                 my ($atlas_label_dir, $dummy_1, $dummy_2) = fileparts($atlas_label_path,2);
-
                 if ( -d $atlas_label_dir) {
                     my $pattern = "^.*lookup[.].*\$";
                     my ($source_lookup) = find_file_by_pattern($atlas_label_dir,$pattern);

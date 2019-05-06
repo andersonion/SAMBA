@@ -17,13 +17,13 @@ require Headfile;
 require pipeline_utilities;
 use List::MoreUtils qw(uniq);
 
-my ($current_path,$work_dir,$in_folder,$out_folder);
-my ($channel_comma_list,$space_string,$current_label_space,$label_atlas,$label_path);
+my ($current_path,$in_folder,$out_folder);
+my ($channel_comma_list,$space_string,$current_label_space,$label_atlas,$label_atlas_nickname,$label_path);
 my ($studywide_stats_dir);
 my (@array_of_runnos,@channel_array,@initial_channel_array);
 my ($predictor_id);
 my @jobs=();
-my (%go_hash,%go_mask,%results_dir_hash,%work_dir_hash);
+my (%go_hash,%go_mask);
 my ($group_1_name,$group_2_name,$group_1_runnos,$group_2_runnos,$num_g1,$num_g2);
 my (@group_1_runnos,@group_2_runnos);
 my $log_msg='';
@@ -65,7 +65,7 @@ sub  label_stat_comparisons_between_groups_vbm {
 	} 
     }
 
-    if (cluster_check() && ($jobs[0] ne '')) {
+    if (cluster_check() && (@jobs)) {
 	my $interval = 2;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
@@ -82,7 +82,7 @@ sub  label_stat_comparisons_between_groups_vbm {
 
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
 
-    my $write_path_for_Hf = "${current_path}/${label_atlas}_${space_string}_temp.headfile";
+    my $write_path_for_Hf = "${current_path}/${label_atlas_nickname}_${space_string}_temp.headfile";
 
     if ($error_message ne '') {
 	error_out("${error_message}",0);
@@ -234,11 +234,14 @@ sub  label_stat_comparisons_between_groups_vbm_Init_check {
 sub  label_stat_comparisons_between_groups_Runtime_check {
 # ------------------
     
-
-    $label_atlas = $Hf->get_value('label_atlas_name');
+    $label_atlas_nickname = $Hf->get_value('label_atlas_nickname');
+    $label_atlas_name = $Hf->get_value('label_atlas_name');
+    if ($label_atlas_nickname eq 'NO_KEY') {
+        $label_atlas_nickname=$label_atlas_name;
+    }
 
     if (! defined $current_label_space) {
-	$current_label_space = $Hf->get_value('label_space');
+        $current_label_space = $Hf->get_value('label_space');
     }
     
     $space_string='rigid'; # Default
@@ -259,14 +262,12 @@ sub  label_stat_comparisons_between_groups_Runtime_check {
     my $label_refname = $Hf->get_value('label_refname');
     my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
 
-    $work_dir="${intermediary_path}/${label_atlas}/";
-
-    my $stat_path = "${work_dir}/stats/";
+    my $stat_path = $Hf->get_value('stat_path');
     $studywide_stats_dir = "${stat_path}/studywide_label_statistics/";
 
     $current_path = "${stat_path}/label_statistic_comparisons/";
     if (! -e $current_path) {
-	mkdir ($current_path,$permissions);
+        mkdir ($current_path,$permissions);
     }
 
 

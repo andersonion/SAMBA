@@ -5,14 +5,11 @@
 #  2017/06/16  Created by BJ Anderson, CIVM.
 
 my $PM = " calculate_individual_label_statistics_vbm.pm";
-my $VERSION = "2017/06/16";
+my $VERSION = "2019/04/24";
 my $NAME = "Calculate label-wide statistics for all contrast, for an individual runno.";
 
 use strict;
 use warnings;
-#no warnings qw(bareword);
-
-#use vars used to be here
 require Headfile;
 require pipeline_utilities;
 use List::MoreUtils qw(uniq);
@@ -22,7 +19,7 @@ my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$curre
 my (@array_of_runnos,@channel_array);
 #my ($predictor_id); # SAVE FOR LAST ROUND OF LABEL STATS CODE
 my @jobs=();
-my (%go_hash,%go_mask,%results_dir_hash,%work_dir_hash);
+my (%go_hash,%go_mask);
 my $log_msg='';
 my $skip=0;
 my $go = 1;
@@ -36,7 +33,7 @@ my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";  #Need to make this more gen
 #my $compilation_date = "20180227_1439";#"20170616_2204"; Updated 27 Feb 2018, BJA--will now ignore any voxels with contrast values of zero (assumed to be masked)
 my $compilation_date = "stable";
 my $write_individual_stats_executable_path = "${pipe_home}label_stats_executables/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec_v2.sh"; 
-my $write_rat_report_executable_path = '${pipe_home}label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh';
+my $write_rat_report_executable_path = "${pipe_home}label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh";
 
 #if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
@@ -349,18 +346,19 @@ sub  calculate_individual_label_statistics_Runtime_check {
     $work_dir="${intermediary_path}/${label_atlas_nickname}/";
 
     my $stat_path = "${work_dir}/stats/";
+    $Hf->set_value('stat_path',${stat_path});
     if (! -e $stat_path) {
-	mkdir ($stat_path,$permissions);
+        mkdir ($stat_path,$permissions);
     }
     $current_path = "${stat_path}/individual_label_statistics/";
     if (! -e $current_path) {
-	mkdir ($current_path,$permissions);
+        mkdir ($current_path,$permissions);
     }
 
 
     my $runlist = $Hf->get_value('all_groups_comma_list');
     if ($runlist eq 'NO_KEY') {
-	$runlist = $Hf->get_value('complete_comma_list');
+        $runlist = $Hf->get_value('complete_comma_list');
     }
 
     @array_of_runnos = split(',',$runlist);
@@ -369,14 +367,14 @@ sub  calculate_individual_label_statistics_Runtime_check {
     my @initial_channel_array = split(',',$ch_runlist);
     my $dwi='';
     foreach my $contrast (@initial_channel_array) {
-	if ($contrast !~ /^(ajax|jac|nii4D)$/i) {
-	    
-        if ($contrast =~ /^(dwi)$/i) {
-            $dwi=$1;
-        } else {
-            push(@channel_array,$contrast);
+        if ($contrast !~ /^(ajax|jac|nii4D)$/i) {
+
+            if ($contrast =~ /^(dwi)$/i) {
+                $dwi=$1;
+            } else {
+                push(@channel_array,$contrast);
+            }
         }
-	}
     }
     if ( $dwi ne '') {
         unshift(@channel_array,$dwi);
@@ -391,7 +389,7 @@ sub  calculate_individual_label_statistics_Runtime_check {
     my ($dummy,$skip_message)=calculate_individual_label_statistics_Output_check($case);
  
     if ($skip_message ne '') {
-	print "${skip_message}";
+        print "${skip_message}";
     }
 
 

@@ -14,7 +14,7 @@ my $ggo = 1;  # Needed for compatability with seg_pipe code
 my ($rigid_atlas,$contrast, $runlist,$work_path,$current_path,$label_atlas,$label_path);
 my ($affine_metric,$affine_shrink_factors,$affine_iterations,$affine_gradient_step,$affine_convergence_thres);
 my ($affine_convergence_window,$affine_smoothing_sigmas,$affine_sampling_options,$affine_radius);
-my ($xform_code,$xform_path,$xform_suffix,$atlas_dir,$atlas_path,$inputs_dir);
+my ($xform_code,$xform_path,$xform_suffix,$label_atlas_dir,$atlas_path,$inputs_dir);
 my (@array_of_runnos,@array_of_control_runnos,@mdt_contrasts);
 my @jobs=();
 my (%go_hash,%create_output);
@@ -56,9 +56,9 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 	    $to_xform_path = $mdt_path.'/'.$runno.'.nii.gz'; #added .gz 22 October 2015
 	    $result_path_base = "${current_path}/${runno}_to_${label_atlas}_";
 	    if ($swap_fixed_and_moving) {
-		$alt_result_path_base = "${current_path}/${label_atlas}_to_${runno}_";
+            $alt_result_path_base = "${current_path}/${label_atlas}_to_${runno}_";
 	    } else {
-		$alt_result_path_base = "${current_path}/${runno}_to_${label_atlas}_";
+            $alt_result_path_base = "${current_path}/${runno}_to_${label_atlas}_";
 	    }
 
 	} else {
@@ -203,11 +203,11 @@ sub create_affine_reg_to_atlas_Output_check {
     my $affine_type;
     my $fixed_affine_string;
     if ($do_rigid) {
-	$affine_type = "Rigid";
-	$fixed_affine_string = "atlas";
+        $affine_type = "Rigid";
+        $fixed_affine_string = "atlas";
     } else {
-	$affine_type = "Full affine";
-	$fixed_affine_string = $affine_target;
+        $affine_type = "Full affine";
+        $fixed_affine_string = $affine_target;
     }
     
     if ($case == 1) {
@@ -434,25 +434,53 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 	$log_msg=$log_msg."\tNo affine contrast specified; using rigid contrast \"${rigid_contrast}\" for affine registrations.\n";
     }
 
-    if ($create_labels) {
+    #if ($create_labels) {
+    if ($register_MDT_to_atlas || $create_labels) {
 
 	$mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
 	@mdt_contrasts = split('_',$mdt_contrast_string); 
 	$mdt_contrast = $mdt_contrasts[0];
-
-	my $label_atlas = $Hf->get_value('label_atlas_name');
-	$atlas_dir   = $Hf->get_value ('label_atlas_dir');
-	my $expected_atlas_path = "${atlas_dir}/${label_atlas}_${mdt_contrast}.nii.gz"; # added .gz 22 October 2015 
-	$atlas_path  = get_nii_from_inputs($atlas_dir,$label_atlas,$mdt_contrast);
-	if (data_double_check($atlas_path))  {
+    
+    my $expected_atlas_path = '';
+	my $label_atlas_name = $Hf->get_value('label_atlas_name');
+    my $label_atlas_dir=''; 
+    # Test to see if this is an arbitrary file/folder
+    if ( -e $label_atlas_name) {
+        if ( -d $label_atlas_name) {
+           $label_atlas_dir=$label_atlas_name;
+           $label_atlas_dir =~ s/[\/]*$//;
+           (my $dummy_path , $label_atlas_name) = fileparts($label_atlas_dir,2);
+           $expected_atlas_path = "${label_atlas_dir}/${label_atlas_name}_${mdt_contrast}.nii.gz"; # added .gz 22 October 2015 
+           $atlas_path  = get_nii_from_inputs($label_atlas_dir,$label_atlas_name,$mdt_contrast);
+#die "$label_atlas_name\n\n$atlas_path\n\n$expected_atlas_path\n\n";
+        } else { #  Assume its a specific file...
+            $atlas_path =$label_atlas_name;
+            $expected_atlas_path=$atlas_path;
+            (my $dummy_path , $label_atlas_name) = fileparts($label_atlas_name,2);
+            $label_atlas_name =~ s/_labels$//;
+        }
+    } else {
+        $label_atlas_dir = "${WORKSTATION_DATA}/atlas/${label_atlas_name}";
+        if (! -d $label_atlas_dir) {
+            if ($label_atlas_dir =~ s/\/data/\/CIVMdata/) {}
+        }
+        $expected_atlas_path = "${label_atlas_dir}/${label_atlas_name}_${mdt_contrast}.nii.gz"; # added .gz 22 October 2015 
+        $atlas_path  = get_nii_from_inputs($label_atlas_dir,$label_atlas_name,$mdt_contrast);
+    }
+	
+    if (data_double_check($atlas_path))  {
 	    $init_error_msg = $init_error_msg."For label affine contrast ${mdt_contrast}: missing atlas nifti file ${expected_atlas_path} (note optional \'.gz\')\n";
+
 	} else {
 	    $Hf->set_value('label_atlas_path',$atlas_path);
+        $Hf->set_value('label_atlas_dir',$label_atlas_dir);
 	}
+
+    $Hf->set_value('label_atlas_name',$label_atlas_name);
 
 	if ($#mdt_contrasts > 0) {
 	    $mdt_contrast_2 = $mdt_contrasts[1];	    
-	    $atlas_path  = "$atlas_dir/${label_atlas}_${mdt_contrast_2}.nii.gz";   
+	    $atlas_path  = "${label_atlas_dir}/${label_atlas}_${mdt_contrast_2}.nii.gz";   
 	    if (data_double_check($atlas_path))  {
 		$init_error_msg = $init_error_msg."For secondary affine contrast ${mdt_contrast_2}: missing atlas nifti file ${atlas_path}\n";
 	    } else {
@@ -913,7 +941,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
         #  This will be done during the Init check?
         $contrast = $Hf->get_value('affine_contrast');
         
-	    $affine_target = $Hf->get_value('affine_target'); # $affine_target = $Hf->get_value('affine_target_image');
+	    $affine_target = $Hf->get_value('affine_target');
 	    if ($affine_target eq 'NO_KEY') {
             my @controls = split(',',($Hf->get_value('control_comma_list')));
             #if ($affine_target eq 'first_control') {
@@ -966,14 +994,13 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
         }# else
         #die $affine_target;
         
-        $Hf->set_value('affine_target',$affine_target); #	$Hf->set_value('affine_target_image',$affine_target);
+        $Hf->set_value('affine_target',$affine_target);
 
 	    $xform_code = 'full_affine';
 	    $xform_suffix = $Hf->get_value('affine_transform_suffix');
 	    $other_xform_suffix = $Hf->get_value('rigid_transform_suffix');
 
-	    $atlas_dir = $Hf->get_value('inputs_dir');
-	    $atlas_path  = get_nii_from_inputs($atlas_dir,$affine_target,$contrast);
+	    $atlas_path  = get_nii_from_inputs($Hf->get_value('inputs_dir'),$affine_target,$contrast);
 	    $q_string = "${current_path}/${affine_target}_${other_xform_suffix}";
 	    symbolic_link_cleanup($current_path,$PM);
 
