@@ -135,13 +135,10 @@ my $tmp_rigid_atlas_name='';
     } else {
         study_variables_vbm();
     }
-
     if (! defined $do_vba) {
-        $do_vba = 1;
+        $do_vba = 0;
     }
     vbm_pipeline_workflow();
-
-
 } #end main
 
 # ------------------
