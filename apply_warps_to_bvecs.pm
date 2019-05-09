@@ -291,42 +291,51 @@ sub apply_affine_rotation {
     my $temp_runno = $runno;
 
     my $xform_type='';
+    my $VerboseProgramming=0; # ;-) 
     if ($eddy_current_correction) {
-        my $zero_tester = '1';
-        if ($temp_runno =~ s/(\_m[0]+)$//){}
-            my $xforms_found=0;
-    
-        for my $type ('nii','nhdr'){
-            if ($xforms_found==0) {
-                my $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.${type}0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
-                if (data_double_check($test_ecc_affine_xform)) {
-                    $zero_tester = '01';
-                    $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.${type}0GenericAffine.mat";
+        my $xforms_found=0;
+        if (! $VerboseProgramming) { 
+            my $xform_pat="xform_(${temp_runno})_m([0-9]+)\.(.*)0GenericAffine\.(.*)\$";
+            my @xforms=find_file_by_pattern("${pristine_inputs_dir}",$xform_pat);
+            if ( scalar(@xforms) ) {
+                $xforms_found=1;
+                my $xform_1=$xforms[0];
+                $xform_1 =~ /$xform_pat/x;
+                (my $tr,my $nstr,$xform_type,my $t_ext)=($1,$2,$3,$4);
+                $exes_from_zeros=sprintf "X" x length($nstr);
+                #confess "test stop, check X are right len and xform type matches               $exes_from_zeros, $xform_type, ($xform_1)";
+            }
+        } else {
+            my $zero_tester = '1';
+            if ($temp_runno =~ s/(\_m[0]+)$//){}
+            for my $type ('nii','nhdr'){
+                if ($xforms_found==0) {
+                    my $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.${type}0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
                     if (data_double_check($test_ecc_affine_xform)) {
-                        $zero_tester = '001';
+                        $zero_tester = '01';
                         $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.${type}0GenericAffine.mat";
                         if (data_double_check($test_ecc_affine_xform)) {
-
+                            $zero_tester = '001';
+                            $test_ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${zero_tester}.${type}0GenericAffine.mat";
+                            if (data_double_check($test_ecc_affine_xform)) {
+                            } else {
+                                $exes_from_zeros = 'XXX';
+                                $xforms_found=1;
+                            }
                         } else {
-                            $exes_from_zeros = 'XXX';
+                            $exes_from_zeros = 'XX';
                             $xforms_found=1;
                         }
-
                     } else {
-                    $exes_from_zeros = 'XX';
-                    $xforms_found=1;
+                        $exes_from_zeros = 'X';
+                        $xforms_found=1;
+                    }   
+                    if ($xforms_found) {
+                        $xform_type=$type;
+                    } 
                 }
-            } else {
-                $exes_from_zeros = 'X';
-                $xforms_found=1;
-            }   
-
-                if ($xforms_found) {
-                    $xform_type=$type;
-                } 
             }
         }
-
         if (! $xforms_found) {
             $eddy_current_correction=0; 
             die ("You dirty rat, you don't have the xforms you need to do ecc!");
@@ -334,7 +343,8 @@ sub apply_affine_rotation {
     }
 
     if ($eddy_current_correction) {
-        $ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${exes_from_zeros}.${xform_type}0GenericAffine.mat"; # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
+        # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
+        $ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${exes_from_zeros}.${xform_type}0GenericAffine.mat"; 
         $ecc_string = '_ecc';
     } else {
         $ecc_affine_xform = '';
