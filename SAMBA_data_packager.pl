@@ -46,6 +46,7 @@ sub main {
     ${$opts->{"mdt_iterations:i"}}=0;
     ${$opts->{"link_images"}}=1;
     ${$opts->{"template_predictor=s"}}="";
+    ${$opts->{"label_atlas_nickname=s"}}="";
     $opts=auto_opt($opts,\@ARGV);
 
 #inputs headfile 
@@ -153,7 +154,12 @@ sub main {
     }
     if( $n_a_l_n eq '' ) {
         $n_a_l_n=$n_a_l;
-        confess "UNTESTED CONDITION, no label_atlas_nickname specified, would have used $n_a_l as nick (that is label_atlas_name, or rigid_atlas_name)";
+        if( ${$opts->{"label_atlas_nickname"}} ne "" ) {
+            $n_a_l_n=${$opts->{"label_atlas_nickname"}};
+        } else {
+            cluck "lighlty TESTED CONDITION, no label_atlas_nickname specified, would have used $n_a_l as nick (that is label_atlas_name, or rigid_atlas_name)";
+            sleep_with_countdown(3);
+        }
     }
     ($v_ok,my $mdt_p)=$hf->get_value_check("template_predictor");
     if(! $v_ok) { 
@@ -349,8 +355,10 @@ sub main {
         }
     }
     print(" Data \"packaged\" sucessfully! This is nearly (but not quite archiveable).\n");
-    print(" To archive you will need to dereference the linkages, with the following command\n");
-    print(" rsync -a --copy-unsafe-links $output_path/ NEW_PATH/ \n");
+    print(" You can send all your data to one of our workstations (piper) for continuting work with the following:\n");
+    print("   rsync -a --copy-unsafe-links $output_base/ piper.dhe.duke.edu:/Volumes/pipersace/samba_packages/ \n");
+    print(" To archive you will need to dereference the linkages, with the following command:\n");
+    print("   rsync -a --copy-unsafe-links $output_base/ NEW_PATH/ \n");
     print(" You can ask Lucy or James to help you with that step.\n\n");
     print("To use this MDT for your next SAMBA run, add its path to your transform chain:\n");
     print("\t$output_path \n");
