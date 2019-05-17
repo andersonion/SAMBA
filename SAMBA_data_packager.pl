@@ -47,6 +47,7 @@ sub main {
     ${$opts->{"link_images"}}=1;
     ${$opts->{"template_predictor=s"}}="";
     ${$opts->{"label_atlas_nickname=s"}}="";
+    ${$opts->{"rsync_location=s"}}="";
     $opts=auto_opt($opts,\@ARGV);
 
 #inputs headfile 
@@ -354,9 +355,14 @@ sub main {
             print("# WARNING: there is probably a readme in that folder which is now invalid!\n");
         }
     }
+    my $rsync_location="piper.dhe.duke.edu:/Volumes/piperspace/samba_packages/";
+    if ( ${$opts->{"rsync_location"}} ne "" ) {
+	# force slash on.
+	$rsync_location=${$opts->{"rsync_location"}}."/";
+    }
     print(" Data \"packaged\" sucessfully! This is nearly (but not quite archiveable).\n");
     print(" You can send all your data to one of our workstations (piper) for continuting work with the following:\n");
-    print("   rsync -a --copy-unsafe-links $output_base/ piper.dhe.duke.edu:/Volumes/pipersace/samba_packages/ \n");
+    print("   rsync -a --copy-unsafe-links $output_base/ $rsync_location \n");
     print(" To archive you will need to dereference the linkages, with the following command:\n");
     print("   rsync -a --copy-unsafe-links $output_base/ NEW_PATH/ \n");
     print(" You can ask Lucy or James to help you with that step.\n\n");
