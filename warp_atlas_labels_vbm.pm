@@ -133,9 +133,9 @@ sub warp_atlas_labels_Output_check {
      my ($out_file);
      my @file_array=();
      if ($case == 1) {
-  	$message_prefix = "  ${label_atlas_nickname} label sets have already been created for the following runno(s) and will not be recalculated:\n";
+        $message_prefix = "  ${label_atlas_nickname} label sets have already been created for the following runno(s) and will not be recalculated:\n";
      } elsif ($case == 2) {
- 	$message_prefix = "  Unable to create ${label_atlas_nickname} label sets for the following runno(s):\n";
+        $message_prefix = "  Unable to create ${label_atlas_nickname} label sets for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
 
      
@@ -143,37 +143,37 @@ sub warp_atlas_labels_Output_check {
      my $missing_files_message = '';
      #my $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
      foreach my $runno (@array_of_runnos) {
-	 if ($group eq 'MDT') {
-	     $out_file = "${current_path}/MDT_${label_atlas_nickname}_${label_type}.nii.gz";
-	     $Hf->set_value("${label_atlas_nickname}_MDT_labels",$out_file);
-	 }else {
-	     $out_file = "${current_path}/${runno}_${label_atlas_nickname}_${label_type}.nii.gz";
-	 }
-	
-	# my $out_file      = "$out_file_path_base\.nii";
+         if ($group eq 'MDT') {
+             $out_file = "${current_path}/MDT_${label_atlas_nickname}_${label_type}.nii.gz";
+             $Hf->set_value("${label_atlas_nickname}_MDT_labels",$out_file);
+         }else {
+             $out_file = "${current_path}/${runno}_${label_atlas_nickname}_${label_type}.nii.gz";
+         }
+        
+        # my $out_file      = "$out_file_path_base\.nii";
 
-	 if  (data_double_check($out_file,$case-1)) {
-	     $go_hash{$runno}=1;
-	     push(@file_array,$out_file);
-	     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-	     $missing_files_message = $missing_files_message."\t$runno\n";
-	 } else {
-	     $go_hash{$runno}=0;
-	     $existing_files_message = $existing_files_message."\t$runno\n";
-	 }
+         if  (data_double_check($out_file,$case-1)) {
+             $go_hash{$runno}=1;
+             push(@file_array,$out_file);
+             #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+             $missing_files_message = $missing_files_message."\t$runno\n";
+         } else {
+             $go_hash{$runno}=0;
+             $existing_files_message = $existing_files_message."\t$runno\n";
+         }
      }
      if (($existing_files_message ne '') && ($case == 1)) {
-	 $existing_files_message = $existing_files_message."\n";
+         $existing_files_message = $existing_files_message."\n";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $missing_files_message = $missing_files_message."\n";
+         $missing_files_message = $missing_files_message."\n";
      }
      
      my $error_msg='';
 
      if (($existing_files_message ne '') && ($case == 1)) {
-	 $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
+         $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
+         $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
      }
 
      my $file_array_ref = \@file_array;
@@ -296,15 +296,15 @@ sub apply_mdt_warp_to_labels {
 
 
     # if (! $native_reference_space) {
-    # 	$reference_image = $image_to_warp;
+    #   $reference_image = $image_to_warp;
     # } else {
-    # 	my @mdt_contrast  = split('_',$mdt_contrast);
-    # 	my $some_valid_contrast = $mdt_contrast[0];
-    # 	if ($runno ne 'MDT') {
-    # 	    $reference_image =get_nii_from_inputs($inputs_dir,$runno,$some_valid_contrast);
-    # 	} else {
-    # 	    $reference_image =get_nii_from_inputs($median_images_path,$runno,$some_valid_contrast);
-    # 	}
+    #   my @mdt_contrast  = split('_',$mdt_contrast);
+    #   my $some_valid_contrast = $mdt_contrast[0];
+    #   if ($runno ne 'MDT') {
+    #       $reference_image =get_nii_from_inputs($inputs_dir,$runno,$some_valid_contrast);
+    #   } else {
+    #       $reference_image =get_nii_from_inputs($median_images_path,$runno,$some_valid_contrast);
+    #   }
     # }
     #my @mdt_warp_array = split(',',$Hf->get_value('inverse_label_xforms')); # This appears to be extraneous; commenting out on 28 April 2017
     my $mdt_warp_string = $Hf->get_value('inverse_label_xforms');
@@ -319,14 +319,14 @@ sub apply_mdt_warp_to_labels {
     my $raw_warp;
 
     if ($runno ne 'MDT') {
-	my $add_warp_string = $Hf->get_value("forward_xforms_${runno}");
+        my $add_warp_string = $Hf->get_value("forward_xforms_${runno}");
 
-	if ($add_warp_string eq 'NO_KEY') {
-	    $add_warp_string=$Hf->get_value("mdt_forward_xforms_${runno}")
-	}
+        if ($add_warp_string eq 'NO_KEY') {
+            $add_warp_string=$Hf->get_value("mdt_forward_xforms_${runno}")
+        }
     
-	#my @add_warp_array = split(',',$add_warp_string);
-	#$raw_warp = pop(@add_warp_array);
+        #my @add_warp_array = split(',',$add_warp_string);
+        #$raw_warp = pop(@add_warp_array);
     } 
  
     $reference_image = $label_reference_path;
@@ -351,9 +351,9 @@ sub apply_mdt_warp_to_labels {
             } elsif (($current_label_space eq 'pre_affine') || ($current_label_space eq 'post_rigid')) {
                 $start=2;
             } elsif ($current_label_space eq 'post_affine') {
-                $start= 3;	
+                $start= 3;      
             } 
-	    
+            
             $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
         }
     }
@@ -405,22 +405,22 @@ sub apply_mdt_warp_to_labels {
 
     my $jid = 0;
     if (cluster_check) {
-	my $home_path = $current_path;
-	my $Id= "create_${label_atlas_nickname}_labels_for_${runno}";
-	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (not $jid) {
-	    error_out($stop_message);
-	}
+        my $home_path = $current_path;
+        my $Id= "create_${label_atlas_nickname}_labels_for_${runno}";
+        my $verbose = 2; # Will print log only for work done.
+        $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+        if (not $jid) {
+            error_out($stop_message);
+        }
     } else {
-	my @cmds = ($cmd);
-	if (! execute($go, $go_message, @cmds) ) {
-	    error_out($stop_message);
-	}
+        my @cmds = ($cmd);
+        if (! execute($go, $go_message, @cmds) ) {
+            error_out($stop_message);
+        }
     }
 
     if ((!-e $out_file) && (not $jid)) {
-	error_out("$PM: missing ${label_atlas_nickname} label set for ${runno}: ${out_file}");
+        error_out("$PM: missing ${label_atlas_nickname} label set for ${runno}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
   
@@ -462,53 +462,53 @@ sub convert_labels_to_RAS {
 
     if (data_double_check($out_file)) {
 
-	my $current_vorder= $Hf->get_value('working_image_orientation');
+        my $current_vorder= $Hf->get_value('working_image_orientation');
     if (($current_vorder eq 'NO_KEY') || ($current_vorder eq 'UNDEFINED_VALUE') || ($current_vorder eq '')) {
         $current_vorder= 'ALS';
     }
 
-	my $desired_vorder = 'RAS';
+        my $desired_vorder = 'RAS';
 
-	if (data_double_check($work_file)) {
+        if (data_double_check($work_file)) {
         my $matlab_exec_args="${input_labels} ${current_vorder} ${desired_vorder}"; #${output_folder}";
         $cmd = $cmd."${img_transform_executable_path} ${matlab_path} ${matlab_exec_args};\n";
         if ($make_individual_ROIs) {
             $cmd = $cmd."${make_ROIs_executable_path} ${matlab_path} ${input_labels}  ${final_ROIs_dir} ${current_vorder} ${desired_vorder};\n";
         }
-	}
+        }
 
-	$cmd =$cmd."cp ${work_file} ${out_file}";
+        $cmd =$cmd."cp ${work_file} ${out_file}";
  
-	my $go_message =  "$PM: converting ${label_atlas_nickname} label set for ${runno} to RAS orientation";
-	my $stop_message = "$PM: could not convert ${label_atlas_nickname} label set for ${runno} to RAS orientation:\n${cmd}\n";
-	
-	
-	my @test=(0);
-	if (defined $reservation) {
-	    @test =(0,$reservation);
-	}
-	
-	my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
-	my $go_2 = 1;
-	if (cluster_check) {
-	    my $home_path = $current_path;
-	    my $Id= "converting_${label_atlas_nickname}_labels_for_${runno}_to_RAS_orientation";
-	    my $verbose = 2; # Will print log only for work done.
-	    $jid_2 = cluster_exec($go_2, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	    if (not $jid_2) {
-		error_out($stop_message);
-	    }
-	} else {
-	    my @cmds = ($cmd);
-	    if (! execute($go_2, $go_message, @cmds) ) {
-		error_out($stop_message);
-	    }
-	}
-	
-	if ((!-e $out_file) && (not $jid_2)) {
-	    error_out("$PM: missing RAS version of ${label_atlas_nickname} label set for ${runno}: ${out_file}");
-	}
-	print "** $PM expected output: ${out_file}\n";
+        my $go_message =  "$PM: converting ${label_atlas_nickname} label set for ${runno} to RAS orientation";
+        my $stop_message = "$PM: could not convert ${label_atlas_nickname} label set for ${runno} to RAS orientation:\n${cmd}\n";
+        
+        
+        my @test=(0);
+        if (defined $reservation) {
+            @test =(0,$reservation);
+        }
+        
+        my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+        my $go_2 = 1;
+        if (cluster_check) {
+            my $home_path = $current_path;
+            my $Id= "converting_${label_atlas_nickname}_labels_for_${runno}_to_RAS_orientation";
+            my $verbose = 2; # Will print log only for work done.
+            $jid_2 = cluster_exec($go_2, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+            if (not $jid_2) {
+                error_out($stop_message);
+            }
+        } else {
+            my @cmds = ($cmd);
+            if (! execute($go_2, $go_message, @cmds) ) {
+                error_out($stop_message);
+            }
+        }
+        
+        if ((!-e $out_file) && (not $jid_2)) {
+            error_out("$PM: missing RAS version of ${label_atlas_nickname} label set for ${runno}: ${out_file}");
+        }
+        print "** $PM expected output: ${out_file}\n";
     }
     
     return($jid_2,$out_file);
@@ -548,12 +548,12 @@ sub warp_atlas_labels_vbm_Init_check {
     }
 
 
-	if ($log_msg ne '') {
-	    log_info("${message_prefix}${log_msg}");
-	}
+        if ($log_msg ne '') {
+            log_info("${message_prefix}${log_msg}");
+        }
 
     if ($init_error_msg ne '') {
-		$init_error_msg = $message_prefix.$init_error_msg;
+                $init_error_msg = $message_prefix.$init_error_msg;
     }
     return($init_error_msg);
 
@@ -566,7 +566,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
     my ($direction)=@_;
  
 #    if ($group eq 'MDT') {
-# 	$median_images_path = $Hf->get_value('median_images_path');
+#       $median_images_path = $Hf->get_value('median_images_path');
 #    }
 # # Set up work
     my $label_transform_chain = $Hf->get_value('label_transform_chain');
@@ -604,7 +604,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
                 (my $dummy, $label_atlas) = fileparts($label_atlas_dir,2);
             }
             if ($label_atlas_dir ne 'NO_KEY') { 
-            	my $labels_folder = "${label_atlas_dir}/labels_${label_atlas}"; # TODO: Will need to add another layer of folders here
+                my $labels_folder = "${label_atlas_dir}/labels_${label_atlas}"; # TODO: Will need to add another layer of folders here
                 
                 if ( ! -e $labels_folder ) {
                     $labels_folder = ${label_atlas_dir};
@@ -677,9 +677,9 @@ sub warp_atlas_labels_vbm_Runtime_check {
     if ($label_path eq 'NO_KEY') {
         $label_path = "${work_path}/labels";
         $Hf->set_value('labels_dir',$label_path);
-	if (! -e $label_path) {
-	    mkdir ($label_path,$permissions);
-	}
+        if (! -e $label_path) {
+            mkdir ($label_path,$permissions);
+        }
         }
 
         if ($group eq 'MDT') {
@@ -694,7 +694,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
             $current_label_space = $Hf->get_value('label_space');
         } else {
            $msg = "current_label_space has been explicitly set to: ${current_label_space}";
-        }	
+        }       
         printd(35,$msg);
 
         #$ROI_path_substring="${current_label_space}_${label_refname}_space/${label_atlas}";
@@ -714,7 +714,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
             mkdir ($current_path,$permissions);
         }
     }
-	
+        
     print " $PM: current path is ${current_path}\n";
     
     $results_dir = $Hf->get_value('results_dir');
@@ -722,46 +722,45 @@ sub warp_atlas_labels_vbm_Runtime_check {
     $convert_labels_to_RAS=$Hf->get_value('convert_labels_to_RAS');
     
     if (($convert_labels_to_RAS ne 'NO_KEY') && ($convert_labels_to_RAS == 1)) {
-	#$almost_MDT_results_dir = "${results_dir}/labels/";
-	$almost_MDT_results_dir = "${results_dir}/connectomics/";
-	if (! -e $almost_MDT_results_dir) {
-	    mkdir ($almost_MDT_results_dir,$permissions);
-	}
+        #$almost_MDT_results_dir = "${results_dir}/labels/";
+        $almost_MDT_results_dir = "${results_dir}/connectomics/";
+        if (! -e $almost_MDT_results_dir) {
+            mkdir ($almost_MDT_results_dir,$permissions);
+        }
 
-	#$final_MDT_results_dir = "${almost_MDT_results_dir}/${label_atlas}/";
-	$final_MDT_results_dir = "${almost_MDT_results_dir}/MDT/";
-	if (! -e $final_MDT_results_dir) {
-	    mkdir ($final_MDT_results_dir,$permissions);
-	}
+        #$final_MDT_results_dir = "${almost_MDT_results_dir}/${label_atlas}/";
+        $final_MDT_results_dir = "${almost_MDT_results_dir}/MDT/";
+        if (! -e $final_MDT_results_dir) {
+            mkdir ($final_MDT_results_dir,$permissions);
+        }
 
-	#$almost_results_dir = "${results_dir}/labels/${current_label_space}_${label_refname}_space/";
-	$almost_results_dir = "${results_dir}/connectomics/";
-	if (! -e $almost_results_dir) {
-	    mkdir ($almost_results_dir,$permissions);
-	}
+        #$almost_results_dir = "${results_dir}/labels/${current_label_space}_${label_refname}_space/";
+        $almost_results_dir = "${results_dir}/connectomics/";
+        if (! -e $almost_results_dir) {
+            mkdir ($almost_results_dir,$permissions);
+        }
 
-	#$final_results_dir = "${almost_results_dir}/${label_atlas}/";
+        #$final_results_dir = "${almost_results_dir}/${label_atlas}/";
 
-	if (defined $current_label_space) {
-	    $final_results_dir = "${almost_results_dir}/${current_label_space}_${label_refname}_space/";
-	    if (! -e $final_results_dir) {
+        if (defined $current_label_space) {
+            $final_results_dir = "${almost_results_dir}/${current_label_space}_${label_refname}_space/";
+            if (! -e $final_results_dir) {
             mkdir ($final_results_dir,$permissions);
-	    }
-	    #$Hf->set_value('final_label_results_dir',$final_results_dir);
-	    $Hf->set_value('final_connectomics_results_dir',$final_results_dir);
-	}
+            }
+            #$Hf->set_value('final_label_results_dir',$final_results_dir);
+            $Hf->set_value('final_connectomics_results_dir',$final_results_dir);
+        }
 
-
-    $make_individual_ROIs=$Hf->get_value('make_individual_ROIs');
-    if ($make_individual_ROIs eq 'NO_KEY') {
-        $make_individual_ROIs=0;
-    }
-
-
-	#$final_ROIs_dir = "${final_results_dir}/ROIs";
-	#if (! -e $final_ROIs_dir) {
-	#    mkdir ($final_ROIs_dir,$permissions);
-	#}
+        $make_individual_ROIs=$Hf->get_value('make_individual_ROIs');
+        if ($make_individual_ROIs eq 'NO_KEY') {
+            $make_individual_ROIs=0;
+        }
+        
+        
+        #$final_ROIs_dir = "${final_results_dir}/ROIs";
+        #if (! -e $final_ROIs_dir) {
+        #    mkdir ($final_ROIs_dir,$permissions);
+        #}
     }
 
     $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
@@ -809,7 +808,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
     my ($dummy,$skip_message)=warp_atlas_labels_Output_check($case,$direction);
 
     if ($skip_message ne '') {
-	print "${skip_message}";
+        print "${skip_message}";
     }
 
 # check for needed input files to produce output files which need to be produced in this step?
