@@ -43,46 +43,56 @@ use JSON::Parse qw(json_file_to_perl valid_json assert_valid_json);
 #($pipeline_path, my $dummy1, my $dummy2) = fileparts($full_pipeline_path,2);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
-$ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
+#$ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
 
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
 $permissions = 0755;
 my $interval = 1;
-#$valid_formats_string = 'hdr|img|nii';
 
 
 # a do it again variable, will allow you to pull data from another vbm_run
-my $import_data = 1;
-
+#my $import_data = 1;
 $test_mode = 0;
-use vars qw($start_file);
-$start_file=shift(@ARGV); #my
 
-if ( ! -f $start_file )  {
+### 
+# simple input handling, 
+# we accept a startup headfile, and/or a (number of nodes|reservation name)
+# If we're doing start file, it must be first. 
+use vars qw($start_file);
+$start_file=shift(@ARGV);
+# Only if it looks like a number to we assign it to nodes.
+# this in an attempt to simplify the following handling. 
+if( ! defined $start_file ){
+    die "Study_variables mode deprecated! its too messy :P\nPlease create a startup headfile";
+}
+if ( ! -f $start_file && $start_file =~ /[^0-9]/ )  {
     $nodes = $start_file;
     $start_file = '';
 } else {
     $nodes = shift(@ARGV);
 }
 
+# nodes is either a number at this point, or nothing
+# startfile is either a file path or an empty string.
 $reservation='';
-
-if (! defined $nodes) {
+if (! defined $nodes || $nodes eq '' ) {
     $nodes = 4 ;}
 else {
-    if ($nodes =~ /[^0-9]/) { # Test to see if this is not a number; if so, assume it to be a reservation.
-	$reservation = $nodes;
-	my $reservation_info = `scontrol show reservation ${reservation}`;
-	if ($reservation_info =~ /NodeCnt=([0-9]*)/m) { # Unsure if I need the 'm' option)
-	    $nodes = $1;
-	} else {
-	    $nodes = 4;
-	    print "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\nProceeding with NO reservation, and assuming you want to run on ${nodes} nodes.\n\n\n"; 
-	    $reservation = '';
-	    sleep(5);
-	}
+    $reservation = $nodes;
+    my $reservation_info = `scontrol show reservation ${reservation}`;
+    if ($reservation_info =~ /NodeCnt=([0-9]*)/m) { # Unsure if I need the 'm' option)
+	$nodes = $1;
+    } else {
+	die "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\n\n\n".
+	    " Maybe your start file($start_file) was not found !"; 
+	$nodes = 4;
+	# formerly was allowed to continue with reservatoin set failure, 
+	# this generates such a confusing mess that has been deprecated. 
+	#print "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\nProceeding with NO reservation, and assuming you want to run on ${nodes} nodes.\n\n\n"; 
+	$reservation = '';
+	sleep(5);
     }
 }
 
@@ -133,6 +143,7 @@ my $tmp_rigid_atlas_name='';
         $start_file = abs_path($start_file);
         load_SAMBA_json_parameters($start_file); 
     } else {
+	die "Study variables is not good, so its no longer allowed";
         study_variables_vbm();
     }
     if (! defined $do_vba) {
