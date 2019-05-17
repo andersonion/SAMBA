@@ -84,6 +84,9 @@ sub apply_mdt_warps_vbm {  # Main code
     }
      
 
+    # It is really a shame to wait after scheduling only one contrast worth of data. We should fix that... 
+    # Maybe we could schedule the working contrasts independently to get them done asap, 
+    # then schedule all the others without waiting for them?
     if (cluster_check() && (@jobs)) {
 	my $interval = 2;
 	my $verbose = 1;
