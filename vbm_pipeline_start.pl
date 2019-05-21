@@ -19,8 +19,8 @@ use Cwd qw(abs_path);
 use File::Basename;
 use List::MoreUtils qw(uniq);
 
-use lib dirname(abs_path($0));
-use SAMBA_global_variables;
+use JSON::Parse qw(json_file_to_perl valid_json assert_valid_json);
+
 
 use Env qw(RADISH_PERL_LIB);
 if (! defined($RADISH_PERL_LIB)) {
@@ -28,16 +28,22 @@ if (! defined($RADISH_PERL_LIB)) {
     exit;
 }
 use lib split(':',$RADISH_PERL_LIB);
+
+## Example use of printd
+use civm_simple_util qw(activity_log printd $debug_val);
+activity_log();
 use pipeline_utilities;
 use Headfile;
 
+use lib dirname(abs_path($0));
+use SAMBA_global_variables;
 
 
 $schedule_backup_jobs=1;
 
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 
-use JSON::Parse qw(json_file_to_perl valid_json assert_valid_json);
+
 
 #my $full_pipeline_path = abs_path($0);
 #($pipeline_path, my $dummy1, my $dummy2) = fileparts($full_pipeline_path,2);
@@ -111,9 +117,6 @@ require study_variables_vbm;
 use vbm_pipeline_workflow;
 use apply_warps_to_bvecs;
 
-## Example use of printd
-use civm_simple_util qw(activity_log printd $debug_val);
-activity_log();
 #$debug_val = 35;
 #my $msg =  "Your message here!";
 #printd(5,$msg);
