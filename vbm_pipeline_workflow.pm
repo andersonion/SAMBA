@@ -65,7 +65,7 @@ $test_mode = 0;
 umask(002);
 
 use lib dirname(abs_path($0));
-use Env qw(RADISH_PERL_LIB);
+use Env qw(RADISH_PERL_LIB WORKSTATION_DATA);
 if (! defined($RADISH_PERL_LIB)) {
     print STDERR "Cannot find good perl directories, quitting\n";
     exit;
@@ -410,15 +410,19 @@ if ( -f ${c_input_headfile}) {
         sleep_with_countdown(10);
 	}
 }
-# Save current to inputs and results, renaming as necessary
 
+# Save current to inputs and results, renaming on the way
 our ($timestamped_inputs_file) = $log_file =~ s/pipeline_info/input_parameters/;
 $timestamped_inputs_file =~ s/\.txt$/\.headfile/;
 `cp -p ${start_file} ${timestamped_inputs_file}`;
 `cp -p ${start_file} ${c_input_headfile}`;
-
-
-
+# caching inputs to common location for all to admire
+{
+    my ($p,$n,$e)=fileparts($start_file,3);
+    my $u_name=(getpwuid $>)[0];
+    my $cached_path=File::Spec->catfile($WORKSTATION_DATA,'samba_startup_cache',$u_name.'_'.$n.$e);
+    `cp -p $start_file $cached_path`;
+}
 
 add_defined_variables_to_headfile($Hf,@variables_to_headfile); 
 
