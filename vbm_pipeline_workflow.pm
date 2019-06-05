@@ -277,20 +277,21 @@ if (! $Hf->check()){
 
 my $papertrail_dir="${results_dir}/papertrail";
 if (! -e $papertrail_dir) {
-    mkdir($papertrail_dir,0777);
+    mkdir($papertrail_dir);
 }
 
 
 $log_file = open_log($papertrail_dir); # 26 Feb 2019--changed from results_dir to "papertrail" subfolder
-
-($stats_file) = $log_file =~ s/pipeline_info/job_stats/;
+printd(1000,"\tlog is $log_file\n");
+($stats_file = $log_file ) =~ s/pipeline_info/job_stats/;
+printd(1000,"\tlog is $log_file\n");
+printd(1000,"\tstats are $stats_file\n");
 
 $preprocess_dir = $dir_work.'/preprocess';
 $inputs_dir = $preprocess_dir.'/base_images';
 
 
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
-
 $control_comma_list = join(',',uniq(@control_group));
 $compare_comma_list = join(',',uniq(@compare_group));
 $complete_comma_list =join(',',uniq(@all_runnos));
@@ -381,7 +382,6 @@ if ((defined $start_file) && ($start_file ne '')) {
 # Check for previous run (startup headfile in inputs?)
 
 my $c_input_headfile="${pristine_input_dir}/current_inputs.headfile";
-
 if ( -f ${c_input_headfile}) {
 # If exists, compare with current inputs
 
@@ -412,16 +412,27 @@ if ( -f ${c_input_headfile}) {
 }
 
 # Save current to inputs and results, renaming on the way
-our ($timestamped_inputs_file) = $log_file =~ s/pipeline_info/input_parameters/;
+($timestamped_inputs_file = $log_file ) =~ s/pipeline_info/input_parameters/;
 $timestamped_inputs_file =~ s/\.txt$/\.headfile/;
-`cp -p ${start_file} ${timestamped_inputs_file}`;
-`cp -p ${start_file} ${c_input_headfile}`;
+if( defined $timestamped_inputs_file  && $timestamped_inputs_file ne "" ) {
+    `cp -pv ${start_file} ${timestamped_inputs_file}`;
+} else {
+    carp "failure to set timestampted_inputs_file from log $log_file";
+    sleep_with_countdown(2);
+}
+if( defined $c_input_headfile && $c_input_headfile ne "" ) { 
+    `cp -pv ${start_file} ${c_input_headfile}|| echo "Couldnt preserve current inputs to work!"`;
+} else {
+    confess "failure to set current_inputs headfile!";
+}
 # caching inputs to common location for all to admire
 {
     my ($p,$n,$e)=fileparts($start_file,3);
     my $u_name=(getpwuid $>)[0];
     my $cached_path=File::Spec->catfile($WORKSTATION_DATA,'samba_startup_cache',$u_name.'_'.$n.$e);
-    `cp -p $start_file $cached_path`;
+    if( defined $cached_path && $cached_path ne "" ) {
+	`cp -pv $start_file $cached_path`;
+    }
 }
 
 add_defined_variables_to_headfile($Hf,@variables_to_headfile); 
@@ -524,7 +535,7 @@ print STDOUT " Running the main code of $PM. \n";
 # Begin work:
 
 if (! -e $inputs_dir) {
-    mkdir($inputs_dir,0777);
+    mkdir($inputs_dir);
 }
 
 
