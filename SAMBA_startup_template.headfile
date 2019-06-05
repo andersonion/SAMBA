@@ -1,103 +1,131 @@
-### REQUIRED PARAMETERS ###
+# Example starutp for a two group study with 5 specimens in each group
+# and an MDT using all 10 specimens.
+##############################################################################
+# REQUIRED PARAMETERS 
+##############################################################################
+# project_name is the project code as stored in the database
+# at some point this will be adjusted to project_code, or both will work.
 project_name=13.colton.01
 
+# control_comma_list is the "template" group, all runnos which are registered/averaged into the MDT
+# In the future we may explicitly call this "template_group"
 control_comma_list=N51211,N51221,N51231,N51383,N51386,N51136,N51201,N51234,N51241,N5125
-## Hint: control_comma_list should include all runnos that you want to contribute to the creation of the MDT (aka template)
 
+# compare_comma_list all runnos which will be "aligned" to the MDT 
 compare_comma_list=N51211,N51221,N51231,N51383,N51386,N51136,N51201,N51234,N51241,N5125
-## Hint: compare_comma_list should include all runnos that should be independently re-registered to the final MDT once it has been created.
 
+# group runnos are typically mutually exclusive, they are used for VBA and label statistical comparisons
 group_1_runnos=N51211,N51221,N51231,N51383,N51386
 group_2_runnos=N51136,N51201,N51234,N51241,N51252
-## Hint: group_1_runnos and group_2_runnos should be mutually exclusive, as they are used for VBA and label statistical comparisons
 
+# custom_predictor_string is how you "name" groups;
+# i.e. nos2 is the name of group_1 and cvn is the name of group_2 in the example above.
+# This will default to control_vs_treated if not specified.
 #custom_predictor_string=nos2_vs_cvn
-## Hint: This is optional, and is how you can "name" the groups; i.e. nos2 is the name of group_1 and cvn is the name of group_2 in the example above.
-## Hint: This will default to control_vs_treated if not specified.
 
+# channel_comma_list, the image contrasts which will be aliged in your output.
+# This must at least include any contrasts used to drive registration.
+# old fashioned data channels fron tensor_create
+#channel_comma_list=fa,adc,dwi,e1,e2,e3
+# new dsi_studio data channels
+#channel_comma_list=dwi,fa,ad,md,rd,iso,gfa,qa,nqa
+# minimum channels for the pipeline as its configured here.
 channel_comma_list=dwi,fa
-## Hint: At a minimum, this must at least include any contrasts used to drive registration.
 
 # Rigid (coarse) alignment options
-atlas_name=chass_symmetric2
+rigid_atlas_name=chass_symmetric3_RAS
 rigid_contrast=dwi
 
+###
 # Non-linear (diffeomorphic) registration options
+###
 mdt_contrast=fa
+# mdt_creation_strategy, 'iterative' or 'pairwise' 
 mdt_creation_strategy=iterative
-## Hint: options for mdt_creation_strategy include 'iterative' and 'pairwise'
 
+# mdt_iterations, at least 4, normally we get good results with 6.
+# Four is the minimum becuase that this is the first fully-sampled, 
+# prior to that the template is created with downsampling.
 mdt_iterations=6
-## Hint: You want at least 4 mdt_iterations, as this is the first fully-sampled level
 
 diffeo_transform_parameters=0.5,3,0.5
-diffeo_iterations=100x100x100x60
+diffeo_iterations=3000x3000x500x60
+diffeo_transform_parameters=0.25,3,0.5
 
-### Various optional parameters ###
-
+##############################################################################
+# Various optional parameters 
+##############################################################################
+# optional_suffix, appended to the main directory names, before -inputs/-work/-results.
+# Very important to set if you're going to create multiple MDT's with this project.
+# Only effects the main folder name, so it doesnt have to be chosen perfectly.
+# MDT's are only named by the SAMBA_data_packager, which is run after completion.
 #optional_suffix=April2017analysis
-## Hint: optional_suffix will be appended to the main directory names, before -inputs/-work/-results.
 
+# vbm_reference_space, 
+# this can be:
+#    a specific runno,
+#    an arbitrary image,
+#    the name of an atlas,
+#    or 'native' (the first control runno).
 #vbm_reference_space=N51211
 vbm_reference_space=native
-## Hint: vbm_reference_space can be a specific runno, an arbitrary image, the name of an atlas, or 'native' (the first control runno).
-
 
 ## Connectivity processing options
-
+# convert_labels_to_RAS, should we create a RAS version of labels no matter our working space?
+# historically, the default working orientation was ALS, this will give you an additional copy of labels turned RAS.
 #convert_labels_to_RAS=1
-## Hint: historically, the default working orientation is ALS, so convert_labels_to_RAS will turn final labels from ALS to RAS.
 
+# do_connectivity=1 will process the 4D diffusion nifti stack and bvals/bvecs
+# to be used as input into another program such mrtrix or DSI studio
+# Only DSI studio is fully supported right now for bval/bvec processing and formatting.
 do_connectivity=0
-## Hint: do_connectivity=1 will process the 4D diffusion nifti stack and bvals/bvecs to be used as input into another program such mrtrix or DSI studio
-##       Only DSI studio is fully supported right now for bval/bvec processing and formatting.
 
+# eddy_current_correction, apply the eddy current registraions to bvectors, output bvecs will have ecc/noecc
 #eddy_current_correction=1
-## Hint: When turned on eddy current correction was used during DTI tensor processing, the resulting rotations will be applied to the bvecs as well.
 
-
-## Affine registration options
-
+###
+# Affine registration options
+###
+# affine_target will be most median volume of the control
+# Future support will allow for the average of the rigidly aligned images to be the affine registration target.
 #affine_contrast=dwi
 #affine_target=N51231
-## Hint: affine_target will be the first control runno if not specified.  Future support will allow for the average of the rigidly aligned images to be the affine registration target.
 
 
-## Image orientation options 
-
+###
+# Image orientation options 
+###
+# working_image_orientation, All work will be performed in this gross orientation.
+# The orientation chosen may need to match the atlas. That is a target for improvement in the future.
+# It is ALS by default which is based on the current standard atlas orientation. 
+# Support of arbitrary orientations is mostly operational, and RAS is recommended.
+working_image_orientation=RAS
 #working_image_orientation=ALS
-## Hint: All work will be performed in working_image_orientation, which is ALS by default which is based on the current standard atlas orientation.
-## Hint: Support of arbitrary orientations is forthcoming, and will be RAS in the future.
 
+# original_study_orientation, describes the current orientation of all the incoming images,
+# and assumes they are uniformly oriented. 
+# THIS IS A CRITICAL PARAMETER AND MUST BE CORRECT. A great deal of CIVM data is acquired ARI.
+# If any are not oriented the same they should be specified like. original_orientation_$runnobase=ARI
+# original_orientation_N51201=LPI 
+original_study_orientation=ARI
 #original_study_orientation=PRS
-## Hint: This describes the current orientation of all the incoming images, assuming they are uniformly oriented.
-## Hint: Support for handling outliers is forthcoming and will be in the form of:
-##       original_orientation_N51201=LPI (i.e. original_orientation_$runno=...)
 
+# Describing orientation with original_study_orientatino and original_orientatino_$runnobase
+# is STRONGLY preferred to using the flips
+# flip_x=1 will rotate incoming images from PRS to ALS.
+# This will be deprecated shortly.
 #flip_x=1
-## Hint: flip_x=1 will rotate incoming images from PRS to ALS.
-## Hint: This will be deprecated shortly.
 
-
+# flip_z=1 will rotate incoming images from ARI to ALS.
+# This will be deprecated shortly.
 #flip_z=0
-## Hint: flip_z=1 will rotate incoming images from ARI to ALS.
-## Hint: This will be deprecated shortly.
-
 ## Hint: flip_x=1 and flip_z=1 will take images from PLI to ALS.
 
-
-
-
+##
 # Label options
+###
 create_labels=1
 label_atlas_name=chass_symmetric3_RAS
-## Hint: This is the name of the ANATOMY (i.e. images) upon which your source labels are overlaid
-
-label_input_file=
-## Hint: If the name of your labels does not exactly match the label_atlas_name--perhaps due to multiple
-##       versions of labels for the same anatomicaly atlas
-
-
 label_space=pre_rigid
 ## Hint: Multiple, comma-limited label_space options can be specified, and include:
 ##       'pre_rigid': Native space of incoming images without any transforms applied
@@ -105,24 +133,59 @@ label_space=pre_rigid
 ##       'post_affine': The rigid and affine linear transforms will be applied to the images (translation+rotation+scaling+shearing)
 ##       'MDT': All images will be affinely and diffeomorphically mapped into the MDT label set
 ##       'atlas': All images will be affinely and diffeomorphically mapped into the original atlas label set	
-  
-# Masking/skull-stripping options	
-skull_strip_contrast=dwi
-## Hint: our automated skull-stripping is optimized for dwi
 
+# label_input_file specific label file to use instead of the defacto one in your label_atlas folder.
+# In new runs there may not be a label file in label_atlas, and we'll want to use the
+# transform chain to take the labels through 
+label_input_file=/cm/shared/CIVMdata/atlas/chass_symmetric3_RAS/atlas/chass_symmetric3_RAS/labels/WHS/chass_symmetric3_RAS_labels.nii.gz
+
+# label_atlas_nickname is "arbitrary string" 
+# we should be judicious in not making this very long as its part of filenames, and that is its purpose!
+# Ideally 3 chars, maximum 8(this is a guideline, not enforced).
+label_atlas_nickname=WHS
+
+# label_transform_chain, an inclusive list of dataset we transform through. 
+# This is mostly for hybrid studies.
+# Each entry is either a folder name from $WORKSTATION_DAT/atlas, or a full path to that folder.
+# Entries are expected to have a transforms folder, which will contain the transforms between itself and another entry.
+# label_transform_chain=chass_symmetric3,C57,/mnt/civmbigdata/civmBigDataVol/jjc29/samba_packages/C57_BXD24
+
+###
+# Masking/skull-stripping options	
+###
+skull_strip_contrast=dwi
+# threshold_code, this is the threhold code passed to our skull strip matlab code "strip_mask.m"
+#   It uses histogram analysis and finds minima, it is optimized for dwi. 
+# This is a weakpoint in processing becuase if it goes poorly registration will not work well. 
+# The different settings are (as scrapped from the matlab code, not all of which'll work)
+#% threshold_zero,  * 100-inf literal grescale value to use as starting threhold
+#%                  * 1-99    the deriviative low point in the historgram to
+#%                            use for the threshold .
+#%                            Typically 4 in DWI images, however 3 and 5 have
+#%                            been seen as well.
+#%                  * -1      manual threshold via imagej macro
+#%                  * -2      histogram threshold via zeros of histogram
+#%                  derivative for T2* images
+#%                  appropriate for t1 and t2 images).
 threshold_code=4
 do_mask=1
+
+# port_atlas_mask, align the atlas mask after creating an automatic one,
+# for particularly stubborn data this iseffective.
 port_atlas_mask=0
-## Hint: port_atlas_mask will align and scale the atlas mask to the results of the automated skull-stripping
 
+# pre_masked=1, dont try to mask data, this is if your input images are already masked, 
+# which can be necessary for data where the auto-masker needs significant intervention.
+# this is like do_mask=0. Its not clear which would take presedence.
 #pre_masked=0
-## Hint: pre_masked=1 will result in do_mask=0; this is if your input images are already masked.
 
-
-## VBA Options
-
+###
+# VBA Options
+###
 vba_contrast_comma_list=dwi,fa,e1,jac
-## Hint: If not all contrasts should be analyzed with VBA, this comma-delimited list of image contrasts will specify which ones will be used with VBA. If this variable is not set, VBA will be performed on all available contrasts (except the nii4D).
+# Hint: optional comma-delimited list of image contrasts to limit which contrasts will be analyzed with VBA, 
+# This is the ones to be used with VBA. 
+# If this variable is not set, VBA will be performed on all available contrasts (except the nii4D).
 
 smoothing_comma_list=1,2,3,0.1mm
 ## Hint: This comma-delimited list specifies the smoothing radii you want to try before performing VBA; no specified units defaults to 'vox', while 'mm' can be specified if need be.
