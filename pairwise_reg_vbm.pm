@@ -197,7 +197,7 @@ sub create_pairwise_warps {
     
     $fixed = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast);
     $moving = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast);
-    if ($mdt_contrast_2 ne '') {
+    if (defined $mdt_contrast_2 && $mdt_contrast_2 ne '') {
 	$fixed_2 = get_nii_from_inputs($inputs_dir,$fixed_runno,$mdt_contrast_2) ;
 	$moving_2 = get_nii_from_inputs($inputs_dir,$moving_runno,$mdt_contrast_2) ;
 	$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
@@ -212,8 +212,6 @@ sub create_pairwise_warps {
     my $go_message = "$PM: create pairwise warp for the pair ${moving_runno} and ${fixed_runno}" ;
     my $stop_message = "$PM: could not create warp between ${moving_runno} and ${fixed_runno}:\n${pairwise_cmd}\n";
 
-
-   
     my $rename_cmd;
     $rename_cmd = "".  #### Need to add a check to make sure the out files were created before linking!
 	"ln -s ${out_warp} ${new_warp};\n".
