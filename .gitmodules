@@ -1,3 +1,6 @@
 [submodule "BIDS_MOUSE"]
 	path = BIDS_MOUSE
 	url = git@github.com:andersonion/SAMBA_example_data.git
+[submodule "matlab_execs_for_SAMBA"]
+	path = matlab_execs_for_SAMBA
+	url = git://github.com/andersonion/matlab_execs_for_SAMBA.git
