@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 
 # mask_images_vbm.pm 
 
@@ -36,8 +36,21 @@ my $go=1;
 my ($port_atlas_mask_path,$port_atlas_mask);
 my ($job);
 
-my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
-my $strip_mask_executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/strip_mask_executables/strip_mask_executable/20170727_1304/run_strip_mask_exec.sh";
+
+# 01 July 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
+
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+if (! defined($MATLAB_EXEC_PATH)) {
+   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+
+
+my $matlab_path =  "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
+my $strip_mask_executable_path = "${MATLAB_EXEC_PATH}/strip_mask_executable/20170727_1304/run_strip_mask_exec.sh";
 
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
