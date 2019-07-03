@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 # pairwise_reg_vbm.pm 
 
 my $PM = "pairwise_reg_vbm.pm";

@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 # vbm_pipeline_workflow.pm
 # vbm_pipeline created 2014/11/17 BJ Anderson CIVM
 # vbm_pipeline_workflow created 2017/03/14 BJ Anderson CIVM
@@ -96,7 +96,7 @@ use compare_reg_to_mdt_vbm;
 use mdt_reg_to_atlas_vbm;
 use warp_atlas_labels_vbm;
 use calculate_individual_label_statistics_vbm;
-use	tabulate_label_statistics_by_contrast_vbm;
+use tabulate_label_statistics_by_contrast_vbm;
 use label_stat_comparisons_between_groups_vbm;
 use mask_for_mdt_vbm;
 use calculate_jacobians_vbm;

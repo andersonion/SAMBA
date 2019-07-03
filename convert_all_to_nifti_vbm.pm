@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 
 # convert_all_to_nifti_vbm.pm 
 
@@ -28,6 +28,16 @@ use pull_civm_tensor_data;
 #use vars used to be here
 #require convert_to_nifti_util;
 
+# 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
+
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+if (! defined($MATLAB_EXEC_PATH)) {
+   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
 
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$flip_x,$flip_z,$do_mask);
 my (@array_of_runnos,@channel_array);
@@ -39,9 +49,9 @@ my ($dummy,$error_message);
 
 
 my $working_image_orientation;
-my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
+my $matlab_path = "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
 #my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
-my $img_transform_executable_path ="/cm/shared/workstation_code_dev/matlab_execs/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
+my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
 
 # ------------------
 sub convert_all_to_nifti_vbm {
@@ -114,7 +124,6 @@ sub convert_all_to_nifti_vbm {
         #       recenter_nii_function($file,$current_path,$skip,$Hf);
         # }
         
-
         if (cluster_check() && (@jobs)) {
             my $interval = 2;
             my $verbose = 1;

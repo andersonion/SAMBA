@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 # vbm_pipeline_start.pl
 # originally created as vbm_pipeline, 2014/11/17 BJ Anderson CIVM
 # vbm_pipeline_start spun off on 2017/03/14 BJ Anderson CIVM
@@ -19,7 +19,7 @@ use Cwd qw(abs_path);
 use File::Basename;
 use List::MoreUtils qw(uniq);
 
-use JSON::Parse qw(json_file_to_perl valid_json assert_valid_json);
+#use JSON::Parse qw(json_file_to_perl valid_json assert_valid_json);
 
 
 use Env qw(RADISH_PERL_LIB);
@@ -142,9 +142,9 @@ my $tmp_rigid_atlas_name='';
     if ($start_file =~ /.*\.headfile$/) {
         $start_file = abs_path($start_file);
         load_SAMBA_parameters($start_file);
-    } elsif ($start_file =~ /.*\.json$/) {
-        $start_file = abs_path($start_file);
-        load_SAMBA_json_parameters($start_file); 
+    #} elsif ($start_file =~ /.*\.json$/) { # BJA, 6 June 2019: temporarily killing all JSON support until a robust solution is in place ensuring the JSON package is available in arbitrary user's environment.
+    #    $start_file = abs_path($start_file);
+    #    load_SAMBA_json_parameters($start_file); 
     } else {
 	die "Study variables is not good, so its no longer allowed";
         study_variables_vbm();

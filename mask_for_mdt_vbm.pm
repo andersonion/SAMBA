@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 
 # mask_for_mdt_vbm.pm 
 

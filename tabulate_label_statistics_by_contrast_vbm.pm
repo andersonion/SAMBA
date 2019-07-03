@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 
 #  tabulate_label_statistics_by_contrast_vbm.pm 
 

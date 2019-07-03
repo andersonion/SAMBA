@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 #extra step ls *.final.nii; get runnos within directory 
 #use 5.014;	# so push/pop/etc work on scalars (experimental)
 use warnings;

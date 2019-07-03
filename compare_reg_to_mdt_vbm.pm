@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 # compare_reg_to_mdt_vbm.pm 
 
 my $PM = "compare_reg_to_mdt_vbm.pm";

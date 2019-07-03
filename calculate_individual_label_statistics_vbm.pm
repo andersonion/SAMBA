@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 
 #  calculate_individual_label_statistics_vbm.pm 
 

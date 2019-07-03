@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 # calculate_mdt_images_vbm.pm 
 
 my $PM = "calculate_mdt_images_vbm.pm";

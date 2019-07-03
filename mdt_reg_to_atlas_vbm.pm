@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 # mdt_reg_to_atlas_vbm.pm 
 
 

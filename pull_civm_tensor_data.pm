@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 # pull_civm_tensor_data.pm
 # Originally from mid-Spring 2017; written by BJ Anderson, CIVM
 #

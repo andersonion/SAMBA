@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 # apply_mdt_warps_vbm.pm 
 # Originally written by BJ Anderson, CIVM
 

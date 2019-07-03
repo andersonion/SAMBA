@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 
 #  label_stat_comparisons_between_groups_vbm.pm 
 

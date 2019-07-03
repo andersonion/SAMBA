@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 # apply_warps_to_bvecs.pm 
 # Originally written by BJ Anderson, CIVM
 

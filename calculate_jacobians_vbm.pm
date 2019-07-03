@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-%link/perl
+#!/usr/bin/perl
 # calculate_jacobians_vbm.pm 
 # Originally written by BJ Anderson, CIVM
 

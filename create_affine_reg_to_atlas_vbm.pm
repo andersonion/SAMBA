@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 # create_affine_reg_to_atlas_vbm.pm 
 #  2015/01/02  BJ - added capability to register to any image, not just atlas; for use with full-affine registration.
 

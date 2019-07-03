@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-%link/perl
+#!/usr/bin/perl
 # smooth_images_vbm.pm 
 # Originally written by BJ Anderson, CIVM
 

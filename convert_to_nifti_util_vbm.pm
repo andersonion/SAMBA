@@ -1,4 +1,4 @@
-#!/usr/local/pipeline-link/perl
+#!/usr/bin/perl
 # convert_to_nifti_util.pm 
 #
 # created 2009/10/28 Sally Gewalt CIVM
