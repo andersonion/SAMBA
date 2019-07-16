@@ -247,6 +247,11 @@ sub set_center_and_orientation_vbm {
     # Hope to have a function that easily and quickly diddles with the header to recenter it...may incorporate into matlab exec instead, though.
 #    } else {
         $matlab_exec_args="${input_file} ${current_orientation} ${desired_orientation} ${output_folder}";
+        # our matlab execs dont like symbolic links, so we try to resolve that here for this one. 
+        # May try to hunt down the matlab code which fails in the future.
+        if ( -l $input_file ) {
+ 	    $matlab_exec_args=readlink ${input_file}." ${current_orientation} ${desired_orientation} ${output_folder}";
+	}
         $go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;
         $stop_message = "$PM: Failed to properly reorientate to ${desired_orientation} and recenter file: ${input_file}\n" ;
 #    }
