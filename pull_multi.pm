@@ -115,6 +115,10 @@ sub pull_multi {
             my $inputs_file = File::Spec->catfile(${inputs_dir},"${runno}_${contrast}");
             # Warning!!! shell and perl variable mixing generates odd looking escapes here, 
             # ext_and_gz is shell variable so is in_f.
+	    # This messy comedy renames cached files on the fly into our inputs folder.
+	    # Our "inputs" have never really been the inputs, they've always been adjusted 
+	    # to something uniformly globbed instead of arbitrary. 
+	    # This shell code is how that is handled here.
             my $l_cmd = "in_f=\$(ls ${target_dir}${file_search_string}); if [ ! -z \"\$in_f\" ];then ext_and_gz=\$(basename \$in_f |sed 's:^.*\\([.]nii.*\\)\$:\\1:'); if [ ! -z \"\$ext_and_gz\" ];then ln -sf \$in_f $inputs_file\$ext_and_gz;else echo error getting ext from \$in_f;fi;fi;";
 
             if ($contrast =~ /(tensor|diffusion)\*headfile|m\*GenericAffine/ ){
