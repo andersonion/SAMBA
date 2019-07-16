@@ -93,7 +93,7 @@ sub convert_all_to_nifti_vbm {
 
 
                     if ($current_file =~ /[\n]+/) {
-                        print "Unable to find input image for $runno and $ch in folder: ${in_folder}.\n";
+                        print "Unable to find input image for $runno and $ch in folder: ${in_folder}.\n".$current_file;
                     } else {
                         # push(@nii_files,$current_file);
                         my $please_recenter=1; # Currently, this is stuck "on", as we can't turn it off in our function.
@@ -115,7 +115,7 @@ sub convert_all_to_nifti_vbm {
         # }
         
 
-        if (cluster_check() && (@jobs)) {
+        if (cluster_check() && scalar(@jobs)) {
             my $interval = 2;
             my $verbose = 1;
             my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
@@ -241,6 +241,7 @@ sub set_center_and_orientation_vbm {
     my $matlab_exec_args='';
 
     my $jid = 0;
+    my $go =1;
     my ($go_message, $stop_message);
 
 #    if ($current_orientation eq $desired_orientation) {
@@ -250,7 +251,23 @@ sub set_center_and_orientation_vbm {
         # our matlab execs dont like symbolic links, so we try to resolve that here for this one. 
         # May try to hunt down the matlab code which fails in the future.
         if ( -l $input_file ) {
- 	    $matlab_exec_args=readlink ${input_file}." ${current_orientation} ${desired_orientation} ${output_folder}";
+	    my $true_file=readlink ${input_file};
+	    die "Trouble resolving link with " if ! -f $true_file;
+	    # there are a bunch of issues with renaming inputs here, so we resolve those 
+	    # in line checking for the exected input and the expected output.
+	    my ($ip,$in,$ie)=fileparts($input_file,2);
+	    $in=$in."_${desired_orientation}".$ie;
+	    my ($tp,$tn,$te)=fileparts($true_file,2);
+	    $tn=$tn."_${desired_orientation}".$te;
+	    my $correct_output="$output_folder/$in";
+	    my $incorrect_output="$output_folder/$tn";
+	    if ( -e $incorrect_output ) {
+		rename $incorrect_output, $correct_output;
+		$go=0;
+		log_info("moved $incorrect_output to $correct_output. Let the programmer know you saw this!");
+	    }
+	    $matlab_exec_args="$true_file ${current_orientation} ${desired_orientation} ${output_folder} && mv $incorrect_output $correct_output";
+	
 	}
         $go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;
         $stop_message = "$PM: Failed to properly reorientate to ${desired_orientation} and recenter file: ${input_file}\n" ;
@@ -262,19 +279,18 @@ sub set_center_and_orientation_vbm {
     my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
 
     if (cluster_check) {
-        my $go =1;          
 #       my $cmd = $pairwise_cmd.$rename_cmd;
         my $cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
-        
-        my $home_path = $current_path;
+	my $home_path = $current_path;
         my $Id= "recentering_and_setting_image_orientation_to_${desired_orientation}";
         my $verbose = 2; # Will print log only for work done.
-        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-        if (not $jid) {
-            error_out($stop_message);
-        }
+        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
+        if ($go ) {
+	    if ( not $jid ) {
+		error_out($stop_message);
+	    }
+	}
     }
-
     return($jid);
 }
 
