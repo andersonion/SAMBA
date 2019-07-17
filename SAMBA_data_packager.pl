@@ -159,7 +159,7 @@ sub main {
             $n_a_l_n=${$opts->{"label_atlas_nickname"}};
         } else {
             cluck "lighlty TESTED CONDITION, no label_atlas_nickname specified, would have used $n_a_l as nick (that is label_atlas_name, or rigid_atlas_name)";
-            sleep_with_countdown(3);
+            sleep_with_countdown(3) if ($debug_val>0 && $debug_val<100);
         }
     }
     ($v_ok,my $mdt_p)=$hf->get_value_check("template_predictor");
