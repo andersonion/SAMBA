@@ -81,7 +81,7 @@ vbm_reference_space=native
 do_connectivity=0
 
 # eddy_current_correction, apply the eddy current registraions to bvectors, output bvecs will have ecc/noecc
-#eddy_current_correction=1
+#eddy_current_correction=0
 
 ###
 # Affine registration options
