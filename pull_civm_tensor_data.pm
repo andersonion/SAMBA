@@ -106,10 +106,12 @@ sub find_my_tensor_data {
     #  one runno is an appended version of another runno, e.g. N54321 and N54321_26.  This might lead to pulling N54321_26 when requesting N54321. Don't say you
     #  weren't warned...
  
-    
-    my @recon_machines = qw(dusom_civm
-        delos
-        piper); 
+    # no recon machines enabled here as this code should be good and dead.
+    my @recon_machines = ();
+    funct_obsolete("find_my_tensor_data","This concept is being retired");
+#        dusom_civm
+#        delos
+#        piper
 #        andros      
 #        vidconfmac
 #        sifnos
@@ -341,9 +343,11 @@ sub find_my_tensor_data {
 #---------------------
 sub pull_civm_tensor_data {
 #---------------------
-    my @recon_machines = qw(dusom_civm
-        delos
-        piper);
+    my @recon_machines = qw(dusom_civm);
+    # reduce this to the minimal.
+    # that way we only look where you ask + archive.
+#        delos
+#        piper
 #        andros
 #        vidconfmac
 #        sifnos
