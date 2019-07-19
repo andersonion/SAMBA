@@ -3,7 +3,7 @@
 # Originally from mid-Spring 2017; written by BJ Anderson, CIVM
 #
 # Initially appended to vbm_pipeline_workflow; extracted on 16 June 2017
- 
+
 # All my includes and requires are belong to us.
 # use ...
 
@@ -63,7 +63,7 @@ sub pull_civm_tensor_data_Init_check {
                 if (@input_files_0) {
                     $gradient_file = $inputs_dir.'/'.$input_files_0[0];
                     $gradient_file =~ s/(\/\/)/\//g;
-            }
+                }
             }
             if ((defined $gradient_file ) && ($gradient_file ne '') && -e ${gradient_file} ) {
                 $Hf->set_value("original_bvecs_${runno}",$gradient_file);
@@ -105,7 +105,7 @@ sub find_my_tensor_data {
     #  the same machine, it might accidentally (and silently) pull unwanted data.  This can also occur when poor runno naming conventions are used, namely when
     #  one runno is an appended version of another runno, e.g. N54321 and N54321_26.  This might lead to pulling N54321_26 when requesting N54321. Don't say you
     #  weren't warned...
- 
+    
     # no recon machines enabled here as this code should be good and dead.
     my @recon_machines = ();
     funct_obsolete("find_my_tensor_data","This concept is being retired");
@@ -149,7 +149,7 @@ sub find_my_tensor_data {
     
     #my $local_message_prefix="Attempting to retrieve data from ${current_recon_machine} for runno: ${local_runno}\n";
     
-   # my $look_in_local_folder = 0;
+    # my $look_in_local_folder = 0;
     my $local_folder = "${inputs_dir}/${local_runno}_tmp/";
     
     ## Get tensor and raw headfiles
@@ -211,7 +211,7 @@ sub find_my_tensor_data {
             } else {
                 $machine_suffix = "-DTI-results";
             }
-        
+            
             my $pull_headfile_cmd;
             if ($current_recon_machine eq 'gluster') {
                 ## Look for local tensor results directory
@@ -221,6 +221,7 @@ sub find_my_tensor_data {
                     my @gluster_contents= grep(/^tensor($local_runno).*${machine_suffix}$/i ,readdir(DIR));
                     if ($#gluster_contents > -1){
                         for my $current_dir (@gluster_contents) {
+                            $current_dir=$BIGGUS_DISKUS.'/'.$current_dir;
                             if (-d $current_dir) {
                                 push(@tensor_recon_machines,'gluster');  
                                 $tmp_log_msg = "Tensor_create \"results\" folder for runno \"${local_runno}\" found locally at ${current_dir}\n";
@@ -274,9 +275,9 @@ sub find_my_tensor_data {
                     `mv ${latest_headfile} ${temp_headfile_name}`;
                     push(@original_tensor_headfiles,$latest_headfile);
                     push(@temp_tensor_headfiles,$temp_headfile_name);
-                
-                        $tensor_headfile = $temp_headfile_name;#temp solution only !!!
-    
+                    
+                    $tensor_headfile = $temp_headfile_name;#temp solution only !!!
+                    
                     $tmp_log_msg = "Tensor headfile for runno \"${local_runno}\" found on machine: ${current_recon_machine}\n";
                     $log_msg = $log_msg.$tmp_log_msg;
                 }
@@ -292,7 +293,7 @@ sub find_my_tensor_data {
         $tmp_error_msg = "No proper tensor headfile found ANYWHERE for runno: \"${local_runno}\".\n";
         $error_msg = $error_msg.$tmp_error_msg;
         $tensor_recon_machine='';
-    #   print "NO Tensor found anywhere...\n\n\n";
+        #   print "NO Tensor found anywhere...\n\n\n";
     } elsif ((@tensor_recon_machines) && ($#tensor_recon_machines > 0) && (($recon_machine eq '') || ($recon_machine eq 'NO_KEY'))) {
         $tmp_error_msg = "Multiple tensor headfiles found for runno: \"${local_runno}\" on these machines:\n";
         $error_msg = $error_msg.$tmp_error_msg;
@@ -316,7 +317,7 @@ sub find_my_tensor_data {
         $tmp_log_msg = "A tensor headfile for runno \"${local_runno}\" was found on \$recon_machine ${tensor_recon_machine}\n\tAny missing data will be pulled from here.\n";
         $log_msg = $log_msg.$tmp_log_msg;
     }
-        
+    
     if (defined $pos) {
         my ($dummy_1,$f,$e) = fileparts($original_tensor_headfiles[$pos],3);
         $tensor_headfile = "${inputs_dir}/${f}${e}";
@@ -440,7 +441,7 @@ sub pull_civm_tensor_data {
                     $tmp_error_msg = "More than 1 tensor headfile detected for runno \"${runno}\"; it appears invalid and/or ambiguous runnos are being used.\n";
                     $error_msg = $error_msg.$tmp_error_msg;
                 }
-                   $tensor_headfile = $input_files_1[0];
+                $tensor_headfile = $input_files_1[0];
 
                 if ((defined $tensor_headfile) && ($tensor_headfile ne '')) {
                     $tensor_headfile = "${inputs_dir}/${tensor_headfile}";
@@ -463,7 +464,7 @@ sub pull_civm_tensor_data {
                 my ($o_grad_path,$grad_filename,$grad_ext)=('','gradient_matrix','.txt');
 
                 if ($v_ok) {
-                     ($o_grad_path,$grad_filename,$grad_ext)= fileparts($original_gradient_location,2);
+                    ($o_grad_path,$grad_filename,$grad_ext)= fileparts($original_gradient_location,2);
                 }
 
                 $gradient_file = "${inputs_dir}/${runno}_${grad_filename}${grad_ext}";
@@ -474,91 +475,91 @@ sub pull_civm_tensor_data {
                         `gradmaker ${tensor_headfile} ${gradient_file}`;
                     }
                 }
-           #Carp::confess;
+                #Carp::confess;
                 if (data_double_check($gradient_file)) {
                     ## Look for local raw headfile
                     if (-d $inputs_dir) {
-                    opendir(DIR, $inputs_dir);
-                    my @input_files_2= grep(/^($runno).*\.headfile(\.gz)?$/i ,readdir(DIR));
-                    if ($#input_files_2 > 0) {
-                        $tmp_error_msg = "More than 1 raw headfile detected for runno \"${runno}\"...". 
-                        "\tIt appears invalid and/or ambiguous runnos are being used. BEHAVE YOURSELF!";
-                        $error_msg=$error_msg.$tmp_error_msg;
-                    }
-                    $raw_headfile = $input_files_2[0];
-                    if ((defined $raw_headfile)&& ($raw_headfile ne '')) {
-                        $raw_headfile = "${inputs_dir}/${raw_headfile}";
-                    } else {
-                        my $raw_machine_found=0;                    
-                        ##Cycle through possible locations until we successfully pull in a raw headfile, while noting location of data.
-                        foreach my $current_recon_machine (@recon_machines){
-                        if (! $raw_machine_found) {
-                            my $archive_prefix_or_runno = $runno."*/";
-                            if ($current_recon_machine eq 'dusom_civm') {
-                            $archive_prefix_or_runno = "${project_name}/";
-                            }
+                        opendir(DIR, $inputs_dir);
+                        my @input_files_2= grep(/^($runno).*\.headfile(\.gz)?$/i ,readdir(DIR));
+                        if ($#input_files_2 > 0) {
+                            $tmp_error_msg = "More than 1 raw headfile detected for runno \"${runno}\"...". 
+                                "\tIt appears invalid and/or ambiguous runnos are being used. BEHAVE YOURSELF!";
+                            $error_msg=$error_msg.$tmp_error_msg;
+                        }
+                        $raw_headfile = $input_files_2[0];
+                        if ((defined $raw_headfile)&& ($raw_headfile ne '')) {
+                            $raw_headfile = "${inputs_dir}/${raw_headfile}";
+                        } else {
+                            my $raw_machine_found=0;                    
+                            ##Cycle through possible locations until we successfully pull in a raw headfile, while noting location of data.
+                            foreach my $current_recon_machine (@recon_machines){
+                                if (! $raw_machine_found) {
+                                    my $archive_prefix_or_runno = $runno."*/";
+                                    if ($current_recon_machine eq 'dusom_civm') {
+                                        $archive_prefix_or_runno = "${project_name}/";
+                                    }
 
-                            my $pull_headfile_cmd;
-                            if ($current_recon_machine eq 'gluster') {
-                            ## Look for local tensor results directory
-                            my $main_dir = "/${BIGGUS_DISKUS}/";
-                            if (-d $main_dir) {
-                                opendir(DIR, $main_dir);
-                                my @gluster_contents= grep(/^($runno).*$/i ,readdir(DIR));
-                                for my $current_dir (@gluster_contents) {
-                                if (-d $current_dir) {
-                                    #$raw_recon_machine = 'gluster';
-                                    $raw_machine_found = 1;
-                                    $tmp_log_msg = "Raw recon folder for runno \"${runno}\" found locally at ${current_dir}\n";
+                                    my $pull_headfile_cmd;
+                                    if ($current_recon_machine eq 'gluster') {
+                                        ## Look for local tensor results directory
+                                        my $main_dir = "/${BIGGUS_DISKUS}/";
+                                        if (-d $main_dir) {
+                                            opendir(DIR, $main_dir);
+                                            my @gluster_contents= grep(/^($runno).*$/i ,readdir(DIR));
+                                            for my $current_dir (@gluster_contents) {
+                                                if (-d $current_dir) {
+                                                    #$raw_recon_machine = 'gluster';
+                                                    $raw_machine_found = 1;
+                                                    $tmp_log_msg = "Raw recon folder for runno \"${runno}\" found locally at ${current_dir}\n";
 
-                                   # my $input_headfile = `ls -t ${current_dir}/${runno}*headfile | tail -1`;
-                                    my $input_headfile = `ls -rt ${current_dir}/${runno}*/${runno}*/${runno}*headfile | head -1`;
-                                    chomp($input_headfile);
-                                    `cp ${input_headfile} ${inputs_dir}/`;
-                                    $raw_headfile = `ls -t ${inputs_dir}/${runno}*headfile | head -1`; 
-                                    chomp($raw_headfile);
-                                    if ($raw_headfile !~ /"no such file"/) { 
-                                    $raw_machine_found=1;
-                                    $tmp_log_msg =$tmp_log_msg."raw headfile \"${raw_headfile}\" successfully copied to inputs directory.\n";
+                                                    # my $input_headfile = `ls -t ${current_dir}/${runno}*headfile | tail -1`;
+                                                    my $input_headfile = `ls -rt ${current_dir}/${runno}*/${runno}*/${runno}*headfile | head -1`;
+                                                    chomp($input_headfile);
+                                                    `cp ${input_headfile} ${inputs_dir}/`;
+                                                    $raw_headfile = `ls -t ${inputs_dir}/${runno}*headfile | head -1`; 
+                                                    chomp($raw_headfile);
+                                                    if ($raw_headfile !~ /"no such file"/) { 
+                                                        $raw_machine_found=1;
+                                                        $tmp_log_msg =$tmp_log_msg."raw headfile \"${raw_headfile}\" successfully copied to inputs directory.\n";
+                                                    } else {
+                                                        $tmp_log_msg = $tmp_log_msg."Unable to find a valid raw headfile for runno \"${runno}\" ".
+                                                            "in ${current_dir}\n\tTrying other locations...\n";
+                                                    }
+                                                }
+                                                $log_msg = $log_msg.$tmp_log_msg;
+                                            }
+                                        }
+
                                     } else {
-                                    $tmp_log_msg = $tmp_log_msg."Unable to find a valid raw headfile for runno \"${runno}\" ".
-                                        "in ${current_dir}\n\tTrying other locations...\n";
+                                        $pull_headfile_cmd = "puller_simple -D 0 -f file -ore ${current_recon_machine} ${archive_prefix_or_runno}${runno}*/${runno}*headfile ${inputs_dir}/";
+                                        ####print "pull headfile cmd ${pull_headfile_cmd}\n\n\n";
+                                        `${pull_headfile_cmd} 2>&1`;
+                                        my $unsuccessful_pull_of_raw_headfile = $?;
+                                        if ($unsuccessful_pull_of_raw_headfile) {
+                                            $tmp_log_msg = $tmp_log_msg."Unable to find a valid raw headfile for runno \"${runno}\" on machine:".
+                                                " ${current_recon_machine}\n\tTrying other locations...\n";
+                                            $log_msg = $log_msg.$tmp_log_msg;
+                                        } else {
+                                            $raw_machine_found = 1;
+                                            #$raw_headfile = `ls -rt ${inputs_dir}/${runno}*headfile | tail -1`;
+                                            $raw_headfile = `ls -t ${inputs_dir}/${runno}*headfile | head -1`;
+                                            chomp($raw_headfile);
+                                            $tmp_log_msg = $tmp_log_msg."Raw headfile for runno \"${runno}\"found on machine: ${current_recon_machine}\n.\n";
+                                            $log_msg = $log_msg.$tmp_log_msg;
+                                        }
                                     }
                                 }
-                                $log_msg = $log_msg.$tmp_log_msg;
-                                }
-                            }
-
-                            } else {
-                            $pull_headfile_cmd = "puller_simple -D 0 -f file -ore ${current_recon_machine} ${archive_prefix_or_runno}${runno}*/${runno}*headfile ${inputs_dir}/";
-                            ####print "pull headfile cmd ${pull_headfile_cmd}\n\n\n";
-                             `${pull_headfile_cmd} 2>&1`;
-                            my $unsuccessful_pull_of_raw_headfile = $?;
-                            if ($unsuccessful_pull_of_raw_headfile) {
-                                $tmp_log_msg = $tmp_log_msg."Unable to find a valid raw headfile for runno \"${runno}\" on machine:".
-                                " ${current_recon_machine}\n\tTrying other locations...\n";
-                                $log_msg = $log_msg.$tmp_log_msg;
-                            } else {
-                                $raw_machine_found = 1;
-                                #$raw_headfile = `ls -rt ${inputs_dir}/${runno}*headfile | tail -1`;
-                                $raw_headfile = `ls -t ${inputs_dir}/${runno}*headfile | head -1`;
-                                chomp($raw_headfile);
-                                $tmp_log_msg = $tmp_log_msg."Raw headfile for runno \"${runno}\"found on machine: ${current_recon_machine}\n.\n";
-                                $log_msg = $log_msg.$tmp_log_msg;
-                            }
                             }
                         }
-                        }
-                    }
                     }
 
                     if (($raw_headfile eq '') || (! defined $raw_headfile)) {
-                    $tmp_log_msg = "No proper raw headfile found ANYWHERE for runno: \"${runno}\".\n".
-                        "\tWill attempt to use tensor headfile instead: ${tensor_headfile}";
-                    $log_msg = $log_msg.$tmp_log_msg;
+                        $tmp_log_msg = "No proper raw headfile found ANYWHERE for runno: \"${runno}\".\n".
+                            "\tWill attempt to use tensor headfile instead: ${tensor_headfile}";
+                        $log_msg = $log_msg.$tmp_log_msg;
                     }
 
-                my ($num_bvecs,$v_dim,@Hf_gradients);
+                    my ($num_bvecs,$v_dim,@Hf_gradients);
                     if ( -f $raw_headfile) {
                         ($num_bvecs,$v_dim,@Hf_gradients) =  build_bvec_array_from_raw_headfile($raw_headfile);
                     } else {
@@ -573,76 +574,76 @@ sub pull_civm_tensor_data {
                     }           
 
                     if ((defined $num_bvecs) && ($num_bvecs > 6)) {
-                    #parse bvals
-                    my $Bruker_data = 0; ### Temporarily only supporting Agilent data!
+                        #parse bvals
+                        my $Bruker_data = 0; ### Temporarily only supporting Agilent data!
 
-                    my $approx_Hf_bval_handle='';
-                    my $Hf_bval_handle='';
-                    if (! $Bruker_data) { # Right now (06 April 2017) we're assuming Agilent data
-                        $approx_Hf_bval_handle = "z_Agilent_bvalue";
-                    }
-                    my $Hf_bval_info = $tensor_Hf->get_value_like($approx_Hf_bval_handle);
-                    my ($bval_dim_info,$Hf_bval_string) = split(',',$Hf_bval_info);
-                    my @Hf_bvals = split(' ',$Hf_bval_string);
-                    my ($num_bvals,$bval_dim) = split(':',$bval_dim_info);
-                    my $single_bval =0;
-                    if (($num_bvals eq 'NO_KEY') || ($num_bvals eq '') || ($num_bvals != $num_bvecs)) { # If stuff blows up, let's default to assuming a single max_bvalue
-                        $single_bval=1;
-                        $approx_Hf_bval_handle = "max_bval";
-                        $Hf_bval_info = $tensor_Hf->get_value_like($approx_Hf_bval_handle);
-                        if ($Hf_bval_info eq 'NO_KEY') {
-                        $approx_Hf_bval_handle = "maxB-value";
-                        $Hf_bval_info = $tensor_Hf->get_value_like($approx_Hf_bval_handle);
+                        my $approx_Hf_bval_handle='';
+                        my $Hf_bval_handle='';
+                        if (! $Bruker_data) { # Right now (06 April 2017) we're assuming Agilent data
+                            $approx_Hf_bval_handle = "z_Agilent_bvalue";
                         }
-                        $Hf->set_value("max_bvalue_${runno}",$Hf_bval_info);
-                    }
-
-                    ## combine bvals and bvecs into one table
-
-                    my @gradient_matrix;
-                    for (my $bb=0;($bb < $num_bvecs); $bb++) {
-                        $tmp_log_msg = "Creating combined bval/bvec b-table from headfile: ${tensor_headfile}.";
-                        $log_msg = $tmp_log_msg;
-
-                        my @temp_array;
-                        my $nonzero_test = 0;
-                        for (my $ii=0; ($ii < $v_dim); $ii++) {
-                        my $temp_val = shift(@Hf_gradients);
-                        push(@temp_array,$temp_val);
-                        if (! $nonzero_test) {
-                            if ($temp_val ne '0') { # We are assuming that zero will always be stored in headfile as '0' (nor '0.0', '0.000', etc.
-                            $nonzero_test = 1;
+                        my $Hf_bval_info = $tensor_Hf->get_value_like($approx_Hf_bval_handle);
+                        my ($bval_dim_info,$Hf_bval_string) = split(',',$Hf_bval_info);
+                        my @Hf_bvals = split(' ',$Hf_bval_string);
+                        my ($num_bvals,$bval_dim) = split(':',$bval_dim_info);
+                        my $single_bval =0;
+                        if (($num_bvals eq 'NO_KEY') || ($num_bvals eq '') || ($num_bvals != $num_bvecs)) { # If stuff blows up, let's default to assuming a single max_bvalue
+                            $single_bval=1;
+                            $approx_Hf_bval_handle = "max_bval";
+                            $Hf_bval_info = $tensor_Hf->get_value_like($approx_Hf_bval_handle);
+                            if ($Hf_bval_info eq 'NO_KEY') {
+                                $approx_Hf_bval_handle = "maxB-value";
+                                $Hf_bval_info = $tensor_Hf->get_value_like($approx_Hf_bval_handle);
                             }
-                        }
-                        }
-                        my $current_bval=0;
-                        if ($single_bval) {
-                        if ($nonzero_test) {
-                            $current_bval = $Hf_bval_info;
-                        }
-                        } else {
-                        my $new_bval = shift(@Hf_bvals);
-                        if ($nonzero_test) {
-                            $current_bval = $new_bval;
-                        }
+                            $Hf->set_value("max_bvalue_${runno}",$Hf_bval_info);
                         }
 
-                        my $b_string = join(', ',($current_bval,@temp_array));
-                        push(@gradient_matrix,$b_string."\n");
-                        $tmp_log_msg = ".";
+                        ## combine bvals and bvecs into one table
+
+                        my @gradient_matrix;
+                        for (my $bb=0;($bb < $num_bvecs); $bb++) {
+                            $tmp_log_msg = "Creating combined bval/bvec b-table from headfile: ${tensor_headfile}.";
+                            $log_msg = $tmp_log_msg;
+
+                            my @temp_array;
+                            my $nonzero_test = 0;
+                            for (my $ii=0; ($ii < $v_dim); $ii++) {
+                                my $temp_val = shift(@Hf_gradients);
+                                push(@temp_array,$temp_val);
+                                if (! $nonzero_test) {
+                                    if ($temp_val ne '0') { # We are assuming that zero will always be stored in headfile as '0' (nor '0.0', '0.000', etc.
+                                        $nonzero_test = 1;
+                                    }
+                                }
+                            }
+                            my $current_bval=0;
+                            if ($single_bval) {
+                                if ($nonzero_test) {
+                                    $current_bval = $Hf_bval_info;
+                                }
+                            } else {
+                                my $new_bval = shift(@Hf_bvals);
+                                if ($nonzero_test) {
+                                    $current_bval = $new_bval;
+                                }
+                            }
+
+                            my $b_string = join(', ',($current_bval,@temp_array));
+                            push(@gradient_matrix,$b_string."\n");
+                            $tmp_log_msg = ".";
+                            $log_msg = $tmp_log_msg;
+                        }
+                        write_array_to_file($gradient_file,\@gradient_matrix);
+                        $tmp_log_msg = "\nDone creating b-table: ${gradient_file} for ${num_bvecs} bval/bvec entries.\n";
                         $log_msg = $tmp_log_msg;
-                    }
-                    write_array_to_file($gradient_file,\@gradient_matrix);
-                    $tmp_log_msg = "\nDone creating b-table: ${gradient_file} for ${num_bvecs} bval/bvec entries.\n";
-                    $log_msg = $tmp_log_msg;
                     }   
                 }
 
                 $Hf->set_value("original_bvecs_${runno}",$gradient_file);
             } else {
                 $tmp_error_msg = "No tensor headfile could be found for runno \"${runno}\"...".
-                "\tUnable to determine what gradient matrix to look for, and therefore the gradient table may have not been created,".
-                "and certainly hasn't been recorded for future processing.\n";
+                    "\tUnable to determine what gradient matrix to look for, and therefore the gradient table may have not been created,".
+                    "and certainly hasn't been recorded for future processing.\n";
                 $error_msg = $tmp_error_msg;
             }
         }
@@ -671,7 +672,7 @@ sub pull_civm_tensor_data {
                         $pull_folder_cmd = "puller_simple  -ore ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/ ${local_folder}/";
                     }
 
-                   ### print "pull folder command = ${pull_folder_cmd}\n\n\n"; ########
+                    ### print "pull folder command = ${pull_folder_cmd}\n\n\n"; ########
                     `${pull_folder_cmd} 2>&1`;
                     my $unsuccessful_flag = $?;
                     $tmp_log_msg = "Pulling tensor results folder for runno \"${runno}\" with command:\n\t${pull_folder_cmd}\n";
@@ -703,7 +704,7 @@ sub pull_civm_tensor_data {
                 $valid_formats_string=$valid_formats_string.'|txt';
             }
             ### END KLUDGE
-        #Carp::confess("$inputs_dir,$runno,$contrast");
+            #Carp::confess("$inputs_dir,$runno,$contrast");
             my $test_file =  get_nii_from_inputs($inputs_dir,$runno,$contrast);
             my $pull_file_cmd='';
             my $file_suffix='nii';
@@ -722,7 +723,6 @@ sub pull_civm_tensor_data {
 
                         $log_msg=$log_msg.$find_log_msg;
                         $error_msg=$error_msg.$find_error_msg;
-
                         if ($data_home eq 'gluster') {
                             $pull_file_cmd = "cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*_${contrast}.${file_suffix}* ${inputs_dir}/";
                         } else {
@@ -732,10 +732,10 @@ sub pull_civm_tensor_data {
 
                         #$log_msg = $log_msg.$tmp_log_msg;
                     } else {
-                    $pull_file_cmd = "mv ${test_file} ${inputs_dir}/";
-                    `${pull_file_cmd} 2>&1`;
-                    #$tmp_log_msg = `mv ${test_file} ${inputs_dir}`;
-                    #$log_msg = $log_msg.$tmp_log_msg;
+                        $pull_file_cmd = "mv ${test_file} ${inputs_dir}/";
+                        `${pull_file_cmd} 2>&1`;
+                        #$tmp_log_msg = `mv ${test_file} ${inputs_dir}`;
+                        #$log_msg = $log_msg.$tmp_log_msg;
                     }
                 } else {
                     my ($dummy_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) =query_data_home(\%where_to_find_tensor_data,$runno);
@@ -749,9 +749,9 @@ sub pull_civm_tensor_data {
                         #print  "machine suffix = ${machine_suffix}\n\n\n";  
                     }
                     if ($data_home eq 'gluster') {
-                    $pull_file_cmd = "cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*_${contrast}.${file_suffix}* ${inputs_dir}/";
+                        $pull_file_cmd = "cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*_${contrast}.${file_suffix}* ${inputs_dir}/";
                     } else {
-                    $pull_file_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*_${contrast}.${file_suffix}* ${inputs_dir}/";
+                        $pull_file_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}tensor${runno}*${machine_suffix}/${runno}*_${contrast}.${file_suffix}* ${inputs_dir}/";
                     }
                     ### print "pull file command YY = ${pull_file_cmd}\n\n\n"; ########
                     `${pull_file_cmd} 2>&1`;
@@ -765,63 +765,63 @@ sub pull_civm_tensor_data {
             my $orig_nii4D;
 
             if ($nii4D =~ /[\n]+/) {
-            $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
-            if ($orig_nii4D =~ /[\n]+/) {
-                my $pull_nii4D_cmd;#(see below) Removed * after .nii so we don't accidentally pull fiber tracking results.  Let's just hope what we want is uncompressed. 11 April 2017, BJA
-                if ($look_in_local_folder) {
-                my $test_file =  get_nii_from_inputs($local_folder,'nii4D',$runno);
-                if ($test_file =~ /[\n]+/) {
-                    my ($dummy_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) = query_data_home(\%where_to_find_tensor_data,$runno);
-                    $log_msg=$log_msg.$find_log_msg;
-                    $error_msg=$error_msg.$find_error_msg;
+                $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
+                if ($orig_nii4D =~ /[\n]+/) {
+                    my $pull_nii4D_cmd;#(see below) Removed * after .nii so we don't accidentally pull fiber tracking results.  Let's just hope what we want is uncompressed. 11 April 2017, BJA
+                    if ($look_in_local_folder) {
+                        my $test_file =  get_nii_from_inputs($local_folder,'nii4D',$runno);
+                        if ($test_file =~ /[\n]+/) {
+                            my ($dummy_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) = query_data_home(\%where_to_find_tensor_data,$runno);
+                            $log_msg=$log_msg.$find_log_msg;
+                            $error_msg=$error_msg.$find_error_msg;
 
-                    if ($data_home eq 'gluster') {
-                    $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;                     
+                            if ($data_home eq 'gluster') {
+                                $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;                     
+                            } else {
+                                $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
+                            }
+                            `${pull_nii4D_cmd} 2>&1`;
+                        } else {
+                            my $mv_cmd = "mv ${test_file} ${inputs_dir}";
+                            `${mv_cmd} 2>&1`;
+                        }
                     } else {
-                    $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
+                        my ($dummy_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) = query_data_home(\%where_to_find_tensor_data,$runno);
+                        $log_msg=$log_msg.$find_log_msg;
+                        $error_msg=$error_msg.$find_error_msg;
+                        if ($data_home eq 'gluster') {
+                            $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;                     
+                        } else {
+                            $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
+                        }
+                        `${pull_nii4D_cmd} 2>&1`;
+                        # if ($data_home eq 'gluster') {
+                        #     $tmp_log_msg = `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;
+                        # } else {
+                        #     $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
+                        #     $tmp_log_msg = `${pull_nii4D_cmd}`;
+                        # }
+                        # $log_msg = $log_msg.$tmp_log_msg;
                     }
-                    `${pull_nii4D_cmd} 2>&1`;
+                }
+                $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
+                #print "third nii4D = ${orig_nii4D}\n\n";
+                if ($orig_nii4D !~ /[\n]+/) {
+                    my $new_nii4D = "${inputs_dir}/${runno}_nii4D.nii";
+                    if ($orig_nii4D =~ /'.gz'/) {
+                        $new_nii4D = $new_nii4D.'.gz';
+                    }
+                    $tmp_log_msg = `mv ${orig_nii4D} ${new_nii4D}`;
+                    $log_msg = $log_msg.$tmp_log_msg;
                 } else {
-                    my $mv_cmd = "mv ${test_file} ${inputs_dir}";
-                    `${mv_cmd} 2>&1`;
+                    $error_msg = $error_msg."Despite best efforts, unable to produce a nii4D for runno \"${runno}\"\n";
                 }
-                } else {
-                my ($dummy_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) = query_data_home(\%where_to_find_tensor_data,$runno);
-                $log_msg=$log_msg.$find_log_msg;
-                $error_msg=$error_msg.$find_error_msg;
-                if ($data_home eq 'gluster') {
-                    $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;                     
-                } else {
-                    $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
-                }
-                `${pull_nii4D_cmd} 2>&1`;
-                # if ($data_home eq 'gluster') {
-                #     $tmp_log_msg = `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;
-                # } else {
-                #     $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
-                #     $tmp_log_msg = `${pull_nii4D_cmd}`;
-                # }
-                # $log_msg = $log_msg.$tmp_log_msg;
-                }
-            }
-            $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
-            #print "third nii4D = ${orig_nii4D}\n\n";
-            if ($orig_nii4D !~ /[\n]+/) {
-                my $new_nii4D = "${inputs_dir}/${runno}_nii4D.nii";
-                if ($orig_nii4D =~ /'.gz'/) {
-                $new_nii4D = $new_nii4D.'.gz';
-                }
-                $tmp_log_msg = `mv ${orig_nii4D} ${new_nii4D}`;
-                $log_msg = $log_msg.$tmp_log_msg;
-            } else {
-                $error_msg = $error_msg."Despite best efforts, unable to produce a nii4D for runno \"${runno}\"\n";
-            }
             }
         }
         # Clean up temporary results folder
         if ($look_in_local_folder) {
             if ( -d $local_folder) {
-            `rm -r ${local_folder}`;
+                `rm -r ${local_folder}`;
             }
         }
 
@@ -857,38 +857,38 @@ sub process_input_gradient_matrix {
 #---------------------
 sub query_data_home{
 #---------------------
-   my ($home_array_ref,$runno)=@_;
-   my $data_home;
-   my $log_msg='';
-   my $find_error_msg='';
-   my $found_headfile;
-   if ( exists $home_array_ref->{$runno}) {
-       $data_home = $home_array_ref->{$runno};
-  #if ( exist $home_array_ref => {$runno}) {
-  #     $data_home = $home_array_ref => {$runno};
-       $log_msg = "For runno \"${runno}\", retrieving tensor data from machine: ${data_home}.\n";
-   } else {
-       $log_msg = "No data home set for runno \"${runno}\"; will attempt to find its remote location.\n";
-   }
+    my ($home_array_ref,$runno)=@_;
+    my $data_home;
+    my $log_msg='';
+    my $find_error_msg='';
+    my $found_headfile;
+    if ( exists $home_array_ref->{$runno}) {
+        $data_home = $home_array_ref->{$runno};
+        #if ( exist $home_array_ref => {$runno}) {
+        #     $data_home = $home_array_ref => {$runno};
+        $log_msg = "For runno \"${runno}\", retrieving tensor data from machine: ${data_home}.\n";
+    } else {
+        $log_msg = "No data home set for runno \"${runno}\"; will attempt to find its remote location.\n";
+    }
 
-   if (! defined $data_home) {
-       my $find_log_msg='';
-       ($found_headfile,$data_home,$find_log_msg,$find_error_msg) = find_my_tensor_data($runno);
-       if ($data_home) { # We want to return a defined value, but if it is empty/zero, that means we failed to find what we wanted (as opposed to code failure).
-           $log_msg = $log_msg.$find_log_msg;
-           $home_array_ref->{$runno}=$data_home;
-           $log_msg = $log_msg."Data home found for runno \"${runno}\" on machine \"${data_home}\"\n";
-       }
-   }
-   #print "for some runno, ${runno}: \"".$home_array_ref->{$runno}."\"\n\n";
-   #print " this should be \"${data_home}\"\n\n";
-   my $archive_prefix = '';
-   my $machine_suffix = '';             
-   if ($data_home eq 'dusom_civm') {
-       $archive_prefix = "${project_name}/research/";
-   } else {
-       $machine_suffix = "-DTI-results";
-   }
-   return ($found_headfile,$data_home,$log_msg,$find_error_msg,$archive_prefix,$machine_suffix);
+    if (! defined $data_home) {
+        my $find_log_msg='';
+        ($found_headfile,$data_home,$find_log_msg,$find_error_msg) = find_my_tensor_data($runno);
+        if ($data_home) { # We want to return a defined value, but if it is empty/zero, that means we failed to find what we wanted (as opposed to code failure).
+            $log_msg = $log_msg.$find_log_msg;
+            $home_array_ref->{$runno}=$data_home;
+            $log_msg = $log_msg."Data home found for runno \"${runno}\" on machine \"${data_home}\"\n";
+        }
+    }
+    #print "for some runno, ${runno}: \"".$home_array_ref->{$runno}."\"\n\n";
+    #print " this should be \"${data_home}\"\n\n";
+    my $archive_prefix = '';
+    my $machine_suffix = '';             
+    if ($data_home eq 'dusom_civm') {
+        $archive_prefix = "${project_name}/research/";
+    } else {
+        $machine_suffix = "-DTI-results";
+    }
+    return ($found_headfile,$data_home,$log_msg,$find_error_msg,$archive_prefix,$machine_suffix);
 }
 1;

@@ -31,12 +31,12 @@ my $pipe_home = "/cm/shared/workstation_code_dev/analysis/SAMBA/";
 
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";  #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
 #my $compilation_date = "20180227_1439";#"20170616_2204"; Updated 27 Feb 2018, BJA--will now ignore any voxels with contrast values of zero (assumed to be masked)
+
 my $compilation_date = "stable";
 my $write_individual_stats_executable_path = "${pipe_home}label_stats_executables/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec_v2.sh"; 
 my $write_rat_report_executable_path = "${pipe_home}label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh";
 
 #if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
-
 #if (! defined $dims) {$dims = 3;}
 
 # ------------------
@@ -67,16 +67,16 @@ sub  calculate_individual_label_statistics_vbm {
 
     my $species = $Hf->get_value('U_species_m00');
     if ($species =~ /rat/) {
-	foreach my $runno (@array_of_runnos) {
-	    $go = $go_hash{$runno};
-	    if ($go) {
-		($job) = write_rat_report($runno);
-		
-		if ($job) {
-		    push(@jobs,$job);
-		}
-	    } 
-	}
+        foreach my $runno (@array_of_runnos) {
+            $go = $go_hash{$runno};
+            if ($go) {
+                ($job) = write_rat_report($runno);
+
+                if ($job) {
+                    push(@jobs,$job);
+                }
+            } 
+        }
     }
 
     if (cluster_check() && (scalar(@jobs)>0)) {
