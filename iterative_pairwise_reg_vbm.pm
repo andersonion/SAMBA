@@ -791,6 +791,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               channel_comma_list
                               convert_labels_to_RAS
                               create_labels
+                              register_MDT_to_atlas
                               do_mask
                               do_connectivity
                               do_vba

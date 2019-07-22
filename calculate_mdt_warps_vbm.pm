@@ -376,7 +376,10 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 	my @alphabet = qw(a b c d e f g h j k m n p q r s t u v w x y z); # Don't want to use i,l,o (I,L,O)
 	@alphabet = ('',@alphabet);
 
-	my $include = 0; # We will exclude certain keys from headfile comparison. Exclude key list getting bloated...may need to switch to include.
+# exclude certain keys from headfile comparison. Exclude key list getting bloated...
+# should switch to include, could have modules report values they rely on, 
+# then by asking each module in sequnce we would be able to say do we need to repeat or not.
+	my $include = 0; 
 	my @excluded_keys =qw(start_file
                               original_orientation_*
                               affine_identity_matrix
@@ -388,6 +391,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               channel_comma_list
                               convert_labels_to_RAS
                               create_labels
+                              register_MDT_to_atlas
                               do_mask
                               do_connectivity
                               do_vba
@@ -440,37 +444,32 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               label_input_file
                               stop_after_mdt_creation
                               number_of_nonparametric_seeds); #
-
-
-	for (my $i=0; $template_match== 0; $i++) {
-	    my $letter = $alphabet[$i];
-	    $temp_template_path = $template_path.$letter ;
-	    $temp_current_path = $current_path;
-	    if ($temp_current_path =~ s/(\/[A-Za-z_]+[\/]?)$/${letter}$1/) {
-		
-		
-		my $current_tempHf = find_temp_headfile_pointer($temp_current_path);
-		my $Hf_comp = '';
-		
-		if (defined $current_tempHf){
-		    $Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);
-		    
-		    if ($Hf_comp eq '') {
-			$template_match = 1;
-		    } else {
-			print " $PM: ${Hf_comp}\n"; # Is this the right place for this?
-		    }
-		} else {
-		    $template_match = 1;
-		}
-	    }
-	    if ($template_match) {
-		$template_name = $template_name.$letter; 
-		$template_path = $temp_template_path;
-		$current_path = $temp_current_path;   
-		print " At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n";
-	    }
-	}
+        for (my $i=0; $template_match== 0; $i++) {
+            my $letter = $alphabet[$i];
+            $temp_template_path = $template_path.$letter ;
+            $temp_current_path = $current_path;
+            if ($temp_current_path =~ s/(\/[A-Za-z_]+[\/]?)$/${letter}$1/) {
+                my $current_tempHf = find_temp_headfile_pointer($temp_current_path);
+                my $Hf_comp = '';
+                if (defined $current_tempHf){
+                    $Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);
+                    if ($Hf_comp eq '') {
+                        $template_match = 1;
+                    } else {
+                        print " $PM: ${Hf_comp}\n"; # Is this the right place for this?
+			sleep_with_countdown(3);
+                    }
+                } else {
+                    $template_match = 1;
+                }
+            }
+            if ($template_match) {
+                $template_name = $template_name.$letter; 
+                $template_path = $temp_template_path;
+                $current_path = $temp_current_path;   
+                print " At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n";
+            }
+        }
     }
     } else {
 
