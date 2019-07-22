@@ -118,7 +118,10 @@ sub iterative_pairwise_reg_vbm {  # Main code
    my ($dummy,$error_message)=iterative_pairwise_reg_Output_check($case);
    
    $Hf->write_headfile($write_path_for_Hf);
-   `chmod 777 ${write_path_for_Hf}`;
+=item 
+    # dirty executable and world readable behavior :p
+    `chmod 777 ${write_path_for_Hf}`;
+=cut
 
    my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
    print "$PM took ${real_time} seconds to complete.\n";

@@ -80,7 +80,10 @@ sub calculate_mdt_warps_vbm {  # Main code
     my $case = 2;
     my ($dummy,$error_message)=calculate_mdt_warps_Output_check($case,$direction);
     $Hf->write_headfile($write_path_for_Hf);
+=item 
+    # dirty executable and world readable behavior :p
     `chmod 777 ${write_path_for_Hf}`;
+=cut
     
 
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);

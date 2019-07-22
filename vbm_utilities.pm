@@ -43,7 +43,7 @@ sub DTI_MDT_through_seg_pipe_mc {
    my $main_channel_volume_name = "${fake_runno}_DTI_${channel}.nii";
    my $folder_2 = "${local_input_dir}/${fake_runno}";
    if (! -d $folder_2){
-	    mkdir($folder_2 ,0777) or die("couldnt create dir $folder_2");
+	    mkdir($folder_2 ) or die("couldnt create dir $folder_2");
    }
 
    my $tensor_hf_name = "${folder_2}/tensor${fake_runno}.headfile";

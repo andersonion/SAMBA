@@ -153,8 +153,10 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 
     my $write_path_for_Hf = "${current_path}/${PM}_current.headfile";
     $Hf->write_headfile($write_path_for_Hf);
+=item 
+    # dirty executable and world readable behavior :p
     `chmod 777 ${write_path_for_Hf}`;
-
+=cut
     # Clean up derived transforms.
 
     # Bash syntax below: if "ls" command is successful (finds existing items), then executes "rm" command.
