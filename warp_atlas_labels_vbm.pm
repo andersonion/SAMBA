@@ -188,7 +188,6 @@ sub reveal_label_source_components {
 #$c_string = `ls -r ${c_warp_dir}/_*`;
 
 #return($new_source_labels,$transform_chain);
-
 }
 
 # ------------------
@@ -198,6 +197,7 @@ sub resolve_transform_chain {
     use Env('WORKSTATION_DATA');
     my $atlases_path="${WORKSTATION_DATA}/atlas";
     if (! defined $direction) {$direction =1;}
+    confess "Direction not implemented!" if (! $direction);
     my $transform_chain='';
     my @nodes = split(',',$chain_comma_string);
     my @node_names=();
@@ -219,15 +219,21 @@ sub resolve_transform_chain {
             push(@node_folders,$c_node_folder);
         }
     }
+    if ( $debug_val>=55){
+        Data::Dump::dump(("Node Names:",\@node_names),("Node Folders:",\@node_folders));
+    }
     for (my $ii=1;$ii<(scalar @node_names);$ii++) {
         my $edge_string = '';
         my $other_node_name = $node_names[$ii-1];
         my $c_node_name = $node_names[$ii];
-        my ($test_dir_1 )= glob("${node_folders[$ii]}/transforms_${other_node_name}/${other_node_name}_to_*");
+        #my ($test_dir_1 )= glob("${node_folders[$ii]}/transforms_${other_node_name}/${other_node_name}_to_*");
+        my ($test_dir_1 )= glob("${node_folders[$ii]}/transforms/${other_node_name}_to_*");
         if ((defined $test_dir_1) && (-e ${test_dir_1})) {
+            printd(45,"Standard backward looking transform folder\n");
             $edge_string = join(' ',run_and_watch("ls -r ${test_dir_1}/_*"));
         } else {
-            my ($test_dir_2) = glob("${node_folders[$ii-1]}/transforms_${c_node_name}/${other_node_name}_to_${c_node_name}");
+            printd(45,"Alternate forward looking transform folder\n");
+            my ($test_dir_2) = glob("${node_folders[$ii-1]}/transforms/${other_node_name}_to_${c_node_name}");
             $edge_string = join(' ',run_and_watch("ls -r ${test_dir_2}/_*"));
         }
         chomp($edge_string);
@@ -501,12 +507,12 @@ sub warp_atlas_labels_vbm_Runtime_check {
 #    }
 # # Set up work
     my $label_transform_chain = $Hf->get_value('label_transform_chain');
-    my $label_input_file = $Hf->get_value('label_input_file');
+    my ($use_l_in,$label_input_file) = $Hf->get_value_check('label_input_file');
     $label_atlas_nickname = $Hf->get_value('label_atlas_nickname');
     $label_atlas = $Hf->get_value('label_atlas_name');
     
     if ($label_atlas_nickname eq 'NO_KEY') {
-        if ( $label_input_file ne 'NO_KEY') {
+        if ( $use_l_in ) {
             (my $dummy_path , $label_atlas_nickname) = fileparts($label_input_file,2);
             $label_atlas_nickname =~ s/_(labels|quagmire|mess).*//;
 
@@ -517,30 +523,31 @@ sub warp_atlas_labels_vbm_Runtime_check {
     }
     my $source_label_folder='';
     my $use_default_labels =0;
-
     if ($label_transform_chain ne 'NO_KEY') {
         ($source_label_folder, $extra_transform_string)=resolve_transform_chain($label_transform_chain);
     } else {
         undef $source_label_folder;
         undef $extra_transform_string;
     }
-    if ( -f $label_input_file ) {
+    # label_input_file, 
+    # The design goal for this variable is to give users a way to specify an arbitrary file,
+    # auto-resolving that based on fuzzy logic is inconsistent and will give users unexpected behavior on typo's
+    # so the ENTIRE else condition was a waste of time to write....
+    if ( $use_l_in && -f $label_input_file ) { 
         $atlas_label_path = $label_input_file;
     } else {
+        error_out("label_input_file specified, and was not found. Please fix your input (omit or specify a valid path) and re-start");
         my $label_atlas_dir   = $Hf->get_value('label_atlas_dir');
         if (defined $source_label_folder) {
-            
             $label_atlas_dir = $source_label_folder;
             $label_atlas_dir=~ s/[\/]*$//; # Remove trailing slashes
             (my $dummy, $label_atlas) = fileparts($label_atlas_dir,2);
         }
         if ($label_atlas_dir ne 'NO_KEY') { 
             my $labels_folder = "${label_atlas_dir}/labels_${label_atlas}"; # TODO: Will need to add another layer of folders here
-            
             if ( ! -e $labels_folder ) {
                 $labels_folder = ${label_atlas_dir};
             }
-
             if ($label_input_file ne 'NO_KEY') {
                 # In this case, it takes use specified filename: *_labels.nii.gz or *_quagmire.nii.gz or *_mess.nii.gz
                 # In general this must be a file name with extension, but no directory
@@ -556,7 +563,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
             }
         } else {
             $use_default_labels = 1;
-        }      
+        }
     }
     #} else {        
     # (my $source_label_folder, $extra_transform_string)=resolve_transform_chain($label_transform_chain);
@@ -699,12 +706,10 @@ sub warp_atlas_labels_vbm_Runtime_check {
     } else {
         @array_of_runnos = split(',',$runlist);
     }
-
     foreach my $runno (uniq(@array_of_runnos)) {
         # 7 March 2019 Find and copy lookup table, if available (look locally first)
         # Note that ONLY ONE file near source labels/quagmire can have the name *lookup.*
         # Otherwise we make no guarantee to proper behavior
-
         my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
         if ($local_lookup eq 'NO_KEY') {
             my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup[.].*\$"; 
@@ -730,13 +735,10 @@ sub warp_atlas_labels_vbm_Runtime_check {
     }
     my $case = 1;
     my ($dummy,$skip_message)=warp_atlas_labels_Output_check($case,$direction);
-
     if ($skip_message ne '') {
         print "${skip_message}";
     }
-
 # check for needed input files to produce output files which need to be produced in this step?
-
 }
 
 1;
