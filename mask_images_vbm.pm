@@ -26,6 +26,15 @@ use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELIN
 
 use Headfile;
 use pipeline_utilities;
+# 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+if (! defined($MATLAB_EXEC_PATH)) {
+   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+my $matlab_path = "${MATLAB_2015b_PATH}";
 
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$do_mask,$mask_dir,$template_contrast);
 my ($thresh_ref,$mask_threshold,$default_mask_threshold,$num_morphs,$morph_radius,$dim_divisor, $status_display_level);
@@ -36,20 +45,6 @@ my $go=1;
 my ($port_atlas_mask_path,$port_atlas_mask);
 my ($job);
 
-
-# 01 July 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
-
-use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
-if (! defined($MATLAB_EXEC_PATH)) {
-   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
-}
-
-if (! defined($MATLAB_2015b_PATH)) {
-    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
-}
-
-
-my $matlab_path =  "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
 my $strip_mask_executable_path = "${MATLAB_EXEC_PATH}/strip_mask_executable/20170727_1304/run_strip_mask_exec.sh";
 
 if (! defined $dims) {$dims = 3;}

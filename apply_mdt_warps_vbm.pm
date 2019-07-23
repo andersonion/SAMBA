@@ -9,14 +9,22 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-#no warnings qw(uninitialized bareword);
 
-#use vars used to be here
+use List::Util qw(max);
+# 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+if (! defined($MATLAB_EXEC_PATH)) {
+   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+my $matlab_path = "${MATLAB_2015b_PATH}";
+
 require Headfile;
 require pipeline_utilities;
 
 use civm_simple_util qw(printd $debug_val);
-use List::Util qw(max);
 
 
 my $do_inverse_bool = 0;
@@ -29,16 +37,13 @@ my (%go_hash);
 my $go = 1;
 my $job;
 
-my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 #my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
-my $img_transform_executable_path ="/cm/shared/workstation_code_dev/matlab_execs/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
+my $compilation_date="20170403_1100";
+my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/$compilation_date/run_img_transform_exe.sh";
 
 my $current_label_space;
-
 my $convert_images_to_RAS=0;
-
 my ($results_dir,$final_MDT_results_dir,$almost_results_dir,$almost_MDT_results_dir,$median_images_path, $final_results_dir);
-
 my ($current_contrast,$group,$gid);
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}

@@ -13,6 +13,16 @@ use warnings;
 
 use List::MoreUtils qw(uniq);
 
+# 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+if (! defined($MATLAB_EXEC_PATH)) {
+   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+my $matlab_path = "${MATLAB_2015b_PATH}";
+
 my ($current_path, $image_dir,$runlist,$ch_runlist,$in_folder,$out_folder);
 my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_atlas_name,$label_atlas_nickname,$label_path);
 my ($individual_stat_dir);
@@ -26,17 +36,9 @@ my $go = 1;
 my $job;
 my $PM_code = 66;
 
-my $pipe_home = "/cm/shared/workstation_code_dev/analysis/SAMBA/";
-
-my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";  #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
 #my $compilation_date = "20170619_1151";
 my $compilation_date = "stable";
-my $tabulate_study_stats_executable_path = "${pipe_home}label_stats_executables/study_stats_by_contrast_executable/${compilation_date}/run_study_stats_by_contrast_exec_v2.sh"; 
-
-
-#if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
-
-#if (! defined $dims) {$dims = 3;}
+my $tabulate_study_stats_executable_path = "$MATLAB_EXEC_PATH/study_stats_by_contrast_executable/${compilation_date}/run_study_stats_by_contrast_exec_v2.sh"; 
 
 # ------------------
 sub  tabulate_label_statistics_by_contrast_vbm {

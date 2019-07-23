@@ -18,6 +18,15 @@ require pipeline_utilities;
 use civm_simple_util qw(find_file_by_pattern);
 use List::Util qw(max);
 
+# 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+if (! defined($MATLAB_EXEC_PATH)) {
+   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+my $matlab_path = "${MATLAB_2015b_PATH}";
 
 my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
@@ -41,11 +50,9 @@ my $final_MDT_results_dir;
 my $almost_results_dir;
 my $almost_MDT_results_dir;
 
-my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 #my $make_ROIs_executable_path = "/glusterspace/BJ/run_Labels_to_ROIs_exec.sh";
-my $make_ROIs_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/Labels_to_ROIs_executable/20161006_1100/run_Labels_to_ROIs_exec.sh";
-
-my $img_transform_executable_path ="/cm/shared/workstation_code_dev/matlab_execs/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
+my $make_ROIs_executable_path = "${MATLAB_EXEC_PATH}/Labels_to_ROIs_executable/20161006_1100/run_Labels_to_ROIs_exec.sh";
+my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
 
 my $current_label_space; # 21 April 2017 -- BJA: Previously this wasn't initialized, but was still imported from the calling .pl (or at least that's my theory).
 

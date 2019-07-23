@@ -10,12 +10,20 @@ my $VERSION = "2017/04/03";
 my $NAME = "Application of affine transforms to bvecs.";
 my $DESC = "ants";
 
-
-use civm_simple_util qw(printd $debug_val);
 use List::Util qw(max);
 
-use pull_civm_tensor_data;
+# 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+if (! defined($MATLAB_EXEC_PATH)) {
+   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+my $matlab_path = "${MATLAB_2015b_PATH}";
 
+use civm_simple_util qw(printd $debug_val);
+use pull_civm_tensor_data;
 
 my ($runlist,$current_path,$write_path_for_Hf);
 my ($pristine_inputs_dir);
@@ -31,7 +39,11 @@ my ($results_dir,$final_MDT_results_dir,$almost_results_dir,$almost_MDT_results_
 my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 #my $bvec_transform_executable_path = "/nas4/rja20/bvec_transform_executable/AM/run_transform_bvecs.sh"; # Updated from 'AL' version, 7 June 2017, BJA
 #my $bvec_transform_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/bvec_transform_executable/20170607_1100/run_transform_bvecs.sh";
-my $bvec_transform_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/transform_bvecs_executable/stable/run_transform_bvecs.sh"; # As of 25 January 2019, 'stable' points to '20190125_1444'
+
+# As of 25 January 2019, 'stable' points to '20190125_1444'
+my $compilation_date='20190211_1539';
+$compilation_date='stable';
+my $bvec_transform_executable_path = "$MATLAB_EXEC_PATH/transform_bvecs_executable/$compilation_date/run_transform_bvecs.sh"; 
 my ($current_contrast);
 my $current_label_space;
 
