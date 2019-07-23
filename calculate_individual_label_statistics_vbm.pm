@@ -27,17 +27,20 @@ my $job;
 my $label_type;
 my $PM_code = 65;
 
-my $pipe_home = "/cm/shared/workstation_code_dev/analysis/SAMBA/";
 
-my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";  #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
+
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+if (! defined($MATLAB_EXEC_PATH)) {
+   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+my $matlab_path =  "${MATLAB_2015b_PATH}";
 #my $compilation_date = "20180227_1439";#"20170616_2204"; Updated 27 Feb 2018, BJA--will now ignore any voxels with contrast values of zero (assumed to be masked)
-
 my $compilation_date = "stable";
-my $write_individual_stats_executable_path = "${pipe_home}label_stats_executables/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec_v2.sh"; 
-my $write_rat_report_executable_path = "${pipe_home}label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh";
-
-#if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
-#if (! defined $dims) {$dims = 3;}
+my $write_individual_stats_executable_path = "$MATLAB_EXEC_PATH/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec_v2.sh"; 
+my $write_rat_report_executable_path = "$MATLAB_EXEC_PATH/label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh";
 
 # ------------------
 sub  calculate_individual_label_statistics_vbm {
@@ -45,8 +48,7 @@ sub  calculate_individual_label_statistics_vbm {
  
     ($current_label_space) = @_;
     my $start_time = time;
-     calculate_individual_label_statistics_Runtime_check();
-
+    calculate_individual_label_statistics_Runtime_check();
     
     foreach my $runno (@array_of_runnos) {
 	$go = $go_hash{$runno};
@@ -57,11 +59,10 @@ sub  calculate_individual_label_statistics_vbm {
         if ($local_lookup eq 'NO_KEY') {
             undef $local_lookup;
         }
-	    ($job) = calculate_label_statistics($runno,$input_labels,$local_lookup);
-
-	    if ($job) {
-		push(@jobs,$job);
-	    }
+	($job) = calculate_label_statistics($runno,$input_labels,$local_lookup);
+	if ($job) {
+	    push(@jobs,$job);
+	}
 	} 
     }
 
