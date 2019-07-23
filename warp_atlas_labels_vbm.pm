@@ -540,10 +540,13 @@ sub warp_atlas_labels_vbm_Runtime_check {
     # The design goal for this variable is to give users a way to specify an arbitrary file,
     # auto-resolving that based on fuzzy logic is inconsistent and will give users unexpected behavior on typo's
     # so the ENTIRE else condition was a waste of time to write....
-    if ( $use_l_in && -f $label_input_file ) { 
-        $atlas_label_path = $label_input_file;
+    if ( $use_l_in ) {
+	if ( -f $label_input_file ) { 
+	    $atlas_label_path = $label_input_file;
+	} else {
+	    error_out("label_input_file specified, and was not found. Please fix your input (omit or specify a valid path) and re-start DebugInfo: use($use_l_in) file($label_input_file)");
+	}
     } else {
-        error_out("label_input_file specified, and was not found. Please fix your input (omit or specify a valid path) and re-start");
         my $label_atlas_dir   = $Hf->get_value('label_atlas_dir');
         if (defined $source_label_folder) {
             $label_atlas_dir = $source_label_folder;
@@ -556,6 +559,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
                 $labels_folder = ${label_atlas_dir};
             }
             if ($label_input_file ne 'NO_KEY') {
+		error_out('Impossible condition!');
                 # In this case, it takes use specified filename: *_labels.nii.gz or *_quagmire.nii.gz or *_mess.nii.gz
                 # In general this must be a file name with extension, but no directory
                 # But in theory, anything in the form *_* (where there are NO underscores in the second wildcard string)
