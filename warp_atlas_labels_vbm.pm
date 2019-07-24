@@ -233,15 +233,19 @@ sub resolve_transform_chain {
         my $edge_string = '';
         my $other_node_name = $node_names[$ii-1];
         my $c_node_name = $node_names[$ii];
-        #my ($test_dir_1 )= glob("${node_folders[$ii]}/transforms_${other_node_name}/${other_node_name}_to_*");
-        my ($test_dir_1 )= glob("${node_folders[$ii]}/transforms/${other_node_name}_to_*");
-        if ((defined $test_dir_1) && (-e ${test_dir_1})) {
+        #my ($transform_back_dir )= glob("${node_folders[$ii]}/transforms_${other_node_name}/${other_node_name}_to_*");
+        my $for_pat="${node_folders[$ii]}/transforms/${other_node_name}_to_*";
+        my $back_pat="${node_folders[$ii-1]}/transforms/${other_node_name}_to_${c_node_name}";
+        my ($transform_back_dir )= glob($for_pat);
+        my ($transform_forward_dir) = glob($back_pat);
+        if ((defined $transform_back_dir) && (-e ${transform_back_dir})) {
             printd(45,"Standard backward looking transform folder\n");
-            $edge_string = join(' ',run_and_watch("ls -r ${test_dir_1}/_*"));
-        } else {
+            $edge_string = join(' ',run_and_watch("ls -r ${transform_back_dir}/_*"));
+        } elsif ((defined $transform_forward_dir) && (-e ${transform_forward_dir})) {
             printd(45,"Alternate forward looking transform folder\n");
-            my ($test_dir_2) = glob("${node_folders[$ii-1]}/transforms/${other_node_name}_to_${c_node_name}");
-            $edge_string = join(' ',run_and_watch("ls -r ${test_dir_2}/_*"));
+            $edge_string = join(' ',run_and_watch("ls -r ${transform_forward_dir}/_*"));
+        } else {
+            error_out("Missing expected dir ~ $for_pat, and didnt find alternate ~ $back_pat");
         }
         chomp($edge_string);
         # check if edge is empty.
