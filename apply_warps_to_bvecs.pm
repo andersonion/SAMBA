@@ -36,7 +36,6 @@ my $job;
 my ($orientation,$ALS_to_RAS,$ecc_string,$ecc_affine_xform,$nifti_flip,$scanner_flip);#$native_to_ALS
 my ($results_dir,$final_MDT_results_dir,$almost_results_dir,$almost_MDT_results_dir,$median_images_path, $final_results_dir);
 
-my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
 #my $bvec_transform_executable_path = "/nas4/rja20/bvec_transform_executable/AM/run_transform_bvecs.sh"; # Updated from 'AL' version, 7 June 2017, BJA
 #my $bvec_transform_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/bvec_transform_executable/20170607_1100/run_transform_bvecs.sh";
 
