@@ -26,7 +26,7 @@ die "Cannot find good perl directories, quiting" unless defined($RADISH_PERL_LIB
 use lib split(':',$RADISH_PERL_LIB);
 
 use pipeline_utilities;
-use civm_simple_util qw(activity_log can_dump file_trim load_file_to_array write_array_to_file find_file_by_pattern is_writable round printd whoami whowasi debugloc sleep_with_countdown $debug_val $debug_locator);
+use civm_simple_util qw(activity_log can_dump file_trim load_file_to_array write_array_to_file find_file_by_pattern file_mod_extreme is_writable round printd whoami whowasi debugloc sleep_with_countdown $debug_val $debug_locator);
 use Headfile;
 
 # ex of use lib a module (called MyModule) in current dir
@@ -44,13 +44,13 @@ sub main {
     #${$opts->{"image_dir:s"}}="";
     #${$opts->{"stat_dir:s"}}="";
     ${$opts->{"mdt_iterations:i"}}=0;
-    ${$opts->{"link_images"}}=1;
+    ${$opts->{"link_individuals!"}}=1;
+    ${$opts->{"link_images!"}}=1;
     ${$opts->{"template_predictor=s"}}="";
     ${$opts->{"label_atlas_nickname=s"}}="";
     ${$opts->{"rsync_location=s"}}="";
     $opts=auto_opt($opts,\@ARGV);
-
-#inputs headfile 
+    #inputs headfile 
     #mdtname is still required, it may be the optional suffix. (maybenot)
     #want to add output path, 
 #and target atlas is part of headpile
@@ -113,7 +113,16 @@ sub main {
     if ( scalar(@individuals) < 1 ) {
         cluck "input runnos undefined!";
     }
+    if( ! ${$opts->{"link_individuals"}} ) {
+	# if we're skipping the individuals.
+	@individuals=();
+    }
 
+    #sleep_with_countdown(1);
+    # Our options hash is a bit cantankerous, have to use the odd ${$opts->{"option_name"}} 
+    # syntax to get the value. 
+    #printf("\tlink_ind=%i\n\tlink_im=%i",${$opts->{"link_individuals"}},${$opts->{"link_images"}});
+    #printf("\tlink_ind=%i\n\tlink_im=%i",$opts->{"link_individuals"},$opts->{"link_images"});
     # headfile lookups, getting a bunch of implied vars in a lookup hash to make use of.
     # uses bunch of short varnams
     # generaly in decreasing specificity
@@ -232,6 +241,11 @@ sub main {
         }
     }
 
+    if ($debug_val==100 ) {
+	Data::Dump::dump(($output_path));
+	die "db:100 stop";
+    }
+
     #### 
     # handle MDT median_images
     ###
@@ -243,15 +257,14 @@ sub main {
     ###
     # discover images to link
     ###
-    #Data::Dump::dump($mdt_lookup);
     ###
     # do the linking of images
     ###
-    if ( ${$opts->{"link_images"}} ) {
+    if ( $opts->{"link_images"} ) {
         my $in_im_dir=File::Spec->catfile($mdtpath,"median_images");
         print("MDT images from $in_im_dir\n");
         my $mdt_lookup={};
-        $mdt_lookup=file_discovery($in_im_dir,$output_path,'MDT',$mdtname);
+        $mdt_lookup=transmogrify_folder($in_im_dir,$output_path,'MDT',$mdtname);
         if ( scalar(keys(%$mdt_lookup)) ) {
             print("\t Linking up images\n");
             while (my ($key, $value) = each %$mdt_lookup ) {
@@ -283,7 +296,7 @@ sub main {
                 qx(lndir $lp $lo);
             }
             # run through link stack setting up the name.
-            my $sub_lookup=file_discovery($lo,$lo,'MDT',$mdtname);
+            my $sub_lookup=transmogrify_folder($lo,$lo,'MDT',$mdtname);
             while (my ($key, $value) = each %$sub_lookup ) {
                 qx(mv $key $value);
             }
@@ -292,7 +305,7 @@ sub main {
             if(! -e $ln) {
                 mkdir($ln);
             }
-            $sub_lookup=file_discovery($lo,$ln,$n_a_l_n,$n_a_l_n);
+            $sub_lookup=transmogrify_folder($lo,$ln,$n_a_l_n,$n_a_l_n);
             while (my ($key, $value) = each %$sub_lookup ) {
                 qx(mv $key $value);
             }
@@ -304,6 +317,8 @@ sub main {
 # transcribe the name of the atlas for labels into targetatlas for code clarity. 
     my $TargetDataPackage=$n_a_l;
     package_transforms_MDT($mdtpath,$output_path,$mdtname,$TargetDataPackage,$n_vbm);
+    #fix_ts_new($output_path,'README.txt');
+    record_metadata($output_path);
 # END arranging
     
     ###
@@ -323,7 +338,7 @@ sub main {
         # Best science comes from untouched voxels, (we think)
         # so hard coding this isn't the worst idea.
         my $in_im_dir=File::Spec->catfile($mdtpath,"stats_by_region","labels","pre_rigid_native_space","images");
-        my $sub_lookup=file_discovery($in_im_dir,$output_path,$Specimen,$Specimen);
+        my $sub_lookup=transmogrify_folder($in_im_dir,$output_path,$Specimen,$Specimen);
         if ( scalar(keys(%$sub_lookup)) ) {
             print("\t Linking up images\n");
             while (my ($key, $value) = each %$sub_lookup ) {
@@ -333,11 +348,14 @@ sub main {
         package_transforms_SPEC($mdtpath,$output_path,$Specimen,$mdtname,$n_vbm);
         # n_a_l_n - the nickname for the labelset.
         package_labels_SPEC($mdtpath,$output_path,$Specimen,$n_a_l_n,$n_vbm);
+	record_metadata($output_path);
+	
     }
 
     ###
     # MDT feedback
     ###
+    # out of use.
     my $atlased_dir="$WORKSTATION_DATA/atlas/$mdtname";
     if (  -e $atlased_dir && 0 ) {
         my @empties;
@@ -372,14 +390,19 @@ sub main {
     #print("#Or at least the linky stack,");
     #print("  cp -RPpn $road $WORKSTATION_DATA/atlas/".basename( $output_path)."/$n_r\n");
     
-    
     #print("WARNING!!!! WITH RSYNC TRAILING SLASHES ARE IMPORTANT AND BOTH MUST BE PRESENT FOR CORRECT BEHAIVOR\n");
+    return 0;
 }
 
-sub file_discovery {
-    # Give an input and output path and input and output keywords, 
-    # look at all the files, resolve an output file path replacing the input keyword with the output keyword.
-    # returning a hash(ref) of in path to outpath
+sub transmogrify_folder {
+    # File name transmogrifier ... 
+    # A messy idea, and as such is nearly impossible to name reasonably.
+    # 
+    # Give an input and output folders and input and output keywords, 
+    # look at all files in input folder, resolve an output file path replacing 
+    # input keyword   with  output keyword.
+    # eg, get ready to rename on the fly from the inputfolder to the output folder.
+    # returns hash(ref) of in path to outpath
     my ($in_path,$out_path,$in_key,$out_key)=@_;
     my %transfer_setup;
 
@@ -495,13 +518,19 @@ sub package_transforms_MDT {
     my $n_ThisPackage_t_a=basename($ThisPackage_TargetDataPackage_affine);
     $n_ThisPackage_t_a=~ s/MDT_(.+)_to_${TargetDataPackage}_(.*)$/${TargetDataPackage}_to_MDT_$1_$2/;
     my $TargetDataPackage_ThisPackage_affine="$road_forward/".$n_ThisPackage_t_a;
-    my $antsCreateInverse="ComposeMultiTransform 3 ${TargetDataPackage_ThisPackage_affine} -i ${ThisPackage_TargetDataPackage_affine} && ConvertTransformFile 3 ${TargetDataPackage_ThisPackage_affine} ${TargetDataPackage_ThisPackage_affine} --convertToAffineType";
+    #my $antsCreateInverse="ComposeMultiTransform 3 ${TargetDataPackage_ThisPackage_affine} -i ${ThisPackage_TargetDataPackage_affine} && ConvertTransformFile 3 ${TargetDataPackage_ThisPackage_affine} ${TargetDataPackage_ThisPackage_affine} --convertToAffineType";
     my($p,$n,$e)=fileparts(${TargetDataPackage_ThisPackage_affine},3);
     my $p_i_t_c=File::Spec->catfile($p,$n.".sh");
+    
+    my ($i_out,$i_cmd);
+    ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform(
+	$ThisPackage_TargetDataPackage_affine, $TargetDataPackage_ThisPackage_affine);
     if (  ! -e $p_i_t_c ) {
-        open(my $f_id,'>',$p_i_t_c);
-        print($f_id "#!/bin/bash\ncd $p;$antsCreateInverse;\n");
-        close($f_id);
+	open(my $f_id,'>',$p_i_t_c);
+	print($f_id "#!/bin/bash\n$i_cmd;\n");
+	close($f_id);
+	#print($f_id "#!/bin/bash\ncd $p;$antsCreateInverse;\n");
+        #close($f_id);
     }
     if (  ! -z "$ThisPackage_TargetDataPackage_affine" && ! -e $TargetDataPackage_ThisPackage_affine ) {
         print("have $ThisPackage_TargetDataPackage_affine create $TargetDataPackage_ThisPackage_affine\n");
@@ -714,7 +743,7 @@ sub package_labels_SPEC {
         make_path($nick_folder);
     }
     my $label_in_folder=File::Spec->catfile($source_label_root,$LabelNick);
-    my $sub_lookup=file_discovery($label_in_folder,$nick_folder,$ThisPackageName,$ThisPackageName);
+    my $sub_lookup=transmogrify_folder($label_in_folder,$nick_folder,$ThisPackageName,$ThisPackageName);
     # Filter out the redundant RAS copy
     my $regex='.*RAS.*';
     # In case RAS is in our labelnick(which it could be if we didnt use one), reset the filter to nothing found
@@ -743,4 +772,46 @@ sub package_labels_SPEC {
 
     return;
 }
+sub fix_ts_new {
+    # find all files in direcotory that are not "file"
+    # set timestamp of "file" to the newest one found
+    #
+    # This is a tall order for repeatibility so it is currently abandoned.
+    my ($directory,$file)=@_;
+    my @files=find_file_by_pattern($directory,'.*');
+    my @correct_set= grep(!/$file/xi, @files);
+    @files = grep(/$file/xi, @files);
+    my $reference_file=file_mod_extreme(\@correct_set,'new');
+    Data::Dump::dump((\@correct_set,$reference_file,\@files));die;
+    foreach (@files) {
+	timestamp_copy($reference_file,$_);
+    }
+}
+
+sub record_metadata {
+    # record_metadata sets all link timestamps to their true source as found by
+    # resolve_link and then runs ls -lR on the directory.
+    my ($output_path)=@_;
+    # find all files in this output_path
+    my @files=find_file_by_pattern($output_path,'.*');
+    foreach (@files) {
+	#my $rp=resolve_link($_); 
+	my $rp = Cwd::realpath($_);
+	if ( ! -e $_ ) { 
+	    confess "issue resolving $_ to its true path, failed at $_";
+	}
+	if ( -e $rp && -e $_ ) {
+	    qx(touch -hr $rp $_);
+	} else {
+	    die "error on resolve $_, got $rp";
+	}
+	# save file meta data listing before someone gets the chance to transfer it
+	# might be nice to play timestamp games with this to set its timestamp 
+	# to the newest file(not folder) of the output...
+    }
+    my $meta_record_cmd=sprintf("ls -lR %s &> %s/.file_meta.log",$output_path,$output_path);
+    qx($meta_record_cmd);
+    return;
+}
+
 1;
