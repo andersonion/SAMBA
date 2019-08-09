@@ -373,12 +373,23 @@ sub main {
             print("# WARNING: there is probably a readme in that folder which is now invalid!\n");
         }
     }
-    my $rsync_location="piper.dhe.duke.edu:/Volumes/piperspace/samba_packages/";
+    
+    my $bd_name=basename($BIGGUS_DISKUS);
+    my $o_name=basename($output_base);
+    if ($bd_name =~ /$o_name/) {
+	# if we packaged straight into biggus_diskus, then add our project_code to our samba_packages_folder on remote
+	$o_name=$n_p;
+    }
+    my $rsync_location="piper.dhe.duke.edu:/Volumes/piperspace/samba_packages/$o_name/";
     if ( ${$opts->{"rsync_location"}} ne "" ) {
 	# force slash on.
 	$rsync_location=${$opts->{"rsync_location"}}."/";
+	# collapse any multi slashing to single
+	$rsync_location=~s|/+|//|g;
     }
-    print(" Data \"packaged\" sucessfully! This is nearly (but not quite archiveable).\n");
+    print(" Data \"packaged\" sucessfully! THIS IS A PRESENTATION SET, NOT what we would archive.\n");
+    print(" To get archive ready please use the SAMBA_archive_prep\n");
+    print("\n");
     print(" You can send all your data to one of our workstations (piper) for continuting work with the following:\n");
     print("   rsync -a --copy-unsafe-links $output_base/ $rsync_location \n");
     print(" To archive you will need to dereference the linkages, with the following command:\n");
