@@ -29,7 +29,7 @@ if (! defined($RADISH_PERL_LIB)) {
 use lib split(':',$RADISH_PERL_LIB);
 
 #use vars used to be here
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME HOME);
 
 use text_sheet_utils;
 
@@ -148,6 +148,7 @@ do_vba  vba_contrast_comma_list vba_analysis_software
 smoothing_comma_list
 nonparametric_permutations fdr_masks tfce_extent tfce_height fsl_cluster_size 
 U_specid U_species_m00 U_code
+stats_file
 );
 
 if (defined $label_reference) {
@@ -283,7 +284,8 @@ if (! -e $papertrail_dir) {
 
 $log_file = open_log($papertrail_dir); # 26 Feb 2019--changed from results_dir to "papertrail" subfolder
 
-($stats_file) = $log_file =~ s/pipeline_info/job_stats/;
+#($stats_file) = $log_file =~ s/pipeline_info/job_stats/;
+$stats_file = $log_file =~ s/pipeline_info/job_stats/r;
 
 $preprocess_dir = $dir_work.'/preprocess';
 $inputs_dir = $preprocess_dir.'/base_images';
@@ -351,6 +353,9 @@ $Hf->set_value('number_of_nodes_used',$nodes);
 $rigid_transform_suffix='rigid.mat';
 $affine_transform_suffix='affine.mat';
 $affine_identity_matrix="$WORKSTATION_DATA/identity_affine.mat";
+if (! -f $affine_identity_matrix) {
+    $affine_identity_matrix="${HOME}/SAMBA/identity_affine.mat"; # Need better handling of SAMBA directory
+}
 
 ##
 

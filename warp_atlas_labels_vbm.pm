@@ -41,11 +41,25 @@ my $final_MDT_results_dir;
 my $almost_results_dir;
 my $almost_MDT_results_dir;
 
-my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
-#my $make_ROIs_executable_path = "/glusterspace/BJ/run_Labels_to_ROIs_exec.sh";
-my $make_ROIs_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/Labels_to_ROIs_executable/20161006_1100/run_Labels_to_ROIs_exec.sh";
 
-my $img_transform_executable_path ="/cm/shared/workstation_code_dev/matlab_execs/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
+# 18 July 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths                                                                                               
+
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH);
+if (! defined($MATLAB_EXEC_PATH)) {
+    $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+
+
+my $matlab_path =  "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";  
+
+#my $make_ROIs_executable_path = "/glusterspace/BJ/run_Labels_to_ROIs_exec.sh";
+my $make_ROIs_executable_path = "${MATLAB_EXEC_PATH}/Labels_to_ROIs_executable/run_Labels_to_ROIs_exec.sh";
+
+my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exe.sh";
 
 my $current_label_space; # 21 April 2017 -- BJA: Previously this wasn't initialized, but was still imported from the calling .pl (or at least that's my theory).
 
@@ -574,8 +588,8 @@ sub warp_atlas_labels_vbm_Runtime_check {
     $label_atlas_nickname = $Hf->get_value('label_atlas_nickname');
     $label_atlas = $Hf->get_value('label_atlas_name');
     
-    if ($label_atlas_nickname eq 'NO_KEY') {
-        if ( $label_input_file ne 'NO_KEY') {
+    if (($label_atlas_nickname eq 'NO_KEY') ||  ($label_atlas_nickname eq 'EMPTY_VALUE') ) {
+        if (( $label_input_file ne 'NO_KEY') && ($label_input_file ne 'EMPTY_VALUE') ) {
             (my $dummy_path , $label_atlas_nickname) = fileparts($label_input_file,2);
             $label_atlas_nickname =~ s/_(labels|quagmire|mess).*//;
 
@@ -586,47 +600,47 @@ sub warp_atlas_labels_vbm_Runtime_check {
     }
     my $source_label_folder='';
     my $use_default_labels =0;
-
-    if ($label_transform_chain ne 'NO_KEY') {
+    
+    if (($label_transform_chain ne 'NO_KEY') && ($label_transform_chain ne 'NO_KEY') ) {
         ($source_label_folder, $extra_transform_string)=resolve_transform_chain($label_transform_chain);
     } else {
-           undef $source_label_folder;
-           undef $extra_transform_string;
+	undef $source_label_folder;
+	undef $extra_transform_string;
     }
-        if ( -f $label_input_file ) {
-            $atlas_label_path = $label_input_file;
-        } else {
-            my $label_atlas_dir   = $Hf->get_value('label_atlas_dir');
-            if (defined $source_label_folder) {
-                
-                $label_atlas_dir = $source_label_folder;
-                $label_atlas_dir=~ s/[\/]*$//; # Remove trailing slashes
-                (my $dummy, $label_atlas) = fileparts($label_atlas_dir,2);
-            }
-            if ($label_atlas_dir ne 'NO_KEY') { 
-                my $labels_folder = "${label_atlas_dir}/labels_${label_atlas}"; # TODO: Will need to add another layer of folders here
-                
-                if ( ! -e $labels_folder ) {
-                    $labels_folder = ${label_atlas_dir};
-                }
-
-                if ($label_input_file ne 'NO_KEY') {
-                    # In this case, it takes use specified filename: *_labels.nii.gz or *_quagmire.nii.gz or *_mess.nii.gz
-                    # In general this must be a file name with extension, but no directory
-                    # But in theory, anything in the form *_* (where there are NO underscores in the second wildcard string)
-                    # The first wildcard string is the parent folder, which in turn is in the labels_${label_atlas} folder
-                    # NOTE: If there is a discrepency between the name of the parent folder and the name of the label file
-                    #       up to but not including the last underscore, the full file path will need to be specified
-                    my $second_folder= $label_input_file;
-                    $second_folder =~ s/_[^_]*$//;
-                    $atlas_label_path  = "${labels_folder}/${second_folder}/${label_input_file}";
-                } else {
-                    $atlas_label_path  = get_nii_from_inputs($labels_folder,$label_atlas,'(labels|quagmire|mess)');
-                }
-            } else {
-                $use_default_labels = 1;
-            }      
+    if ( -f $label_input_file ) {
+	$atlas_label_path = $label_input_file;
+    } else {
+	my $label_atlas_dir   = $Hf->get_value('label_atlas_dir');
+	if (defined $source_label_folder) {
+	    $label_atlas_dir = $source_label_folder;
+	    $label_atlas_dir=~ s/[\/]*$//; # Remove trailing slashes
+	    (my $dummy, $label_atlas) = fileparts($label_atlas_dir,2);
         }
+
+	if (($label_atlas_dir ne 'NO_KEY') && ($label_atlas_dir ne 'EMPTY_VALUE' ) ) { 
+	    my $labels_folder = "${label_atlas_dir}/labels_${label_atlas}"; # TODO: Will need to add another layer of folders here
+	    
+	    if ( ! -e $labels_folder ) {
+		$labels_folder = ${label_atlas_dir};
+	    }
+	    
+	    if (($label_input_file ne 'NO_KEY') && ($label_input_file ne 'EMPTY_VALUE') ) {
+		# In this case, it takes use specified filename: *_labels.nii.gz or *_quagmire.nii.gz or *_mess.nii.gz
+		# In general this must be a file name with extension, but no directory
+		# But in theory, anything in the form *_* (where there are NO underscores in the second wildcard string)
+		# The first wildcard string is the parent folder, which in turn is in the labels_${label_atlas} folder
+		# NOTE: If there is a discrepency between the name of the parent folder and the name of the label file
+                    #       up to but not including the last underscore, the full file path will need to be specified
+		my $second_folder= $label_input_file;
+		$second_folder =~ s/_[^_]*$//;
+		$atlas_label_path  = "${labels_folder}/${second_folder}/${label_input_file}";
+	    } else {
+		$atlas_label_path  = get_nii_from_inputs($labels_folder,$label_atlas,'(labels|quagmire|mess)');
+	    }
+	} else {
+                $use_default_labels = 1;
+	}      
+    }
     #} else {        
        # (my $source_label_folder, $extra_transform_string)=resolve_transform_chain($label_transform_chain);
        # if ($label_input_file ne 'NO_KEY') {

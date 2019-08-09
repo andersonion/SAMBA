@@ -50,8 +50,8 @@ if (! defined($MATLAB_2015b_PATH)) {
 
 
 my $matlab_path =  "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
-my $strip_mask_executable_path = "${MATLAB_EXEC_PATH}/strip_mask_executable/20170727_1304/run_strip_mask_exec.sh";
-
+#my $strip_mask_executable_path = "${MATLAB_EXEC_PATH}/strip_mask_executable/20170727_1304/run_strip_mask_exec.sh";
+my $strip_mask_executable_path = "${MATLAB_EXEC_PATH}/strip_mask_executable/run_strip_mask_exec.sh"; 
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 

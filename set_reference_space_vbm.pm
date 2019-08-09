@@ -15,6 +15,21 @@ use warnings;
 use civm_simple_util;
 use convert_all_to_nifti_vbm;
 
+# 01 July 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
+
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+if (! defined($MATLAB_EXEC_PATH)) {
+   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+
+
+my $matlab_path =  "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
+my $centered_mass_executable_path = "${MATLAB_EXEC_PATH}/create_centered_mass_from_image_array_executable/run_create_centered_mass_from_image_array.sh";
+
 
 my ($inputs_dir,$pristine_in_folder,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$original_rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
 my (%reference_space_hash,%reference_path_hash,%input_reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
@@ -875,10 +890,43 @@ sub set_reference_space_vbm_Runtime_check {
         }
 
     	if (data_double_check($outpath)) {
-            my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
-            my $nifti_args = "\'${inpath}\' , \'${outpath}\'";
-            my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
-            execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
+
+	    
+
+	    # For more portable code, a matlab executable version can be used (8 July 2019, BJA)
+	    my $portable_code = 1; # 0 -> old code using actually calling an instance of matlab
+	    if ($portable_code) {
+		my $original_inpath = $inpath;
+	        if ($inpath =~ s/(\.nii\.gz){1}$/\.tmp\.nii/) {
+		    `gunzip -c ${original_inpath} > ${inpath}`;	    
+		}
+	        if ($outpath =~ s/(\.gz)$//) {}
+		my $matlab_exec_args=" ${inpath} ${outpath}";
+		my $cmd = "${centered_mass_executable_path} ${matlab_path} ${matlab_exec_args}";
+		log_info("Creating reference image: ${outpath}\n${cmd}.");
+		`${cmd}`;
+
+		if ( -e $outpath ) {
+		    my $gzip_cmd="gzip ${outpath}";
+		    log_info("Compressing reference image: ${gzip_cmd}");
+		    `${gzip_cmd}`;
+		    if ( -e "${outpath}.gz" ) {
+			$outpath= "${outpath}.gz";
+		    } 
+		}
+
+		if ( $inpath =~ /\.tmp\.nii$/) {
+		    my $rm_cmd = "rm ${inpath}";
+		    log_info("Cleaning up temporary input reference image: ${rm_cmd}");
+		    `${rm_cmd}`;
+		}
+
+	    } else {
+		my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
+		my $nifti_args = "\'${inpath}\' , \'${outpath}\'";    
+		my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
+		execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
+	    }
     	}
 
         # 4 Feb 2019--use ResampleImageBySpacing here to create up/downsampled working space if desired.
