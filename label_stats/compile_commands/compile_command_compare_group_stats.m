@@ -1,7 +1,12 @@
-function compile_command_for_compare_group_stats()
+function compile_command_compare_group_stats()
+compile_command__allpurpose('compare_group_stats_exec');
+
+%{
+% renamed v1 and v2 of the script in prep to remove v1.
+% v2 is now plainly compare_group_stats_exec, and v1 is
+compare_grou_stats_exec_v1
 script_name = 'compare_group_stats';
 version = 2;
-
 if (version == 1)
     v_string = '';
 elseif (version > 1)
@@ -20,7 +25,7 @@ include_files = {'/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/la
 
 addpath([getenv('WORKSTATION_HOME') '/recon/CSv2']);
 compile_command__allpurpose(source_file,include_files,'');
-
+%}
 return
 
 

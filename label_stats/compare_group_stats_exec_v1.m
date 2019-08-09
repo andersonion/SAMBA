@@ -14,23 +14,15 @@ function compare_group_stats_exec(stats_file,contrast,group_1_name,group_2_name,
 %   {group_1_name}(n={n_specimens_in_group_1}):{comma_delimited_string_of_group_1_runnos}
 %   {group_2_name}(n={n_specimens_in_group_2}):{comma_delimited_string_of_group_2_runnos}
 
-% 20 February 2019: Added NaN support, converting all instances of 'mean'
-% and 'std' to 'nanmean' and 'nanstd' respectively. Also, calculate these
-% in one spot up front instead of inline multiple times.
-% Also addded structure name support
-
-include_structure_names=0;
-
-
 vols=0;
 
 if ~isdeployed
-    contrast='volume';
+    contrast='fa';
     stats_file=['/civmnas4/rja20/studywide_stats_for_' contrast '.txt'];
     group_1_name='us';
     group_2_name='them';
-    group_1_runno_string='N57009';
-    group_2_runno_string='N57008,N57010,N57020';
+    group_1_runno_string='N57008,N57009';
+    group_2_runno_string='N57010,N57020';
     [out_dir,~,~]=fileparts(stats_file);
     vols=0;
 end
@@ -78,17 +70,12 @@ out_file=[out_dir '/' contrast '_group_stats_' group_1_name '_n' num2str(num_g1)
 
 
 % Load stats file as a table
+%stats_table = readtable(stats_file,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t','TreatAsEmpty',{'NA','NaN','NULL'} );
 stats_table = readtable(stats_file,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t' );
 
 num_labels = size(stats_table,1)-skip_first_row; % We are assuming ROI "0" is the exterior
 
 ROIs = stats_table.ROI((skip_first_row+1):end);
-try
-    Structures = stats_table.structure((skip_first_row+1):end);
-    %Structures = stats_table.Structure{(skip_first_row+1):end};
-    include_structure_names=1;
-catch
-end
 fprintf('Comparing %s of groups: %s (n = %i) vs. %s (n = %i) for %i labels...\n',contrast,group_1_name,num_g1,group_2_name,num_g2,num_labels)
 
 % For each group:
@@ -106,7 +93,6 @@ for gg2 = 1:num_g2
     g2_array(:,gg2)=eval(['stats_table.' group_2_runnos{gg2} '(' num2str(skip_first_row+1) ':end)' ]);
 end
 
-% 20 Feb 2019: BJ is unsure why these are being recalculted...
 num_g2=size(g2_array,2);
 num_g1=size(g1_array,2);
 num_labels=size(g1_array,1);
@@ -121,8 +107,8 @@ if vols==1;
         g2_ext=g2_array(1,:);
     end
     
-    brain_g2_array=nansum(g2_array)-g2_ext; % Account for CSF?
-    brain_g1_array=nansum(g1_array)-g1_ext;
+    brain_g2_array=sum(g2_array)-g2_ext; % Account for CSF?
+    brain_g1_array=sum(g1_array)-g1_ext;
     
     g2_array=100*g2_array./repmat(brain_g2_array,num_labels,1);
     g1_array=100*g1_array./repmat(brain_g1_array,num_labels,1);
@@ -130,16 +116,10 @@ if vols==1;
     g2_array=[g2_array;brain_g2_array];
     g1_array=[g1_array;brain_g1_array];
     
-    %num_g1 = num_g1+1;
-    %num_g2 = num_g2+1;
+    num_g1 = num_g1+1;
+    num_g2 = num_g2+1;
     ROIs = [ROIs' 0]'; % Note that '0' refers to global now, instead of exterior
-    Structures{end+1}='Total Labeled Volume';
 end
-
-mean_g1=nanmean(g1_array,2)';
-std_g1=nanstd(g1_array,0,2)';
-mean_g2=nanmean(g2_array,2)';
-std_g2=nanstd(g2_array,0,2)';
 
 [h, p, table, stats]=ttest2(g2_array',g1_array');
 
@@ -150,15 +130,16 @@ std_g2=nanstd(g2_array,0,2)';
 
 
 %pooledsd=sqrt(std(g1_array').^2/num_g1+std(g2_array').^2/num_g2);
-pooledsd=sqrt((num_g1-1).*std_g1.^2+(num_g2-1).*std_g2.^2)./sqrt(num_g1+num_g2-2);
-cohen_d=-(mean_g1-mean_g2)./pooledsd;
-difference=-(mean_g1-mean_g2)*100./mean_g1;
+pooledsd=sqrt((num_g1-1).*std(g1_array').^2+(num_g2-1).*std(g2_array').^2)./sqrt(num_g1+num_g2-2);
+cohen_d=-(mean(g1_array')-mean(g2_array'))./pooledsd;
+difference=-(mean(g1_array')-mean(g2_array'))*100./mean(g1_array');
 
-ci_l_g2=mean_g2-1.96*std_g2;
-ci_h_g2=mean_g2+1.96*std_g2;
-
-ci_l_g1=mean_g1-1.96*std_g1;
-ci_h_g1=mean_g1+1.96*std_g1;
+ci_l_g2=mean(g2_array')-1.96*std(g2_array');
+ci_h_g2=mean(g2_array')+1.96*std(g2_array');
+%ci_l_g1=mean(g1_array')-1.96*std(g1_array');
+%ci_h_g1=mean(g1_array')+1.96*std(g1_array');
+ci_l_g1=nanmean(g1_array')-1.96*nanstd(g1_array');
+ci_h_g1=nanmean(g1_array')+1.96*nanstd(g1_array');
 
 
 %%
@@ -183,17 +164,11 @@ if (num_sigs > 0 )
     end
 end
 
-if (include_structure_names==1)
-    mystats=[ROIs'; zeros(size(Structures'));mean_g2;  mean_g1 ;std_g2;  std_g1;std_g2/sqrt(num_g2); std_g1/sqrt(num_g1);ci_l_g2; ci_l_g1; ci_h_g1; ci_h_g2; h; p; ppermute'; adj_p; table;stats.tstat;cohen_d;difference];
-    myheader={'ROI','structure' ,['mean_' group_2_name ], ['mean_' group_1_name ], ['std_' group_2_name ], ['std_' group_1_name ], ['sem_' group_2_name ], ['sem_' group_1_name ], ['ci1_' group_2_name ],['ci2_' group_2_name ],['ci1_' group_1_name ],['ci2_' group_1_name ], 'hypothesis', 'p_value', 'ppermute', 'P_FDR_0p05_BH', 'CI_1', 'CI_2', 't_stats', 'cohen_d' ,'difference'};
-else
-    mystats=[ROIs'; mean_g2;  mean_g1 ;std_g2;  std_g1;std_g2/sqrt(num_g2); std_g1/sqrt(num_g1);ci_l_g2; ci_l_g1; ci_h_g1; ci_h_g2; h; p; ppermute'; adj_p; table;stats.tstat;cohen_d;difference];
-    myheader={'ROI', ['mean_' group_2_name ], ['mean_' group_1_name ], ['std_' group_2_name ], ['std_' group_1_name ], ['sem_' group_2_name ], ['sem_' group_1_name ], ['ci1_' group_2_name ],['ci2_' group_2_name ],['ci1_' group_1_name ],['ci2_' group_1_name ], 'hypothesis', 'p_value', 'ppermute', 'P_FDR_0p05_BH', 'CI_1', 'CI_2', 't_stats', 'cohen_d' ,'difference'};
-end
+mystats=[ROIs'; mean(g2_array'); mean(g1_array') ;std(g2_array'); std(g1_array') ;std(g2_array')/sqrt(num_g2); std(g1_array')/sqrt(num_g1);ci_l_g2; ci_l_g1; ci_h_g1; ci_h_g2; h; p; ppermute'; adj_p; table;stats.tstat;cohen_d;difference];
+
+myheader={'ROI', ['mean_' group_2_name ], ['mean_' group_1_name ], ['std_' group_2_name ], ['std_' group_1_name ], ['sem_' group_2_name ], ['sem_' group_1_name ], ['ci1_' group_2_name ],['ci2_' group_2_name ],['ci1_' group_1_name ],['ci2_' group_1_name ], 'hypothesis', 'p_value', 'ppermute', 'P_FDR_0p05_BH', 'CI_1', 'CI_2', 't_stats', 'cohen_d' ,'difference'};
+
 out_table = array2table(mystats','VariableNames',myheader);
-if (include_structure_names==1)
-   out_table.structure=Structures; 
-end
 out_file_head=[out_file '.hd'];
 [of_dir,of_name,of_ext]=fileparts(out_file);
 out_file_temp=[of_dir '/' of_name '.tmp' of_ext];
