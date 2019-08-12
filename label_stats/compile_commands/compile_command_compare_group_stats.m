@@ -1,5 +1,13 @@
 function compile_command_compare_group_stats()
-compile_command__allpurpose('compare_group_stats_exec');
+% in testing needed nanmean and fdr_bh. Added the others just to avoid
+% further hassle.
+include_files={
+    which('nanmean') ...
+    fullfile(fileparts(which('compare_group_stats_exec')),'fdr_bh','fdr_bh.m') ...
+    which('mattest') ...
+    which('ttest2')
+    };
+compile_command__allpurpose('compare_group_stats_exec',include_files);
 
 %{
 % renamed v1 and v2 of the script in prep to remove v1.
