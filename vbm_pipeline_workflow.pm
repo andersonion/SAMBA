@@ -44,7 +44,10 @@ $ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
-$permissions = 0755;
+# Dont force permissions, this should be left up to users.
+if ( 0 ) {
+    $permissions = 0755;
+}
 my $interval = 0.1; ##Normally 1
 $valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
 
@@ -61,9 +64,10 @@ our ($rigid_transform_suffix,$affine_transform_suffix, $affine_identity_matrix, 
 # a do it again variable, will allow you to pull data from another vbm_run
 
 $test_mode = 0;
-
-umask(002);
-
+# Dont force umask, this should be left up to users.
+if ( 0 ) {
+    umask(002);
+}
 use lib dirname(abs_path($0));
 use Env qw(RADISH_PERL_LIB WORKSTATION_DATA);
 if (! defined($RADISH_PERL_LIB)) {

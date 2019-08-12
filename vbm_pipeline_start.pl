@@ -21,7 +21,6 @@ use List::MoreUtils qw(uniq);
 
 #use JSON::Parse qw(json_file_to_perl valid_json assert_valid_json);
 
-
 use Env qw(RADISH_PERL_LIB);
 if (! defined($RADISH_PERL_LIB)) {
     print STDERR "Cannot find good perl directories, quitting\n";
@@ -29,34 +28,32 @@ if (! defined($RADISH_PERL_LIB)) {
 }
 use lib split(':',$RADISH_PERL_LIB);
 
-## Example use of printd
 use civm_simple_util qw(activity_log printd $debug_val);
 activity_log();
 use pipeline_utilities;
 use Headfile;
 
+
 use lib dirname(abs_path($0));
 use SAMBA_global_variables;
-
 
 $schedule_backup_jobs=1;
 
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
-
-
-
-#my $full_pipeline_path = abs_path($0);
-#($pipeline_path, my $dummy1, my $dummy2) = fileparts($full_pipeline_path,2);
-
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
-#$ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
 
+# pipeline_utilities uses GOODEXIT and BADEXIT, but it doesnt choose for you which you want. 
 $GOODEXIT = 0;
 $BADEXIT  = 1;
-my $ERROR_EXIT=$BADEXIT;
-$permissions = 0755;
-my $interval = 1;
 
+my $cur_mask=umask;
+# Dont force permissions, this should be left up to users.
+if ( 0 ) {
+    $permissions = 0755;
+}
+$permissions=$oct_num ^ $cur_mask;
+
+my $interval = 1;
 
 # a do it again variable, will allow you to pull data from another vbm_run
 #my $import_data = 1;
@@ -107,8 +104,10 @@ print "Attempting to use $nodes nodes;\n\n";
 if ($reservation) { 
     print "Using slurm reservation = \"$reservation\".\n\n\n";
 }
-umask(002);
-
+# Dont force umask, this should be left up to users.
+if ( 0 ) {
+    umask(002);
+}
 #my $custom_pipeline_utilities_path ="${WORKSTATION_HOME}/shared/cluster_pipeline_utilities/"; #11 April 2017, BJA: I think this was to avoid having to reconcile our pipeline_utility functions. We might be able to delete that whole folder.
 #$RADISH_PERL_LIB=$custom_pipeline_utilities_path.':'.$RADISH_PERL_LIB;
 
