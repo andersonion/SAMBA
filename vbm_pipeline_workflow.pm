@@ -72,7 +72,7 @@ use lib dirname(abs_path($0));
 use Env qw(RADISH_PERL_LIB WORKSTATION_DATA);
 if (! defined($RADISH_PERL_LIB)) {
     print STDERR "Cannot find good perl directories, quitting\n";
-    exit;
+    die;
 }
 use lib split(':',$RADISH_PERL_LIB);
 
@@ -287,7 +287,7 @@ if (! -e $papertrail_dir) {
 
 $log_file = open_log($papertrail_dir); # 26 Feb 2019--changed from results_dir to "papertrail" subfolder
 printd(1000,"\tlog is $log_file\n");
-($stats_file = $log_file ) =~ s/pipeline_info/job_stats/;
+( $stats_file = $log_file ) =~ s/pipeline_info/job_stats/;
 printd(1000,"\tlog is $log_file\n");
 printd(1000,"\tstats are $stats_file\n");
 
@@ -311,13 +311,11 @@ if ($do_vba  || $create_labels) {
         push (@variables_to_headfile,'group_1_runnos');
     }
 
-
     if (@group_2) {
         $group_2_runnos = join(',',uniq(@group_2));
         #$Hf->set_value('group_2_runnos',$group_2_runnos);
         push (@variables_to_headfile,'group_2_runnos');
     }
-    
     #   if ((defined @group_1)&&(defined @group_2)) {
     if ((@group_1) && (@group_2)) { 
         my @all_in_groups = uniq(@group_1,@group_2);
@@ -343,8 +341,6 @@ if ($runlist =~ /,/) {
 
 my $multiple_groups=0;
 if ((scalar @group_2)>0) {$multiple_groups = 1;}
-
-
 ## End duplication control
 
 if (! defined $image_dimensions) {
@@ -371,8 +367,6 @@ if ((defined $start_file) && ($start_file ne '')) {
         return(0);
    }
 
-
-
     foreach my $c_runno (@all_runnos) {
         my $c_key = "original_orientation_${c_runno}";
         my $temp_orientation = $tempHf->get_value($c_key);
@@ -384,7 +378,6 @@ if ((defined $start_file) && ($start_file ne '')) {
 
 
 # Check for previous run (startup headfile in inputs?)
-
 my $c_input_headfile="${pristine_input_dir}/current_inputs.headfile";
 if ( -f ${c_input_headfile}) {
 # If exists, compare with current inputs
@@ -669,7 +662,7 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
 # Things can get parallel right about here...
     
 # Branch one: 
-    if ($create_labels) {
+    if ($create_labels || $register_MDT_to_atlas) {
 	$do_rigid = 0;
 	my $mdt_to_atlas = 1;
 	create_affine_reg_to_atlas_vbm($do_rigid,$mdt_to_atlas);  #$PM_code = 61
@@ -698,8 +691,7 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
     
 
 # Remerge before ending pipeline
-    
-    if ($create_labels) {
+if ($create_labels || $register_MDT_to_atlas ) {
         my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
         my $real_time;
         if (cluster_check() && ($MDT_to_atlas_JobID ne 'NO_KEY') && ($MDT_to_atlas_JobID ne 'UNDEFINED_VALUE' )) {

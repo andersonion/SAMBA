@@ -73,7 +73,8 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
         if ($go) {
             if ((! $do_rigid) && ($runno eq $affine_target )) { # For the affine target, we want to use the identity matrix.
                 my $affine_identity = $Hf->get_value('affine_identity_matrix');
-                `cp ${affine_identity} ${pipeline_name}`;
+                #`cp ${affine_identity} ${pipeline_name}`;
+		run_and_watch("cp ${affine_identity} ${pipeline_name}");
             } else {
                 ($xform_path,$job) = create_affine_transform_vbm($to_xform_path,  $alt_result_path_base, $runno);
 
@@ -86,7 +87,8 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                     print "swap_fixed_and_moving is activated\n\n\n";
                 } else {
                     print "swap_fixed_and_moving is TURNED OFF (as it probably should be)\n\n\n";
-                    `ln -s ${xform_path}  ${pipeline_name}`;
+                    #`ln -s ${xform_path}  ${pipeline_name}`;
+		    run_and_watch("ln -s ${xform_path}  ${pipeline_name}");
                 }
                 if ($job) {
                     push(@jobs,$job);
@@ -138,11 +140,14 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                 my $pipeline_name = $pipeline_names{$runno};
                 my $alt_pipeline_name = $alt_result_path_bases{$runno}.$xform_suffix;
                 if ($swap_fixed_and_moving) {
-                    `if [ -f "${xform_path}" ]; then mv ${xform_path}  ${alt_pipeline_name}; fi`;
+                    #`if [ -f "${xform_path}" ]; then mv ${xform_path}  ${alt_pipeline_name}; fi`;
+		    run_and_watch("if [ -f \"${xform_path}\" ]; then mv ${xform_path}  ${alt_pipeline_name}; fi");
                     create_explicit_inverse_of_ants_affine_transform($alt_pipeline_name,$pipeline_name); 
-                    `if [ -f "${pipeline_name}" ]; then rm ${alt_pipeline_name}; fi`;
+                    #`if [ -f "${pipeline_name}" ]; then rm ${alt_pipeline_name}; fi`;
+                    run_and_watch("if [ -f \"${pipeline_name}\" ]; then rm ${alt_pipeline_name}; fi");
                 } else {
-                    `if [ -f "${xform_path}" ]; then mv ${xform_path}  ${pipeline_name}; fi`;
+                    #`if [ -f "${xform_path}" ]; then mv ${xform_path}  ${pipeline_name}; fi`;
+                    run_and_watch("if [ -f \"${xform_path}\" ]; then mv ${xform_path}  ${pipeline_name}; fi");
                 }
             }
         }
@@ -157,11 +162,14 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     # dirty executable and world readable behavior :p
     `chmod 777 ${write_path_for_Hf}`;
 =cut
+
     # Clean up derived transforms.
 
     # Bash syntax below: if "ls" command is successful (finds existing items), then executes "rm" command.
     # "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
-    `ls ${current_path}/*Derived*mat  2> /dev/null && rm ${current_path}/*Derived*mat`;
+    # Added -v to rm because wildcard rm is scary !
+    #`ls ${current_path}/*Derived*mat  2> /dev/null && rm ${current_path}/*Derived*mat`;
+    run_and_watch("ls ${current_path}/*Derived*mat  2> /dev/null && rm -v ${current_path}/*Derived*mat","\t",0);
 
     my $PM_code;
     if ($do_rigid) {
@@ -297,7 +305,7 @@ sub create_affine_transform_vbm {
         #             " -u 1 -z $collapse -l 1 -o $result_transform_path_base --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4"; 
         # } else {
         $cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -r [${fixed},${moving},1] ". 
-            " ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ".
+            " ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [ ${affine_iterations},${affine_convergence_thresh},${affine_convergence_window} ] ".
             " -s ${affine_smoothing_sigmas} -f ${affine_shrink_factors}  ". #-f 6x4x2x1
             " $q $r -u 1 -z 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
         # }       
@@ -306,12 +314,12 @@ sub create_affine_transform_vbm {
             $cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ". # 3 Feb 2016: do I want rigid and affine separate?
                 #" ${metric_1} ${metric_2} -t rigid[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ". 
                 #" -s ${affine_smoothing_sigmas} -f ${affine_shrink_factors}  ". # -s 4x2x1x1vox -f  6x4x2x1 
-                " ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ". 
+                " ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [ ${affine_iterations},${affine_convergence_thresh},${affine_convergence_window} ] ". 
                 " -s  ${affine_smoothing_sigmas} -f ${affine_shrink_factors} ". # -s 4x2x1x0vox  -f  6x4x2x1 
                 " -u 1 -z 1 -l 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";  # "-z 1" instead of "-z $collapse", as we want rigid + affine together in this case.
         } else {          
             $cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ". #-r [$atlas_path,$B_path,1] ".
-                " ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ".
+                " ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [ ${affine_iterations},${affine_convergence_thresh},${affine_convergence_window} ] ".
                 "-s ${affine_smoothing_sigmas} -f  ${affine_shrink_factors} -l 1 ". # -s 4x2x1x0.5vox-f 6x4x2x1
                 " $q $r -u 1 -z $collapse -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
         }
@@ -387,7 +395,8 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
     if (-d $rigid_work_dir) {
         my $affine_tag="${rigid_work_dir}/affine_target.txt";
         if ( -f $affine_tag) {
-            my $found_affine_target = `cat ${affine_tag}`;
+            #my $found_affine_target = `cat ${affine_tag}`;
+	    my ($found_affine_target) = run_and_watch("cat ${affine_tag}");
             $Hf->set_value('affine_target', $found_affine_target);
         } else {
             # BJ desperately wants to use a diff against the identity matrix to find a previously used affine target...will have to do it behind James' back.
@@ -779,10 +788,9 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
     #$dims=$Hf->get_value('image_dimensions');  
     $inputs_dir = $Hf->get_value('inputs_dir');
     if ($mdt_to_atlas) {
-
+	# looks like fifmtar could be replaced with get_value_check.
         my $fifmtar = $Hf->get_value('fixed_image_for_mdt_to_atlas_registratation');
-        
-        if ((defined $fifmtar) && ($fifmtar ne 'NO_KEY')) {
+	if ((defined $fifmtar) && ($fifmtar ne 'NO_KEY')) {
             if ($fifmtar eq 'mdt') {
                 $swap_fixed_and_moving=1;
             }
@@ -911,7 +919,8 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                         my $c_file = get_nii_from_inputs($inputs_dir, $c_runno, "${contrast}_masked");
 
                         if ($c_file !~ /[\n]+/) {
-                            my $volume = `fslstats ${c_file} -V | cut -d ' ' -f2`;
+                            #my $volume = `fslstats ${c_file} -V | cut -d ' ' -f2`;
+                            my ( $volume ) = run_and_watch("fslstats ${c_file} -V | cut -d ' ' -f2");
                             chomp($volume);
                             $volume_hash{$volume}=$c_runno;
                         }
@@ -933,7 +942,8 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                     $affine_target = shift(@controls);
                 }
                 my $affine_tag = "${current_path}/affine_target.txt";
-                `echo -n ${affine_target} > ${affine_tag}`;
+		#`echo -n ${affine_target} > ${affine_tag}`;
+		write_array_to_file($affine_tag,[$affine_target]);
                 #}
             }# else
             #die $affine_target;
