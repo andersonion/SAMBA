@@ -53,8 +53,15 @@ $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 
 $GOODEXIT = 0;
 $BADEXIT  = 1;
-my $ERROR_EXIT=$BADEXIT;
-$permissions = 0755;
+
+my $cur_mask=umask;
+# Dont force permissions, this should be left up to users.
+if ( 0 ) {
+    $permissions = 0755;
+}
+# this line just sets permissions according to the current mask.
+$permissions=0777 ^ $cur_mask;
+
 my $interval = 1;
 
 
@@ -71,7 +78,7 @@ $start_file=shift(@ARGV);
 # Only if it looks like a number to we assign it to nodes.
 # this in an attempt to simplify the following handling. 
 if( ! defined $start_file ){
-    die "Study_variables mode deprecated! its too messy :P\nPlease create a startup headfile";
+    die "Study_variables mode DISABLED! its too messy :P\nPlease create a startup headfile";
 }
 if ( ! -f $start_file && $start_file =~ /[^0-9]/ )  {
     $nodes = $start_file;
@@ -80,37 +87,45 @@ if ( ! -f $start_file && $start_file =~ /[^0-9]/ )  {
     $nodes = shift(@ARGV);
 }
 
-# nodes is either a number at this point, or nothing
+# nodes is either a number at this point, nothing or a string.
 # startfile is either a file path or an empty string.
+# nodes and reservation are exclusive, so if nodes is > 0 len string it must be a reservation.
 $reservation='';
 if (! defined $nodes || $nodes eq '' ) {
-    $nodes = 4 ;}
-else {
-    $reservation = $nodes;
-    my $reservation_info = `scontrol show reservation ${reservation}`;
+    $nodes = 4 ;
+} else {
+    #$reservation=$nodes;
+    ($reservation ) = $nodes=~ /([[:alnum:]:_-]+)/x ;
+    #my $reservation_info = `scontrol show reservation ${reservation}`;
+    my $cmd="scontrol show reservation \"${reservation}\"";
+    my $reservation_info = qx/$cmd/;
     if ($reservation_info =~ /NodeCnt=([0-9]*)/m) { # Unsure if I need the 'm' option)
 	$nodes = $1;
+	# this slurm handling really belongs in some kinda cluter_env_cleaner function ....
+	if ( cluster_scheduler() =~ /slurm/ ){
+	    printd(5,"Using slurm scheduler\n");
+	    $ENV{'SBATCH_RESERVATION'}=$reservation;
+	    $ENV{'SLURM_RESERVATION'}=$reservation;
+	}
     } else {
 	die "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\n\n\n".
 	    " Maybe your start file($start_file) was not found !"; 
-	$nodes = 4;
 	# formerly was allowed to continue with reservatoin set failure, 
 	# this generates such a confusing mess that has been deprecated. 
-	#print "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\nProceeding with NO reservation, and assuming you want to run on ${nodes} nodes.\n\n\n"; 
-	$reservation = '';
-	sleep(5);
+	# $nodes = 4;
+	# print "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\nProceeding with NO reservation, and assuming you want to run on ${nodes} nodes.\n\n\n"; 
+	# $reservation = '';
+	# sleep(5);
     }
 }
-
-
 print "Attempting to use $nodes nodes;\n\n";
 if ($reservation) { 
     print "Using slurm reservation = \"$reservation\".\n\n\n";
 }
-umask(002);
-
-#my $custom_pipeline_utilities_path ="${WORKSTATION_HOME}/shared/cluster_pipeline_utilities/"; #11 April 2017, BJA: I think this was to avoid having to reconcile our pipeline_utility functions. We might be able to delete that whole folder.
-#$RADISH_PERL_LIB=$custom_pipeline_utilities_path.':'.$RADISH_PERL_LIB;
+# Dont force umask, this should be left up to users. A warning for restritive umask IS appropriate.
+if ( 0 ) {
+    umask(002);
+}
 
 # require ...
 require study_variables_vbm;
@@ -123,15 +138,13 @@ use apply_warps_to_bvecs;
 
 # variables, set up by the study vars script(study_variables_vbm.pm)
 
-
-
+# Build a string of all initialized variables, etc, that contain only letters, numbers, or '_'.
 my $kevin_spacey='';
-foreach my $entry ( keys %main:: )  { # Build a string of all initialized variables, etc, that contain only letters, numbers, or '_'.
+foreach my $entry ( keys %main:: )  { 
     if ($entry =~ /^[A-Za-z0-9_]+$/) {
     	$kevin_spacey = $kevin_spacey." $entry ";
     }
 }
-
 #my $test_shit = join(' ',sort(split(' ',$kevin_spacey)))."\n\n\n";
 #print $test_shit;
 #die;
