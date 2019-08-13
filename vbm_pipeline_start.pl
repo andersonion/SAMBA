@@ -51,7 +51,7 @@ my $cur_mask=umask;
 if ( 0 ) {
     $permissions = 0755;
 }
-$permissions=$oct_num ^ $cur_mask;
+$permissions=0777 ^ $cur_mask;
 
 my $interval = 1;
 
