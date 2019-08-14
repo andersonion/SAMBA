@@ -489,7 +489,7 @@ sub warp_atlas_labels_vbm_Init_check {
         } elsif (! defined $label_atlas_name) {
             $create_labels = 0;
         }
-        Hf->set_value('create_labels',$create_labels);
+        $Hf->set_value('create_labels',$create_labels);
     }
     my $label_space = $Hf->get_value('label_space');
     if ($label_space eq 'NO_KEY') {
@@ -525,8 +525,8 @@ sub warp_atlas_labels_vbm_Runtime_check {
     if ($label_atlas_nickname eq 'NO_KEY') {
         if ( $use_l_in ) {
             (my $dummy_path , $label_atlas_nickname) = fileparts($label_input_file,2);
+	    # convert filename to nick name with expectation that nickname is just in front of labeltype keyword.
             $label_atlas_nickname =~ s/_(labels|quagmire|mess).*//;
-
         } else {
             $label_atlas_nickname=$label_atlas;
         }
@@ -543,7 +543,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
     # label_input_file, 
     # The design goal for this variable is to give users a way to specify an arbitrary file,
     # auto-resolving that based on fuzzy logic is inconsistent and will give users unexpected behavior on typo's
-    # so the ENTIRE else condition was a waste of time to write....
+    # so the ENTIRE else condition was a waste of time to write.... 
     if ( $use_l_in ) {
 	if ( -f $label_input_file ) { 
 	    $atlas_label_path = $label_input_file;
@@ -551,15 +551,26 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	    error_out("label_input_file specified, and was not found. Please fix your input (omit or specify a valid path) and re-start DebugInfo: use($use_l_in) file($label_input_file)");
 	}
     } else {
-        my $label_atlas_dir   = $Hf->get_value('label_atlas_dir');
+        my ($use_lad,$label_atlas_dir)   = $Hf->get_value_check('label_atlas_dir');
         if (defined $source_label_folder) {
             $label_atlas_dir = $source_label_folder;
             $label_atlas_dir=~ s/[\/]*$//; # Remove trailing slashes
             (my $dummy, $label_atlas) = fileparts($label_atlas_dir,2);
         }
-        if ($label_atlas_dir ne 'NO_KEY') { 
-            my $labels_folder = "${label_atlas_dir}/labels_${label_atlas}"; # TODO: Will need to add another layer of folders here
+        if ($use_lad ) { 
+	    #$label_atlas_dir ne 'NO_KEY'
+	    my @l_folders;
+	    push(@l_folders,File::Spec->catfile($label_atlas_dir,"labels","$label_atlas_nickname"));
+	    push(@l_folders,File::Spec->catfile($label_atlas_dir,"labels_${label_atlas}","$label_atlas_nickname"));
+	    push(@l_folders,$label_atlas_dir);
+	    my $labels_folder = '/CurrentlyUnset';
+	    #"${label_atlas_dir}/labels_${label_atlas}"; # TODO: Will need to add another layer of folders here
+	    while ( ! -d $labels_folder ) {
+		$labels_folder=shift(@l_folders);
+	    }
+
             if ( ! -e $labels_folder ) {
+		error_out("Problem finding labels_folder!");
                 $labels_folder = ${label_atlas_dir};
             }
             if ($label_input_file ne 'NO_KEY') {
@@ -574,7 +585,8 @@ sub warp_atlas_labels_vbm_Runtime_check {
                 $second_folder =~ s/_[^_]*$//;
                 $atlas_label_path  = "${labels_folder}/${second_folder}/${label_input_file}";
             } else {
-                $atlas_label_path  = get_nii_from_inputs($labels_folder,$label_atlas,'(labels|quagmire|mess)');
+		$atlas_label_path  = get_nii_from_inputs($labels_folder,$label_atlas,'(labels|quagmire|mess)');
+		if ( ! -f "$atlas_label_path" ) { error_out("$atlas_label_path"); }
             }
         } else {
             $use_default_labels = 1;
@@ -590,7 +602,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
     #}
 
     if ($use_default_labels) {
-        $atlas_label_path  ="${WORKSTATION_DATA}/atlas/chass_symmetric3/chass_symmetric3_labels.nii.gz"; # THIS IS ONLY A TEMPORARY DEFAULT!   
+        $atlas_label_path  ="${WORKSTATION_DATA}/atlas/chass_symmetric3_RAS/chass_symmetric3_RAS_labels.nii.gz"; # THIS IS ONLY A TEMPORARY DEFAULT!   
     }
 
     my ($d1,$n,$d3)=fileparts($atlas_label_path,2);
@@ -611,6 +623,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
     $template_name = $Hf->get_value('template_name');
 
     #my $header_output = `PrintHeader ${atlas_label_path}`;
+    die("HEADER_OUT_FAILED?");
     my $header_output = join("\n",run_and_watch("PrintHeader ${atlas_label_path}") );
     my $max_label_number;
     if ($header_output =~ /Range[\s]*\:[\s]*\[[^,]+,[\s]*([0-9\-\.e\+]+)/) {
