@@ -489,11 +489,25 @@ sub package_transforms_MDT {
 # Get the affine
 ###
 # do this first so we dont leave a mess if it fails.
-    my $aff=qx(ls $ThisPackageInRoot/stats_by_region/labels/transforms/MDT_*_to_${TargetDataPackage}_affine.*) 
-        || die "affine find fail";
+    #my @dir_choices;
+    #push(@dir_choices,File::Spec->catfile($ThisPackageInRoot,"transforms","MDT_to_${TargetDataPackage}"));
+    #push(@dir_choices,File::Spec->catfile($ThisPackageInRoot,"transforms"));
+    #push(@dir_choices,File::Spec->catfile($ThisPackageInRoot,"stats_by_region","labels","transforms"));
+    #my $a_dir=multi_choice_dir(\@dir_choices);
+
+    my $a_dir=multi_choice_dir(  
+	[
+	 File::Spec->catfile($ThisPackageInRoot,"transforms","MDT_to_${TargetDataPackage}")  ,
+	 File::Spec->catfile($ThisPackageInRoot,"transforms")  ,
+	 File::Spec->catfile($ThisPackageInRoot,"stats_by_region","labels","transforms")
+	]  );
+    my $aff;
+    if ( ! defined $aff ) { 
+	$aff=qx(ls $a_dir/MDT_*_to_${TargetDataPackage}_affine.*) || die "affine find fail, even tried old fashioned location";
+    }
     chomp($aff);
 ###
-# make Package foward and reverse directories
+# make Package forward and reverse directories
 ###
     my($road_backward,$road_forward)=transform_dir_setup($ThisPackageInRoot,$ThisPackageOutLocation,$ThisPackageName,
                                                          $TargetDataPackage,$CollectionSource);
@@ -597,6 +611,7 @@ sub package_transforms_SPEC {
     #my $affpath=File::Spec->catfile($BIGGUS_DISKUS,
     #  sprintf("%s-work",$n_vbm),
     #  $c_r );
+    #may want to use multi_choice_dir here in the future.
     my $affpath=File::Spec->catdir($ThisPackageInRoot,File::Spec->updir(),File::Spec->updir());
     my $rig=qx(ls $affpath/${ThisPackageName}_rigid.*)  || die "rigid find fail";
     my $aff=qx(ls $affpath/${ThisPackageName}_affine.*) || die "affine find fail";
