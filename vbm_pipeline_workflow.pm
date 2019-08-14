@@ -597,9 +597,10 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
 ## Different approaches to MDT creation start to diverge here. ## 2 November 2016
     if ($mdt_creation_strategy eq 'iterative') {
 
-	    my $starting_iteration=$Hf->get_value('starting_iteration');
-
-	    if ($starting_iteration =~ /([1-9]{1}|[0-9]{2,})/) {
+	    my ($use_st_i,$starting_iteration)=$Hf->get_value_check('starting_iteration');
+	    if ($use_st_i && $starting_iteration =~ /([1-9]{1}|[0-9]{2,})/) {
+	    } elsif($use_st_i ) { 
+		error_out("Bad starting iteration found! $starting_iteration");
 	    } else {
 		$starting_iteration = 0;
 	    }
@@ -634,6 +635,9 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
 	    sleep($interval);
 	#}
     } else {
+	#
+	# PAIRWISE VERSION
+	#
         pairwise_reg_vbm("d"); #$PM_code = 41
         sleep($interval);
 	
@@ -667,7 +671,7 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
 	my $mdt_to_atlas = 1;
 	create_affine_reg_to_atlas_vbm($do_rigid,$mdt_to_atlas);  #$PM_code = 61
 	sleep($interval);
-	
+
 	mdt_reg_to_atlas_vbm(); #$PM_code = 62
 	sleep($interval);
     }
@@ -706,14 +710,12 @@ if ($create_labels || $register_MDT_to_atlas ) {
             }
             my $case = 2;
             my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
-
+	    
             $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time,$MDT_to_atlas_JobID);
-
             if ($error_message ne '') {
                 error_out("${error_message}",0);
             }
         }
-
         if (($MDT_to_atlas_JobID eq 'NO_KEY') || ($MDT_to_atlas_JobID eq 'UNDEFINED_VALUE')) {
             $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time);
         }
@@ -721,43 +723,39 @@ if ($create_labels || $register_MDT_to_atlas ) {
 
         my @label_spaces = split(',',$label_space);
 
-        warp_atlas_labels_vbm('MDT'); #$PM_code = 63
-        sleep($interval);
+	if ( $create_labels ) {
+	    warp_atlas_labels_vbm('MDT'); #$PM_code = 63
+	    sleep($interval);
 
-        if ( ! $stop_after_mdt_creation ) {
-            $group_name = "all";
+	    if ( ! $stop_after_mdt_creation ) {
+		$group_name = "all";
+		my @current_channel_array = @channel_array;
+		if ($do_connectivity) {
+		    push (@current_channel_array,'nii4D');
+		}
+		@current_channel_array = uniq(@current_channel_array);
+		foreach my $a_label_space (@label_spaces) {
+		    warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
+		    sleep($interval);
 
-            my @current_channel_array = @channel_array;
-            if ($do_connectivity) {
-                push (@current_channel_array,'nii4D');
-            }
+		    foreach my $a_contrast (@current_channel_array) {
+			apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
+		    }
+		    calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
 
-            @current_channel_array = uniq(@current_channel_array);
-
-            foreach my $a_label_space (@label_spaces) {
-
-                warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
-                sleep($interval);
-
-                foreach my $a_contrast (@current_channel_array) {
-                    apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
-                }
-
-                calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
-
-                if ($multiple_runnos) {
-                   tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
-                   if ($multiple_groups) {	
-                       label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
-                   }
-                }
-                if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
-                    apply_warps_to_bvecs($a_label_space);	
-                }
-            }
-            sleep($interval);
-
-        }   
+		    if ($multiple_runnos) {
+			tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
+			if ($multiple_groups) {	
+			    label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
+			}
+		    }
+		    if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
+			apply_warps_to_bvecs($a_label_space);	
+		    }
+		}
+		sleep($interval);
+	    }
+	}
     }
     if ($do_vba) {
 
