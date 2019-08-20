@@ -622,8 +622,13 @@ sub warp_atlas_labels_vbm_Runtime_check {
     # $predictor_id = $Hf->get_value('predictor_id');
     $template_name = $Hf->get_value('template_name');
 
+    #
+    # SLOPPY WAY TO FIND MAX LABEL NUMBER! 
+    #
+    # TODO: look at the label lookup table and get max number.
+    #       That will trash poorly curated atlas data. AND THAT IS PERFECT! 
+    #       Atlases SHOULD be well curated, else WHY are they an atlas?
     #my $header_output = `PrintHeader ${atlas_label_path}`;
-    die("HEADER_OUT_FAILED?");
     my $header_output = join("\n",run_and_watch("PrintHeader ${atlas_label_path}") );
     my $max_label_number;
     if ($header_output =~ /Range[\s]*\:[\s]*\[[^,]+,[\s]*([0-9\-\.e\+]+)/) {
