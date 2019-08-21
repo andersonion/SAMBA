@@ -41,6 +41,10 @@ $schedule_backup_jobs=1;
 
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
+# Set pipeline utilities code dev group
+if ($ENV{'CODE_DEV_GROUP'} ne ''){
+    $CODE_DEV_GROUP=$ENV{'CODE_DEV_GROUP'};
+}
 
 # pipeline_utilities uses GOODEXIT and BADEXIT, but it doesnt choose for you which you want. 
 $GOODEXIT = 0;
