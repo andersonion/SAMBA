@@ -19,72 +19,38 @@ use warnings;
 use Cwd qw(abs_path);
 use File::Basename;
 use List::Util qw(min max reduce);
-use List::MoreUtils qw(uniq);
+# List::MoreUtils is not part of CORE modules,
+#  and is a heavy weight requirement for just
+#  getting unique scalar values from an array.
+# Roll your own uniq is near trivial, and will probably get done to this code.
+# use List::MoreUtils qw(uniq);
+# Since it's included in our main we're gonna omit it here for now.
 
-use Env qw(RADISH_PERL_LIB);
-if (! defined($RADISH_PERL_LIB)) {
-    print STDERR "Cannot find good perl directories, quitting\n";
-    exit;
-}
-use lib split(':',$RADISH_PERL_LIB);
-
-#use vars used to be here
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
-
-use text_sheet_utils;
-
-## This may be hacky, but I'm sick of trying to point this to the right place. 19 December 2017
-if (! -d $WORKSTATION_DATA) {
-    if ($WORKSTATION_DATA =~ s/\.\.\/data/\.\.\/CIVMdata/) {}
-}
-#print "WORKSTATION_DATA = ${WORKSTATION_DATA}\n\n\n";
-
-$ENV{'PATH'}=$ANTSPATH.':'.$PATH;
-$ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
-$GOODEXIT = 0;
-$BADEXIT  = 1;
-my $ERROR_EXIT=$BADEXIT;
-# Dont force permissions, this should be left up to users.
-if ( 0 ) {
-    $permissions = 0755;
-}
-my $interval = 0.1; ##Normally 1
-$valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
-
-$civm_ecosystem = 1; # Begin implementing handling of code that is CIVM-specific
-if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
-    $civm_ecosystem = 1;
-} elsif ( $ENV{'BIGGUS_DISKUS'} =~ /civmnas4/) {
-    $civm_ecosystem = 1;
-}
-
-our ($log_file,$stats_file,$timestamped_inputs_file,$project_id,$all_groups_comma_list );
-our ($pristine_input_dir,$dir_work,$results_dir,$result_headfile);
-our ($rigid_transform_suffix,$affine_transform_suffix, $affine_identity_matrix, $preprocess_dir,$inputs_dir);
-# a do it again variable, will allow you to pull data from another vbm_run
-
-$test_mode = 0;
-# Dont force umask, this should be left up to users.
-if ( 0 ) {
-    umask(002);
-}
 use lib dirname(abs_path($0));
-use Env qw(RADISH_PERL_LIB WORKSTATION_DATA);
-if (! defined($RADISH_PERL_LIB)) {
-    print STDERR "Cannot find good perl directories, quitting\n";
-    die;
+BEGIN {
+    use Env qw(RADISH_PERL_LIB WORKSTATION_DATA BIGGUS_DISKUS);
+    if (! defined($RADISH_PERL_LIB)) {
+	print STDERR "Cannot find good perl directories, quitting\n";
+	die;
+    }
 }
 use lib split(':',$RADISH_PERL_LIB);
-
-
 # use ...
+# CIVM standard req
 use Headfile;
 use civm_simple_util qw(sleep_with_countdown    );
-use retrieve_archived_data;
-use study_variables_vbm;
-use ssh_call;
-use pull_civm_tensor_data;
+use text_sheet_utils;
 
+# retrieve_archived_data is largely retired. 
+# use retrieve_archived_data;
+# in prep for never useing it again commented study variables
+# use study_variables_vbm;
+# Neither pull_civm_tensor nor ssh_call used directly here, 
+# but keeping them here to centralize includes.
+use pull_civm_tensor_data;
+use ssh_call;
+
+# VBM work proper (aproximately in order).
 use convert_all_to_nifti_vbm;
 use set_reference_space_vbm;
 use create_rd_from_e2_and_e3_vbm;
@@ -108,15 +74,42 @@ use smooth_images_vbm;
 use vbm_analysis_vbm;
 use vbm_write_stats_for_pm;
 
-# Temporary hardcoded variables
+use apply_warps_to_bvecs;
 
+our ($log_file,$stats_file,$timestamped_inputs_file,$project_id,$all_groups_comma_list );
+our ($pristine_input_dir,$dir_work,$results_dir,$result_headfile);
+our ($rigid_transform_suffix,$affine_transform_suffix, $affine_identity_matrix, $preprocess_dir,$inputs_dir);
+# a do it again variable, will allow you to pull data from another vbm_run
+
+$test_mode = 0;
+# Dont force umask, this should be left up to users.
+if ( 0 ) {
+    umask(002);
+}
+# Dont force permissions, this should be left up to users.
+if ( 0 ) {
+    $permissions = 0755;
+}
+# A forced wait time after starting each bit. (also used when we're doing check and wait operations.)
+my $interval = 0.1; ##Normally 1
+$valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
+
+$civm_ecosystem = 1; # Begin implementing handling of code that is CIVM-specific
+if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
+    $civm_ecosystem = 1;
+} elsif ( $ENV{'BIGGUS_DISKUS'} =~ /civmnas4/) {
+    $civm_ecosystem = 1;
+}
+
+
+
+# Temporary hardcoded variables
 # variables, set up by the study vars script(study_variables_vbm.pm)
 
 $schedule_backup_jobs=0;
 
 sub vbm_pipeline_workflow { 
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
-
 
 # Define template group
 
@@ -284,7 +277,6 @@ if (! -e $papertrail_dir) {
     mkdir($papertrail_dir);
 }
 
-
 $log_file = open_log($papertrail_dir); # 26 Feb 2019--changed from results_dir to "papertrail" subfolder
 printd(1000,"\tlog is $log_file\n");
 ( $stats_file = $log_file ) =~ s/pipeline_info/job_stats/;
@@ -293,7 +285,6 @@ printd(1000,"\tstats are $stats_file\n");
 
 $preprocess_dir = $dir_work.'/preprocess';
 $inputs_dir = $preprocess_dir.'/base_images';
-
 
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
 $control_comma_list = join(',',uniq(@control_group));
@@ -530,30 +521,28 @@ print STDOUT " Running the main code of $PM. \n";
     }
     
 # Begin work:
-
 if (! -e $inputs_dir) {
     mkdir($inputs_dir);
 }
 
-
+# nii4D to keep track of nii4d specific things separate from the larger 
+# do_connectivity tasks
 my $nii4D = 0;
 if ($do_connectivity) {
     $nii4D = 1;
 }
 
-
 # Need to pass the nii4D flag in a more elegant manner...
-#my $nii4D = 1;
-
 if ($nii4D) {
     push(@channel_array,'nii4D');
     $channel_comma_list = $channel_comma_list.',nii4D';
     $Hf->set_value('channel_comma_list',$channel_comma_list);
 }
 # Gather all needed data and put in inputs directory
+# POORLY NAMED As it runs off to get data also
 convert_all_to_nifti_vbm(); #$PM_code = 12
 sleep($interval);
-
+die "TESTING DEBUG";
 if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
     push(@channel_array,'rd');
     $channel_comma_list = $channel_comma_list.',rd';
@@ -567,13 +556,11 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
     set_reference_space_vbm(); #$PM_code = 15
     sleep($interval);
 
-
     @channel_array = grep {$_ ne 'mask' } @channel_array;
     @channel_array = grep {$_ ne 'nii4D' } @channel_array;
 
     $channel_comma_list = join(',', @channel_array);
     $Hf->set_value('channel_comma_list',$channel_comma_list);
-
 
 # Register all to atlas
     my $do_rigid = 1;   
@@ -695,7 +682,7 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
     
 
 # Remerge before ending pipeline
-if ($create_labels || $register_MDT_to_atlas ) {
+    if ($create_labels || $register_MDT_to_atlas ) {
         my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
         my $real_time;
         if (cluster_check() && ($MDT_to_atlas_JobID ne 'NO_KEY') && ($MDT_to_atlas_JobID ne 'UNDEFINED_VALUE' )) {
@@ -758,8 +745,7 @@ if ($create_labels || $register_MDT_to_atlas ) {
 	}
     }
     if ($do_vba) {
-
-        my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53 
+	my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53 
         push(@channel_array,$new_contrast);
         $channel_comma_list = $channel_comma_list.','.$new_contrast;
         $Hf->set_value('channel_comma_list',$channel_comma_list);
@@ -784,9 +770,14 @@ if ($create_labels || $register_MDT_to_atlas ) {
     my $email_folder = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/email/';			
     my $email_file="${email_folder}/VBM_pipeline_completion_email_for_${time}.txt";
 
+my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
+my $nice_timestamp = sprintf ( "%04d-%02d-%02d_%02d:%02d:%02d",
+			       $year+1900,$mon+1,$mday,$hour,$min,$sec);
+
     my $local_time = localtime();
     my $local_time_stamp = "This file was generated on ${local_time}, local time.\n";
-    my $time_stamp = "Completion time stamp = ${time} seconds since January 1, 1970 (or some equally asinine date).\n";
+    my $time_stamp = "Completion time stamp = ${time} seconds since the Unix Epoc (or $nice_timestamp if you prefer).\n";
+ #January 1, 1970 (or some equally asinine date).\n" <--- said the ignorant programmmer :p
 
 
     my $subject_line = "Subject: VBM Pipeline has finished!!!\n";
@@ -796,7 +787,7 @@ if ($create_labels || $register_MDT_to_atlas ) {
     `echo "${email_content}" > ${email_file}`;
     my $pwuid = getpwuid( $< );
     my $pipe_adm="";
-    $pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
+    #$pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
     my $USER_LIST="$pwuid\@duke.edu$pipe_adm";
     `sendmail -f $process.civmcluster1\@dhe.duke.edu $USER_LIST < ${email_file}`;
 

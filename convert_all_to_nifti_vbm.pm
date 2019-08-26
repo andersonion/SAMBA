@@ -282,7 +282,6 @@ sub set_center_and_orientation_vbm {
     my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
 
     if (cluster_check) {
-#       my $cmd = $pairwise_cmd.$rename_cmd;
         my $cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
 	my $home_path = $current_path;
         my $Id= "recentering_and_setting_image_orientation_to_${desired_orientation}";

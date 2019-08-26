@@ -6,42 +6,32 @@
 
 # All my includes and requires are belong to us.
 # use ...
-
+# THIS BOILERPLATE IS MOSTLY IN THE WRONG SPOT AND SHOULD BE DELETED.
 my $PM = 'pull_civm_tensor_data.pm'; 
 
 use strict;
 use warnings;
-#no warnings qw(uninitialized bareword);
 
 use Cwd qw(abs_path);  # Verified as "necessary".
 use File::Basename;
 use List::Util qw(min max reduce); # Verified as "necessary".
-use List::MoreUtils qw(uniq first_index); # Verfified as "necessary".
+
+# List::MoreUtils is not part of CORE modules,
+#  and is a heavy weight requirement for just
+#  getting unique scalar values from an array.
+# Roll your own uniq is near trivial, and will probably get done to this code.
+# uniq and first_index are in use, need to check that and see about cleaning them out.
+use List::MoreUtils qw(uniq first_index); 
 #use vars used to be here
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
-
-$ENV{'PATH'}=$ANTSPATH.':'.$PATH;
-$ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
-$GOODEXIT = 0;
-$BADEXIT  = 1;
-my $ERROR_EXIT=$BADEXIT;
-$permissions = 0755;
-my $interval = 0.1; ##Normally 1
-
-umask(002); # Despite this, there is almost guaranteed to be issues with permissions for multi-user applications.
-
-use lib dirname(abs_path($0));
-use Env qw(RADISH_PERL_LIB);
-if (! defined($RADISH_PERL_LIB)) {
-    print STDERR "Cannot find good perl directories, quitting\n";
-    exit;
-}
-use lib split(':',$RADISH_PERL_LIB);
+use Env qw(BIGGUS_DISKUS);
 
 use Headfile;
 use civm_simple_util qw(write_array_to_file);
+
+use lib dirname(abs_path($0));
 use pull_multi;
 
+my $interval = 0.1; ##Normally 1
 #---------------------
 sub pull_civm_tensor_data_Init_check {
 #---------------------

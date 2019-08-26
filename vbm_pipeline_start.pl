@@ -6,10 +6,6 @@
 # Roughly modeled after seg_pipe_mc structure. (For better or for worse.)
 #
 
-
-# All my includes and requires are belong to us.
-# use ...
-
 my $PM = 'vbm_pipeline_start.pl'; 
 
 use strict;
@@ -17,30 +13,45 @@ use warnings;
 
 use Cwd qw(abs_path);
 use File::Basename;
+# List::MoreUtils is not part of CORE modules,
+#  and is a heavy weight requirement for just
+#  getting unique scalar values from an array.
+# Roll your own uniq is near trivial, and will probably get done to this code.
 use List::MoreUtils qw(uniq);
-
 #use JSON::Parse qw(json_file_to_perl valid_json assert_valid_json);
 
-use Env qw(RADISH_PERL_LIB);
-if (! defined($RADISH_PERL_LIB)) {
-    print STDERR "Cannot find good perl directories, quitting\n";
-    exit;
+BEGIN {
+    # Check required env vars that prove setup was done.
+    # Workstation_home is not actually used, and probably should be omitted.
+    my @env_vars=qw(ANTSPATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
+    use Env @env_vars;
+    foreach (@env_vars ) {
+	my $d=eval "\$$_";
+	if (! -d $d ) {
+	    die "$_ NOT properly defined!";
+	} else {
+	    #print("$_ got $d\n");
+	}
+    }
+    $ENV{'PATH'}=$ANTSPATH.':'.$ENV{'PATH'};
+    use Env qw(RADISH_PERL_LIB);
+    if (! defined($RADISH_PERL_LIB)) {
+	print STDERR "Cannot find good perl directories, quitting\n";
+	exit;
+    }
+    use lib split(':',$RADISH_PERL_LIB);
 }
-use lib split(':',$RADISH_PERL_LIB);
 
 use civm_simple_util qw(activity_log printd $debug_val);
 activity_log();
 use pipeline_utilities;
 use Headfile;
 
-
 use lib dirname(abs_path($0));
 use SAMBA_global_variables;
+use vbm_pipeline_workflow;
 
 $schedule_backup_jobs=1;
-
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
-$ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 # Set pipeline utilities code dev group
 if ($ENV{'CODE_DEV_GROUP'} ne ''){
     $CODE_DEV_GROUP=$ENV{'CODE_DEV_GROUP'};
@@ -57,10 +68,9 @@ if ( 0 ) {
 }
 $permissions=0777 ^ $cur_mask;
 
-my $interval = 1;
+#my $interval = 1;
 
 # a do it again variable, will allow you to pull data from another vbm_run
-#my $import_data = 1;
 $test_mode = 0;
 
 ### 
@@ -121,10 +131,8 @@ if ( 0 ) {
     umask(002);
 }
 
-# require ...
+# require ... ( which are done in line unlike use).
 require study_variables_vbm;
-use vbm_pipeline_workflow;
-use apply_warps_to_bvecs;
 
 #$debug_val = 35;
 #my $msg =  "Your message here!";
@@ -145,7 +153,6 @@ foreach my $entry ( keys %main:: )  {
 
 my $tmp_rigid_atlas_name='';
 {
-    use Cwd qw(abs_path);
     if ($start_file =~ /.*\.headfile$/) {
         $start_file = abs_path($start_file);
         load_SAMBA_parameters($start_file);
