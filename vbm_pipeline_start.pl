@@ -26,18 +26,18 @@ BEGIN {
     my @env_vars=qw(ANTSPATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
     use Env @env_vars;
     foreach (@env_vars ) {
-	my $d=eval "\$$_";
-	if (! -d $d ) {
-	    die "$_ NOT properly defined!";
-	} else {
-	    #print("$_ got $d\n");
-	}
+        my $d=eval "\$$_";
+        if (! -d $d ) {
+            die "$_ NOT properly defined!";
+        } else {
+            #print("$_ got $d\n");
+        }
     }
     $ENV{'PATH'}=$ANTSPATH.':'.$ENV{'PATH'};
     use Env qw(RADISH_PERL_LIB);
     if (! defined($RADISH_PERL_LIB)) {
-	print STDERR "Cannot find good perl directories, quitting\n";
-	exit;
+        print STDERR "Cannot find good perl directories, quitting\n";
+        exit;
     }
     use lib split(':',$RADISH_PERL_LIB);
 }
@@ -49,6 +49,7 @@ use Headfile;
 
 use lib dirname(abs_path($0));
 use SAMBA_global_variables;
+use vars qw($start_file);
 use vbm_pipeline_workflow;
 
 $schedule_backup_jobs=1;
@@ -77,7 +78,6 @@ $test_mode = 0;
 # simple input handling, 
 # we accept a startup headfile, and/or a (number of nodes|reservation name)
 # If we're doing start file, it must be first. 
-use vars qw($start_file);
 $start_file=shift(@ARGV);
 # Only if it looks like a number to we assign it to nodes.
 # this in an attempt to simplify the following handling. 
@@ -104,22 +104,22 @@ if (! defined $nodes || $nodes eq '' ) {
     my $cmd="scontrol show reservation \"${reservation}\"";
     my $reservation_info = qx/$cmd/;
     if ($reservation_info =~ /NodeCnt=([0-9]*)/m) { # Unsure if I need the 'm' option)
-	$nodes = $1;
-	# this slurm handling really belongs in some kinda cluter_env_cleaner function ....
-	if ( cluster_scheduler() =~ /slurm/ ){
-	    printd(5,"Using slurm scheduler\n");
-	    $ENV{'SBATCH_RESERVATION'}=$reservation;
-	    $ENV{'SLURM_RESERVATION'}=$reservation;
-	}
+        $nodes = $1;
+        # this slurm handling really belongs in some kinda cluter_env_cleaner function ....
+        if ( cluster_scheduler() =~ /slurm/ ){
+            printd(5,"Using slurm scheduler\n");
+            $ENV{'SBATCH_RESERVATION'}=$reservation;
+            $ENV{'SLURM_RESERVATION'}=$reservation;
+        }
     } else {
-	die "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\n\n\n".
-	    " Maybe your start file($start_file) was not found !"; 
-	# formerly was allowed to continue with reservatoin set failure, 
-	# this generates such a confusing mess that has been deprecated. 
-	# $nodes = 4;
-	# print "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\nProceeding with NO reservation, and assuming you want to run on ${nodes} nodes.\n\n\n"; 
-	# $reservation = '';
-	# sleep(5);
+        die "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\n\n\n".
+            " Maybe your start file($start_file) was not found !"; 
+        # formerly was allowed to continue with reservatoin set failure, 
+        # this generates such a confusing mess that has been deprecated. 
+        # $nodes = 4;
+        # print "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\nProceeding with NO reservation, and assuming you want to run on ${nodes} nodes.\n\n\n"; 
+        # $reservation = '';
+        # sleep(5);
     }
 }
 print "Attempting to use $nodes nodes;\n\n";
@@ -144,7 +144,7 @@ require study_variables_vbm;
 my $kevin_spacey='';
 foreach my $entry ( keys %main:: )  { 
     if ($entry =~ /^[A-Za-z0-9_]+$/) {
-    	$kevin_spacey = $kevin_spacey." $entry ";
+        $kevin_spacey = $kevin_spacey." $entry ";
     }
 }
 #my $test_shit = join(' ',sort(split(' ',$kevin_spacey)))."\n\n\n";
@@ -156,11 +156,11 @@ my $tmp_rigid_atlas_name='';
     if ($start_file =~ /.*\.headfile$/) {
         $start_file = abs_path($start_file);
         load_SAMBA_parameters($start_file);
-    #} elsif ($start_file =~ /.*\.json$/) { # BJA, 6 June 2019: temporarily killing all JSON support until a robust solution is in place ensuring the JSON package is available in arbitrary user's environment.
-    #    $start_file = abs_path($start_file);
-    #    load_SAMBA_json_parameters($start_file); 
+        #} elsif ($start_file =~ /.*\.json$/) { # BJA, 6 June 2019: temporarily killing all JSON support until a robust solution is in place ensuring the JSON package is available in arbitrary user's environment.
+        #    $start_file = abs_path($start_file);
+        #    load_SAMBA_json_parameters($start_file); 
     } else {
-	die "Study variables is not good, so its no longer allowed";
+        die "Study variables is not good, so its no longer allowed";
         study_variables_vbm();
     }
     if (! defined $do_vba) {
@@ -175,16 +175,16 @@ sub load_SAMBA_parameters {
     my ($param_file) = (@_);
     my $tempHf = new Headfile ('rw', "${param_file}");
     if (! $tempHf->check()) {
-	error_out(" Unable to open SAMBA parameter file ${param_file}.");
-	return(0);
+        error_out(" Unable to open SAMBA parameter file ${param_file}.");
+        return(0);
     }
     if (! $tempHf->read_headfile) {
-	error_out(" Unable to read SAMBA parameter file ${param_file}."); 
-	return(0);
+        error_out(" Unable to read SAMBA parameter file ${param_file}."); 
+        return(0);
     }
     my $is_headfile=1;  
     assign_parameters($tempHf,$is_headfile);
-    }
+}
 
 # ------------------
 sub load_SAMBA_json_parameters {
@@ -192,22 +192,22 @@ sub load_SAMBA_json_parameters {
     my ($json_file) = (@_);
     my $tempHf = json_file_to_perl($json_file);
     if (0){
-    eval {
-        assert_valid_json (  $json_file);
-    };
-    if ($@) {
-        error_out("Invalid .JSON parameter file ${json_file}: $@\n");
-    #}
-    #if (! valid_json($json_file)) {
-    #    error_out(" Invalid .JSON parameter file ${json_file}."); 
-        return(0);
-    }
+        eval {
+            assert_valid_json (  $json_file);
+        };
+        if ($@) {
+            error_out("Invalid .JSON parameter file ${json_file}: $@\n");
+            #}
+            #if (! valid_json($json_file)) {
+            #    error_out(" Invalid .JSON parameter file ${json_file}."); 
+            return(0);
+        }
     }
     
     my $is_headfile=0;
     assign_parameters($tempHf,$is_headfile);
 
-    }
+}
 
 
 # ------------------
@@ -227,7 +227,7 @@ sub assign_parameters {
                 if (defined $val) {
                     eval("\$$_=\'$val\'");
                     print $_." = $val\n";
-   
+                    
                     if ($_ eq 'rigid_atlas_name'){
                         eval("\$tmp_rigid_atlas_name=\'$val\'");
                     }
@@ -238,32 +238,32 @@ sub assign_parameters {
         foreach (keys %{ $tempHf }) {
             if ($kevin_spacey =~ /\b$_\b/) {
 
-            #my $val = %{ $tempHf }->{($_)};
-            #print "\n\n$_\n\n"; 
-            die "json mode requires revalidation!!!";
-            my $val;
-            $val = %{ $tempHf ->{$_}}; # Option A: take hash in tempHf and store as scalar
-            $val = $tempHf->{$_};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
-            #my $val = %{ $tempHf }->{$_}; # This is as originally formulated, but not quite right.
-            if ($val ne '') {
-                #print "LOOK HERE TO SEE NOTHING\$val = ${val}\n";
-                if ($val =~ /^ARRAY\(0x[0-9,a-f]{5,}/){
-                    eval("\@$_=\'@$val\'");
-                    print "$_ = @{$_}\n"; 
-                } elsif ($val =~ /^HASH\(0x[0-9,a-f]{5,}/){
-                    eval("\%$_=\'%$val\'");
-                    print "$_ = %{$_}\n"; 
+                #my $val = %{ $tempHf }->{($_)};
+                #print "\n\n$_\n\n"; 
+                die "json mode requires revalidation!!!";
+                my $val;
+                $val = %{ $tempHf ->{$_}}; # Option A: take hash in tempHf and store as scalar
+                $val = $tempHf->{$_};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
+                #my $val = %{ $tempHf }->{$_}; # This is as originally formulated, but not quite right.
+                if ($val ne '') {
+                    #print "LOOK HERE TO SEE NOTHING\$val = ${val}\n";
+                    if ($val =~ /^ARRAY\(0x[0-9,a-f]{5,}/){
+                        eval("\@$_=\'@$val\'");
+                        print "$_ = @{$_}\n"; 
+                    } elsif ($val =~ /^HASH\(0x[0-9,a-f]{5,}/){
+                        eval("\%$_=\'%$val\'");
+                        print "$_ = %{$_}\n"; 
 
-                } else { # It's just a normal scalar.
-                    eval("\$$_=\'$val\'");
-                    print "$_ = ${$_}\n";   
-                    if ($_ eq 'rigid_atlas_name') {
-                        eval("\$tmp_rigid_atlas_name=\'$val\'");
+                    } else { # It's just a normal scalar.
+                        eval("\$$_=\'$val\'");
+                        print "$_ = ${$_}\n";   
+                        if ($_ eq 'rigid_atlas_name') {
+                            eval("\$tmp_rigid_atlas_name=\'$val\'");
+                        }
                     }
                 }
             }
         }
-    }
     }
     my @ps_array;
 
@@ -271,12 +271,12 @@ sub assign_parameters {
         my $project_string;
         if ($is_headfile) {
             $project_string = $tempHf->get_value('project_id');
-         } else {
+        } else {
             die "json mode requires revalidation!!!";
             $project_string = %{ $tempHf ->{"project_id"}}; # Option A: take hash in tempHf and store as scalar
             $project_string = $tempHf->{"project_id"};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
             # $project_string = %{ $tempHf }->{"project_id"}; # This is as originally formulated, but not quite right.
-         }
+        }
 
         @ps_array = split('_',$project_string);
         shift(@ps_array);
@@ -295,19 +295,19 @@ sub assign_parameters {
     }
 
     if ((! defined ($pre_masked)) && (defined ($do_mask))) {
-	if ($do_mask) {
-	    $pre_masked = 0;
-	} else {
-	    $pre_masked=1;
-	}
+        if ($do_mask) {
+            $pre_masked = 0;
+        } else {
+            $pre_masked=1;
+        }
     }
 
     if ((defined ($pre_masked)) && (! defined ($do_mask))) {
-	if ($pre_masked) {
-	    $do_mask = 0;
-	} else {
-	    $do_mask=1;
-	}
+        if ($pre_masked) {
+            $do_mask = 0;
+        } else {
+            $do_mask=1;
+        }
     }
 
     if (! defined $port_atlas_mask) { $port_atlas_mask = 0;}
@@ -315,55 +315,55 @@ sub assign_parameters {
     if (($test_mode) && ($test_mode eq 'off')) { $test_mode = 0;}
 
     if (defined $channel_comma_list) {
-	my @CCL = split(',',$channel_comma_list);
-	foreach (@CCL) {
-	    if ($_ !~ /(jac|ajax|nii4D)/) {
-		push (@channel_array,$_);
-	    }
-	}
+        my @CCL = split(',',$channel_comma_list);
+        foreach (@CCL) {
+            if ($_ !~ /(jac|ajax|nii4D)/) {
+                push (@channel_array,$_);
+            }
+        }
 
-	@channel_array = uniq(@channel_array);
-	$channel_comma_list = join(',',@channel_array);
+        @channel_array = uniq(@channel_array);
+        $channel_comma_list = join(',',@channel_array);
     }
 
-if (0) { # We want to retire the confusing concept of $atlas_name, when we really mean $rigid_atlas_name
-    my $atlas_name; # Only used here so perl won't throw up trying to check this code.
-    if (! defined  $atlas_name){
-        my ($r_atlas_name,$l_atlas_name);
-        if ($is_headfile) {
-            $r_atlas_name = $tempHf->get_value('rigid_atlas_name');
-            $l_atlas_name = $tempHf->get_value('label_atlas_name');
-            if ($r_atlas_name ne 'NO_KEY') {
-                $atlas_name = $r_atlas_name;
-            } elsif ($l_atlas_name ne 'NO_KEY') {
-                $atlas_name = $l_atlas_name;
+    if (0) { # We want to retire the confusing concept of $atlas_name, when we really mean $rigid_atlas_name
+        my $atlas_name; # Only used here so perl won't throw up trying to check this code.
+        if (! defined  $atlas_name){
+            my ($r_atlas_name,$l_atlas_name);
+            if ($is_headfile) {
+                $r_atlas_name = $tempHf->get_value('rigid_atlas_name');
+                $l_atlas_name = $tempHf->get_value('label_atlas_name');
+                if ($r_atlas_name ne 'NO_KEY') {
+                    $atlas_name = $r_atlas_name;
+                } elsif ($l_atlas_name ne 'NO_KEY') {
+                    $atlas_name = $l_atlas_name;
+                } else {
+                    $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
+                }
             } else {
-                $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
-            }
-        } else {
-            die "json mode requires revalidation!!!";
-            $r_atlas_name = %{ $tempHf ->{'rigid_atlas_name'}}; # Option A: take hash in tempHf and store as scalar
-            $r_atlas_name = $tempHf->{'rigid_atlas_name'};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
-            #$r_atlas_name = %{ $tempHf }->{'rigid_atlas_name'}; # This is as originally formulated, but not quite right.
+                die "json mode requires revalidation!!!";
+                $r_atlas_name = %{ $tempHf ->{'rigid_atlas_name'}}; # Option A: take hash in tempHf and store as scalar
+                $r_atlas_name = $tempHf->{'rigid_atlas_name'};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
+                #$r_atlas_name = %{ $tempHf }->{'rigid_atlas_name'}; # This is as originally formulated, but not quite right.
 
-            $l_atlas_name = %{ $tempHf ->{'label_atlas_name'}}; # Option A: take hash in tempHf and store as scalar
-            $l_atlas_name = $tempHf->{'label_atlas_name'};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
-            # $l_atlas_name = %{ $tempHf }->{'label_atlas_name'};
+                $l_atlas_name = %{ $tempHf ->{'label_atlas_name'}}; # Option A: take hash in tempHf and store as scalar
+                $l_atlas_name = $tempHf->{'label_atlas_name'};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
+                # $l_atlas_name = %{ $tempHf }->{'label_atlas_name'};
 
-            if ($r_atlas_name ne '') {
-                $atlas_name = $r_atlas_name;
-            } elsif ($l_atlas_name ne '') {
-                $atlas_name = $l_atlas_name;
-            } else {
-                $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
+                if ($r_atlas_name ne '') {
+                    $atlas_name = $r_atlas_name;
+                } elsif ($l_atlas_name ne '') {
+                    $atlas_name = $l_atlas_name;
+                } else {
+                    $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
+                }
             }
         }
     }
-}
-	if (! defined $optional_suffix) {
-	    $optional_suffix = join('_',@ps_array);
+    if (! defined $optional_suffix) {
+        $optional_suffix = join('_',@ps_array);
         if ($optional_suffix =~ s/^(${rigid_atlas_name}[_]?)//) {}
-	}
+    }
 
 }
 

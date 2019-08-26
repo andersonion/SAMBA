@@ -30,8 +30,8 @@ use lib dirname(abs_path($0));
 BEGIN {
     use Env qw(RADISH_PERL_LIB WORKSTATION_DATA BIGGUS_DISKUS);
     if (! defined($RADISH_PERL_LIB)) {
-	print STDERR "Cannot find good perl directories, quitting\n";
-	die;
+        print STDERR "Cannot find good perl directories, quitting\n";
+        die;
     }
 }
 use lib split(':',$RADISH_PERL_LIB);
@@ -122,7 +122,7 @@ sub vbm_pipeline_workflow {
 # Create a master list of all specimen that are to be pre-processed and rigid/affinely aligned
 
 
-my @variables_to_headfile=qw(
+    my @variables_to_headfile=qw(
 start_file project_id image_dimensions
 control_comma_list compare_comma_list complete_comma_list channel_comma_list
 pristine_input_dir preprocess_dir inputs_dir dir_work results_dir timestamped_inputs_file
@@ -147,87 +147,87 @@ nonparametric_permutations fdr_masks tfce_extent tfce_height fsl_cluster_size
 U_specid U_species_m00 U_code
 );
 
-if (defined $label_reference) {
-    $Hf->set_value('label_reference_space',$label_reference);
-}
+    if (defined $label_reference) {
+        $Hf->set_value('label_reference_space',$label_reference);
+    }
 
 
 
 ## Need to throw errors for empty lists, maybe dump headers for case of header not found; dump values from column in case of existing header
 
-if (! @group_1) { # if (! defined @group_1) {
-    if (defined $group_1_runnos) {
-        @group_1 = split(',',$group_1_runnos);
-    } else {
-        @group_1=();
-    }
-}
-
-if (! @group_2) { #if (! defined @group_2) {
-    if (defined $group_2_runnos) {
-        @group_2 = split(',',$group_2_runnos);
-    } else {
-        @group_2=();
-    }
-}
-
-if (! @control_group) {
-    if (defined $control_comma_list) {
-        @control_group = split(',',$control_comma_list);
-    } elsif ((@group_1) && (@group_2)) {
-        @control_group = uniq(@group_1,@group_2);
-    } elsif (@group_1) {
-        @control_group = uniq(@group_1)
-    }
-}
-
-if (! @compare_group) {
-    if (defined $compare_comma_list) {
-        @compare_group = split(',',$compare_comma_list);
-    } else {
-        @compare_group = @control_group;
-    }
- 
-    if ( scalar (@group_1) && $group_1[0] ne '') {
-        @compare_group=uniq(@compare_group,@group_1);
-    } 
-    
-    if ( scalar (@group_2) && $group_2[0] ne '') {
-        @compare_group=uniq(@compare_group,@group_2);
-    }
-}
-
-my @all_runnos = uniq(@control_group,@compare_group);
-my $single_seg=0;
-if ($#all_runnos < 1) {
-    $do_vba = 0;
-    $single_seg=1;
-    if (! $optional_suffix) {
-        $optional_suffix = $all_runnos[0];
+    if (! @group_1) { # if (! defined @group_1) {
+        if (defined $group_1_runnos) {
+            @group_1 = split(',',$group_1_runnos);
+        } else {
+            @group_1=();
+        }
     }
 
-    $mdt_creation_strategy='pairwise';
-}
+    if (! @group_2) { #if (! defined @group_2) {
+        if (defined $group_2_runnos) {
+            @group_2 = split(',',$group_2_runnos);
+        } else {
+            @group_2=();
+        }
+    }
 
-if (! defined $do_vba) {
-    $do_vba = 0;
-}
+    if (! @control_group) {
+        if (defined $control_comma_list) {
+            @control_group = split(',',$control_comma_list);
+        } elsif ((@group_1) && (@group_2)) {
+            @control_group = uniq(@group_1,@group_2);
+        } elsif (@group_1) {
+            @control_group = uniq(@group_1)
+        }
+    }
+
+    if (! @compare_group) {
+        if (defined $compare_comma_list) {
+            @compare_group = split(',',$compare_comma_list);
+        } else {
+            @compare_group = @control_group;
+        }
+        
+        if ( scalar (@group_1) && $group_1[0] ne '') {
+            @compare_group=uniq(@compare_group,@group_1);
+        } 
+        
+        if ( scalar (@group_2) && $group_2[0] ne '') {
+            @compare_group=uniq(@compare_group,@group_2);
+        }
+    }
+
+    my @all_runnos = uniq(@control_group,@compare_group);
+    my $single_seg=0;
+    if ($#all_runnos < 1) {
+        $do_vba = 0;
+        $single_seg=1;
+        if (! $optional_suffix) {
+            $optional_suffix = $all_runnos[0];
+        }
+
+        $mdt_creation_strategy='pairwise';
+    }
+
+    if (! defined $do_vba) {
+        $do_vba = 0;
+    }
 
 
 ## The following are mostly ready-to-go variables (i.e. non hard-coded)
 
-if ($optional_suffix ne '') {
-    $optional_suffix = "_${optional_suffix}";
-}
-my $main_folder_prefix;
-if ($single_seg) {
-    $main_folder_prefix = 'SingleSegmentation_';
-} else  {
-    $main_folder_prefix = 'VBM_';  ## Want to switch these all to 'SAMBA'
-}
-my @project_components = split(/[.]/,$project_name); # $project_name =~ s/[.]//g;
-$project_id =  join('',@project_components);
-$project_id = $main_folder_prefix.$project_id.'_'.$rigid_atlas_name.$optional_suffix; #create_identifer($project_name);
+    if ($optional_suffix ne '') {
+        $optional_suffix = "_${optional_suffix}";
+    }
+    my $main_folder_prefix;
+    if ($single_seg) {
+        $main_folder_prefix = 'SingleSegmentation_';
+    } else  {
+        $main_folder_prefix = 'VBM_';  ## Want to switch these all to 'SAMBA'
+    }
+    my @project_components = split(/[.]/,$project_name); # $project_name =~ s/[.]//g;
+    $project_id =  join('',@project_components);
+    $project_id = $main_folder_prefix.$project_id.'_'.$rigid_atlas_name.$optional_suffix; #create_identifer($project_name);
 
 ($pristine_input_dir,$dir_work,$results_dir,$result_headfile) = make_process_dirs($project_id); #new_get_engine_dependencies($project_id);
 
@@ -243,17 +243,17 @@ if ((defined $start_file) && ( -f $start_file)) {
         if ($pristine_input_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
 
         if (! -l $pristine_input_dir) {
-             `ln -s $old_pristine_input_dir $pristine_input_dir`;
+            `ln -s $old_pristine_input_dir $pristine_input_dir`;
         }
         my $old_work_dir=$dir_work;
         if ($dir_work =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
         if (! -l $dir_work) {
-             `ln -s $old_work_dir $dir_work`;
+            `ln -s $old_work_dir $dir_work`;
         }
         my $old_results_dir=$results_dir;
         if ($results_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
         if (! -l $results_dir) {
-             `ln -s $old_results_dir $results_dir`;
+            `ln -s $old_results_dir $results_dir`;
         }
         if ($result_headfile =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
     }
@@ -319,7 +319,7 @@ if ($do_vba  || $create_labels) {
 
 my $runlist;
 if (defined $all_groups_comma_list){
-	$runlist = $all_groups_comma_list;
+    $runlist = $all_groups_comma_list;
 } else {
     $runlist = $complete_comma_list;
 }
@@ -356,14 +356,14 @@ if ((defined $start_file) && ($start_file ne '')) {
     if (! $tempHf->read_headfile) {
         error_out(" Unable to read SAMBA parameter file ${start_file}."); 
         return(0);
-   }
+    }
 
     foreach my $c_runno (@all_runnos) {
         my $c_key = "original_orientation_${c_runno}";
         my $temp_orientation = $tempHf->get_value($c_key);
         if (($temp_orientation ne 'NO_KEY')  &&  ($temp_orientation ne 'UNDEFINED_VALUE')) {
             $Hf->set_value($c_key,$temp_orientation);
-	} 
+        } 
     }
 }
 
@@ -384,19 +384,19 @@ if ( -f ${c_input_headfile}) {
     if (! ${ci_Hf}->read_headfile) {
         error_out(" Unable to read current inputs parameter file ${c_input_headfile}."); 
         return(0);
-   }
+    }
 
     my @excluded_keys=qw(hfpcmt);
     my $include=0;
     my $Hf_comp = '';
-    $Hf_comp = compare_headfiles($ci_Hf,$tempHf,$include,@excluded_keys);		    
-	if ($Hf_comp eq '') {
+    $Hf_comp = compare_headfiles($ci_Hf,$tempHf,$include,@excluded_keys);                   
+    if ($Hf_comp eq '') {
         print "Input headfile matches current headfile!\n\n";
-	} else {
+    } else {
         # If different, warn with 10 sec pause or need to press Enter
-	    log_info(" $PM: ${Hf_comp}\nARE YOU ABSOLUTELY SURE YOU WANT TO CONTINUE?\n(If not, cancel now)"); # Is this the right place for this?
+        log_info(" $PM: ${Hf_comp}\nARE YOU ABSOLUTELY SURE YOU WANT TO CONTINUE?\n(If not, cancel now)"); # Is this the right place for this?
         sleep_with_countdown(10);
-	}
+    }
 }
 
 # Save current to inputs and results, renaming on the way
@@ -419,7 +419,7 @@ if( defined $c_input_headfile && $c_input_headfile ne "" ) {
     my $u_name=(getpwuid $>)[0];
     my $cached_path=File::Spec->catfile($WORKSTATION_DATA,'samba_startup_cache',$u_name.'_'.$n.$e);
     if( defined $cached_path && $cached_path ne "" ) {
-	`cp -pv $start_file $cached_path`;
+        `cp -pv $start_file $cached_path`;
     }
 }
 
@@ -452,12 +452,12 @@ print STDOUT " Running the main code of $PM. \n";
 
 # Check command line options and report related errors
 
-    # Check backwards.  This will avoid replicating the check for needed input data at every step.
-    # Report errors forwards, since this is more user friendly.
-    my $init_error_msg='';
-    
+# Check backwards.  This will avoid replicating the check for needed input data at every step.
+# Report errors forwards, since this is more user friendly.
+my $init_error_msg='';
 
-    my @modules_for_Init_check = qw(
+
+my @modules_for_Init_check = qw(
      convert_all_to_nifti_vbm
      pull_civm_tensor_data
      create_rd_from_e2_and_e3_vbm
@@ -481,45 +481,45 @@ print STDOUT " Running the main code of $PM. \n";
      vbm_analysis_vbm
      apply_warps_to_bvecs
       );
-    # 20 July 2017, BJA: swapped check order of mask images and set reference space
-    
-    my %init_dispatch_table;
-    
+# 20 July 2017, BJA: swapped check order of mask images and set reference space
 
-    my $checkCall; # Using camelCase here to avoid the potential need for playing the escape character game when calling command with backticks, etc.
-    my $Init_suffix = "_Init_check";
-    
-   
-   # for (my $mm = $#modules_for_Init_check; $mm >=0; $mm--)) { # This checks backwards
-    for (my $mm = 0; $mm <= $#modules_for_Init_check; $mm++) { # This checks forwards
+my %init_dispatch_table;
+
+
+my $checkCall; # Using camelCase here to avoid the potential need for playing the escape character game when calling command with backticks, etc.
+my $Init_suffix = "_Init_check";
+
+
+# for (my $mm = $#modules_for_Init_check; $mm >=0; $mm--)) { # This checks backwards
+for (my $mm = 0; $mm <= $#modules_for_Init_check; $mm++) { # This checks forwards
     my $module = $modules_for_Init_check[$mm];
-		 
-	$checkCall = "${module}${Init_suffix}";
+    
+    $checkCall = "${module}${Init_suffix}";
     $init_dispatch_table{$checkCall}=eval('\&$checkCall'); # MUST USE SINGLE QUOTES on RHS!!!
 
 
-	print STDOUT "Check call is $checkCall\n";
-	my $temp_error_msg = '';
+    print STDOUT "Check call is $checkCall\n";
+    my $temp_error_msg = '';
     $temp_error_msg=$init_dispatch_table{$checkCall}();
-        #$temp_error_msg=set_reference_space_vbm_Init_check();
+    #$temp_error_msg=set_reference_space_vbm_Init_check();
 
-	if ((defined $temp_error_msg) && ($temp_error_msg ne '')  ) {
-	    if ($init_error_msg ne '') {
-		$init_error_msg = "${init_error_msg}\n------\n\n${temp_error_msg}"; # This prints the results forwards
-		# $init_error_msg = "${temp_error_msg}\n------\n\n${init_error_msg}"; # This prints the results backwards
-	    } else {
-		$init_error_msg = $temp_error_msg;
-	    }
-	}
+    if ((defined $temp_error_msg) && ($temp_error_msg ne '')  ) {
+        if ($init_error_msg ne '') {
+            $init_error_msg = "${init_error_msg}\n------\n\n${temp_error_msg}"; # This prints the results forwards
+            # $init_error_msg = "${temp_error_msg}\n------\n\n${init_error_msg}"; # This prints the results backwards
+        } else {
+            $init_error_msg = $temp_error_msg;
+        }
     }
-    
-    if ($init_error_msg ne '') {
-	log_info($init_error_msg,0);
-	error_out("\n\nPrework errors found:\n${init_error_msg}\nNo work has been performed!\n");
-    } else {
-	log_info("No errors found during initialization check stage.\nLet the games begin!\n");
-    }
-    
+}
+
+if ($init_error_msg ne '') {
+    log_info($init_error_msg,0);
+    error_out("\n\nPrework errors found:\n${init_error_msg}\nNo work has been performed!\n");
+} else {
+    log_info("No errors found during initialization check stage.\nLet the games begin!\n");
+}
+
 # Begin work:
 if (! -e $inputs_dir) {
     mkdir($inputs_dir);
@@ -548,248 +548,248 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
     $channel_comma_list = $channel_comma_list.',rd';
     $Hf->set_value('channel_comma_list',$channel_comma_list);
 }
-    sleep($interval);
-    # Before 11 April 2017: nii4Ds were not masked; After 11 April 2017: nii4Ds are masked for processing/storage/reading/writing efficiency
-    mask_images_vbm(); #$PM_code = 14
-    sleep($interval);
+sleep($interval);
+# Before 11 April 2017: nii4Ds were not masked; After 11 April 2017: nii4Ds are masked for processing/storage/reading/writing efficiency
+mask_images_vbm(); #$PM_code = 14
+sleep($interval);
 
-    set_reference_space_vbm(); #$PM_code = 15
-    sleep($interval);
+set_reference_space_vbm(); #$PM_code = 15
+sleep($interval);
 
-    @channel_array = grep {$_ ne 'mask' } @channel_array;
-    @channel_array = grep {$_ ne 'nii4D' } @channel_array;
+@channel_array = grep {$_ ne 'mask' } @channel_array;
+@channel_array = grep {$_ ne 'nii4D' } @channel_array;
 
-    $channel_comma_list = join(',', @channel_array);
-    $Hf->set_value('channel_comma_list',$channel_comma_list);
+$channel_comma_list = join(',', @channel_array);
+$Hf->set_value('channel_comma_list',$channel_comma_list);
 
 # Register all to atlas
-    my $do_rigid = 1;   
-    create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 21
+my $do_rigid = 1;   
+create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 21
+sleep($interval);
+
+if (1) { #  Need to take out this hardcoded bit!
+    $do_rigid = 0;
+    create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 39
     sleep($interval);
+}
 
-    if (1) { #  Need to take out this hardcoded bit!
-        $do_rigid = 0;
-        create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 39
-        sleep($interval);
-    }
+# pairwise_reg_vbm("a");
+# sleep($interval);    
 
-   # pairwise_reg_vbm("a");
-   # sleep($interval);    
+# calculate_mdt_warps_vbm("f","affine");
+# sleep($interval);
 
-   # calculate_mdt_warps_vbm("f","affine");
-   # sleep($interval);
-    
-    my $group_name='';
+my $group_name='';
 
 ## Different approaches to MDT creation start to diverge here. ## 2 November 2016
-    if ($mdt_creation_strategy eq 'iterative') {
+if ($mdt_creation_strategy eq 'iterative') {
 
-	    my ($use_st_i,$starting_iteration)=$Hf->get_value_check('starting_iteration');
-	    if ($use_st_i && $starting_iteration =~ /([1-9]{1}|[0-9]{2,})/) {
-	    } elsif($use_st_i ) { 
-		error_out("Bad starting iteration found! $starting_iteration");
-	    } else {
-		$starting_iteration = 0;
-	    }
-	   # print "starting_iteration = ${starting_iteration}";
-
-	    for (my $ii = $starting_iteration; $ii <= $mdt_iterations; $ii++) {  # Will need to add a "while" option that runs to a certain point of stability; We don't really count the 0th iteration because normally this is just the averaging of the affine-aligned images. 
-
-            # In theory, iterative_pairwise_reg_vbm and apply_mdt_warps_vbm can be combined into a 
-            # "packet": as soon as a registration is completed, those warps can be immediately applied to
-            # that contrast's images, independent of other registration jobs.
-
-            $ii = iterative_pairwise_reg_vbm("d",$ii); #$PM_code = 41 # This returns $ii in case it is determined that some iteration levels can/should be skipped.
-            sleep($interval);
-
-            $group_name = "control";
-            foreach my $a_contrast (@channel_array) {
-                apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 43
-            }
-
-            # 12 Feb 2019, BJA: moved this from before apply_mdt_warps_vbm to here, reorganizing to move towards making "packets"
-            # of independent work 
-            
-            
-            iterative_calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
-        	sleep($interval);
-
-            calculate_mdt_images_vbm($ii,@channel_array); #$PM_code = 44
-            sleep($interval);	    
-	    }
-
-	    mask_for_mdt_vbm(); #$PM_code = 45
-	    sleep($interval);
-	#}
+    my ($use_st_i,$starting_iteration)=$Hf->get_value_check('starting_iteration');
+    if ($use_st_i && $starting_iteration =~ /([1-9]{1}|[0-9]{2,})/) {
+    } elsif($use_st_i ) { 
+        error_out("Bad starting iteration found! $starting_iteration");
     } else {
-	#
-	# PAIRWISE VERSION
-	#
-        pairwise_reg_vbm("d"); #$PM_code = 41
-        sleep($interval);
-	
-    	calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
+        $starting_iteration = 0;
+    }
+    # print "starting_iteration = ${starting_iteration}";
+
+    for (my $ii = $starting_iteration; $ii <= $mdt_iterations; $ii++) {  # Will need to add a "while" option that runs to a certain point of stability; We don't really count the 0th iteration because normally this is just the averaging of the affine-aligned images. 
+
+        # In theory, iterative_pairwise_reg_vbm and apply_mdt_warps_vbm can be combined into a 
+        # "packet": as soon as a registration is completed, those warps can be immediately applied to
+        # that contrast's images, independent of other registration jobs.
+
+        $ii = iterative_pairwise_reg_vbm("d",$ii); #$PM_code = 41 # This returns $ii in case it is determined that some iteration levels can/should be skipped.
         sleep($interval);
 
-        calculate_mdt_warps_vbm("i","diffeo"); #$PM_code = 42
-        sleep($interval);
-
-    	$group_name = "control";
+        $group_name = "control";
         foreach my $a_contrast (@channel_array) {
             apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 43
         }
-        calculate_mdt_images_vbm(@channel_array); #$PM_code = 44
+
+        # 12 Feb 2019, BJA: moved this from before apply_mdt_warps_vbm to here, reorganizing to move towards making "packets"
+        # of independent work 
+        
+        
+        iterative_calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
         sleep($interval);
 
-        mask_for_mdt_vbm(); #$PM_code = 45
-        sleep($interval);
- 
-    	if ($do_vba) {
-            calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46) ## BAD code! Don't use this unless you are trying to make a point! #Just kidding its the right thing to do after all--WTH?!?
-            sleep($interval);
-        }
+        calculate_mdt_images_vbm($ii,@channel_array); #$PM_code = 44
+        sleep($interval);           
     }
+
+    mask_for_mdt_vbm(); #$PM_code = 45
+    sleep($interval);
+    #}
+} else {
+    #
+    # PAIRWISE VERSION
+    #
+    pairwise_reg_vbm("d"); #$PM_code = 41
+    sleep($interval);
+    
+    calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
+    sleep($interval);
+
+    calculate_mdt_warps_vbm("i","diffeo"); #$PM_code = 42
+    sleep($interval);
+
+    $group_name = "control";
+    foreach my $a_contrast (@channel_array) {
+        apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 43
+    }
+    calculate_mdt_images_vbm(@channel_array); #$PM_code = 44
+    sleep($interval);
+
+    mask_for_mdt_vbm(); #$PM_code = 45
+    sleep($interval);
+    
+    if ($do_vba) {
+        calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46) ## BAD code! Don't use this unless you are trying to make a point! #Just kidding its the right thing to do after all--WTH?!?
+        sleep($interval);
+    }
+}
 
 # Things can get parallel right about here...
-    
-# Branch one: 
-    if ($create_labels || $register_MDT_to_atlas) {
-	$do_rigid = 0;
-	my $mdt_to_atlas = 1;
-	create_affine_reg_to_atlas_vbm($do_rigid,$mdt_to_atlas);  #$PM_code = 61
-	sleep($interval);
 
-	mdt_reg_to_atlas_vbm(); #$PM_code = 62
-	sleep($interval);
-    }
+# Branch one: 
+if ($create_labels || $register_MDT_to_atlas) {
+    $do_rigid = 0;
+    my $mdt_to_atlas = 1;
+    create_affine_reg_to_atlas_vbm($do_rigid,$mdt_to_atlas);  #$PM_code = 61
+    sleep($interval);
+
+    mdt_reg_to_atlas_vbm(); #$PM_code = 62
+    sleep($interval);
+}
 
 # Branch two:
-    my $compare_reg_type="d";
-    if ( $stop_after_mdt_creation ) {
-        $compare_reg_type="skip"
+my $compare_reg_type="d";
+if ( $stop_after_mdt_creation ) {
+    $compare_reg_type="skip"
+}
+compare_reg_to_mdt_vbm(${compare_reg_type}); #$PM_code = 51
+sleep($interval);
+#create_average_mdt_image_vbm(); ### What the heck was this?
+
+if ( ! $stop_after_mdt_creation ) {
+    $group_name = "compare";    
+    foreach my $a_contrast (@channel_array) {
+        apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 52 
     }
-    compare_reg_to_mdt_vbm(${compare_reg_type}); #$PM_code = 51
-    sleep($interval);
-    #create_average_mdt_image_vbm(); ### What the heck was this?
-    
-    if ( ! $stop_after_mdt_creation ) {
-        $group_name = "compare";    
-        foreach my $a_contrast (@channel_array) {
-            apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 52 
-        }
-    }
-    sleep($interval);
-    
+}
+sleep($interval);
+
 
 # Remerge before ending pipeline
-    if ($create_labels || $register_MDT_to_atlas ) {
-        my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
-        my $real_time;
-        if (cluster_check() && ($MDT_to_atlas_JobID ne 'NO_KEY') && ($MDT_to_atlas_JobID ne 'UNDEFINED_VALUE' )) {
-            my $interval = 15;
-            my $verbose = 1;
-            my $label_xform_dir=$Hf->get_value('label_transform_dir');
-            my $batch_folder = $label_xform_dir.'/sbatch/';
-            my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,$MDT_to_atlas_JobID);
-            print " Waiting for Job ${MDT_to_atlas_JobID}\n";
-            if ($done_waiting) {
-                print STDOUT  " Diffeomorphic registration from MDT to label atlas ${label_atlas_name} job has completed; moving on to next serial step.\n";
-            }
-            my $case = 2;
-            my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
-	    
-            $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time,$MDT_to_atlas_JobID);
-            if ($error_message ne '') {
-                error_out("${error_message}",0);
-            }
+if ($create_labels || $register_MDT_to_atlas ) {
+    my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
+    my $real_time;
+    if (cluster_check() && ($MDT_to_atlas_JobID ne 'NO_KEY') && ($MDT_to_atlas_JobID ne 'UNDEFINED_VALUE' )) {
+        my $interval = 15;
+        my $verbose = 1;
+        my $label_xform_dir=$Hf->get_value('label_transform_dir');
+        my $batch_folder = $label_xform_dir.'/sbatch/';
+        my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,$MDT_to_atlas_JobID);
+        print " Waiting for Job ${MDT_to_atlas_JobID}\n";
+        if ($done_waiting) {
+            print STDOUT  " Diffeomorphic registration from MDT to label atlas ${label_atlas_name} job has completed; moving on to next serial step.\n";
         }
-        if (($MDT_to_atlas_JobID eq 'NO_KEY') || ($MDT_to_atlas_JobID eq 'UNDEFINED_VALUE')) {
-            $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time);
+        my $case = 2;
+        my ($dummy,$error_message)=mdt_reg_to_atlas_Output_check($case);
+        
+        $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time,$MDT_to_atlas_JobID);
+        if ($error_message ne '') {
+            error_out("${error_message}",0);
         }
-        print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
-
-        my @label_spaces = split(',',$label_space);
-
-	if ( $create_labels ) {
-	    warp_atlas_labels_vbm('MDT'); #$PM_code = 63
-	    sleep($interval);
-
-	    if ( ! $stop_after_mdt_creation ) {
-		$group_name = "all";
-		my @current_channel_array = @channel_array;
-		if ($do_connectivity) {
-		    push (@current_channel_array,'nii4D');
-		}
-		@current_channel_array = uniq(@current_channel_array);
-		foreach my $a_label_space (@label_spaces) {
-		    warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
-		    sleep($interval);
-
-		    foreach my $a_contrast (@current_channel_array) {
-			apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
-		    }
-		    calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
-
-		    if ($multiple_runnos) {
-			tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
-			if ($multiple_groups) {	
-			    label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
-			}
-		    }
-		    if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
-			apply_warps_to_bvecs($a_label_space);	
-		    }
-		}
-		sleep($interval);
-	    }
-	}
     }
-    if ($do_vba) {
-	my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53 
-        push(@channel_array,$new_contrast);
-        $channel_comma_list = $channel_comma_list.','.$new_contrast;
-        $Hf->set_value('channel_comma_list',$channel_comma_list);
+    if (($MDT_to_atlas_JobID eq 'NO_KEY') || ($MDT_to_atlas_JobID eq 'UNDEFINED_VALUE')) {
+        $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time);
+    }
+    print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
+
+    my @label_spaces = split(',',$label_space);
+
+    if ( $create_labels ) {
+        warp_atlas_labels_vbm('MDT'); #$PM_code = 63
         sleep($interval);
 
-        if ($multiple_groups) {
-            vbm_analysis_vbm(); #$PM_code = 72
+        if ( ! $stop_after_mdt_creation ) {
+            $group_name = "all";
+            my @current_channel_array = @channel_array;
+            if ($do_connectivity) {
+                push (@current_channel_array,'nii4D');
+            }
+            @current_channel_array = uniq(@current_channel_array);
+            foreach my $a_label_space (@label_spaces) {
+                warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
+                sleep($interval);
+
+                foreach my $a_contrast (@current_channel_array) {
+                    apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
+                }
+                calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
+
+                if ($multiple_runnos) {
+                    tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
+                    if ($multiple_groups) {     
+                        label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
+                    }
+                }
+                if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
+                    apply_warps_to_bvecs($a_label_space);       
+                }
+            }
             sleep($interval);
         }
     }
+}
+if ($do_vba) {
+    my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53 
+    push(@channel_array,$new_contrast);
+    $channel_comma_list = $channel_comma_list.','.$new_contrast;
+    $Hf->set_value('channel_comma_list',$channel_comma_list);
+    sleep($interval);
 
-    $Hf->write_headfile($result_headfile);
+    if ($multiple_groups) {
+        vbm_analysis_vbm(); #$PM_code = 72
+        sleep($interval);
+    }
+}
 
-    print "\n\nVBM Pipeline has completed successfully.  Great job, you.\n\n";
+$Hf->write_headfile($result_headfile);
+
+print "\n\nVBM Pipeline has completed successfully.  Great job, you.\n\n";
 
 
-    my $process = "vbm_pipeline";
+my $process = "vbm_pipeline";
 
-    my $completion_message ="Congratulations, master scientist. Your VBM pipeline process has completed.  Hope you find something interesting.\n";
-    my $results_message = "Results are available for your perusal in: ${results_dir}.\n";
-    my $time = time;
-    my $email_folder = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/email/';			
-    my $email_file="${email_folder}/VBM_pipeline_completion_email_for_${time}.txt";
+my $completion_message ="Congratulations, master scientist. Your VBM pipeline process has completed.  Hope you find something interesting.\n";
+my $results_message = "Results are available for your perusal in: ${results_dir}.\n";
+my $time = time;
+my $email_folder = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/email/';                        
+my $email_file="${email_folder}/VBM_pipeline_completion_email_for_${time}.txt";
 
 my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
 my $nice_timestamp = sprintf ( "%04d-%02d-%02d_%02d:%02d:%02d",
-			       $year+1900,$mon+1,$mday,$hour,$min,$sec);
+                               $year+1900,$mon+1,$mday,$hour,$min,$sec);
 
-    my $local_time = localtime();
-    my $local_time_stamp = "This file was generated on ${local_time}, local time.\n";
-    my $time_stamp = "Completion time stamp = ${time} seconds since the Unix Epoc (or $nice_timestamp if you prefer).\n";
- #January 1, 1970 (or some equally asinine date).\n" <--- said the ignorant programmmer :p
-
-
-    my $subject_line = "Subject: VBM Pipeline has finished!!!\n";
+my $local_time = localtime();
+my $local_time_stamp = "This file was generated on ${local_time}, local time.\n";
+my $time_stamp = "Completion time stamp = ${time} seconds since the Unix Epoc (or $nice_timestamp if you prefer).\n";
+#January 1, 1970 (or some equally asinine date).\n" <--- said the ignorant programmmer :p
 
 
-    my $email_content = $subject_line.$completion_message.$results_message.$local_time_stamp.$time_stamp;
-    `echo "${email_content}" > ${email_file}`;
-    my $pwuid = getpwuid( $< );
-    my $pipe_adm="";
-    #$pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
-    my $USER_LIST="$pwuid\@duke.edu$pipe_adm";
-    `sendmail -f $process.civmcluster1\@dhe.duke.edu $USER_LIST < ${email_file}`;
+my $subject_line = "Subject: VBM Pipeline has finished!!!\n";
+
+
+my $email_content = $subject_line.$completion_message.$results_message.$local_time_stamp.$time_stamp;
+`echo "${email_content}" > ${email_file}`;
+my $pwuid = getpwuid( $< );
+my $pipe_adm="";
+#$pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
+my $USER_LIST="$pwuid\@duke.edu$pipe_adm";
+`sendmail -f $process.civmcluster1\@dhe.duke.edu $USER_LIST < ${email_file}`;
 
 } #end main
 
@@ -797,7 +797,7 @@ my $nice_timestamp = sprintf ( "%04d-%02d-%02d_%02d:%02d:%02d",
 sub add_defined_variables_to_headfile {
 #---------------------
 
-my ($Hf,@variable_names)=@_;
+    my ($Hf,@variable_names)=@_;
 
     for my $variable_name (@variable_names) {
         
@@ -815,10 +815,10 @@ my ($Hf,@variable_names)=@_;
 sub find_group_in_tsv {
 #---------------------
 
-my ($tsv_file,$report_field,$_ref_to_criteria_array)=@_;
+    my ($tsv_file,$report_field,$_ref_to_criteria_array)=@_;
 
 
-return();
+    return();
 
 }
 
