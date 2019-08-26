@@ -151,8 +151,6 @@ U_specid U_species_m00 U_code
         $Hf->set_value('label_reference_space',$label_reference);
     }
 
-
-
 ## Need to throw errors for empty lists, maybe dump headers for case of header not found; dump values from column in case of existing header
 
     if (! @group_1) { # if (! defined @group_1) {
@@ -229,56 +227,54 @@ U_specid U_species_m00 U_code
     $project_id =  join('',@project_components);
     $project_id = $main_folder_prefix.$project_id.'_'.$rigid_atlas_name.$optional_suffix; #create_identifer($project_name);
 
-($pristine_input_dir,$dir_work,$results_dir,$result_headfile) = make_process_dirs($project_id); #new_get_engine_dependencies($project_id);
+    ($pristine_input_dir,$dir_work,$results_dir,$result_headfile) = make_process_dirs($project_id); #new_get_engine_dependencies($project_id);
 
 ## Backwards compatability for rerunning work initially ran on glusterspace
 
 # search start headfile for references to '/glusterspace/'
-if ((defined $start_file) && ( -f $start_file)) {
-
-    my $start_contents=`cat $start_file`;
-
-    if ($start_contents =~ /\/glusterspace\//) {
-        my $old_pristine_input_dir=$pristine_input_dir;
-        if ($pristine_input_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
-
-        if (! -l $pristine_input_dir) {
-            `ln -s $old_pristine_input_dir $pristine_input_dir`;
+    if ((defined $start_file) && ( -f $start_file)) {
+        my $start_contents=`cat $start_file`;
+        if ($start_contents =~ /\/glusterspace\//) {
+            carp("OLD FASHIONED DATA DETECTED! WARNING THIS IS NOT WELL TESTED");
+            sleep_with_countdown(5);
+            my $old_pristine_input_dir=$pristine_input_dir;
+            if ($pristine_input_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
+            if (! -l $pristine_input_dir) {
+                `ln -s $old_pristine_input_dir $pristine_input_dir`;
+            }
+            my $old_work_dir=$dir_work;
+            if ($dir_work =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
+            if (! -l $dir_work) {
+                `ln -s $old_work_dir $dir_work`;
+            }
+            my $old_results_dir=$results_dir;
+            if ($results_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
+            if (! -l $results_dir) {
+                `ln -s $old_results_dir $results_dir`;
+            }
+            if ($result_headfile =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
         }
-        my $old_work_dir=$dir_work;
-        if ($dir_work =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
-        if (! -l $dir_work) {
-            `ln -s $old_work_dir $dir_work`;
-        }
-        my $old_results_dir=$results_dir;
-        if ($results_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
-        if (! -l $results_dir) {
-            `ln -s $old_results_dir $results_dir`;
-        }
-        if ($result_headfile =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
     }
 
-}
-
 ## Headfile setup code starts here
-if ( -e $result_headfile) {
-    my $last_result_headfile = $result_headfile =~ s/\.headfile/_last\.headfile/;
-    run_and_watch("mv -f ${result_headfile} ${last_result_headfile}");
-}
-$Hf = new Headfile ('nf',$result_headfile );
-if (! $Hf->check()){
-    # We expect this to happen when a file with the same name as $result_headfile was not successfully moved a few lines above-
-    # probably due to permissions issues, which is a huge red flag.
-    croak("Is this your data? If not, you will need the original owner to run the pipeline.")
-}
+    if ( -e $result_headfile) {
+        my $last_result_headfile = $result_headfile =~ s/\.headfile/_last\.headfile/;
+        run_and_watch("mv -f ${result_headfile} ${last_result_headfile}");
+    }
+    $Hf = new Headfile ('nf',$result_headfile );
+    if (! $Hf->check()){
+        # We expect this to happen when a file with the same name as $result_headfile was not successfully moved a few lines above-
+        # probably due to permissions issues, which is a huge red flag.
+        croak("Is this your data? If not, you will need the original owner to run the pipeline.")
+    }
 
-my $papertrail_dir="${results_dir}/papertrail";
-if (! -e $papertrail_dir) {
-    mkdir($papertrail_dir);
-}
+    my $papertrail_dir="${results_dir}/papertrail";
+    if (! -e $papertrail_dir) {
+        mkdir($papertrail_dir);
+    }
 
-$log_file = open_log($papertrail_dir); # 26 Feb 2019--changed from results_dir to "papertrail" subfolder
-printd(1000,"\tlog is $log_file\n");
+    $log_file = open_log($papertrail_dir); # 26 Feb 2019--changed from results_dir to "papertrail" subfolder
+    printd(1000,"\tlog is $log_file\n");
 ( $stats_file = $log_file ) =~ s/pipeline_info/job_stats/;
 printd(1000,"\tlog is $log_file\n");
 printd(1000,"\tstats are $stats_file\n");
@@ -424,7 +420,6 @@ if( defined $c_input_headfile && $c_input_headfile ne "" ) {
 }
 
 add_defined_variables_to_headfile($Hf,@variables_to_headfile); 
-
 if (defined $thresh_ref) {
     $Hf->set_value('threshold_hash_reference',$thresh_ref);
 }
@@ -539,11 +534,16 @@ if ($nii4D) {
     $Hf->set_value('channel_comma_list',$channel_comma_list);
 }
 # Gather all needed data and put in inputs directory
-# POORLY NAMED As it runs off to get data also
+# POORLY NAMED As it runs off to get data in addition to
+# RE-CREATING all nifti files
+# Certainly should be broken into the two parts, 
+# get all the data called ... pull_multi?
+# and
+# nifti_header_capitulator... or nifti_unifier ... 
 convert_all_to_nifti_vbm(); #$PM_code = 12
 sleep($interval);
-die "TESTING DEBUG";
 if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
+    printd(5,"Tensor create data will invent rd from mean(e2+e3)\n");
     push(@channel_array,'rd');
     $channel_comma_list = $channel_comma_list.',rd';
     $Hf->set_value('channel_comma_list',$channel_comma_list);
@@ -556,12 +556,12 @@ sleep($interval);
 set_reference_space_vbm(); #$PM_code = 15
 sleep($interval);
 
+# Force mask and nii4D out of channel array becuase they require special handling.
 @channel_array = grep {$_ ne 'mask' } @channel_array;
 @channel_array = grep {$_ ne 'nii4D' } @channel_array;
-
 $channel_comma_list = join(',', @channel_array);
 $Hf->set_value('channel_comma_list',$channel_comma_list);
-
+#die "TESTING DEBUG";
 # Register all to atlas
 my $do_rigid = 1;   
 create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 21
@@ -708,9 +708,10 @@ if ($create_labels || $register_MDT_to_atlas ) {
     }
     print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
 
-    my @label_spaces = split(',',$label_space);
 
     if ( $create_labels ) {
+        # label_space is comma sep global
+        my @label_spaces = split(',',$label_space);
         warp_atlas_labels_vbm('MDT'); #$PM_code = 63
         sleep($interval);
 
