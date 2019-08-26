@@ -140,7 +140,9 @@ require study_variables_vbm;
 
 # variables, set up by the study vars script(study_variables_vbm.pm)
 
-# Build a string of all initialized variables, etc, that contain only letters, numbers, or '_'.
+# Build a string of all initialized variables, etc, whos names contain only letters, numbers, or '_'.
+# this is used as a filter for "globals" to set. I think that will be from the contents of our input headfile.
+# I think that means we've got a path to remove kevin spacey, but its so hard to unwind it's being left in.
 my $kevin_spacey='';
 foreach my $entry ( keys %main:: )  { 
     if ($entry =~ /^[A-Za-z0-9_]+$/) {
@@ -168,6 +170,13 @@ my $tmp_rigid_atlas_name='';
     }
     vbm_pipeline_workflow();
 } #end main
+exit 0;
+
+#
+# Subroutine definintions below.
+#
+# it occurs to me that these subroutines really belong to samba_globals or pipeline_workflow as exported functions.
+# that'd let other pipelines open up samba input files in more meaningful ways. 
 
 # ------------------
 sub load_SAMBA_parameters {
@@ -213,22 +222,18 @@ sub load_SAMBA_json_parameters {
 # ------------------
 sub assign_parameters {
 # ------------------
-
+# Replicate input parameter variable values into globals WHERE they're named the same.
     my ($tempHf,$is_headfile) = (@_); # Current headfile implementation only supports strings/scalars
-
     if ($is_headfile) {
+	# WHEN civm, this'll most likely be the case.
         foreach ($tempHf->get_keys) {
             my $val = $tempHf->get_value($_);
-            #if ($val eq '') { # Don't know what this code was doing; commenting out 31 May 2018.
-            #    print "$val\n";
-            #}
-
-            if ($kevin_spacey =~ /$_/) {
+	    # Kevin is a space separated string of any globals that could be in an input parameter file
+	    if ($kevin_spacey =~ /$_/) {
                 if (defined $val) {
                     eval("\$$_=\'$val\'");
                     print $_." = $val\n";
-                    
-                    if ($_ eq 'rigid_atlas_name'){
+		    if ($_ eq 'rigid_atlas_name'){
                         eval("\$tmp_rigid_atlas_name=\'$val\'");
                     }
                 }
@@ -237,7 +242,6 @@ sub assign_parameters {
     } else {
         foreach (keys %{ $tempHf }) {
             if ($kevin_spacey =~ /\b$_\b/) {
-
                 #my $val = %{ $tempHf }->{($_)};
                 #print "\n\n$_\n\n"; 
                 die "json mode requires revalidation!!!";
@@ -265,6 +269,7 @@ sub assign_parameters {
             }
         }
     }
+    # do some default assignment 
     my @ps_array;
 
     if (! defined $project_name) {
