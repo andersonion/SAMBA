@@ -263,7 +263,7 @@ if ((defined $start_file) && ( -f $start_file)) {
 ## Headfile setup code starts here
 if ( -e $result_headfile) {
     my $last_result_headfile = $result_headfile =~ s/\.headfile/_last\.headfile/;
-    `mv -f ${result_headfile} ${last_result_headfile}`;
+    run_and_watch("mv -f ${result_headfile} ${last_result_headfile}");
 }
 $Hf = new Headfile ('nf',$result_headfile );
 if (! $Hf->check()){
@@ -403,7 +403,7 @@ if ( -f ${c_input_headfile}) {
 ($timestamped_inputs_file = $log_file ) =~ s/pipeline_info/input_parameters/;
 $timestamped_inputs_file =~ s/\.txt$/\.headfile/;
 if( defined $timestamped_inputs_file  && $timestamped_inputs_file ne "" ) {
-    `cp -pv ${start_file} ${timestamped_inputs_file}`;
+    run_and_watch("cp -pv ${start_file} ${timestamped_inputs_file}");
 } else {
     carp "failure to set timestampted_inputs_file from log $log_file";
     sleep_with_countdown(2);
@@ -419,7 +419,7 @@ if( defined $c_input_headfile && $c_input_headfile ne "" ) {
     my $u_name=(getpwuid $>)[0];
     my $cached_path=File::Spec->catfile($WORKSTATION_DATA,'samba_startup_cache',$u_name.'_'.$n.$e);
     if( defined $cached_path && $cached_path ne "" ) {
-        `cp -pv $start_file $cached_path`;
+        run_and_watch("cp -pv $start_file $cached_path");
     }
 }
 
