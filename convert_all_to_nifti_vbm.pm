@@ -29,7 +29,7 @@ use pull_civm_tensor_data;
 # 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
 use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
 if (! defined($MATLAB_EXEC_PATH)) {
-   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+    $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
 }
 if (! defined($MATLAB_2015b_PATH)) {
     $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
@@ -187,7 +187,7 @@ sub convert_all_to_nifti_Output_check {
     if ($case == 1) {
         $message_prefix = "  Prepared niftis have been found for the following runnos and will not be re-prepared:\n";
     } elsif ($case == 2) {
-         $message_prefix = "  Unable to properly prepare niftis for the following runnos and channels:\n";
+        $message_prefix = "  Unable to properly prepare niftis for the following runnos and channels:\n";
     }   # For Init_check, we could just add the appropriate cases.
     
     foreach my $runno (@array_of_runnos) {
@@ -195,21 +195,21 @@ sub convert_all_to_nifti_Output_check {
         my $sub_missing_files_message='';
         foreach my $ch (@channel_array) {
             $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
-           #print "File_1 = ${file_1}\n\n";
+            #print "File_1 = ${file_1}\n\n";
             my $unfounded =0;
             if ($file_1 =~ /[\n]+/) {
-            $file_1 = "${current_path}/${runno}_${ch}.nii";
-            $unfounded = 1;
+                $file_1 = "${current_path}/${runno}_${ch}.nii";
+                $unfounded = 1;
             }
 #die "here";
             if ((data_double_check($file_1,$file_1.'.gz') == 2 ) || ((! $pre_masked) && $unfounded &&  ($file_1 !~ /.*masked\.nii/))) { # 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).
-           # if ((data_double_check($file_1) ) || ((! $do_mask) &&  (($file_1 =~ /.*masked\.nii/) || ($file_1 =~ /.*masked\.nii\.gz/)))) { # 6 January 2016: updated to look for .nii.gz as well.
-            $go_hash{$runno}{$ch}=1;
-            push(@file_array,$file_1);
-            $sub_missing_files_message = $sub_missing_files_message."\t$ch";
+                # if ((data_double_check($file_1) ) || ((! $do_mask) &&  (($file_1 =~ /.*masked\.nii/) || ($file_1 =~ /.*masked\.nii\.gz/)))) { # 6 January 2016: updated to look for .nii.gz as well.
+                $go_hash{$runno}{$ch}=1;
+                push(@file_array,$file_1);
+                $sub_missing_files_message = $sub_missing_files_message."\t$ch";
             } else {
-            $go_hash{$runno}{$ch}=0;
-            $sub_existing_files_message = $sub_existing_files_message."\t$ch";
+                $go_hash{$runno}{$ch}=0;
+                $sub_existing_files_message = $sub_existing_files_message."\t$ch";
             }
         }
         if (($sub_existing_files_message ne '') && ($case == 1)) {
@@ -218,7 +218,7 @@ sub convert_all_to_nifti_Output_check {
             $missing_files_message =$missing_files_message. $runno."\t".$sub_missing_files_message."\n";
         }
     }
-     
+    
     my $error_msg='';
     
     if (($existing_files_message ne '') && ($case == 1)) {
@@ -226,7 +226,7 @@ sub convert_all_to_nifti_Output_check {
     } elsif (($missing_files_message ne '') && ($case == 2)) {
         $error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
     }
-     
+    
     my $file_array_ref = \@file_array;
     return($file_array_ref,$error_msg);
 }
@@ -250,30 +250,30 @@ sub set_center_and_orientation_vbm {
 #    if ($current_orientation eq $desired_orientation) {
     # Hope to have a function that easily and quickly diddles with the header to recenter it...may incorporate into matlab exec instead, though.
 #    } else {
-        $matlab_exec_args="${input_file} ${current_orientation} ${desired_orientation} ${output_folder}";
-        # our matlab execs dont like symbolic links, so we try to resolve that here for this one. 
-        # May try to hunt down the matlab code which fails in the future.
-        if ( -l $input_file ) {
-	    my $true_file=readlink ${input_file};
-	    die "Trouble resolving link with " if ! -f $true_file;
-	    # there are a bunch of issues with renaming inputs here, so we resolve those 
-	    # in line checking for the exected input and the expected output.
-	    my ($ip,$in,$ie)=fileparts($input_file,2);
-	    $in=$in."_${desired_orientation}".$ie;
-	    my ($tp,$tn,$te)=fileparts($true_file,2);
-	    $tn=$tn."_${desired_orientation}".$te;
-	    my $correct_output="$output_folder/$in";
-	    my $incorrect_output="$output_folder/$tn";
-	    if ( -e $incorrect_output ) {
-		rename $incorrect_output, $correct_output;
-		$go=0;
-		log_info("moved $incorrect_output to $correct_output. Let the programmer know you saw this!");
-	    }
-	    $matlab_exec_args="$true_file ${current_orientation} ${desired_orientation} ${output_folder} && mv $incorrect_output $correct_output";
-	
-	}
-        $go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;
-        $stop_message = "$PM: Failed to properly reorientate to ${desired_orientation} and recenter file: ${input_file}\n" ;
+    $matlab_exec_args="${input_file} ${current_orientation} ${desired_orientation} ${output_folder}";
+    # our matlab execs dont like symbolic links, so we try to resolve that here for this one. 
+    # May try to hunt down the matlab code which fails in the future.
+    if ( -l $input_file ) {
+        my $true_file=readlink ${input_file};
+        die "Trouble resolving link with " if ! -f $true_file;
+        # there are a bunch of issues with renaming inputs here, so we resolve those 
+        # in line checking for the exected input and the expected output.
+        my ($ip,$in,$ie)=fileparts($input_file,2);
+        $in=$in."_${desired_orientation}".$ie;
+        my ($tp,$tn,$te)=fileparts($true_file,2);
+        $tn=$tn."_${desired_orientation}".$te;
+        my $correct_output="$output_folder/$in";
+        my $incorrect_output="$output_folder/$tn";
+        if ( -e $incorrect_output ) {
+            rename $incorrect_output, $correct_output;
+            $go=0;
+            log_info("moved $incorrect_output to $correct_output. Let the programmer know you saw this!");
+        }
+        $matlab_exec_args="$true_file ${current_orientation} ${desired_orientation} ${output_folder} && mv $incorrect_output $correct_output";
+        
+    }
+    $go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;
+    $stop_message = "$PM: Failed to properly reorientate to ${desired_orientation} and recenter file: ${input_file}\n" ;
 #    }
     my @test=(0);
     if (defined $reservation) {
@@ -283,15 +283,15 @@ sub set_center_and_orientation_vbm {
 
     if (cluster_check) {
         my $cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
-	my $home_path = $current_path;
+        my $home_path = $current_path;
         my $Id= "recentering_and_setting_image_orientation_to_${desired_orientation}";
         my $verbose = 2; # Will print log only for work done.
         $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
         if ($go ) {
-	    if ( not $jid ) {
-		error_out($stop_message);
-	    }
-	}
+            if ( not $jid ) {
+                error_out($stop_message);
+            }
+        }
     }
     return($jid);
 }
@@ -307,7 +307,7 @@ sub convert_all_to_nifti_vbm_Init_check {
     my $optional_runno_string=''; 
     # TODO: BJ, finish this thought, whatever it was. It seems like I had planned on looping over the outlier runnos, if any. 
     # OR this was anticipating a pm to autodetect coarse orientation.
-        
+    
     my $orientation_type = 'working_image_orientation';
     my $orientation_error_msg_prefix="I'm sorry, but an invalid ${orientation_type} has been requested ${optional_runno_string}: ";    
     my $orientation_error_msg_suffix=".\n\tOrientation must be allcaps and contain 3 of the following letters: A or P, L or R, S or I.\n"; 
@@ -364,12 +364,12 @@ sub convert_all_to_nifti_vbm_Runtime_check {
         $flip_x = $Hf->get_value('flip_x'); # Will phase out soon...
         if ($flip_x eq 'NO_KEY') {
             #undef $flip_x;
-         $Hf->set_value('flip_x',0);
+            $Hf->set_value('flip_x',0);
         }
         $flip_z = $Hf->get_value('flip_z'); # Will phase out soon...
         if ($flip_z eq 'NO_KEY') {
             #undef $flip_z;
-        $Hf->set_value('flip_z',0);
+            $Hf->set_value('flip_z',0);
         }
     }
 
@@ -398,7 +398,7 @@ sub convert_all_to_nifti_vbm_Runtime_check {
 
 
 
- 
+    
     $ch_runlist = $Hf->get_value('channel_comma_list');
     @channel_array = split(',',$ch_runlist);
 
