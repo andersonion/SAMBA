@@ -58,9 +58,8 @@ sub set_reference_space_vbm {  # Main code
         } else {
             %runno_hash = %runno_hash_label;
         }
-        
-        #Data::Dump::dump(\%runno_hash);die;
-        foreach my $runno (keys %runno_hash) {
+        # First for all runnos, create the refspacy transform
+	foreach my $runno (keys %runno_hash) {
             my $in_file = $runno_hash{$runno};
             my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
             ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
@@ -68,19 +67,17 @@ sub set_reference_space_vbm {  # Main code
                 push(@jobs_1,$job);
             }   
         }
-
+Data::Dump::dump(\%runno_hash);die;
         if (cluster_check() && (scalar @jobs_1)) {
             my $interval = 1;
             my $verbose = 1;
             my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_1);
-            
-            if ($done_waiting) {
+	    if ($done_waiting) {
                 print STDOUT  "  All translation alignment referencing jobs have completed; moving on to next step.\n";
             }
         }
         
-        
-        my $array_ref = $work_to_do_HoA->{$V_or_L};
+	my $array_ref = $work_to_do_HoA->{$V_or_L};
         foreach my $out_file (@$array_ref) {
             my ($dumdum,$in_name,$in_ext) = fileparts($out_file,2);
             my $in_file = "${preprocess_dir}/${in_name}${in_ext}";
@@ -104,11 +101,17 @@ sub set_reference_space_vbm {  # Main code
     
     foreach my $space (@spaces) {
         # Why is this written to "tmp" first before being moved?
-        `mv ${refspace_folder_hash{$space}}/refspace.txt.tmp ${refspace_folder_hash{$space}}/refspace.txt`;
-        
-        # Bash syntax below: if "ls" command is successful (finds existing items), then executes "gzip" command.
+        run_and_watch("mv ${refspace_folder_hash{$space}}/refspace.txt.tmp ${refspace_folder_hash{$space}}/refspace.txt");
+	# This was a clever Bash syntax chain using ls && gzip but that has proven ugly when debugging
+	# Adjusted to be in perl with same idea. 
+	# if "ls" command is successful (finds existing items), then executes "gzip" command.
         # "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
-        `ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null && gzip ${refspace_folder_hash{$space}}/*.nii`;
+        my @gzippable_file=run_and_watch("ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null","\t",0);
+	chomp(@gzippable_file);
+	# tests each thing found in gzippable file, but we really only ever expect 1 or 0 things
+	foreach (@gzippable_file){ 
+	    run_and_watch("gzip ${refspace_folder_hash{$space}}/*.nii") if ( $_ ne '' );
+	}
     }
     
     my $case = 2;
@@ -131,7 +134,6 @@ sub set_reference_space_Output_check {
     my ($case) = @_;
     my $full_error_msg;
     
-    
     foreach my $V_or_L (@spaces) {
         my @file_array;
         my $message_prefix ='';  
@@ -151,7 +153,6 @@ sub set_reference_space_Output_check {
             $message_prefix = "  Unable to properly set the ${space_string} reference for the following images in folder ${work_folder}:\n";
         }   # For Init_check, we could just add the appropriate cases.
 
-
         my $existing_files_message = '';
         my $missing_files_message = '';
 
@@ -168,14 +169,17 @@ sub set_reference_space_Output_check {
             @files_to_check = @$array_ref;
         }
 
-        
-        foreach my $file (@files_to_check) {
+	foreach my $file (@files_to_check) {
+	    # it appears like if we're in input mode $file doesnt have a path, 
+	    # but if we're in output mode it does.
+	    # That is a special level of unnecessary confusion
+	    # out_file always has a path to compensate.
             my $out_file;
             if ($case == 1) {
                 # $in_file = $preprocess_dir.'/'.$file;
                 $out_file = $work_folder.'/'.$file;
-
-                # The snippet of code below will find 0 or 1 instances of '.gz' at the end of the filename, and 'replace' it with '.gz.
+                # The snippet of regex below will find 0 or 1 instances of '.gz' 
+		# at the end of the filename, and 'replace' it with '.gz.
                 # Functionally, this will just add '.gz.' to any un-gzipped files
                 # In this case, the we are looking for an output file (which will ALWAYS be gzipped)
                 # that corresponds to an input file that may or may not be gzipped.
@@ -186,17 +190,24 @@ sub set_reference_space_Output_check {
             printd(1,".");
             
             if (data_double_check($out_file,$case-1)) { 
-# This will return the total of files NOT found--ask for 2, and didn't find 2
-                if ($case == 1) {
+		# Outfile not found.
+		if ($case == 1) {
+		    # Input mode because we didnt try to do this yet.
+		    # Add first file found to runno_hash.
                     # print "\n${out_file} added to list of files to be re-referenced.\n";
-                    my $test_file = $file;
-                    if ($test_file =~ s/(_masked)//i){}
-                    if ($test_file =~ /^([^\.]+)_([^_\.])+\..+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016 ## Forgot about "masked"...OOF, that hurt! 14 October 2016
+                    my $temp_var = $file;
+                    if ($temp_var =~ s/(_masked)//i){}
+                    if ($temp_var =~ /^([^\.]+)_([^_\.])+\..+/) { 
+			# Split file into RUNNO_contrast, 
+			# (Only takes last _ -> end for contrast. 
+			# We could improve that by forcing runnos to not have underscores in them.
+			# This is made harder by virtue of tacking a gz on everything
+			# We dont use contrast so commenting that out.
+			# This is part of the general trouble of runno as specid this pipeline has.
                         my $runno = $1;
-                        my $contrast = $2;
+                        #my $contrast = $2;
                         if (! defined $runno_hash{$runno}) {
                             $runno_hash{$runno}= $preprocess_dir.'/'.$file;
-                            # print "runno_hash{${runno}}= $runno_hash{$runno}\n\n"; ##
                         }
                     }
                 }
@@ -210,16 +221,14 @@ sub set_reference_space_Output_check {
                 $existing_files_message = $existing_files_message."   $file \n";
             }
         }
-        #print "\n";
         if (($existing_files_message ne '') && ($case == 1)) {
             $existing_files_message = $existing_files_message."\n";
         } elsif (($missing_files_message ne '') && ($case == 2)) {
             $missing_files_message = $missing_files_message."\n";
         }
-        
-        my $error_msg='';
-        
-        if (($existing_files_message ne '') && ($case == 1)) {
+	
+	my $error_msg='';
+	if (($existing_files_message ne '') && ($case == 1)) {
             $error_msg =  $error_msg."$PM:\n${message_prefix}${existing_files_message}";
         } elsif (($missing_files_message ne '') && ($case == 2)) {
             $error_msg =  $error_msg."$PM:\n${message_prefix}${missing_files_message}";
@@ -234,6 +243,7 @@ sub set_reference_space_Output_check {
                 %runno_hash_label = %runno_hash;
             }
         }
+	# THIS IS DOING WORK IN A CHECK FUNCTION THAT IS VERY NAUGHTY.
         if ($case == 2) {
             symbolic_link_cleanup($refspace_folder_hash{$V_or_L},$PM);
         }
@@ -253,14 +263,15 @@ sub get_translation_xform_to_ref_space_vbm {
 sub apply_new_reference_space_vbm {
 # ------------------
     my ($in_file,$ref_file,$out_file)=@_;
-    my $do_registration = 1; 
     
+    # Do reg is off for any output nifti's (including gzipped ones)...
+    my $do_registration = 1; 
     my $test_dim = 3;
     my $opt_e_string='';
     if ($out_file =~ /\.nii(\.gz)?/) {
-        $test_dim =  `fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;
-        
-        if ($in_file =~ /tensor/) {
+        $test_dim =  `fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2` 
+	    || croak("ERROR Reading $in_file for header bits");
+	if ($in_file =~ /tensor/) {
             # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
             $opt_e_string = ' -e 2 -f 0.00007'; 
         } elsif ($test_dim > 1) {
@@ -268,7 +279,6 @@ sub apply_new_reference_space_vbm {
         }
         $do_registration = 0;
     }
-
     my $interp = "Linear"; # Default    
     my $in_spacing = get_spacing_from_header($in_file);
     my $ref_spacing = get_spacing_from_header($ref_file);
@@ -279,16 +289,20 @@ sub apply_new_reference_space_vbm {
         $interp="NearestNeighbor";
     }
     
+    # CMD appears to be run when cluster
+    # @cmds appears to be run when not cluster.
     my $cmd='';
+    # CMD_SEP is a temp measure for conjoining multiple commands in a one liner
+    my $CMD_SEP=";\n";
+    $CMD_SEP=" && ";
     my @cmds;
     my $translation_transform;
 
-    my $test =  compare_two_reference_spaces($in_file,$ref_file);
-    # print "Test output = ${test}\n\n\n";
-    # print "Do registration? ${do_registration}\n\n\n";
+    #print "Test output = ".compare_two_reference_spaces($in_file,$ref_file)."\n\n\n";
+    #print "Do registration? ${do_registration}\n\n\n";
     if ($do_registration) {
         $translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
-        if (! compare_two_reference_spaces($in_file,$ref_file)) {         
+        if ( ! compare_two_reference_spaces($in_file,$ref_file)) {         
             my ($out_path,$dummy_1,$dummy_2) = fileparts($out_file,2);
             if (! -d $out_path ) {
                 mkdir ($out_path,$permissions);
@@ -297,30 +311,31 @@ sub apply_new_reference_space_vbm {
             #$translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
             my $excess_transform =  "${out_file}1Translation.mat" ;
             if (data_double_check($translation_transform)) {
-
-                my $test_dim =  `PrintHeader ${in_file} 2`;
+                my $test_dim =  `PrintHeader ${in_file} 2` || croak("ERROR Reading $in_file for header bits");
                 my @dim_array = split('x',$test_dim);
                 my $real_dim = $#dim_array +1;
                 my $opt_e_string='';
                 if ($real_dim == 4) {
                     $opt_e_string = ' -e 3 ';
                 }
-
-
-                my $translation_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ${opt_e_string} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file};\n";
-                my $remove_cmd = "rm ${excess_transform};\n";
-                $cmd = $translation_cmd.$remove_cmd;
-                @cmds = ($translation_cmd,$remove_cmd);
-            } 
+                my $translation_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ${opt_e_string} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file}";
+                my $remove_cmd = "rm ${excess_transform}";
+		push(@cmds,$translation_cmd);
+		push(@cmds,$remove_cmd);
+	    } else {
+		printd(45,"$translation_transform ready, not regnerating\n");
+	    }
         } else {
             my $affine_identity = $Hf->get_value('affine_identity_matrix');
-            $cmd = "cp ${affine_identity} ${translation_transform};\n";
-            @cmds = ($cmd);
+            $cmd = "cp ${affine_identity} ${translation_transform}";
+	    push(@cmds,$cmd);
         }
     } else {
         if (compare_two_reference_spaces($in_file,$ref_file)) {
+	    # same_refspace
             $cmd = "ln -s ${in_file} ${out_file}";
             print "Linking $in_file to $out_file\n\n";
+	    push(@cmds,$cmd);
         } else {
             my $runno;
             my $gz = '';
@@ -333,8 +348,8 @@ sub apply_new_reference_space_vbm {
             }
 
             $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
-            $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform};\n"; 
-            @cmds = ($cmd);
+            $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform}"; 
+	    push(@cmds,$cmd);
         }  
     }
     
@@ -347,10 +362,9 @@ sub apply_new_reference_space_vbm {
         @test =(0,$reservation);
     }
 
-    
+    $cmd=join($CMD_SEP,@cmds);
     my $go_message =  "$PM: Apply reference space of ${ref_file} to ${short_filename}";
     my $stop_message = "$PM: Unable to apply reference space of ${ref_file} to ${short_filename}:  $cmd\n";
-    
     my $jid = 0;
     if ($cmd){
         if (cluster_check) {
@@ -376,6 +390,7 @@ sub apply_new_reference_space_vbm {
 # ------------------
 sub set_reference_space_vbm_Init_check {
 # ------------------
+# WARNING NAUGHTY INIT IS DOING WORK.
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
 
@@ -659,14 +674,17 @@ sub set_reference_space_vbm_Init_check {
                         if (data_double_check($original_rigid_atlas_path))  { # Updated 1 September 2016
                             $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
                         } else {
-                            `cp ${original_rigid_atlas_path} ${preprocess_dir}`;
+			    # WARNING CODER, THERE IS A REPLICATE OF THIS WHOLE BAG OF STUFF IN MASK_IMAGES_VBM
+                            my $cp_cmd="cp ${original_rigid_atlas_path} ${preprocess_dir})";
                             if ($original_rigid_atlas_path !~ /\.gz$/) {
-                                `gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii`;
-                            } 
+				carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
+				$cp_cmd=$cp_cmd." && "."gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";
+                            }
+			    run_and_watch($cp_cmd);
                         }
                     }
                 } else {
-                    `gzip ${rigid_atlas_path}`;
+                    run_and_watch("gzip ${rigid_atlas_path}");
                     #$rigid_atlas_path=$rigid_atlas_path.'.gz'; #If things break, look here! 27 Sept 2016
                     $original_rigid_atlas_path = $expected_rigid_atlas_path;
                 }
@@ -900,7 +918,8 @@ sub set_reference_space_vbm_Runtime_check {
 ##  trimmed off.  Also, we will assume that this file will be in .gz format.  If not, then it will be gzipped.
 
     if ($process_dir_for_labels == 1) {
-        `cp ${refspace_folder_hash{"vbm"}}/*\.nii* ${refspace_folder_hash{"label"}}`;
+        #`cp ${refspace_folder_hash{"vbm"}}/*\.nii* ${refspace_folder_hash{"label"}}`;
+	run_and_watch("cp ".${refspace_folder_hash{"vbm"}}."/*\.nii* ".${refspace_folder_hash{"label"}});
     }   
     my $case = 1;
     my $skip_message;
