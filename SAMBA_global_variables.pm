@@ -1,6 +1,15 @@
 #!/usr/bin/perl
 # SAMBA_global_variables.pm 
 # Originally written by James Cook & BJ Anderson, CIVM
+# A messy but singluar place to globalize all the globals.
+# When you "use" this file, you get all these globals.
+# INSTEAD YOU CAN "require" this, 
+# then pluck out individuals with ${SAMBA_global_variablnes::variable_name}
+# This is done for very select functions in pipeline utilities so that these 
+# variables done destroy the current namespace.
+# 
+# It should be evident that Any code using a SAMBA_global_variable IS SAMBA CODE,
+# and therefore shouldn't be separate.
 package SAMBA_global_variables;
 use strict;
 use warnings;
@@ -16,7 +25,7 @@ BEGIN {
     #@EXPORT_OK is preferred, as it markes okay to export, HOWEVER our code is dumb and needs to force import all them things...
     # (requires too much brainpower for the time being to implement correctly).
 
-our @EXPORT = qw(
+    our @EXPORT = qw(
 $project_name 
 @control_group
 $control_comma_list
@@ -148,15 +157,17 @@ $mdt_to_reg_start_time
 $valid_formats_string
  );
 
-my $dirty_eval_string = 'our '.join('; our ',@EXPORT).';';
+    my $dirty_eval_string = 'our '.join('; our ',@EXPORT).';';
 
-eval($dirty_eval_string);
+    eval($dirty_eval_string);
 
-foreach my $entry ( keys %SAMBA_global_variables:: )  { # Build a string of all initialized variables, etc, that contain only letters, numbers, or '_'.
-    #print "$entry\n";
-
-    #if ($entry =~ /^[A-Za-z0-9_]+$/) {
-    #	$kevin_spacey = $kevin_spacey." $entry ";
-    #}
+    # Build a string of all initialized variables, etc, that contain only letters, numbers, or '_'.
+    foreach my $entry ( keys %SAMBA_global_variables:: )  { 
+        #print "$entry\n";
+        #if ($entry =~ /^[A-Za-z0-9_]+$/) {
+        #       $kevin_spacey = $kevin_spacey." $entry ";
+        #}
+    }
 }
-}
+
+1;
