@@ -363,9 +363,9 @@ sub create_affine_transform_vbm {
     if ($go && (not $jid)) {
 	# I think that data_double_checking transform path here causes this to wait for completion,
 	# while erroneously giving errors.
-        error_out("$PM: create_transform: did not find result xform: $transform_path");
-        print "** $PM: create_transform $xform_code created $transform_path\n";
+        error_out("$PM: could not start for xform: $transform_path");
     }
+    print "** $PM: create_transform $xform_code creating $transform_path\n";
     return($transform_path,$jid);
 }
 
