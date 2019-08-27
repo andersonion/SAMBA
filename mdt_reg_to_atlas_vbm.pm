@@ -268,8 +268,9 @@ sub mdt_reg_to_atlas {
 	}
     }
 
-    if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
-	error_out("$PM: missing one or both of the warp results ${new_warp} and ${new_inverse}");
+    #if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
+    if ($go && (not $jid)) {	
+	error_out("$PM: could not start for warp results ${new_warp} and ${new_inverse}");
     }
     print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
   

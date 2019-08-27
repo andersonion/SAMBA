@@ -145,7 +145,7 @@ sub compare_reg_to_mdt_Output_check {
          } else {
              $file_1 = "${current_path}/${runno}_to_MDT_warp.nii.gz";
              $file_2 = "${current_path}/MDT_to_${runno}_warp.nii.gz";
-             if (data_double_check($file_1,$file_2)) {
+             if (data_double_check($file_1,$file_2,$case-1)) {
                  $go_hash{$runno}=1;
                  $expected_number_of_jobs++;
                  push(@file_array,$file_1,$file_2);
@@ -216,12 +216,12 @@ sub reg_to_mdt {
 	if (data_double_check($id_warp)) {
 	    make_identity_warp($first_image,$Hf,$current_path);
 	}
-	`mv ${id_warp} ${new_warp}; cp ${new_warp} ${new_inverse}`;
+	run_and_watch("mv ${id_warp} ${new_warp}");
+	run_and_watch("cp ${new_warp} ${new_inverse}");
 	
     } else { # Business as usual
 
 	$fixed = $median_images_path."/MDT_${mdt_contrast}.nii.gz"; # added .gz 23 October 2015
-	
 	my ($r_string);
 	my ($moving_string,$moving_affine);
 	
@@ -314,8 +314,9 @@ sub reg_to_mdt {
 	    }
 	}
 
-	if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
-	    error_out("$PM: missing one or both of the warp results ${new_warp} and ${new_inverse}");
+	#if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
+	if ($go && (not $jid)) {
+	    error_out("$PM: could not start for warp results ${new_warp} and ${new_inverse}");
 	}
 	print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
     }

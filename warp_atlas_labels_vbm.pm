@@ -383,8 +383,9 @@ sub apply_mdt_warp_to_labels {
         }
     }
 
-    if ((!-e $out_file) && (not $jid)) {
-        error_out("$PM: missing ${label_atlas_nickname} label set for ${runno}: ${out_file}");
+    #if ((!-e $out_file) && (not $jid)) {
+    if ($go && (not $jid)) {
+        error_out("$PM: could not start for ${label_atlas_nickname} label set for ${runno}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
     
