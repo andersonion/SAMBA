@@ -16,20 +16,12 @@ my $NAME = "Convert input data into the proper format, flipping x and/or z if ne
 use strict;
 use warnings;
 
-use Env qw(RADISH_PERL_LIB);
-if (! defined($RADISH_PERL_LIB)) {
-    print STDERR "Cannot find good perl directories, quitting\n";
-    exit;
-}
-use lib split(':',$RADISH_PERL_LIB);
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
-
 use Headfile;
 use pipeline_utilities;
 # 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
-use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH WORKSTATION_HOME); 
 if (! defined($MATLAB_EXEC_PATH)) {
-   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+   $MATLAB_EXEC_PATH =  "$WORKSTATION_HOME/matlab_execs";
 }
 if (! defined($MATLAB_2015b_PATH)) {
     $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
@@ -493,6 +485,7 @@ sub rename_one_image {
 # ------------------
 sub mask_images_vbm_Init_check {
 # ------------------
+# WARNING NAUGHTY CHECK IS DOING WORK.
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
     my $log_msg='';
@@ -594,14 +587,17 @@ sub mask_images_vbm_Init_check {
                         if (data_double_check($original_rigid_atlas_path))  { # Updated 1 September 2016
                             $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
                         } else {
-                            `cp ${original_rigid_atlas_path} ${preprocess_dir}`;
+                            my $cp_cmd="cp ${original_rigid_atlas_path} ${preprocess_dir})";
                             if ($original_rigid_atlas_path !~ /\.gz$/) {
-                                `gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii`;
-                            } 
+				carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
+				$cp_cmd=$cp_cmd." && "."gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";
+                            }
+			    run_and_watch($cp_cmd);
                         }
                     }
                 } else {
-                    `gzip ${rigid_atlas_path}`;
+		    carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
+                    run_and_watch("gzip ${rigid_atlas_path}");
                     #$rigid_atlas_path=$rigid_atlas_path.'.gz'; #If things break, look here! 27 Sept 2016
                     $original_rigid_atlas_path = $expected_rigid_atlas_path;
                 }
@@ -649,7 +645,7 @@ sub mask_images_vbm_Init_check {
                     $port_atlas_mask_path=$default_mask;  # Use default mask
                     $log_msg=$log_msg."\tNo atlas mask specified; porting default atlas mask: ${port_atlas_mask_path}\n";
                 } else {
-                    `cp ${port_atlas_mask} ${rigid_dir}`;
+		    run_and_watch("cp ${port_atlas_mask} ${rigid_dir}");
                 }
             } else {
                 $log_msg=$log_msg."\tNo atlas mask specified; porting rigid ${rigid_atlas} atlas mask: ${port_atlas_mask_path}\n";
