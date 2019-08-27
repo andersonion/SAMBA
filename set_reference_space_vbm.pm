@@ -144,11 +144,14 @@ sub set_reference_space_vbm {  # Main code
 	# Adjusted to be in perl with same idea. 
 	# if "ls" command is successful (finds existing items), then executes "gzip" command.
         # "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
-        my @gzippable_file=run_and_watch("ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null","\t",0);
+	# While the first inclination is to use run_and_watch, we dont care at all if we succeed or fail here.
+	# We only care if there is work found to do, so we'll simply capture output to let this fail quietly.
+        #my @gzippable_file=run_and_watch("ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null","\t",0);
+	my @gzippable_file=`ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null`;
 	chomp(@gzippable_file);
 	# tests each thing found in gzippable file, but we really only ever expect 1 or 0 things
 	foreach (@gzippable_file){ 
-	    run_and_watch("gzip ${refspace_folder_hash{$space}}/*.nii") if ( $_ ne '' );
+	    run_and_watch("gzip -v ${refspace_folder_hash{$space}}/*.nii") if ( $_ ne '' );
 	}
     }
     
