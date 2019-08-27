@@ -258,7 +258,7 @@ U_specid U_species_m00 U_code
 
 ## Headfile setup code starts here
     if ( -e $result_headfile) {
-        my $last_result_headfile = $result_headfile =~ s/\.headfile/_last\.headfile/;
+        (my $last_result_headfile = $result_headfile )=~ s/\.headfile/_last\.headfile/;
         run_and_watch("mv -f ${result_headfile} ${last_result_headfile}");
     }
     $Hf = new Headfile ('nf',$result_headfile );
@@ -534,12 +534,14 @@ if ($nii4D) {
     $Hf->set_value('channel_comma_list',$channel_comma_list);
 }
 # Gather all needed data and put in inputs directory
+# AND reorient/recenter
 # POORLY NAMED As it runs off to get data in addition to
-# RE-CREATING all nifti files
+# RE-CREATING all nifti files while re-orienting them
 # Certainly should be broken into the two parts, 
 # get all the data called ... pull_multi?
 # and
 # nifti_header_capitulator... or nifti_unifier ... 
+# perhaps nifti_capitulator is most unclearly clear.
 convert_all_to_nifti_vbm(); #$PM_code = 12
 sleep($interval);
 if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
@@ -550,6 +552,7 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
 }
 sleep($interval);
 # Before 11 April 2017: nii4Ds were not masked; After 11 April 2017: nii4Ds are masked for processing/storage/reading/writing efficiency
+# mask is rather dirty it overwrites and removes its working images.
 mask_images_vbm(); #$PM_code = 14
 sleep($interval);
 
@@ -561,8 +564,10 @@ sleep($interval);
 @channel_array = grep {$_ ne 'nii4D' } @channel_array;
 $channel_comma_list = join(',', @channel_array);
 $Hf->set_value('channel_comma_list',$channel_comma_list);
-#die "TESTING DEBUG";
+
+###
 # Register all to atlas
+# First as rigid, then not
 my $do_rigid = 1;   
 create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 21
 sleep($interval);
@@ -572,18 +577,19 @@ if (1) { #  Need to take out this hardcoded bit!
     create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 39
     sleep($interval);
 }
+###
+
 
 # pairwise_reg_vbm("a");
 # sleep($interval);    
 
 # calculate_mdt_warps_vbm("f","affine");
 # sleep($interval);
-
+    
 my $group_name='';
 
 ## Different approaches to MDT creation start to diverge here. ## 2 November 2016
 if ($mdt_creation_strategy eq 'iterative') {
-
     my ($use_st_i,$starting_iteration)=$Hf->get_value_check('starting_iteration');
     if ($use_st_i && $starting_iteration =~ /([1-9]{1}|[0-9]{2,})/) {
     } elsif($use_st_i ) { 
@@ -593,35 +599,47 @@ if ($mdt_creation_strategy eq 'iterative') {
     }
     # print "starting_iteration = ${starting_iteration}";
 
-    for (my $ii = $starting_iteration; $ii <= $mdt_iterations; $ii++) {  # Will need to add a "while" option that runs to a certain point of stability; We don't really count the 0th iteration because normally this is just the averaging of the affine-aligned images. 
-
+    # TODO? Conver to "while" loop that runs to a certain point of stability(isntead of always prescribed mdt_iterations).
+    # We don't really count the 0th iteration because normally this is just the averaging of the affine-aligned images. 
+    my $temp_test=4;
+    for (my $ii = $starting_iteration; $ii <= $mdt_iterations; $ii++) {
         # In theory, iterative_pairwise_reg_vbm and apply_mdt_warps_vbm can be combined into a 
         # "packet": as soon as a registration is completed, those warps can be immediately applied to
         # that contrast's images, independent of other registration jobs.
 
-        $ii = iterative_pairwise_reg_vbm("d",$ii); #$PM_code = 41 # This returns $ii in case it is determined that some iteration levels can/should be skipped.
+        # This set's $ii in case it is determined that some iteration levels can/should be skipped.
+        $ii = iterative_pairwise_reg_vbm("d",$ii); #$PM_code = 41
         sleep($interval);
-
-        $group_name = "control";
-        foreach my $a_contrast (@channel_array) {
+	####
+	# slick nonsense here where we skip all contrasts except the operational one 
+	# (until the final iteration)
+	my @op_cont;
+	if($ii<$mdt_iterations) {
+	    @op_cont=($mdt_contrast);
+	} else {
+	    @op_cont=@channel_array;
+	}
+	###
+	
+	$group_name = "control";
+	# TODO: this loop belongs in the PM in some fashion
+        foreach my $a_contrast (@op_cont) {
             apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 43
         }
-
-        # 12 Feb 2019, BJA: moved this from before apply_mdt_warps_vbm to here, reorganizing to move towards making "packets"
-        # of independent work 
-        
-        
-        iterative_calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
+	
+	iterative_calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
         sleep($interval);
 
-        calculate_mdt_images_vbm($ii,@channel_array); #$PM_code = 44
-        sleep($interval);           
+        calculate_mdt_images_vbm($ii,@op_cont); #$PM_code = 44
+        sleep($interval);
     }
 
     mask_for_mdt_vbm(); #$PM_code = 45
     sleep($interval);
-    #}
 } else {
+    printd(5,"WARNING: This code has not been tested in quite some time!\n"
+	   ."If you test it sucessfully, let the sloppy programmer know he can remove this wait\n");
+    sleep_with_countdown(30);
     #
     # PAIRWISE VERSION
     #
@@ -679,8 +697,7 @@ if ( ! $stop_after_mdt_creation ) {
     }
 }
 sleep($interval);
-
-
+#die "TESTING DEBUG";
 # Remerge before ending pipeline
 if ($create_labels || $register_MDT_to_atlas ) {
     my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
