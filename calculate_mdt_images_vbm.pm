@@ -45,21 +45,18 @@ sub calculate_mdt_images_vbm {  # Main code
     }
 
     my $start_time = time;
-
     calculate_mdt_images_vbm_Runtime_check();
 
     foreach my $contrast (@contrast_list) {
 	$go = $go_hash{$contrast};
 	if ($go) {
 	    ($job) = calculate_average_mdt_image($contrast);
-
 	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} 
     }
      
-
     if (cluster_check()) {
 	my $interval = 2;
 	my $verbose = 1;
@@ -143,7 +140,7 @@ sub calculate_mdt_images_Output_check {
 		     $int_go_hash{$contrast}=1;
 		 }
 	     } else {
-		 `gzip -f ${out_file}`; #Is -f safe to use?
+		 run_and_watch("gzip -vf ${out_file}","\t"); #Is -f safe to use?
 		 $go_hash{$contrast}=0;
 		 $existing_files_message = $existing_files_message."\t$contrast\n";
 	     }
@@ -187,7 +184,6 @@ sub calculate_average_mdt_image {
 	$out_file = "${current_path}/MDT_${contrast}.nii.gz";
 
     if ($mdt_creation_strategy eq 'iterative') {
-
         my $warp_train_car = " -t ${last_update_warp} ";
         my $warp_train = $warp_train_car.$warp_train_car.$warp_train_car.$warp_train_car;
 
@@ -215,13 +211,11 @@ sub calculate_average_mdt_image {
     }
     if ($int_go_hash{$contrast}) { 
         $avg_cmd =" AverageImages 3 ${intermediate_file} 0";
-
         foreach my $runno (@array_of_runnos) {
             $avg_cmd = $avg_cmd." ${mdt_images_path}/${runno}_${contrast}_to_MDT.nii.gz";
         }
         $avg_cmd = $avg_cmd.";\n";
     }
-
     $cmd = $avg_cmd.$update_cmd.$cleanup_cmd.$copy_cmd;
 
     my $go_message =  "$PM: created average MDT image(s) for contrast:  ${contrast}";
@@ -251,7 +245,10 @@ sub calculate_average_mdt_image {
 	}
     }
 
-    if ((!-e $out_file) && (not $jid)) {
+    #if ((!-e $out_file) && (not $jid)) {
+    if ($go && (not $jid)) {
+	# I think that ouput checking here causes this to fail erroneously
+	# Now deferring until our intentional output checking at end of module.
 	error_out("$PM: missing average MDT image for contrast: ${contrast}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
