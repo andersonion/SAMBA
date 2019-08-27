@@ -138,8 +138,7 @@ sub apply_mdt_warps_vbm {  # Main code
             }
         
         } 
-	
-        if (cluster_check()) {
+	if (cluster_check()) {
             my $interval = 2;
             my $verbose = 1;
             my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_2);
@@ -499,7 +498,7 @@ sub convert_images_to_RAS {
 	}
 	
 	#if ((!-e $out_file) && (not $jid_2)) {
-	if (($go_2 && (not $jid_2)) {
+	if ($go_2 && (not $jid_2)) {
 	    error_out("$PM: could not start for RAS version of ${label_atlas_name} label set for ${runno}: ${out_file}");
 	}
 	print "** $PM expected output: ${out_file}\n";

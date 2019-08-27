@@ -102,13 +102,13 @@ sub iterative_calculate_mdt_warps_Output_check {
      $out_file_1 = "${current_path}/shape_update_warp_${update_string}.nii.gz"; 
      $out_file_2 = "${current_path}/average_of_to_template_warps.nii.gz";  
 
-     if (data_double_check($out_file_1)) {
-	 if (data_double_check($out_file_1)) {
+     if (data_double_check($out_file_1,$case-1)) {
+	 if (data_double_check($out_file_1,$case-1)) {
 	     $go_hash{'shape_update_warp'}=1;
 	     push(@file_array,$out_file_1);
 	     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
 	     $missing_files_message = $missing_files_message."\t${out_file_1}\n";
-	     if (data_double_check($out_file_2)) {
+	     if (data_double_check($out_file_2,$case-1)) {
 		 $go_hash{'average_warp'}=1;
 		 push(@file_array,$out_file_2);
 		 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
@@ -174,23 +174,19 @@ sub iterative_calculate_average_mdt_warp {
     }
 
     $fraction_cmd = "MultiplyImages ${dims} ${out_file_2} -${update_step_size} ${out_file_1};\n";
-
     my $cmd = $avg_cmd.$fraction_cmd.$clean_cmd;
     
     my $jid = 0;
-
     my @test=0;
     if (defined $reservation) {
 	@test =(0,$reservation);
     }
-
-    my $mem_request = 60000;  # Added 23 November 2016,  Will need to make this smarter later.
-
     if (cluster_check()) {
 	my $home_path = $current_path;
 	my $Id= "create_update_warp";
 	my $verbose = 1; # Will print log only for work done.
-	$jid = cluster_exec($go, "$PM: create update warp}", $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+	my $mem_request = 60000;  # Added 23 November 2016,  Will need to make this smarter later.
+	$jid = cluster_exec($go, "$PM: create update warp", $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out("$PM: could not create update warp:\n${cmd}\n");
 	}

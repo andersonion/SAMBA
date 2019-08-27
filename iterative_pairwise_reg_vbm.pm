@@ -90,8 +90,8 @@ sub iterative_pairwise_reg_vbm {  # Main code
 		   push(@jobs,$job);
 	       }
 	   } else {
-	       `cp ${id_warp} ${forward_out}`;
-	       `cp ${id_warp} ${inverse_out}`; 
+	       run_and_watch("cp ${id_warp} ${forward_out}");
+	       run_and_watch("cp ${id_warp} ${inverse_out}");
 	   }
        }
        my $replace = 0;
@@ -119,10 +119,6 @@ sub iterative_pairwise_reg_vbm {  # Main code
    my ($dummy,$error_message)=iterative_pairwise_reg_Output_check($case);
    
    $Hf->write_headfile($write_path_for_Hf);
-=item 
-    # dirty executable and world readable behavior :p
-    `chmod 777 ${write_path_for_Hf}`;
-=cut
 
    my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
    print "$PM took ${real_time} seconds to complete.\n";
@@ -165,7 +161,7 @@ sub iterative_pairwise_reg_Output_check {
 	 $file_1 = "${current_path}/${moving_runno}_to_MDT_warp.nii.gz";
 	 $file_2 = "${current_path}/MDT_to_${moving_runno}_warp.nii.gz";
 	 
-	 if (data_double_check($file_1, $file_2)) {
+	 if (data_double_check($file_1, $file_2, $case-1)) {
 	     $go_hash{$moving_runno}=1;
 	     if ($file_1 ne $file_2) {
 		 $expected_number_of_jobs++;
@@ -255,8 +251,8 @@ sub create_iterative_pairwise_warps {
     
     if (-e $new_warp) { unlink($new_warp);}
     if (-e $new_inverse) { unlink($new_inverse);}
-    my $go_message = "$PM: create iterative pairwise warp for the pair ${moving_runno} and MDT" ;
-    my $stop_message = "$PM: could not start iterative warp between ${moving_runno} and MDT:\n${pairwise_cmd}\n";
+    my $go_message = "$PM: create warp for ${moving_runno} and MDT";
+    my $stop_message = "$PM: could not start warp calc for ${moving_runno} and MDT";
     
     my $rename_cmd;
     $rename_cmd = "".  #### Need to add a check to make sure the out files were created before linking!
@@ -701,6 +697,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
 	$template_checkpoint_completed = 0;
     }
     
+    # TODO: Convert this to normal perl regex handling!
     my $SyN_string = `echo "${diffeo_transform_parameters}" | tr "." "p" | tr "," "_" `;
     chomp($SyN_string);
     $mdt_contrast_string = "SyN_${SyN_string}_${mdt_contrast_string}"; 
@@ -736,7 +733,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
 	    $initial_source_iteration = $starting_iteration - 1;
 	    $name="${name}_i0";
 	}
-	`cp ${initial_template} ${master_template_dir}/${template_name}_i${initial_source_iteration}.${suffix}`;
+	run_and_watch("cp ${initial_template} ${master_template_dir}/${template_name}_i${initial_source_iteration}.${suffix}");
     }
 
 

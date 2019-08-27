@@ -118,18 +118,18 @@ sub calculate_mdt_images_Output_check {
     
     $out_file = "${current_path}/MDT_${contrast}.nii.gz";
     $int_go_hash{$contrast}=0;
-    if (data_double_check($out_file)) {
+    if (data_double_check($out_file,$case-1)) {
         if ($out_file =~ s/\.gz$//) {
-            if (data_double_check($out_file)) {
+            if (data_double_check($out_file,$case-1)) {
                 $go_hash{$contrast}=1;
                 push(@file_array,$out_file);
                 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
                 $missing_files_message = $missing_files_message."\t$contrast\n";
                 if ($mdt_creation_strategy eq 'iterative'){
                     my $int_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
-                    if (data_double_check($int_file)) {
+                    if (data_double_check($int_file,$case-1)) {
                         if ($int_file =~ s/\.gz$//) {
-                            if (data_double_check($int_file)) {
+                            if (data_double_check($int_file,$case-1)) {
                                 $int_go_hash{$contrast}=1;
                                 push(@file_array,$int_file);
                                 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
