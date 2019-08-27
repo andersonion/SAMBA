@@ -28,8 +28,12 @@ my @jobs_1=();
 my @jobs_2=();
 my $go = 1;
 my $job;
-my %runno_hash_vba;
-my %runno_hash_label;
+# ref_runno is a multi-level hash, the keys are spaces, the values are runno_hashes.
+# runno_hashs are runnos with work to do, and 1 of their image paths which is used 
+# to get check if we need a reference space transform, and calculate it.
+my %ref_runno_hash;
+#my %runno_hash_vba;
+#my %runno_hash_label;
 my %preferred_contrast_hash;
 my $rerun_init_flag;
 
@@ -50,14 +54,12 @@ sub set_reference_space_vbm {  # Main code
         if (! -e $translation_dir ) {
             mkdir ($translation_dir,$permissions);
         }
-
         $ref_file = $reference_path_hash{$V_or_L};
         my %runno_hash;
-        if ($V_or_L eq "vbm") {
-            %runno_hash = %runno_hash_vba;
-        } else {
-            %runno_hash = %runno_hash_label;
-        }
+	%runno_hash=%{$ref_runno_hash{$V_or_L}};
+	my $lock_step=1;
+	if ( ! $lock_step ) {
+
         # First for all runnos, create the refspacy transform
 	foreach my $runno (keys %runno_hash) {
             my $in_file = $runno_hash{$runno};
@@ -67,7 +69,18 @@ sub set_reference_space_vbm {  # Main code
                 push(@jobs_1,$job);
             }   
         }
-Data::Dump::dump(\%runno_hash);die;
+	} else {
+        # First for all runnos, create the refspacy transform
+	foreach my $runno (keys %runno_hash) {
+            my $in_file = $runno_hash{$runno};
+            my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
+            ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
+            if ($job) {
+                push(@jobs_1,$job);
+            }   
+        }
+
+Data::Dump::dump(\%runno_hash,$work_to_do_HoA->{$V_or_L});die;
         if (cluster_check() && (scalar @jobs_1)) {
             my $interval = 1;
             my $verbose = 1;
@@ -76,7 +89,6 @@ Data::Dump::dump(\%runno_hash);die;
                 print STDOUT  "  All translation alignment referencing jobs have completed; moving on to next step.\n";
             }
         }
-        
 	my $array_ref = $work_to_do_HoA->{$V_or_L};
         foreach my $out_file (@$array_ref) {
             my ($dumdum,$in_name,$in_ext) = fileparts($out_file,2);
@@ -86,6 +98,9 @@ Data::Dump::dump(\%runno_hash);die;
                 push(@jobs_2,$job);
             }
         }
+	}
+
+
     }
     
     
@@ -237,12 +252,14 @@ sub set_reference_space_Output_check {
         $file_array_ref{$V_or_L} = \@file_array;
         
         if ($case == 1) {
-            if ($V_or_L eq 'vbm') {
-                %runno_hash_vba = %runno_hash;
-            } else {
-                %runno_hash_label = %runno_hash;
-            }
+            #if ($V_or_L eq 'vbm') {
+            #    %runno_hash_vba = %runno_hash;
+	    #} else {
+            #    %runno_hash_label = %runno_hash;
+            #}
+	    $ref_runno_hash{$V_or_L}=\%runno_hash;
         }
+
 	# THIS IS DOING WORK IN A CHECK FUNCTION THAT IS VERY NAUGHTY.
         if ($case == 2) {
             symbolic_link_cleanup($refspace_folder_hash{$V_or_L},$PM);
