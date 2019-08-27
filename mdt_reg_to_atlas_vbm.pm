@@ -60,7 +60,7 @@ sub mdt_reg_to_atlas_vbm {  # Main code
     if ($expected_number_of_jobs > 3) {
 	$mem_request = int($mem_request*(1.5)); # Need a smarter way to handle the greater variability in mem size of reg to atlas jobs.
     }
-    print "Expected number of jobs = ${expected_number_of_jobs}\n\nMem_request = ${mem_request}\n\n";
+    printd(5,"\n\tExpected number of jobs = ${expected_number_of_jobs}\n\tMem_request = ${mem_request}\n\n");
 
     foreach my $runno (@array_of_runnos) {
 	my ($f_xform_path,$i_xform_path);
@@ -129,7 +129,7 @@ sub mdt_reg_to_atlas_Output_check {
      $file_1 = "${current_path}/MDT_to_${label_atlas}_warp.nii.gz";
      $file_2 = "${current_path}/${label_atlas}_to_MDT_warp.nii.gz";
 
-     if (data_double_check($file_1,$file_2)) {
+     if (data_double_check($file_1,$file_2,$case-1)) {
 
 	 $go_hash{$runno}=1;
 	 push(@file_array,$file_1,$file_2);
