@@ -256,9 +256,7 @@ sub create_iterative_pairwise_warps {
     if (-e $new_warp) { unlink($new_warp);}
     if (-e $new_inverse) { unlink($new_inverse);}
     my $go_message = "$PM: create iterative pairwise warp for the pair ${moving_runno} and MDT" ;
-    my $stop_message = "$PM: could not create iterative warp between ${moving_runno} and MDT:\n${pairwise_cmd}\n";
-    
-
+    my $stop_message = "$PM: could not start iterative warp between ${moving_runno} and MDT:\n${pairwise_cmd}\n";
     
     my $rename_cmd;
     $rename_cmd = "".  #### Need to add a check to make sure the out files were created before linking!
@@ -317,11 +315,11 @@ sub create_iterative_pairwise_warps {
 	}
     }
 
-    if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
+    #if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
+    if ($go && (not $jid)) {
 	error_out($stop_message);
     }
     print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
-  
     return($jid);
 }
 

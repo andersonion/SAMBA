@@ -68,10 +68,6 @@ sub iterative_calculate_mdt_warps_vbm {  # Main code
     my $case = 2;
     my ($error_message)=iterative_calculate_mdt_warps_Output_check($case);
     $Hf->write_headfile($write_path_for_Hf);
-=item 
-    # dirty executable and world readable behavior :p
-    `chmod 777 ${write_path_for_Hf}`;
-=cut
 
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
@@ -166,7 +162,6 @@ sub iterative_calculate_average_mdt_warp {
     $out_file_1 = "${current_path}/shape_update_warp_${update_string}.nii.gz"; 
     $out_file_2 = "${current_path}/average_of_to_template_warps.nii.gz";  
 
-
     my $avg_cmd = '';
     my $clean_cmd = '';
     if ($average_warps) {
@@ -206,8 +201,11 @@ sub iterative_calculate_average_mdt_warp {
 	}
     }
 
-    if ((data_double_check($out_file_1)) && (not $jid)) {
-	error_out("$PM: missing update warp: ${out_file_1}");
+    #if ((data_double_check($out_file_1)) && (not $jid)) {
+    if ($go && (not $jid)) {
+	# I think that data_double_checking transform path here causes this to wait for completion,
+	# while erroneously giving errors.
+	error_out("$PM: could not start for warp: ${out_file_1}");
     }
     print "** $PM expected output: ${out_file_1}\n";
   

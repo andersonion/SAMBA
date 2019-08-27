@@ -210,8 +210,9 @@ sub mask_for_mdt_Output_check {
  	}
     }
 
-     if ((data_double_check($out_path)) && (not $jid)) {
- 	error_out("$PM: Missing eroded MDT mask: ${out_path}");
+     #if ((data_double_check($out_path)) && (not $jid)) {
+     if ($go && (not $jid)) {
+ 	error_out("$PM: could not start for MDT mask: ${out_path}");
      }
      print "** $PM expected output: ${out_path}\n";
   
@@ -238,12 +239,16 @@ sub mask_for_mdt_vbm_Runtime_check {
     $incumbent_eroded_mask = $Hf->get_value('MDT_eroded_mask');
 
     
-    if ((! $pre_masked) && (! $do_mask)) {   # If the input data was not masked, and the pipeline didn't mask it, then MDT needs to be skull stripped.
+
+    if ((! $pre_masked) && (! $do_mask)) {
+        # If the input data was not masked, and the pipeline didn't mask it, then MDT needs to be skull stripped.
 	$mdt_skull_strip = 1;
     } else {
-	$mdt_skull_strip = 0; # should = 0, =1 is for testing purposes  # OR do we want to apply the skull-stripping algorithm regardless?
+        # should = 0, =1 is for testing purposes  
+	# OR do we want to apply the skull-stripping algorithm regardless?
+	$mdt_skull_strip = 0; 
     }
-     $current_path = $Hf->get_value('median_images_path'); 
+    $current_path = $Hf->get_value('median_images_path'); 
     
     $template_contrast = $Hf->get_value('skull_strip_contrast');
 

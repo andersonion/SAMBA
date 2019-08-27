@@ -248,7 +248,7 @@ sub calculate_average_mdt_image {
     if ($go && (not $jid)) {
         # I think that ouput checking here causes this to fail erroneously
         # Now deferring until our intentional output checking at end of module.
-        error_out("$PM: missing average MDT image for contrast: ${contrast}: ${out_file}");
+        error_out("$PM: could not start average MDT image for contrast: ${contrast}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
     

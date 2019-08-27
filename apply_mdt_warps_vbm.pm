@@ -374,13 +374,11 @@ sub apply_mdt_warp {
     my $bytes_per_point = 8; # Going to go with 64-bit depth by default, though float is the usual case;   
     $input_size = $input_size*($bytes_per_point/1024/1024); # Originally just divided by 1024 instead of 1024*1024...was calculating request in kB instead of MB!
 
-
     my $expected_max_mem = int(6.2*$input_size);
-    print "Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n";
+    printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
     if ($expected_max_mem > $mem_request) {
 	$mem_request = $expected_max_mem;
     }
-
 
     my $jid = 0;
     if (cluster_check) {
@@ -398,8 +396,9 @@ sub apply_mdt_warp {
 	}
     }
 
-    if ((!-e $out_file) && (not $jid)) {
-	error_out("$PM: missing ${current_contrast} image with ${direction_string} MDT warp(s) applied for ${runno}: ${out_file}");
+    #if ((!-e $out_file) && (not $jid)) {
+    if ($go && (not $jid)) {
+	error_out("$PM: could not start for ${current_contrast} image with ${direction_string} MDT warp(s) applied for ${runno}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
   
@@ -499,8 +498,9 @@ sub convert_images_to_RAS {
 	    }
 	}
 	
-	if ((!-e $out_file) && (not $jid_2)) {
-	    error_out("$PM: missing RAS version of ${label_atlas_name} label set for ${runno}: ${out_file}");
+	#if ((!-e $out_file) && (not $jid_2)) {
+	if (($go_2 && (not $jid_2)) {
+	    error_out("$PM: could not start for RAS version of ${label_atlas_name} label set for ${runno}: ${out_file}");
 	}
 	print "** $PM expected output: ${out_file}\n";
     }
@@ -613,9 +613,9 @@ sub apply_mdt_warps_vbm_Runtime_check {
 
 	$results_dir = $Hf->get_value('results_dir');
 
-	$convert_images_to_RAS=$Hf->get_value('convert_labels_to_RAS');
-
-	if (($convert_images_to_RAS ne 'NO_KEY') && ($convert_images_to_RAS == 1)) {
+	(my $f_ok,$convert_images_to_RAS)=$Hf->get_value_check('convert_labels_to_RAS');
+	if ( ! $f_ok ) { $convert_images_to_RAS=0; }
+	if ($convert_images_to_RAS == 1) {
 
 	    #$almost_MDT_results_dir = "${results_dir}/labels/";
 	    $almost_MDT_results_dir = "${results_dir}/connectomics/";
