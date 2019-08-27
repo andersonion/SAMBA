@@ -46,7 +46,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     } else {
         $rigid_or_affine = 'affine';
     }
-
+    printd(1,"$PM: \tswap_fixed_and_moving is TURNED OFF (as it probably should be)\n\n");
     foreach my $runno (@array_of_runnos) {
         my $to_xform_path;
         my $result_path_base;
@@ -86,7 +86,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                 if ($swap_fixed_and_moving) {
                     print "swap_fixed_and_moving is activated\n\n\n";
                 } else {
-                    print "swap_fixed_and_moving is TURNED OFF (as it probably should be)\n\n\n";
+                    #print "swap_fixed_and_moving is TURNED OFF (as it probably should be)\n\n\n";
                     #`ln -s ${xform_path}  ${pipeline_name}`;
 		    run_and_watch("ln -s ${xform_path}  ${pipeline_name}");
                 }
@@ -158,18 +158,26 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 
     my $write_path_for_Hf = "${current_path}/${PM}_current.headfile";
     $Hf->write_headfile($write_path_for_Hf);
-=item 
-    # dirty executable and world readable behavior :p
-    `chmod 777 ${write_path_for_Hf}`;
-=cut
 
     # Clean up derived transforms.
-
-    # Bash syntax below: if "ls" command is successful (finds existing items), then executes "rm" command.
+    # This was a clever Bash syntax chain using ls && rm but that has proven ugly when debugging
+    # Adjusted to be in perl with same idea. 
+    # if "ls" command is successful (finds existing items), then executes "rm" command.
     # "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
+    # While the first inclination is to use run_and_watch, we dont care at all if we succeed or fail here.
+    # We only care if there is work found to do, so we'll simply capture output to let this fail quietly.
     # Added -v to rm because wildcard rm is scary !
     #`ls ${current_path}/*Derived*mat  2> /dev/null && rm ${current_path}/*Derived*mat`;
-    run_and_watch("ls ${current_path}/*Derived*mat  2> /dev/null && rm -v ${current_path}/*Derived*mat","\t",0);
+    #run_and_watch("ls ${current_path}/*Derived*mat  2> /dev/null && rm -v ${current_path}/*Derived*mat","\t",0);
+    my @excess_mats=`ls ${current_path}/*Derived*mat  2> /dev/null`;
+    chomp(@excess_mats);
+    # tests each thing found in excess mats, but we really only ever run one time;
+    foreach (@excess_mats) {
+	if ( $_ ne '') {
+	    run_and_watch("rm -v ${current_path}/*Derived*mat","\t",0);
+	    last;
+	}
+    }
 
     my $PM_code;
     if ($do_rigid) {
@@ -329,7 +337,8 @@ sub create_affine_transform_vbm {
     
     my @list = split '/', $atlas_path;
     my $A_file = pop @list;
-    my $go_message =  "create ${xform_code} transform for ${A_file}";
+    my ($dum,$B_name,$b_e) = fileparts($B_path,3);
+    my $go_message =  "create ${xform_code} transform for ${B_name}".$b_e;
     my $stop_message = "$PM: create_transform: could not make transform: $cmd\n";
     my @test=(0);
     if (defined $reservation) {
@@ -339,7 +348,7 @@ sub create_affine_transform_vbm {
     if (cluster_check) {
         my ($home_path,$dummy1,$dummy2) = fileparts($result_transform_path_base,2);
         my $Id= "${moving_runno}_create_affine_registration";
-        my $verbose = 2; # Will print log only for work done.
+        my $verbose = 1; # Will print log only for work done.
         $jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);
         if (not $jid) {
             error_out($stop_message);
@@ -350,7 +359,10 @@ sub create_affine_transform_vbm {
         }
     }
     # my $transform_path = "${result_transform_path_base}Affine.txt"; # From previous version of Ants, perhaps?
-    if (data_double_check($transform_path,1) && $go && (not $jid)) {
+    #if (data_double_check($transform_path,1) && $go && (not $jid)) {
+    if ($go && (not $jid)) {
+	# I think that data_double_checking transform path here causes this to wait for completion,
+	# while erroneously giving errors.
         error_out("$PM: create_transform: did not find result xform: $transform_path");
         print "** $PM: create_transform $xform_code created $transform_path\n";
     }
