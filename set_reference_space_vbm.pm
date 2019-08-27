@@ -27,7 +27,6 @@ my ($work_to_do_HoA);
 my @jobs_1=();
 my @jobs_2=();
 my $go = 1;
-my $job;
 # ref_runno is a multi-level hash, the keys are spaces, the values are runno_hashes.
 # runno_hashs are runnos with work to do, and 1 of their image paths which is used 
 # to get check if we need a reference space transform, and calculate it.
@@ -47,6 +46,11 @@ sub set_reference_space_vbm {  # Main code
     my $start_time = time;
     set_reference_space_vbm_Runtime_check();
     my $ref_file;
+    my $job;
+    my @jobs;
+    # lock_step, do all reference creation first, then do all apply, (the old way)
+    #    off, set apply dependent on creation, (the new way)
+    my $lock_step=0;
     foreach my $V_or_L (@spaces) {
         my $work_folder = $refspace_folder_hash{$V_or_L};
         my $translation_dir = "${work_folder}/translation_xforms/";
@@ -57,18 +61,31 @@ sub set_reference_space_vbm {  # Main code
         $ref_file = $reference_path_hash{$V_or_L};
         my %runno_hash;
 	%runno_hash=%{$ref_runno_hash{$V_or_L}};
-	my $lock_step=1;
 	if ( ! $lock_step ) {
+	    my $array_ref = $work_to_do_HoA->{$V_or_L};
+	    # for all runnos
+	    for my $runno (keys %runno_hash) {
+		# First, create the refspacy transform
+		my $in_file = $runno_hash{$runno};
+		my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
+		($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
+		if ($job) {
+		    push(@jobs_1,$job);
+		    push(@jobs,$job); 
+		}
+		# second, schedule the apply dependent on transformy being done.
+		my @runno_files=grep /$runno/,@$array_ref;
+		for my $out_file (@runno_files) {
+		    my ($dumdum,$in_name,$in_ext) = fileparts($out_file,2);
+		    my $in_file = "${preprocess_dir}/${in_name}${in_ext}";
+		    ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file,'afterany:'.$job);
+		    if ($job) {
+			push(@jobs_2,$job);
+			push(@jobs,$job);
+		    }
+		}
 
-        # First for all runnos, create the refspacy transform
-	foreach my $runno (keys %runno_hash) {
-            my $in_file = $runno_hash{$runno};
-            my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
-            ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
-            if ($job) {
-                push(@jobs_1,$job);
-            }   
-        }
+	    }
 	} else {
         # First for all runnos, create the refspacy transform
 	foreach my $runno (keys %runno_hash) {
@@ -79,8 +96,7 @@ sub set_reference_space_vbm {  # Main code
                 push(@jobs_1,$job);
             }   
         }
-
-Data::Dump::dump(\%runno_hash,$work_to_do_HoA->{$V_or_L});die;
+	# wait for refspacy completion
         if (cluster_check() && (scalar @jobs_1)) {
             my $interval = 1;
             my $verbose = 1;
@@ -89,6 +105,7 @@ Data::Dump::dump(\%runno_hash,$work_to_do_HoA->{$V_or_L});die;
                 print STDOUT  "  All translation alignment referencing jobs have completed; moving on to next step.\n";
             }
         }
+	# Apply all refspaces
 	my $array_ref = $work_to_do_HoA->{$V_or_L};
         foreach my $out_file (@$array_ref) {
             my ($dumdum,$in_name,$in_ext) = fileparts($out_file,2);
@@ -99,19 +116,25 @@ Data::Dump::dump(\%runno_hash,$work_to_do_HoA->{$V_or_L});die;
             }
         }
 	}
-
-
     }
-    
-    
+    # All scheduling done.
+    # these lock_step lines are to avoid changing code before it's tested. 
+    # In the future, we'll wait on jobs here, instad of jobs_2.
+    my @tmp_array;
+    if (! $lock_step) {
+	@tmp_array=@jobs_2;
+	@jobs_2=@jobs;
+    }
     if (cluster_check() && (scalar @jobs_2)) {
         my $interval = 2;
         my $verbose = 1;
         my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_2);
-
         if ($done_waiting) {
             print STDOUT  "  All referencing jobs have completed; moving on to next step.\n";
-        }
+        } else {
+	    printd(5,"ERROR on job wait!");
+	    sleep_with_countdown(3);
+	}
     }
     
     foreach my $space (@spaces) {
@@ -132,7 +155,7 @@ Data::Dump::dump(\%runno_hash,$work_to_do_HoA->{$V_or_L});die;
     my $case = 2;
     my ($dummy,$error_message)=set_reference_space_Output_check($case);
 
-    my @jobs = (@jobs_1,@jobs_2);    
+    @jobs = (@jobs_1,@jobs_2);    
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
@@ -236,6 +259,7 @@ sub set_reference_space_Output_check {
                 $existing_files_message = $existing_files_message."   $file \n";
             }
         }
+	print("\n");
         if (($existing_files_message ne '') && ($case == 1)) {
             $existing_files_message = $existing_files_message."\n";
         } elsif (($missing_files_message ne '') && ($case == 2)) {
@@ -279,7 +303,7 @@ sub get_translation_xform_to_ref_space_vbm {
 # ------------------
 sub apply_new_reference_space_vbm {
 # ------------------
-    my ($in_file,$ref_file,$out_file)=@_;
+    my ($in_file,$ref_file,$out_file,$dependency)=@_;
     
     # Do reg is off for any output nifti's (including gzipped ones)...
     my $do_registration = 1; 
@@ -375,10 +399,12 @@ sub apply_new_reference_space_vbm {
 
     my @test = (0);
     my $mem_request = '';  # 12 December 2016: Will hope that this triggers the default, and hope that will be enough.
-    if (defined $reservation) {
-        @test =(0,$reservation);
-    }
-
+    #if (defined $reservation) { 
+    # Undefs are fun, just pass it :)
+    # Added dependency to let this properly chain off our other work.
+    #@test =(0,$reservation);
+    #}
+    @test=(0,$reservation,$dependency);
     $cmd=join($CMD_SEP,@cmds);
     my $go_message =  "$PM: Apply reference space of ${ref_file} to ${short_filename}";
     my $stop_message = "$PM: Unable to apply reference space of ${ref_file} to ${short_filename}:  $cmd\n";
@@ -407,7 +433,7 @@ sub apply_new_reference_space_vbm {
 # ------------------
 sub set_reference_space_vbm_Init_check {
 # ------------------
-# WARNING NAUGHTY INIT IS DOING WORK.
+# WARNING NAUGHTY CHECK IS DOING WORK.
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
 
@@ -907,7 +933,6 @@ sub set_reference_space_vbm_Runtime_check {
         if (data_double_check($inpath)) {
             $inpath="${inpath}.gz"; # We're assuming that it exists, but isn't found because it has been gzipped. 16 March 2017
         }
-
         if (data_double_check($outpath)) {
             my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
             my $nifti_args = "\'${inpath}\' , \'${outpath}\'";
@@ -924,7 +949,12 @@ sub set_reference_space_vbm_Runtime_check {
         #$Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
         
         # write refspace_temp.txt (for human purposes, in case this module fails)
-        write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp")
+	my $ref_tmp=File::Spec->catfile($refspace_folder_hash{$V_or_L},"refspace.txt.tmp");
+	if ( ! -e $ref_tmp ) {
+	    write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp");
+	} else {
+	    printd(5,"WARNING, $ref_tmp exists, not overwriting.\n");
+	}
     }
 
 
