@@ -40,47 +40,47 @@ sub calculate_mdt_images_vbm {  # Main code
 
     ($current_iteration,@contrast_list) = @_;
     if ($current_iteration !~ /^[0-9]+?/) { # Backwards compatibility, maybe first contrast instead of current iteration.
-	unshift(@contrast_list,$current_iteration);
-	$current_iteration = 69; # This is just a juvenile number to make sure we can see if it fails.
+        unshift(@contrast_list,$current_iteration);
+        $current_iteration = 69; # This is just a juvenile number to make sure we can see if it fails.
     }
 
     my $start_time = time;
     calculate_mdt_images_vbm_Runtime_check();
 
     foreach my $contrast (@contrast_list) {
-	$go = $go_hash{$contrast};
-	if ($go) {
-	    ($job) = calculate_average_mdt_image($contrast);
-	    if ($job) {
-		push(@jobs,$job);
-	    }
-	} 
+        $go = $go_hash{$contrast};
+        if ($go) {
+            ($job) = calculate_average_mdt_image($contrast);
+            if ($job) {
+                push(@jobs,$job);
+            }
+        } 
     }
-     
+    
     if (cluster_check()) {
-	my $interval = 2;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-	
-	if ($done_waiting) {
-	    my $contrast_string;
-	    if ($mdt_contrast eq ($contrast_list[0] || $contrast_list[2])){
-		$contrast_string = "primary MDT contrast(s) ${mdt_contrast}";
-	    } else {
-		$contrast_string = "all non-MDT contrasts";
-	    }
-	    print STDOUT  "  Average MDT images have been calculated for ${contrast_string}; moving on to next step.\n";
-	}
+        my $interval = 2;
+        my $verbose = 1;
+        my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+        
+        if ($done_waiting) {
+            my $contrast_string;
+            if ($mdt_contrast eq ($contrast_list[0] || $contrast_list[2])){
+                $contrast_string = "primary MDT contrast(s) ${mdt_contrast}";
+            } else {
+                $contrast_string = "all non-MDT contrasts";
+            }
+            print STDOUT  "  Average MDT images have been calculated for ${contrast_string}; moving on to next step.\n";
+        }
     }
 
     my $case = 2;
     my ($dummy,$error_message)=('','');
     foreach my $contrast (@contrast_list) {
-	my $temp_message;
-	($dummy,$temp_message)=calculate_mdt_images_Output_check($case,$contrast);
-	if ($temp_message ne '') {
-	    $error_message=$error_message.$temp_message;
-	}
+        my $temp_message;
+        ($dummy,$temp_message)=calculate_mdt_images_Output_check($case,$contrast);
+        if ($temp_message ne '') {
+            $error_message=$error_message.$temp_message;
+        }
     }
 
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
@@ -92,9 +92,9 @@ sub calculate_mdt_images_vbm {  # Main code
         error_out("${error_message}",0);
     } else {
         $Hf->write_headfile($write_path_for_Hf);
-    #	symbolic_link_cleanup($pairwise_path);
+        #       symbolic_link_cleanup($pairwise_path);
     }
- 
+    
 }
 
 
@@ -102,70 +102,70 @@ sub calculate_mdt_images_vbm {  # Main code
 # ------------------
 sub calculate_mdt_images_Output_check {
 # ------------------
-     my ($case,$contrast) = @_;
-     my $message_prefix ='';
-     my ($out_file);
-     my @file_array=();
-     if ($case == 1) {
-	 $message_prefix = "  Average MDT images already exist for the following contrast and will not be recalculated:\n";
-     } elsif ($case == 2) {
- 	$message_prefix = "  Unable to create average MDT images for contrast:\n";
-     }   # For Init_check, we could just add the appropriate cases.
+    my ($case,$contrast) = @_;
+    my $message_prefix ='';
+    my ($out_file);
+    my @file_array=();
+    if ($case == 1) {
+        $message_prefix = "  Average MDT images already exist for the following contrast and will not be recalculated:\n";
+    } elsif ($case == 2) {
+        $message_prefix = "  Unable to create average MDT images for contrast:\n";
+    }   # For Init_check, we could just add the appropriate cases.
 
-     
-     my $existing_files_message = '';
-     my $missing_files_message = '';
-     
-     $out_file = "${current_path}/MDT_${contrast}.nii.gz";
-     $int_go_hash{$contrast}=0;
-     if (data_double_check($out_file)) {
-	 if ($out_file =~ s/\.gz$//) {
-	     if (data_double_check($out_file)) {
-		 $go_hash{$contrast}=1;
-		 push(@file_array,$out_file);
-		 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-		 $missing_files_message = $missing_files_message."\t$contrast\n";
-		 if ($mdt_creation_strategy eq 'iterative'){
-		     my $int_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
-		     if (data_double_check($int_file)) {
-			 if ($int_file =~ s/\.gz$//) {
-			     if (data_double_check($int_file)) {
-				 $int_go_hash{$contrast}=1;
-				 push(@file_array,$int_file);
-				 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-			     }
-			 }
-		     }
-		 } else {
-		     $int_go_hash{$contrast}=1;
-		 }
-	     } else {
-		 run_and_watch("gzip -vf ${out_file}","\t"); #Is -f safe to use?
-		 $go_hash{$contrast}=0;
-		 $existing_files_message = $existing_files_message."\t$contrast\n";
-	     }
-	 }  
-     } else {
-	 $go_hash{$contrast}=0;
-	 $existing_files_message = $existing_files_message."\t$contrast\n";
-     }
+    
+    my $existing_files_message = '';
+    my $missing_files_message = '';
+    
+    $out_file = "${current_path}/MDT_${contrast}.nii.gz";
+    $int_go_hash{$contrast}=0;
+    if (data_double_check($out_file)) {
+        if ($out_file =~ s/\.gz$//) {
+            if (data_double_check($out_file)) {
+                $go_hash{$contrast}=1;
+                push(@file_array,$out_file);
+                #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+                $missing_files_message = $missing_files_message."\t$contrast\n";
+                if ($mdt_creation_strategy eq 'iterative'){
+                    my $int_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
+                    if (data_double_check($int_file)) {
+                        if ($int_file =~ s/\.gz$//) {
+                            if (data_double_check($int_file)) {
+                                $int_go_hash{$contrast}=1;
+                                push(@file_array,$int_file);
+                                #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+                            }
+                        }
+                    }
+                } else {
+                    $int_go_hash{$contrast}=1;
+                }
+            } else {
+                run_and_watch("gzip -vf ${out_file}","\t"); #Is -f safe to use?
+                $go_hash{$contrast}=0;
+                $existing_files_message = $existing_files_message."\t$contrast\n";
+            }
+        }  
+    } else {
+        $go_hash{$contrast}=0;
+        $existing_files_message = $existing_files_message."\t$contrast\n";
+    }
 
-     if (($existing_files_message ne '') && ($case == 1)) {
-	 $existing_files_message = $existing_files_message."\n";
-     } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $missing_files_message = $missing_files_message."\n";
-     }
-     
-     my $error_msg='';
+    if (($existing_files_message ne '') && ($case == 1)) {
+        $existing_files_message = $existing_files_message."\n";
+    } elsif (($missing_files_message ne '') && ($case == 2)) {
+        $missing_files_message = $missing_files_message."\n";
+    }
+    
+    my $error_msg='';
 
-     if (($existing_files_message ne '') && ($case == 1)) {
-	 $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
-     } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
-     }
+    if (($existing_files_message ne '') && ($case == 1)) {
+        $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
+    } elsif (($missing_files_message ne '') && ($case == 2)) {
+        $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
+    }
 
-     my $file_array_ref = \@file_array;
-     return($file_array_ref,$error_msg);
+    my $file_array_ref = \@file_array;
+    return($file_array_ref,$error_msg);
 }
 
 # ------------------
@@ -181,7 +181,7 @@ sub calculate_average_mdt_image {
     my ($contrast) = @_;
     my ($cmd,$avg_cmd,$update_cmd,$cleanup_cmd,$copy_cmd)=('','','','','');
     my ($out_file, $intermediate_file);
-	$out_file = "${current_path}/MDT_${contrast}.nii.gz";
+    $out_file = "${current_path}/MDT_${contrast}.nii.gz";
 
     if ($mdt_creation_strategy eq 'iterative') {
         my $warp_train_car = " -t ${last_update_warp} ";
@@ -223,7 +223,7 @@ sub calculate_average_mdt_image {
 
     my @test=(0);
     if (defined $reservation) {
-	@test =(0,$reservation);
+        @test =(0,$reservation);
     }
 
     my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
@@ -231,28 +231,28 @@ sub calculate_average_mdt_image {
 
     my $jid = 0;
     if (cluster_check) {
-	my $home_path = $current_path;
-	my $Id= "${contrast}_calculate_average_MDT_image";
-	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (not $jid) {
-	    error_out($stop_message);
-	}
+        my $home_path = $current_path;
+        my $Id= "${contrast}_calculate_average_MDT_image";
+        my $verbose = 2; # Will print log only for work done.
+        $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+        if (not $jid) {
+            error_out($stop_message);
+        }
     } else {
-	my @cmds = ($cmd);
-	if (! execute($go,$go_message, @cmds) ) {
-	    error_out($stop_message);
-	}
+        my @cmds = ($cmd);
+        if (! execute($go,$go_message, @cmds) ) {
+            error_out($stop_message);
+        }
     }
 
     #if ((!-e $out_file) && (not $jid)) {
     if ($go && (not $jid)) {
-	# I think that ouput checking here causes this to fail erroneously
-	# Now deferring until our intentional output checking at end of module.
-	error_out("$PM: missing average MDT image for contrast: ${contrast}: ${out_file}");
+        # I think that ouput checking here causes this to fail erroneously
+        # Now deferring until our intentional output checking at end of module.
+        error_out("$PM: missing average MDT image for contrast: ${contrast}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
-  
+    
     return($jid,$out_file);
 }
 
@@ -286,7 +286,7 @@ sub calculate_mdt_images_vbm_Runtime_check {
     #if ($current_path eq 'NO_KEY') {
     $current_path = "${template_path}/median_images";
     if (! -e $current_path) {
-	mkdir ($current_path,$permissions);
+        mkdir ($current_path,$permissions);
     }
     $Hf->set_value('median_images_path',$current_path); 
     #}
@@ -301,26 +301,26 @@ sub calculate_mdt_images_vbm_Runtime_check {
     $runlist = $Hf->get_value('template_comma_list');
 
     if ($runlist eq 'NO_KEY') {
-	$runlist = $Hf->get_value('control_comma_list');
+        $runlist = $Hf->get_value('control_comma_list');
     }
 
     if ($runlist eq 'EMPTY_VALUE') {
-	@array_of_runnos = ();
+        @array_of_runnos = ();
     } else {
-	@array_of_runnos = split(',',$runlist);
+        @array_of_runnos = split(',',$runlist);
     }
 #
 
     my $case = 1;
     my ($dummy,$skip_message);
     foreach my $contrast (@contrast_list) {
-	my $temp_message;
-	($dummy,$temp_message)=calculate_mdt_images_Output_check($case,$contrast);
-	if ($temp_message ne '') {
-	    $skip_message=$skip_message.$temp_message;
-	}
+        my $temp_message;
+        ($dummy,$temp_message)=calculate_mdt_images_Output_check($case,$contrast);
+        if ($temp_message ne '') {
+            $skip_message=$skip_message.$temp_message;
+        }
     }
-	
+    
     if ((defined $skip_message) && ($skip_message ne '') ) {
         print "${skip_message}";
     }
