@@ -149,9 +149,12 @@ sub set_reference_space_vbm {  # Main code
         #my @gzippable_file=run_and_watch("ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null","\t",0);
 	my @gzippable_file=`ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null`;
 	chomp(@gzippable_file);
-	# tests each thing found in gzippable file, but we really only ever expect 1 or 0 things
+	# tests each thing found in gzippable file, but we really only ever run one time
 	foreach (@gzippable_file){ 
-	    run_and_watch("gzip -v ${refspace_folder_hash{$space}}/*.nii") if ( $_ ne '' );
+	    if ( $_ ne '' ) {
+		run_and_watch("gzip -v ${refspace_folder_hash{$space}}/*.nii");
+		last;
+	    }
 	}
     }
     
