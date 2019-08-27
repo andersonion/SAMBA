@@ -8,7 +8,7 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
-#no warnings qw(uninitialized bareword);
+use Scalar::Util qw(looks_like_number);
 
 #use vars used to be here
 require Headfile;
@@ -194,6 +194,9 @@ sub calculate_average_mdt_image {
 
         my $dim_test_file = "${mdt_images_path}/${array_of_runnos[0]}_${contrast}_to_MDT.nii.gz";
         my $test_dim_0 =  `fslhd ${dim_test_file} | grep dim0 | grep -v pix | xargs | cut -d ' ' -f2`;
+	if (! looks_like_number($test_dim_0) ) {
+	    error_out("Problem gathering dim count from $dim_test_file"); 
+	}
         my $opt_e_string='';
         if ($dim_test_file =~ /tensor/) {
             $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
