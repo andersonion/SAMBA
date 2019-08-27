@@ -197,7 +197,7 @@ sub mask_for_mdt_Output_check {
 	
  	my $home_path = $current_path;
  	my $Id= "extract_mask_from_MDT_${template_contrast}";
- 	my $verbose = 2; # Will print log only for work done.
+ 	my $verbose = 1; # Will print log only for work done.
  	$jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
  	if (not $jid) {
  	    error_out($stop_message);

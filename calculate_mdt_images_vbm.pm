@@ -228,12 +228,11 @@ sub calculate_average_mdt_image {
 
     my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
 
-
     my $jid = 0;
     if (cluster_check) {
         my $home_path = $current_path;
         my $Id= "${contrast}_calculate_average_MDT_image";
-        my $verbose = 2; # Will print log only for work done.
+        my $verbose = 1;
         $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
         if (not $jid) {
             error_out($stop_message);

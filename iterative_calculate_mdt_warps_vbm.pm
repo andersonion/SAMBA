@@ -194,7 +194,7 @@ sub iterative_calculate_average_mdt_warp {
     if (cluster_check()) {
 	my $home_path = $current_path;
 	my $Id= "create_update_warp";
-	my $verbose = 2; # Will print log only for work done.
+	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go, "$PM: create update warp}", $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out("$PM: could not create update warp:\n${cmd}\n");

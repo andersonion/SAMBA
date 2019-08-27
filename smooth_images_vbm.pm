@@ -231,7 +231,7 @@ sub smooth_images {
     if (cluster_check) {
 	my $home_path = $out_directory;
 	my $Id= "smooth_image_with_sigma_${smoothing_param}${units}_${batch_number}";
-	my $verbose = 2; # Will print log only for work done.
+	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out($stop_message);

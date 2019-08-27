@@ -386,7 +386,7 @@ sub apply_mdt_warp {
     if (cluster_check) {
 	my $home_path = $current_path;
 	my $Id= "${runno}_${current_contrast}_apply_${direction_string}_MDT_warp";
-	my $verbose = 2; # Will print log only for work done.
+	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out($stop_message);
@@ -487,7 +487,7 @@ sub convert_images_to_RAS {
 	if (cluster_check) {
 	    my $home_path = $current_path;
 	    my $Id= "converting_${runno}_${contrast}_image_to_RAS_orientation";
-	    my $verbose = 2; # Will print log only for work done.
+	    my $verbose = 1; # Will print log only for work done.
 	    $jid_2 = cluster_exec($go_2, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	    if (not $jid_2) {
 		error_out($stop_message);

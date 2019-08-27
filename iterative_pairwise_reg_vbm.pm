@@ -40,6 +40,7 @@ my($warp_suffix,$inverse_suffix,$affine_suffix);
 
 my $cheating = 0;
 if ($cheating) {
+croak("cheater");
 $warp_suffix = "2Warp.nii.gz";
 $inverse_suffix = "2InverseWarp.nii.gz";
 $affine_suffix = "0GenericAffine.mat";
@@ -304,7 +305,7 @@ sub create_iterative_pairwise_warps {
 	my $home_path = $current_path;
 	$batch_folder = $home_path.'/sbatch/';
 	my $Id= "${moving_runno}_to_MDT_create_iterative_pairwise_warp";
-	my $verbose = 2; # Will print log only for work done.
+	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out();

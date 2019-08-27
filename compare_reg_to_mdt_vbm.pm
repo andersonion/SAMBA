@@ -302,7 +302,7 @@ sub reg_to_mdt {
 	    my $home_path = $current_path;
 	    $batch_folder = $home_path.'/sbatch/';
 	    my $Id= "${runno}_to_MDT_create_warp";
-	    my $verbose = 2; # Will print log only for work done.
+	    my $verbose = 1; # Will print log only for work done.
 	    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	    if (not $jid) {
 		error_out($stop_message);

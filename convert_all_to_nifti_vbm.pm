@@ -285,7 +285,7 @@ sub set_center_and_orientation_vbm {
         my $cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
         my $home_path = $current_path;
         my $Id= "recentering_and_setting_image_orientation_to_${desired_orientation}";
-        my $verbose = 2; # Will print log only for work done.
+        my $verbose = 1; # Will print log only for work done.
         $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
         if ($go ) {
             if ( not $jid ) {

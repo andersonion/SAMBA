@@ -261,7 +261,7 @@ sub antsr_analysis_vbm {
      	my $home_path = $contrast_path;
     	my $batch_folder = $home_path.'/sbatch/';
 #    	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
-    	my $verbose = 2; # Will print log only for work done.
+    	my $verbose = 1; # Will print log only for work done.
     	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
     	if (not $jid) {
     	    error_out();
@@ -353,7 +353,7 @@ sub surfstat_analysis_vbm {
 	    
 	    my $home_path = $current_path;
 	    my $Id= "${contrast}_surfstat_VBA_for_${group_1_name}_vs_${group_2_name}";
-	    my $verbose = 2; # Will print log only for work done.
+	    my $verbose = 1; # Will print log only for work done.
 	    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	    if (not $jid) {
 		error_out($stop_message);
@@ -803,7 +803,7 @@ sub fsl_nonparametric_analysis_prep {
 	    my $go =1;	    
 	    my $home_path = $local_work_dir;
 	    my $Id= "setup_for_fsl_nonparametric_testing_with_n${n1}_and_n${n2}";
-	    my $verbose = 2; 
+	    my $verbose = 1; 
 	    $jid = cluster_exec($go,$go_message , $setup_cmds,$home_path,$Id,$verbose,$mem_request,@test);     
 
 	    return($jid);
@@ -874,7 +874,7 @@ sub parallelized_randomise {
 	my $go =1;	    
 	my $home_path = $local_work_dir;
 	my $Id= $job_name;
-	my $verbose = 2; # Will print log only for work done.
+	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go,$go_message , $cmd,$home_path,$Id,$verbose,$mem_request,@test);     
 	
 	return($jid);
@@ -1021,7 +1021,7 @@ sub make_custom_masks {
 	    my $go =1;	    
 	    my $home_path = $mask_dir;
 	    my $Id= "creating_custom_VBA_masks";
-	    my $verbose = 2; 
+	    my $verbose = 1; 
 	    $jid = cluster_exec($go,$go_message , $make_mask_cmds,$home_path,$Id,$verbose,$mem_request,@test);     
 
 	    #return($jid);

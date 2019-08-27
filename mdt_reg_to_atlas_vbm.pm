@@ -256,7 +256,7 @@ sub mdt_reg_to_atlas {
 	if ($swap_fixed_and_moving) {
 	    $Id= "${label_atlas}_to_MDT_create_warp";
 	}
-	my $verbose = 2; # Will print log only for work done.
+	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out($stop_message);

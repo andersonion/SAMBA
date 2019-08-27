@@ -244,7 +244,7 @@ sub create_pairwise_warps {
 	my $home_path = $current_path;
 	$batch_folder = $home_path.'/sbatch/';
 	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
-	my $verbose = 2; # Will print log only for work done.
+	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out();

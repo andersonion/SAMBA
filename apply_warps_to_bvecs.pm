@@ -417,7 +417,7 @@ sub apply_affine_rotation {
     if (cluster_check) {
         my $home_path = $current_path;
         my $Id= "${runno}_apply_${direction_string}_affine_rotations_to_bvecs";
-        my $verbose = 2; # Will print log only for work done.
+        my $verbose = 1; # Will print log only for work done.
         $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
         if (not $jid) {
             error_out($stop_message);

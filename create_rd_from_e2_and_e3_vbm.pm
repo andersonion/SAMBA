@@ -160,7 +160,7 @@ sub average_e2_and_e3_images {
     if (cluster_check()) {
 	my $home_path = $current_path;
 	my $Id= "${runno}_create_rd_image";
-	my $verbose = 2; # Will print log only for work done.
+	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out($stop_message);

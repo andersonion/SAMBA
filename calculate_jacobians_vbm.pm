@@ -232,7 +232,7 @@ sub calculate_jacobian {
     if (cluster_check) {
 	my $home_path = $current_path;
 	my $Id= "${runno}_calculate_jacobian_in_${space_string}_space";
-	my $verbose = 2; # Will print log only for work done.
+	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out($stop_message);

@@ -371,7 +371,7 @@ sub apply_mdt_warp_to_labels {
     if (cluster_check) {
         my $home_path = $current_path;
         my $Id= "create_${label_atlas_nickname}_labels_for_${runno}";
-        my $verbose = 2; # Will print log only for work done.
+        my $verbose = 1; # Will print log only for work done.
         $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
         if (not $jid) {
             error_out($stop_message);
@@ -454,7 +454,7 @@ sub convert_labels_to_RAS {
         if (cluster_check) {
             my $home_path = $current_path;
             my $Id= "converting_${label_atlas_nickname}_labels_for_${runno}_to_RAS_orientation";
-            my $verbose = 2; # Will print log only for work done.
+            my $verbose = 1; # Will print log only for work done.
             $jid_2 = cluster_exec($go_2, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
             if (not $jid_2) {
                 error_out($stop_message);

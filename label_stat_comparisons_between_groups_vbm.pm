@@ -203,7 +203,7 @@ sub label_stat_comparisons_between_groups {
 	
 	my $home_path = $current_path;
 	my $Id= "${current_contrast}_label_stat_comparisons_between_groups_${group_1_name}_and_${group_2_name}";
-	my $verbose = 2; # Will print log only for work done.
+	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out($stop_message);
