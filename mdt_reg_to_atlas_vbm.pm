@@ -372,36 +372,49 @@ sub mdt_reg_to_atlas_vbm_Runtime_check {
 
     #$dims=$Hf->get_value('image_dimensions');
     $label_atlas = $Hf->get_value('label_atlas_name');
-
-    $work_path = $Hf->get_value('regional_stats_dir');
+    #2019-08-28 The grand task of unentangle labled bits
+    #$work_path = $Hf->get_value('regional_stats_dir');
+    $work_path = $Hf->get_value('label_transform_dir');
     $label_path=$Hf->get_value('labels_dir');
     $current_path = $Hf->get_value('label_transform_dir');
+    # this check code is exactly replicated in create_affine_reg_to_atlas_vbm it'd be nice to unify, 
+    my $template_path = $Hf->get_value('template_work_dir');
     if ($work_path eq 'NO_KEY') {
+	die "Unset work_path debug";
 	# my $predictor_path = $Hf->get_value('predictor_work_dir'); 
-	my $template_path = $Hf->get_value('template_work_dir'); 
-	$work_path = "${template_path}/stats_by_region";
-	$Hf->set_value('regional_stats_dir',$work_path);
+	#2019-08-28 The grand task of unentangle labled bits
+	#$work_path = "${template_path}/stats_by_region";
+	# MAYBE we want to have this be per atlas?
+	$work_path = "${template_path}/transforms";
+	my $rsd="${template_path}/vox_measure";
+	#$Hf->set_value('regional_stats_dir',$work_path);
+	    $Hf->set_value('regional_stats_dir',$rsd);
 	if (! -e $work_path) {
 	    mkdir ($work_path,$permissions);
 	}
     }
-
-	if ($label_path eq 'NO_KEY') {
-	    $label_path = "${work_path}/labels";
-	    $Hf->set_value('labels_dir',$label_path);
-	    if (! -e $label_path) {
-		mkdir ($label_path,$permissions);
-	    }
+    # Label path has no business being set here.
+    #if ($label_path eq 'NO_KEY') {
+    #	#2019-08-28 The grand task of unentangle labled bits
+    #	#$label_path = "${work_path}/labels";
+    #	$label_path = $Hf->get_value('regional_stats_dir')
+    #	    ."/${current_label_space}_${label_refname}_space";
+    #	$Hf->set_value('labels_dir',$label_path);
+    #	if (! -e $label_path) {
+    #	    mkdir ($label_path,$permissions);
+    #	}
+    #}
+    
+    if ($current_path eq 'NO_KEY') {
+	#2019-08-28 The grand task of unentangle labled bits
+	#$current_path = "${label_path}/transforms"; #$current_path = "${work_path}/labels_${label_atlas}";
+	$current_path = "${work_path}";
+	$Hf->set_value('label_transform_dir',$current_path);
+	if (! -e $current_path) {
+	    mkdir ($current_path,$permissions);
 	}
-
-	if ($current_path eq 'NO_KEY') {
-	    $current_path = "${label_path}/transforms";
-	    $Hf->set_value('label_transform_dir',$current_path);
-	    if (! -e $current_path) {
-		mkdir ($current_path,$permissions);
-	    }
-	}
-
+    }
+    
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
     $mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
     @mdt_contrasts = split('_',$mdt_contrast_string); 

@@ -9,6 +9,7 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
+use Scalar::Util qw(looks_like_number);
 
 use List::Util qw(max);
 # 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
@@ -24,7 +25,7 @@ my $matlab_path = "${MATLAB_2015b_PATH}";
 require Headfile;
 require pipeline_utilities;
 
-use civm_simple_util qw(printd $debug_val);
+use civm_simple_util qw(printd trim $debug_val);
 
 
 my $do_inverse_bool = 0;
@@ -47,6 +48,11 @@ my ($results_dir,$final_MDT_results_dir,$almost_results_dir,$almost_MDT_results_
 my ($current_contrast,$group,$gid);
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
+
+# output_file_hash is a naughty idea where we will change our outputformat on the fly, 
+# but we record it here for output_check to catch.
+my %output_file_hash;
+
 
 # ------------------
 sub apply_mdt_warps_vbm {  # Main code
@@ -81,14 +87,12 @@ sub apply_mdt_warps_vbm {  # Main code
 	$go = $go_hash{$runno};
 	if ($go) {
 	    ($job) = apply_mdt_warp($runno,$direction);
-
 	    if ($job) {
 		push(@jobs,$job);
 	    }
 	} 
     }
-     
-
+    
     # It is really a shame to wait after scheduling only one contrast worth of data. We should fix that... 
     # Maybe we could schedule the working contrasts independently to get them done asap, 
     # then schedule all the others without waiting for them?
@@ -96,37 +100,42 @@ sub apply_mdt_warps_vbm {  # Main code
 	my $interval = 2;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-	
 	if ($done_waiting) {
-	    print STDOUT  "  MDT warps have been applied to the ${current_contrast} images for all ${group} runnos; moving on to next step.\n";
+	    print STDOUT  "  MDT warps have been applied to the ${current_contrast} images for all ${group} runnos;";
 	}
     }
     my $case = 2;
     my ($dummy,$error_message)=apply_mdt_warps_Output_check($case,$direction);
-
+    print STDOUT "moving on to next step.\n";
     my $real_time = vbm_write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
-
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
 	$Hf->write_headfile($write_path_for_Hf);
-	if ($mdt_creation_strategy eq 'iterative') {
-	    if ($gid < 2) {
-		symbolic_link_cleanup($diffeo_path,$PM);
-	    }
-	} else {
-	    if (! $gid) {
-		symbolic_link_cleanup($diffeo_path,$PM);
-		symbolic_link_cleanup($rigid_path,$PM);
-	    }
-	}
+	# Symbolic link cleanup not appropriate here 
+	# because WE DIDNT MAKE ANY WE WANT CLEANED :p
+	#if ($mdt_creation_strategy eq 'iterative') {
+	#    if ($gid < 2) {
+	#	symbolic_link_cleanup($diffeo_path,$PM);
+	#    }
+	#} else {
+	#    #if (! $gid ) {
+        #    # Only when GID =0.... so why dont we just do that instead of negating?
+	#    if ($gid == 0 ) {
+	#	printd(5,"Pausing before conversion of links to files in folders:\n\t$diffeo_path\n\t$rigid_path\n");
+	#	sleep_with_countdown(5);
+	#	symbolic_link_cleanup($diffeo_path,$PM);
+	#	symbolic_link_cleanup($rigid_path,$PM);
+	#    }
+	#}
     }
     
     my @jobs_2;
     if (($convert_images_to_RAS == 1) && ($gid == 2)){
+die;die;die;# no seriously, die.
         foreach my $runno (@array_of_runnos,'MDT') {
             if (($runno eq 'MDT') && ($current_contrast eq 'nii4D')){
             $job=0;
@@ -142,8 +151,7 @@ sub apply_mdt_warps_vbm {  # Main code
             my $interval = 2;
             my $verbose = 1;
             my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_2);
-	    
-            if ($done_waiting) {
+	    if ($done_waiting) {
             print STDOUT  " RAS images have been created for all runnos; moving on to next step.\n";
             }
         }
@@ -151,8 +159,6 @@ sub apply_mdt_warps_vbm {  # Main code
         #    `gzip ${current_path}/*nii4D*nii`;  
         #}
     }
-
- 
 }
 
 
@@ -177,10 +183,8 @@ sub apply_mdt_warps_Output_check {
         $message_prefix = "  Unable to apply ${dir_string} MDT warp(s) to the ${current_contrast} image for the following runno(s):\n";
      }   # For Init_check, we could just add the appropriate cases.
 
-     
      my $existing_files_message = '';
      my $missing_files_message = '';
-     
      foreach my $runno (@array_of_runnos) {
 	 if ($direction eq 'f' ) {
 	     if ($gid == 2) {
@@ -191,14 +195,20 @@ sub apply_mdt_warps_Output_check {
 	 } elsif ($direction eq 'i') {
 	     $out_file =  "${current_path}/MDT_to_${runno}_${current_contrast}.nii.gz";  #Added '.gz', 2 September 2015
 	 }
-
+	 # This patches in our special case where output is just input (when we're not doing any work here)
+	 # This is imperfect, but it does reduce useless replication
+	 if ( exists $output_file_hash{$runno} && $case==2 ) {
+	     $out_file=$output_file_hash{$runno};
+	     printd(25,"\tOnfly adjust output to $out_file\n");
+	 }
 	 if (data_double_check($out_file,$case-1)) {
 	     #if ($out_file =~ s/\.gz$//) {
 		 #if (data_double_check($out_file)) {
 		     $go_hash{$runno}=1;
 		     push(@file_array,$out_file);
 		     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-		     $missing_files_message = $missing_files_message."\t$runno\n";
+		     my $p = $debug_val>0 ? "\t(".$out_file.")" : "";
+		     $missing_files_message = $missing_files_message."\t$runno$p\n";
 		 #} else {
 		  #   `gzip -f ${out_file}`; #Is -f safe to use?
 		  #   $go_hash{$runno}=0;
@@ -320,6 +330,9 @@ sub apply_mdt_warp {
     }
 
     my $test_dim =  `fslhd ${image_to_warp} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;#`PrintHeader ${image_to_warp} 2`;
+    if (! looks_like_number($test_dim) ) {
+	error_out("Problem gathering dim info from $image_to_warp"); 
+    }
     #my @dim_array = split('x',$test_dim);
     #my $real_dim = $#dim_array +1;
     my $opt_e_string='';
@@ -330,29 +343,48 @@ sub apply_mdt_warp {
         $opt_e_string = ' -e 3 ';
     } 
     
-    if (($current_contrast eq 'nii4D') && (! data_double_check($out_file,1))) {
+    if ( 1 #$current_label_space =~ /pre_rigid/ && 0
+	 || ( ($current_contrast eq 'nii4D') && (! data_double_check($out_file,1)))  ) {
     #skip apply warp
+	# Should also skip when pre_rigid_native space BECAUSE THAT IS OUR PREPROCESS_BASE_IMAGE SPACE!
+	# Looks like the "SMARTY" clever way to do that would be to see if the warp chain was empty.
+	# Skipping this isn't known good... it just sounds like it! How will we valiate?
+	# Best understanding is that this is good becuase all images "follow the same path" to base_images
+	$go=0;
     } else {
       $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} ${opt_e_string} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";  
     }
-    
-    if ($current_contrast eq 'nii4D') {
-        if (($convert_images_to_RAS == 1) && ($gid == 2)) {
-            my $tmp_file;   
-            if ($runno eq 'MDT') {
-                $tmp_file= "${median_images_path}/MDT_${current_contrast}_tmp.nii";
-            } else {
-                 $tmp_file= "${current_path}/${runno}_${current_contrast}_tmp.nii";
+    if (trim($warp_train) eq '' ) {
+	# If we're not applying any warps, then we simply link to output.
+	# Because this is incompletly tested, we're gonna fail whe not pre_rigid measureing space
+	if ( $current_label_space !~ /pre_rigid/ ){
+	    confess("Not sufficiently tested to continue, notify programmer");
+	}
+	#$cmd="ln -s $image_to_warp $out_file";
+	$cmd="echo Skipped transform application for $image_to_warp";
+	# THIS IS DIFFICIENT IN THAT THE OUTPUT DOESNT KNOW WE"VE UPDATED OUT_FILE.
+	$out_file=$image_to_warp;
+    } else {
+	if ($current_contrast eq 'nii4D') {
+	    die "NII4D HANDLING DEFFICIENT!";
+	    if (($convert_images_to_RAS == 1) && ($gid == 2)) {
+		my $tmp_file;   
+		if ($runno eq 'MDT') {
+		    $tmp_file= "${median_images_path}/MDT_${current_contrast}_tmp.nii";
+		} else {
+		    $tmp_file= "${current_path}/${runno}_${current_contrast}_tmp.nii";
             }
-            $cmd=$cmd."cp ${out_file} ${tmp_file};\n";
-        }
-        $cmd=$cmd."gzip ${out_file};\n";
+		$cmd=$cmd."cp ${out_file} ${tmp_file};\n";
+	    }
+	    $cmd=$cmd."gzip ${out_file};\n";
+	}
     }
-
-
+    # This lets our output check not attempt to re-resolve files, 
+    # in case we change our mind in this funciton about where our output is.
+    $output_file_hash{$runno}=$out_file;
+    
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} MDT warp(s) to ${current_contrast} image for  ${runno}:\n${cmd}\n";
-
     my @test=(0);
     if (defined $reservation) {
 	@test =(0,$reservation);
@@ -367,7 +399,10 @@ sub apply_mdt_warp {
 	my $c_dim_size = 1;
 	if ($c_string =~ /\s([0-9]+)$/) {
 	    $c_dim_size = $1;
-	} 
+	}
+	if (! looks_like_number($c_dim_size) ) {
+	    error_out("Problem gathering dim info from $image_to_warp"); 
+	}
 	$input_size = $input_size*$c_dim_size;
     }
     my $bytes_per_point = 8; # Going to go with 64-bit depth by default, though float is the usual case;   
@@ -384,8 +419,8 @@ sub apply_mdt_warp {
 	my $home_path = $current_path;
 	my $Id= "${runno}_${current_contrast}_apply_${direction_string}_MDT_warp";
 	my $verbose = 1; # Will print log only for work done.
-	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (not $jid) {
+	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
+	if ($go && not $jid) {
 	    error_out($stop_message);
 	}
     } else {
@@ -393,6 +428,7 @@ sub apply_mdt_warp {
 	if (! execute($go, $go_message, @cmds) ) {
 	    error_out($stop_message);
 	}
+	$jid=1;
     }
 
     #if ((!-e $out_file) && (not $jid)) {
@@ -400,7 +436,6 @@ sub apply_mdt_warp {
 	error_out("$PM: could not start for ${current_contrast} image with ${direction_string} MDT warp(s) applied for ${runno}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
-  
     return($jid,$out_file);
 }
 
@@ -409,6 +444,7 @@ sub apply_mdt_warp {
 # ------------------
 sub convert_images_to_RAS {
 # ------------------
+    die "bad";
     my ($runno,$contrast) = @_;
     my ($cmd);
     my ($out_file,$input_image,$work_file);
@@ -450,7 +486,7 @@ sub convert_images_to_RAS {
     #print "out_file = ${out_file}\n\n";
 
     if (data_double_check($out_file)) {
-		my $current_vorder= $Hf->get_value('working_image_orientation');
+	my $current_vorder= $Hf->get_value('working_image_orientation');
         if (($current_vorder eq 'NO_KEY') || ($current_vorder eq 'UNDEFINED_VALUE') || ($current_vorder eq '')) {
             $current_vorder= 'ALS';
         }
@@ -538,39 +574,40 @@ sub apply_mdt_warps_vbm_Runtime_check {
     $vbm_reference_path = $Hf->get_value('vbm_reference_path');
 
     if ($gid == 1) {
+	# the template group, 
+	# this formerly masqueraded as several different names: control, mdt
 	$diffeo_path = $Hf->get_value('mdt_diffeo_path');   
 	#$current_path = $Hf->get_value('mdt_images_path');
 	#if ($current_path eq 'NO_KEY') {
-	   # $current_path = "${predictor_path}/MDT_images";
-	    $current_path = "${template_path}/MDT_images";
-	    $Hf->set_value('mdt_images_path',$current_path);
+	# $current_path = "${predictor_path}/MDT_images";
+	$current_path = "${template_path}/MDT_images";
+	$Hf->set_value('mdt_images_path',$current_path);
 	#}
-#	$runlist = $Hf->get_value('control_comma_list');
+        #$runlist = $Hf->get_value('control_comma_list');
 	$runlist = $Hf->get_value('template_comma_list');
-
 	if ($runlist eq 'NO_KEY') {
 	    $runlist = $Hf->get_value('control_comma_list');
 	    $Hf->set_value('template_comma_list',$runlist); # 1 Feb 2016, just added these. If bug, then check here.
 	}
 	
     } elsif ($gid == 0) {
+	# the non-template group,
+	# this formerly masqueraeded as compare 
 	$diffeo_path = $Hf->get_value('reg_diffeo_path');   
 	#$current_path = $Hf->get_value('reg_images_path');
 	#if ($current_path eq 'NO_KEY') {
-	 #  $current_path = "${predictor_path}/reg_images";
-	    $current_path = "${template_path}/reg_images";
-	    $Hf->set_value('reg_images_path',$current_path);
+	# $current_path = "${predictor_path}/reg_images";
+	$current_path = "${template_path}/reg_images";
+	$Hf->set_value('reg_images_path',$current_path);
 	#}
 	# $runlist = $Hf->get_value('compare_comma_list');
 	$runlist = $Hf->get_value('nontemplate_comma_list');
-
 	if ($runlist eq 'NO_KEY') {
 	    $runlist = $Hf->get_value('compare_comma_list');
 	    $Hf->set_value('nontemplate_comma_list',$runlist);  # 1 Feb 2016, just added these. If bug, then check here.
 	}
-
-
     } elsif ($gid == 2) {
+	# The all group, 
 	$inputs_dir = $Hf->get_value('label_refspace_folder');
 	$label_reference = $Hf->get_value('label_reference');
 	$label_reference_path = $Hf->get_value('label_reference_path');
@@ -584,38 +621,40 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	    $msg="current_label_space has been explicitly set to: ${current_label_space}\n";
 	}
 	#printd(0,$msg);die;
-    printd(35,$msg);
-
+	printd(35,$msg);
+	
+	# label_path is set, "in the new way" ->  vox_measure/MEASURESPACE
 	$label_path=$Hf->get_value('labels_dir');
-	$label_results_path=$Hf->get_value('label_results_path');
-   
-
-	$current_path=$Hf->get_value('label_images_dir');
-
+	# results not set yet, may never be, commenting.
+	#$label_results_path=$Hf->get_value('label_results_path');
+	
+	# Always reset, and rarely sett to start with, so we just wont'd do this yet.
+	# $current_path=$Hf->get_value('label_images_dir');
 	$median_images_path = $Hf->get_value('median_images_path');
 
-	my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
-	#print "\$intermediary_path = ${intermediary_path}\n\n";
-
-	if (! -e  $intermediary_path) {
-	    mkdir ( $intermediary_path,$permissions);
-	    print "Whether you like it or not, making directory: ${intermediary_path}\n\n";  
-	}
-
 	#if ($current_path eq 'NO_KEY') {
-	    $current_path = "${intermediary_path}/images";
-	    $Hf->set_value('label_images_dir',$current_path);
-	#}
+	# For now lets simplify our ouput structuring to put everything in mega bucket.
+	$current_path = $label_path;
+	####
+	# In special case we can adjust label_images_dir to label_refspace_folder(preprocess/base_images)....
+	# Lets do that just for funsizes :D 
+	####
+	if ( $current_label_space =~ /pre_rigid/ ){
+	    $Hf->set_value('label_images_dir',$Hf->get_value('label_refspace_folder'));
+	    $current_path=$Hf->get_value('label_images_dir');
+	}
 	if (! -e $current_path) {
 	    mkdir ($current_path,$permissions);
 	}
-
-	$results_dir = $Hf->get_value('results_dir');
-
 	(my $f_ok,$convert_images_to_RAS)=$Hf->get_value_check('convert_labels_to_RAS');
 	if ( ! $f_ok ) { $convert_images_to_RAS=0; }
 	if ($convert_images_to_RAS == 1) {
-
+	    # ONE set of data should come out IN WORKING ORIENTATION! ALWAYS!
+	    # If you choose to work in something besides RAS that's on you!
+	    # if we want to support "additional" orientations we should 
+	    # blanket replicate all "results" into new orientation.
+	    die "THIS IS OUTMODED AND BAD";
+	    $results_dir = $Hf->get_value('results_dir');
 	    #$almost_MDT_results_dir = "${results_dir}/labels/";
 	    $almost_MDT_results_dir = "${results_dir}/connectomics/";
 	    if (! -e $almost_MDT_results_dir) {
@@ -654,7 +693,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	mkdir ($current_path,$permissions);
     }
     
-    $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
+    $write_path_for_Hf = "${current_path}/.${template_name}_amw_temp.headfile";
 
 #   Functionize?
     if ($runlist eq 'EMPTY_VALUE') {

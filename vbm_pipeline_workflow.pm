@@ -351,7 +351,7 @@ U_specid U_species_m00 U_code
             } 
         }
     }
-    
+
     
     # Check for previous run (startup headfile in inputs?)
     my $c_input_headfile="${pristine_input_dir}/current_inputs.headfile";
@@ -406,7 +406,16 @@ U_specid U_species_m00 U_code
             run_and_watch("cp -pv $start_file $cached_path");
         }
     }
-    
+    if ( defined $convert_labels_to_RAS
+	 && defined $working_image_orientation ) {
+	if ( $working_image_orientation =~ /RAS/ix 
+	    && $convert_labels_to_RAS ) {
+	    $convert_labels_to_RAS=0;
+	    printd(5,"convert_labels_to_RAS was on, but we're working RAS.\n"
+		   ."\tWe're going to ignore it\n");
+	    sleep(2);
+	}
+    }
     add_defined_variables_to_headfile($Hf,@variables_to_headfile); 
     if (defined $thresh_ref) {
         $Hf->set_value('threshold_hash_reference',$thresh_ref);
@@ -655,19 +664,21 @@ U_specid U_species_m00 U_code
     }
     
 # Things can get parallel right about here...
-    
+   
 # Branch one: 
+# create MDT to atlas "transforms"
+#   also sets our output structure formerly thte stats_by_region/labels/transforms
+# Now , transforms, vox_measure/labels
     if ($create_labels || $register_MDT_to_atlas) {
         $do_rigid = 0;
         my $mdt_to_atlas = 1;
         create_affine_reg_to_atlas_vbm($do_rigid,$mdt_to_atlas);  #$PM_code = 61
         sleep($interval);
-        
         mdt_reg_to_atlas_vbm(); #$PM_code = 62
         sleep($interval);
     }
-    
 # Branch two:
+# create RUNNO to MDT (reg_diffeo and reg_images)
     my $compare_reg_type="d";
     if ( $stop_after_mdt_creation ) {
         $compare_reg_type="skip"
@@ -675,7 +686,6 @@ U_specid U_species_m00 U_code
     compare_reg_to_mdt_vbm(${compare_reg_type}); #$PM_code = 51
     sleep($interval);
 #create_average_mdt_image_vbm(); ### What the heck was this?
-    
     if ( ! $stop_after_mdt_creation ) {
         $group_name = "compare";    
         foreach my $a_contrast (@channel_array) {
@@ -683,7 +693,7 @@ U_specid U_species_m00 U_code
         }
     }
     sleep($interval);
-#die "TESTING DEBUG";
+
 # Remerge before ending pipeline
     if ($create_labels || $register_MDT_to_atlas ) {
         my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
@@ -710,13 +720,11 @@ U_specid U_species_m00 U_code
             $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time);
         }
         print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
-
         if ( $create_labels ) {
             # label_space is comma sep global
             my @label_spaces = split(',',$label_space);
             warp_atlas_labels_vbm('MDT'); #$PM_code = 63
             sleep($interval);
-            
             if ( ! $stop_after_mdt_creation ) {
                 $group_name = "all";
                 my @current_channel_array = @channel_array;
@@ -725,15 +733,17 @@ U_specid U_species_m00 U_code
                 }
                 @current_channel_array = uniq(@current_channel_array);
                 foreach my $a_label_space (@label_spaces) {
-                    warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
+                    #warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
+		    warp_atlas_labels_vbm($group_name,$a_label_space); #$PM_code = 63
                     sleep($interval);
-                    
+		    carp "WARP applied images for \"pre_rigid_native_space\" are inherrently silly. This just introduces rounding error!";
                     foreach my $a_contrast (@current_channel_array) {
                         apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
                     }
                     calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
-                    
-                    if ($multiple_runnos) {
+#die "TESTING DEBUG";
+		    if ($multiple_runnos) {
+			die "TABLULATE AND STAT COMPARISON DISABLED";
                         tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
                         if ($multiple_groups) {     
                             label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
@@ -747,6 +757,7 @@ U_specid U_species_m00 U_code
             }
         }
     }
+#die "TESTING DEBUG";
     if ($do_vba) {
         my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53 
         push(@channel_array,$new_contrast);

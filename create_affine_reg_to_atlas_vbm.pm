@@ -375,6 +375,18 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
     my $init_error_msg='';
     my $message_prefix="$PM:\n";
     my $rigid_contrast;
+
+
+
+    # PROPOSED CHANGE TO TRANSFORMING
+    # A
+    #File::Spec->catfile($ThisPackageInRoot,"transforms","MDT_to_${TargetDataPackage}")  ,
+    # B
+    #File::Spec->catfile($ThisPackageInRoot,"transforms")  ,
+    # (CURRENT)
+    #File::Spec->catfile($ThisPackageInRoot,"stats_by_region","labels","transforms")
+
+
 # check for valid atlas
     (my $rc_isbad,$rigid_contrast) = $Hf->get_value_check('rigid_contrast');
     my $affine_contrast = $Hf->get_value('affine_contrast');
@@ -807,31 +819,42 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                 $swap_fixed_and_moving=1;
             }
         }
-
         $label_atlas = $Hf->get_value('label_atlas_name');
-        $work_path = $Hf->get_value('regional_stats_dir');
-        $label_path = $Hf->get_value('labels_dir');
+	#2019-08-28 The grand task of unentangle labled bits
+        #$work_path = $Hf->get_value('regional_stats_dir');
+	$work_path = $Hf->get_value('label_transform_dir');
+        #$label_path = $Hf->get_value('labels_dir');
         $current_path = $Hf->get_value('label_transform_dir');
+	my $template_path = $Hf->get_value('template_work_dir');
         if ($work_path eq 'NO_KEY') {
             # my $predictor_path = $Hf->get_value('predictor_work_dir'); 
-            my $template_path = $Hf->get_value('template_work_dir');
-            $work_path = "${template_path}/stats_by_region";
-            $Hf->set_value('regional_stats_dir',$work_path);
+            #my $template_path = $Hf->get_value('template_work_dir');
+	    #2019-08-28 The grand task of unentangle labled bits
+            #$work_path = "${template_path}/stats_by_region";
+	    # MAYBE we want to have this be per atlas?
+            $work_path = "${template_path}/transforms";
+	    my $rsd="${template_path}/vox_measure";
+	    #$Hf->set_value('regional_stats_dir',$work_path);
+	    $Hf->set_value('regional_stats_dir',$rsd);
             if (! -e $work_path) {
                 mkdir ($work_path,$permissions);
             }
         }
-
-        if ($label_path eq 'NO_KEY') {
-            $label_path = "${work_path}/labels";
-            $Hf->set_value('labels_dir',$label_path);
-            if (! -e $label_path) {
-                mkdir ($label_path,$permissions);
-            }
-        }
-
+	# Label path has no business being set here.
+        #if ($label_path eq 'NO_KEY') {
+	#    #2019-08-28 The grand task of unentangle labled bits
+        #    #$label_path = "${work_path}/labels";
+	#    $label_path = $Hf->get_value('regional_stats_dir')
+	#	."/${current_label_space}_${label_refname}_space";
+        #    $Hf->set_value('labels_dir',$label_path);
+        #    if (! -e $label_path) {
+        #        mkdir ($label_path,$permissions);
+        #    }
+        #}
         if ($current_path eq 'NO_KEY') {
-            $current_path = "${label_path}/transforms"; #$current_path = "${work_path}/labels_${label_atlas}";
+	    #2019-08-28 The grand task of unentangle labled bits
+            #$current_path = "${label_path}/transforms"; #$current_path = "${work_path}/labels_${label_atlas}";
+            $current_path = "${work_path}";
             $Hf->set_value('label_transform_dir',$current_path);
             if (! -e $current_path) {
                 mkdir ($current_path,$permissions);
@@ -865,7 +888,6 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
     } else {
         $work_path = $Hf->get_value('dir_work');
         $current_path = $Hf->get_value('rigid_work_dir');
-
         if ($do_rigid) {
             my $rigid_target=$Hf->get_value('rigid_target');
             $contrast = $Hf->get_value('rigid_contrast');
@@ -884,7 +906,6 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                 $current_path = "${work_path}/${contrast}";
                 $Hf->set_value('rigid_work_dir',$current_path);
             }
-            
             if (! -e $current_path) {
                 mkdir ($current_path,$permissions);
             }
@@ -971,26 +992,22 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
             symbolic_link_cleanup($current_path,$PM);
 
         }
+
         $runlist = $Hf->get_value('complete_comma_list');
-        
-        if ($runlist eq 'EMPTY_VALUE') {
+	if ($runlist eq 'EMPTY_VALUE') {
             @array_of_runnos = ();
         } else {
             @array_of_runnos = split(',',$runlist);
         }
 
-
         my $control_runlist = $Hf->get_value('control_comma_list');
-
         if ($control_runlist eq 'EMPTY_VALUE') {
             @array_of_control_runnos = ();
         } else {
             @array_of_control_runnos = split(',',$control_runlist);
         }
-
-        
     }
-   
+
     my $case = 1;
     my ($dummy,$skip_message)=create_affine_reg_to_atlas_Output_check($case);
 

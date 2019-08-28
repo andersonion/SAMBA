@@ -11,6 +11,7 @@ my $DESC = "ants";
 
 use strict;
 use warnings;
+use Scalar::Util qw(looks_like_number);
 
 use civm_simple_util;
 use convert_all_to_nifti_vbm;
@@ -318,6 +319,9 @@ sub apply_new_reference_space_vbm {
     if ($out_file =~ /\.nii(\.gz)?/) {
         $test_dim =  `fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2` 
 	    || croak("ERROR Reading $in_file for header bits");
+	if (! looks_like_number($test_dim) ) {
+	    error_out("Problem gathering dim infro from $in_file"); 
+	}
 	if ($in_file =~ /tensor/) {
             # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
             $opt_e_string = ' -e 2 -f 0.00007'; 

@@ -729,7 +729,8 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     if (! data_double_check($initial_template)){
 	my $initial_source_iteration=0;
 	my($path,$name,$suffix)= fileparts($initial_template,2);
-	if ((defined $starting_iteration) && ($starting_iteration > 0)) { # This runs the danger of being defined as "NO_KEY", etc.
+	if ((defined $starting_iteration) && ($starting_iteration > 0)) { 
+            # This runs the danger of being defined as "NO_KEY", etc.
 	    $initial_source_iteration = $starting_iteration - 1;
 	    $name="${name}_i0";
 	}

@@ -94,11 +94,13 @@ sub warp_atlas_labels_vbm {  # Main code
         error_out("${error_message}",0);
     } else {
         $Hf->write_headfile($write_path_for_Hf);
-
-        symbolic_link_cleanup($current_path,$PM);
+	# Symbolic link cleanup not appropriate here 
+	# because WE DIDNT MAKE ANY WE WANT CLEANED :p
+        #symbolic_link_cleanup($current_path,$PM);
     }
     my @jobs_2;
     if ($convert_labels_to_RAS == 1) {
+die;die;die;# no seriously, die.
         foreach my $runno (@array_of_runnos) {
             ($job) = convert_labels_to_RAS($runno);
             if ($job) {
@@ -238,15 +240,18 @@ sub resolve_transform_chain {
         my $back_pat="${node_folders[$ii-1]}/transforms/${other_node_name}_to_${c_node_name}";
         my ($transform_back_dir )= glob($for_pat);
         my ($transform_forward_dir) = glob($back_pat);
+	my @components;
         if ((defined $transform_back_dir) && (-e ${transform_back_dir})) {
             printd(45,"Standard backward looking transform folder\n");
-            $edge_string = join(' ',run_and_watch("ls -r ${transform_back_dir}/_*"));
+	    @components=run_and_watch("ls -r ${transform_back_dir}/_*");
         } elsif ((defined $transform_forward_dir) && (-e ${transform_forward_dir})) {
             printd(45,"Alternate forward looking transform folder\n");
-            $edge_string = join(' ',run_and_watch("ls -r ${transform_forward_dir}/_*"));
+	    @components=run_and_watch("ls -r ${transform_forward_dir}/_*");
         } else {
             error_out("Missing expected dir ~ $for_pat, and didnt find alternate ~ $back_pat");
         }
+	chomp(@components);
+	$edge_string = join(' ',@components);
         chomp($edge_string);
         # check if edge is empty.
         $transform_chain = "${edge_string} ${transform_chain}";
@@ -423,14 +428,11 @@ sub convert_labels_to_RAS {
 
     my $jid_2 = 0;
     if (data_double_check($out_file)) {
-
         my $current_vorder= $Hf->get_value('working_image_orientation');
         if (($current_vorder eq 'NO_KEY') || ($current_vorder eq 'UNDEFINED_VALUE') || ($current_vorder eq '')) {
             $current_vorder= 'ALS';
         }
-
         my $desired_vorder = 'RAS';
-
         if (data_double_check($work_file)) {
             my $matlab_exec_args="${input_labels} ${current_vorder} ${desired_vorder}"; #${output_folder}";
             $cmd = $cmd."${img_transform_executable_path} ${matlab_path} ${matlab_exec_args};\n";
@@ -646,15 +648,6 @@ sub warp_atlas_labels_vbm_Runtime_check {
     
     $label_path = $Hf->get_value('labels_dir');
     $work_path = $Hf->get_value('regional_stats_dir');
-
-    if ($label_path eq 'NO_KEY') {
-        $label_path = "${work_path}/labels";
-        $Hf->set_value('labels_dir',$label_path);
-        if (! -e $label_path) {
-            mkdir ($label_path,$permissions);
-        }
-    }
-
     if ($group eq 'MDT') {
         $current_path = $Hf->get_value('median_images_path')."/labels_MDT";
         if (! -e $current_path) {
@@ -667,28 +660,45 @@ sub warp_atlas_labels_vbm_Runtime_check {
             $current_label_space = $Hf->get_value('label_space');
         } else {
             $msg = "current_label_space has been explicitly set to: ${current_label_space}";
-        }       
+        }
         printd(35,$msg);
-        #$ROI_path_substring="${current_label_space}_${label_refname}_space/${label_atlas}";
-        #$current_path = $Hf->get_value('label_results_dir');
-        #if ($current_path eq 'NO_KEY') {
-        $current_path = "${label_path}/${current_label_space}_${label_refname}_space/${label_atlas_nickname}";
-        $Hf->set_value('label_results_dir',$current_path);
+        #my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
+        #$current_path = "$intermediary_path/${label_atlas_nickname}";
+        #$Hf->set_value('label_results_dir',$current_path);
+        #if (! -e $intermediary_path) {
+        #    mkdir ($intermediary_path,$permissions);
         #}
-        my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
-        if (! -e $intermediary_path) {
-            mkdir ($intermediary_path,$permissions);
-        }
-        if (! -e $current_path) {
-            mkdir ($current_path,$permissions);
-        }
+        #if (! -e $current_path) {
+        #    mkdir ($current_path,$permissions);
+        #}
+	if ($label_path eq 'NO_KEY') {
+	    # This was erroneously set earlier by other modules! 
+	    # This code is REPLICATED in three other places!
+	    # Trying to have it active only here because this is where we use it.
+	    #2019-08-28 The grand task of unentangle labled bits
+	    #$label_path = "${work_path}/labels";
+	    $label_path = $Hf->get_value('regional_stats_dir')
+		."/${current_label_space}_${label_refname}_space";
+	    $Hf->set_value('labels_dir',$label_path);
+	}
+	if (! -e $label_path) {
+	    use File::Path qw(mkpath);
+	    mkpath($label_path,0,$permissions);
+	}
+        #}
+	$current_path="$label_path";
     }
-    
     print " $PM: current path is ${current_path}\n";
     $results_dir = $Hf->get_value('results_dir');
-    $convert_labels_to_RAS=$Hf->get_value('convert_labels_to_RAS');
-    
-    if (($convert_labels_to_RAS ne 'NO_KEY') && ($convert_labels_to_RAS == 1)) {
+    #$convert_labels_to_RAS=$Hf->get_value('convert_labels_to_RAS');
+    (my $f_ok,$convert_labels_to_RAS)=$Hf->get_value_check('convert_labels_to_RAS');
+    if ( ! $f_ok ) { $convert_labels_to_RAS=0; }
+    if ($convert_labels_to_RAS == 1) {
+	# ONE set of data should come out IN WORKING ORIENTATION! ALWAYS!
+	# If you choose to work in something besides RAS that's on you!
+	# if we want to support "additional" orientations we should 
+	# blanket replicate all "results" into new orientation.
+	die "THIS IS OUTMODED AND BAD";
         #$almost_MDT_results_dir = "${results_dir}/labels/";
         $almost_MDT_results_dir = "${results_dir}/connectomics/";
         if (! -e $almost_MDT_results_dir) {
@@ -728,7 +738,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
         #}
     }
 
-    $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
+    $write_path_for_Hf = "${current_path}/.${template_name}_wal_temp.headfile";
     if ($group ne 'MDT') {
         $runlist = $Hf->get_value('complete_comma_list');
     } else {

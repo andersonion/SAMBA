@@ -1,7 +1,5 @@
 #!/usr/bin/perl
-
 #  calculate_individual_label_statistics_vbm.pm 
-
 #  2017/06/16  Created by BJ Anderson, CIVM.
 
 my $PM = " calculate_individual_label_statistics_vbm.pm";
@@ -56,13 +54,14 @@ sub  calculate_individual_label_statistics_vbm {
                 undef $local_lookup;
             }
             ($job) = calculate_label_statistics($runno,$input_labels,$local_lookup);
+# cluck("Testing skip all but one");last;
             if ($job) {
                 push(@jobs,$job);
             }
         } 
     }
 
-    my $species = $Hf->get_value('U_species_m00');
+    my $species = $Hf->get_value_like('U_species.*');
     if ($species =~ /rat/) {
         foreach my $runno (@array_of_runnos) {
             print STDERR 'Halfbaked "Rat" report is being skipped';
@@ -204,6 +203,7 @@ sub calculate_label_statistics {
     if (! defined $lookup_table) { $lookup_table='';}
     my $exec_args ="${runno} ${input_labels} ${channel_comma_list_2} ${image_dir} ${current_path} ${space_string} ${label_atlas_nickname} ${lookup_table} ${mask_with_first_contrast}";
 
+    Data::Dump::dump(split(' ',$exec_args));die;
     my $go_message = "$PM: Calculating individual label statistics for runno: ${runno}\n" ;
     my $stop_message = "$PM: Failed to properly calculate individual label statistics for runno: ${runno} \n" ;
     
@@ -311,9 +311,7 @@ sub  calculate_individual_label_statistics_Runtime_check {
     }
     printd(35,$msg);    
 
-
     $space_string='rigid'; # Default
-
     if ($current_label_space eq 'pre_rigid') {
         $space_string = 'native';
     } elsif (($current_label_space eq 'pre_affine') || ($current_label_space eq 'post_rigid')) {
@@ -326,22 +324,30 @@ sub  calculate_individual_label_statistics_Runtime_check {
         $space_string = 'atlas';
     }
 
-    $label_path = $Hf->get_value('labels_dir');
     my $label_refname = $Hf->get_value('label_refname');
-    my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
-    $image_dir = "${intermediary_path}/images/";
-    $work_dir="${intermediary_path}/${label_atlas_nickname}/";
+    $label_path = $Hf->get_value('labels_dir');
+    $work_dir=$label_path;
+    $image_dir=$Hf->get_value('label_images_dir');
 
-    my $stat_path = "${work_dir}/stats/";
+    my $stat_path=$label_path;
+    if ( $current_label_space !~ /pre_rigid/ ){
+	die "HEllo iNTErMedaiaryPath! This code has been disabled due to lack of testing. Your work is mostly done, but you'll need to measure your own label stats, Avizo does a competent job (don't forget to load the lookup table too). (or pick on the programmer to blindly enable this to see what happens:D ).";
+
+	my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
+	$image_dir = "${intermediary_path}/images/";
+	$work_dir="${intermediary_path}/${label_atlas_nickname}/";
+	$stat_path = "${work_dir}/stats/";
+    }
+    
     $Hf->set_value('stat_path',${stat_path});
     if (! -e $stat_path) {
         mkdir ($stat_path,$permissions);
     }
+
     $current_path = "${stat_path}/individual_label_statistics/";
     if (! -e $current_path) {
         mkdir ($current_path,$permissions);
     }
-
 
     my $runlist = $Hf->get_value('all_groups_comma_list');
     if ($runlist eq 'NO_KEY') {
@@ -355,7 +361,6 @@ sub  calculate_individual_label_statistics_Runtime_check {
     my $dwi='';
     foreach my $contrast (@initial_channel_array) {
         if ($contrast !~ /^(ajax|jac|nii4D)$/i) {
-
             if ($contrast =~ /^(dwi)$/i) {
                 $dwi=$1;
             } else {
@@ -368,8 +373,6 @@ sub  calculate_individual_label_statistics_Runtime_check {
     }
 
     @channel_array=uniq(@channel_array);
-    
-
     $channel_comma_list_2 = join(',',@channel_array);
 
     my $case = 1;
@@ -378,8 +381,6 @@ sub  calculate_individual_label_statistics_Runtime_check {
     if ($skip_message ne '') {
         print "${skip_message}";
     }
-
-
 }
 
 

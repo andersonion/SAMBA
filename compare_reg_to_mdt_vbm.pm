@@ -236,8 +236,6 @@ sub reg_to_mdt {
 	my $start = 1;
 
 	$r_string = format_transforms_for_command_line($moving_string,"r",$start,$stop);
-	
-	
 	if ((defined $mdt_contrast_2 ) && ($mdt_contrast_2 ne '') ) {
 	    $fixed_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii.gz";
 	}
