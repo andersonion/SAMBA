@@ -25,6 +25,7 @@ if exist(isf, 'file')
     end
     clear master_T_o;
 else
+    error('Missing file %s',isf);
     CoV_array=0;
     do_process=0;
 end
@@ -97,7 +98,8 @@ if do_process
     CoV_array=zeros([2,size(intermediate_array,2)]);
     
     CoV_array(1,:)=intermediate_array(1,:);
-    CoV_array(2,:)=std(intermediate_array(2:3,:),0,1)./mean(intermediate_array(2:3,:),1); % It is important that the second std option be set to 0 to match what Nian did in Excel.
+    % It is important that the second std option be set to 0 to match what Nian did in Excel.
+    CoV_array(2,:)=std(intermediate_array(2:3,:),0,1)./mean(intermediate_array(2:3,:),1); 
     
 end
 %end

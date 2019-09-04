@@ -37,8 +37,10 @@ my $job;
 my $PM_code = 66;
 
 #my $compilation_date = "20170619_1151";
+
 my $compilation_date = "stable";
-my $tabulate_study_stats_executable_path = "$MATLAB_EXEC_PATH/study_stats_by_contrast_executable/${compilation_date}/run_study_stats_by_contrast_exec_v2.sh"; 
+#$compilation_date="20190905_1035";
+my $tabulate_study_stats_executable_path = "$MATLAB_EXEC_PATH/study_stats_by_contrast_executable/${compilation_date}/run_study_stats_by_contrast_exec.sh"; 
 
 # ------------------
 sub  tabulate_label_statistics_by_contrast_vbm {
@@ -48,14 +50,12 @@ sub  tabulate_label_statistics_by_contrast_vbm {
     my $start_time = time;
     tabulate_label_statistics_by_contrast_Runtime_check();
 
-    
     foreach my $contrast (@channel_array) {
 	$go = $go_hash{$contrast};
 	if ($go) {
 	    ($job) = tabulate_label_statistics_by_contrast($contrast);
-
 	    if ($job) {
-            push(@jobs,$job);
+		push(@jobs,$job);
 	    }
 	} 
     }
@@ -64,7 +64,6 @@ sub  tabulate_label_statistics_by_contrast_vbm {
 	my $interval = 2;
 	my $verbose = 1;
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-	
 	if ($done_waiting) {
 	    print STDOUT  " study-wide ${current_label_space} label statistics has been calculated for all contrasts; moving on to next step.\n";
 	}
@@ -78,14 +77,12 @@ sub  tabulate_label_statistics_by_contrast_vbm {
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
 
     my $write_path_for_Hf = "${current_path}/${label_atlas_nickname}_${space_string}_temp.headfile";
-
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
 	$Hf->write_headfile($write_path_for_Hf);
     }
-      
-
+    return;
 }
 
 
@@ -115,7 +112,7 @@ sub tabulate_label_statistics_by_contrast_Output_check {
 	
 	my $file_1 = "${current_path}/studywide_stats_for_${contrast}.txt" ;
 #	print "${file_1}\n\n\n";
-	if (data_double_check($file_1)) {
+	if (data_double_check($file_1,$case-1)) {
 	    $go_hash{$contrast}=1;
 	    push(@file_array,$file_1);
 	    $sub_missing_files_message = $sub_missing_files_message."\t$contrast";
@@ -181,7 +178,6 @@ sub tabulate_label_statistics_by_contrast {
     }
     my $mem_request = '10000';
     my $jid = 0;
-
     if (cluster_check) {
         my $go =1;	    
         my $cmd = "${tabulate_study_stats_executable_path} ${matlab_path} ${exec_args}";
@@ -196,6 +192,7 @@ sub tabulate_label_statistics_by_contrast {
             return($jid);
         }
     }
+    return;
 } 
 
 # ------------------
@@ -249,7 +246,8 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
     my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
 
     my $stat_path = $Hf->get_value('stat_path');
-    $individual_stat_dir = "${stat_path}/individual_label_statistics/";
+    #$individual_stat_dir = "${stat_path}/individual_label_statistics/";
+    $individual_stat_dir = "${stat_path}";
 
     $current_path = "${stat_path}/studywide_label_statistics/";
     if (! -e $current_path) {

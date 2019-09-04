@@ -15,7 +15,7 @@ use warnings;
 
 require Headfile;
 require pipeline_utilities;
-use civm_simple_util qw(find_file_by_pattern);
+use civm_simple_util qw(find_file_by_pattern filesystem_search);
 use List::Util qw(max);
 
 # 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
@@ -33,6 +33,7 @@ my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$curre
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir,$results_dir,$final_results_dir,$median_images_path);
 my ($mdt_path,$template_name, $diffeo_path,$work_done);
 my ($label_path,$label_reference_path,$label_refname,$do_byte,$do_short);
+my ($fsl_odt); # To replace do_byte and do_short, just set fsl_odt when appropriate, else it'll be undefined.
 my (@array_of_runnos,@files_to_create,@files_needed);
 my @jobs=();
 my (%go_hash);
@@ -43,6 +44,59 @@ my $extra_transform_string='';
 my ($label_atlas,$atlas_label_path,$label_atlas_nickname);
 my ($convert_labels_to_RAS,$final_ROI_path);
 my $label_type;
+
+# Great deal of confuxtion regarding variable names!
+# These two are symonyms, due to the greate specificity of label_atlas_name,
+# AND THAT ITs the headfile key, we've adjusted to use that.
+# label_atlas     
+# label_atlas_name 
+
+# This is an alternative for your outputs.(commonly WHS,coudl be CCF3)
+# This is Convolved with the "label_type" and some code errroneously uses either.
+# label_atlas_nickname
+
+# proper format for atlas data(going forward)
+#{label_atlas_name}_{contrast}.{supported_img_ext}
+#labels/{label_atlas_nickname}/{label_atlas_name}_{label_atlas_nickname}_{label_type}.{supported_img_ext}
+#eg, for chass_symmetric3_RAS atlas, 
+# label_atlas_name=chass_symmetric3_RAS
+# contrast = dwi|fa|ad|rd|md
+# supported_img_ext =  nii|nhdr|ngz
+# label_type= labels|quagmire|mess
+# label_atlas_nickname=WHS|CCF3|CCF3CON
+# dwi would be
+#   chass_symmetric3_RAS_dwi.nii.gz
+# labels would be
+#   labels/WHS/chass_symmetric3_RAS_WHS_labels.nii.gz
+# or
+#   labels/CCF3/chass_symmetric3_RAS_CCF3_labels.nii.gz
+
+
+# This is what folder we're saving output to, often regional_stats_dir
+# furhter messy, interanl to headfiles its labels_dir
+# THIS HAS BEEN CONVERTED TO labels_dir
+# label_path
+
+# More synonyms. This one we kinda like, becuase it takes the specific 
+# label_reference_path and converst it to the generic idea "reference_image"
+# Noteably, this needs to be in the outputspace.
+# 
+# label_reference_path
+# reference_image
+
+# atlas_label_path, AND image_to_warp, are the selected label file,
+# Now converting that to label_input_file to unify vars 
+# becuase it fits the "exactly this file" idea.
+# Now it may have been resolved automatically, which seems okay.
+# atlas_label_path
+# label_input_file
+# image_to_warp
+
+# concept cleanup vars
+my ($labels_dir);
+
+
+
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
 my $make_individual_ROIs=0;
@@ -67,12 +121,12 @@ sub warp_atlas_labels_vbm {  # Main code
         $current_label_space = '';
     }
     my $start_time = time;
+    # Runtime_check includes outputcheck.
     warp_atlas_labels_vbm_Runtime_check();
     foreach my $runno (@array_of_runnos) {
         $go = $go_hash{$runno};
         if ($go) {
             ($job) = apply_mdt_warp_to_labels($runno);
-
             if ($job) {
                 push(@jobs,$job);
             }
@@ -125,6 +179,9 @@ sub warp_atlas_labels_Output_check {
     my $message_prefix ='';
     my ($out_file);
     my @file_array=();
+    if(! defined $label_atlas_nickname ) {
+	Data::Dump::dump($label_input_file);die;
+    }
     if ($case == 1) {
         $message_prefix = "  ${label_atlas_nickname} label sets have already been created for the following runno(s) and will not be recalculated:\n";
     } elsif ($case == 2) {
@@ -266,15 +323,15 @@ sub apply_mdt_warp_to_labels {
     my $out_file;
     if ($group eq 'MDT') {
         $out_file = "${current_path}/MDT_${label_atlas_nickname}_${label_type}.nii.gz";
-    }else {
+    } else {
         $out_file = "${current_path}/${runno}_${label_atlas_nickname}_${label_type}.nii.gz";
     }
+    # What are start and stop!!!
     my ($start,$stop);
-    my $image_to_warp = $atlas_label_path;# get label set from atlas #get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
+    # get label set from atlas #get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
+    my $image_to_warp = $atlas_label_path;
     my $reference_image; ## 28 April 2017: NEED TO FURTHER INVESTIGATE WHAT REF IMAGE WE WANT OR NEED FOR MASS CONNECTIVITY COMPARISONS...!
-
     # 01 February 2019 (Fri): Adding support for substituting a source label file and extended 
-
     # if (! $native_reference_space) {
     #   $reference_image = $image_to_warp;
     # } else {
@@ -285,30 +342,26 @@ sub apply_mdt_warp_to_labels {
     #   } else {
     #       $reference_image =get_nii_from_inputs($median_images_path,$runno,$some_valid_contrast);
     #   }
-    # }
-    #my @mdt_warp_array = split(',',$Hf->get_value('inverse_label_xforms')); # This appears to be extraneous; commenting out on 28 April 2017
     my $mdt_warp_string = $Hf->get_value('inverse_label_xforms');
     my $mdt_warp_train='';
     my $warp_train='';
     my $warp_prefix= '-t '; # Moved all creation of "-t" to here to avoid "-t -t ..." fiasco. 3 May 2017, BJA
     my $warp_string;
     my $create_cmd;
-    #my $option_letter = "t";
     my $option_letter = '';
-    #my $additional_warp='';
     my $raw_warp;
     if ($runno ne 'MDT') {
         my $add_warp_string = $Hf->get_value("forward_xforms_${runno}");
         if ($add_warp_string eq 'NO_KEY') {
             $add_warp_string=$Hf->get_value("mdt_forward_xforms_${runno}")
         }
-        #my @add_warp_array = split(',',$add_warp_string);
-        #$raw_warp = pop(@add_warp_array);
     } 
     $reference_image = $label_reference_path;
-    if (data_double_check($reference_image)) {
-        $reference_image=$reference_image.'.gz';
-    }
+    # We gotta stop guessing what the user wants!
+    #if (data_double_check($reference_image)) {
+    #$reference_image=$reference_image.'.gz';
+    #}
+    die "ERROR WITH SPECIFIED label_reference_path" if ! -e $reference_image;
     if ($current_label_space ne 'atlas') {
         $mdt_warp_train=format_transforms_for_command_line($mdt_warp_string);
     }
@@ -341,24 +394,27 @@ sub apply_mdt_warp_to_labels {
     # Using MultiLabel does nearly the same thing, but seems to do a slightly better job 
     # of avoiding orphaned islands.
     if ($use_pre_Feb2019_code) {
-        $create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n NearestNeighbor ${warp_train};\n"; 
+        $create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${label_input_file} -o ${out_file} -r ${reference_image} -n NearestNeighbor ${warp_train};\n"; 
         my $smoothing_sigma = 1;
         my $smooth_cmd = "SmoothImage 3 ${out_file} ${smoothing_sigma} ${out_file} 0 1;\n";
         $create_cmd=$create_cmd.$smooth_cmd;
     } else {
         my @ref_array=split( ' ',$Hf->get_value('label_refspace'));
         my $voxel_size=pop(@ref_array);
-        #$create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n MultiLabel[$voxel_size,2] ${warp_train};\n";
+        #$create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${label_input_file} -o ${out_file} -r ${reference_image} -n MultiLabel[$voxel_size,2] ${warp_train};\n";
         # 11 March 2019: Removing "--float" option so that it will, OUT OF NECESSITY for the ABA/CCF3 case, use double for calculations and save out as such.
-        $create_cmd = "antsApplyTransforms -v ${ants_verbosity} -d 3 -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n MultiLabel[$voxel_size,2] ${warp_train};\n";
+        $create_cmd = "antsApplyTransforms -v ${ants_verbosity} -d 3 -i ${label_input_file} -o ${out_file} -r ${reference_image} -n MultiLabel[$voxel_size,2] ${warp_train};\n";
     }
     
-    my $byte_cmd = "fslmaths ${out_file} -add 0 ${out_file} -odt char;\n"; # Formerly..."ImageMath 3 ${out_file} Byte ${out_file};\n";...but this would renormalize our labelsets and confound the matter
-    my $short_cmd = "fslmaths ${out_file} -add 0 ${out_file} -odt short;\n";
     if ($do_byte) { # Smoothing added 15 March 2017
+	my $byte_cmd = "fslmaths ${out_file} -add 0 ${out_file} -odt char;\n"; 
         $cmd =$create_cmd.$byte_cmd;
     } elsif ($do_short) { # Added support for 32-bit labels, i.e. CCF3_quagmire
+	my $short_cmd = "fslmaths ${out_file} -add 0 ${out_file} -odt short;\n";
         $cmd = $create_cmd.$short_cmd;
+    } elsif( defined $fsl_odt ){
+	my $fsl_conv = "fslmaths ${out_file} -add 0 ${out_file} -odt $fsl_odt;\n"; 
+	$cmd = $create_cmd.$fsl_conv;
     } else {
         $cmd = ${create_cmd};
     }
@@ -400,6 +456,7 @@ sub apply_mdt_warp_to_labels {
 # ------------------
 sub convert_labels_to_RAS {
 # ------------------
+    die "dirty vestigal friend";
     my ($runno) = @_;
     my ($cmd);
     my ($out_file,$input_labels,$work_file);
@@ -445,19 +502,17 @@ sub convert_labels_to_RAS {
         
         my $go_message =  "$PM: converting ${label_atlas_nickname} label set for ${runno} to RAS orientation";
         my $stop_message = "$PM: could not convert ${label_atlas_nickname} label set for ${runno} to RAS orientation:\n${cmd}\n";
-        
-        
-        my @test=(0);
-        if (defined $reservation) {
-            @test =(0,$reservation);
-        }
-        
-        my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+                
         my $go_2 = 1;
         if (cluster_check) {
             my $home_path = $current_path;
             my $Id= "converting_${label_atlas_nickname}_labels_for_${runno}_to_RAS_orientation";
             my $verbose = 1; # Will print log only for work done.
+	    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+	    my @test=(0);
+	    if (defined $reservation) {
+		@test =(0,$reservation);
+	    }
             $jid_2 = cluster_exec($go_2, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
             if (not $jid_2) {
                 error_out($stop_message);
@@ -515,109 +570,116 @@ sub warp_atlas_labels_vbm_Init_check {
 sub warp_atlas_labels_vbm_Runtime_check {
 # ------------------
     my ($direction)=@_;
-    
-#    if ($group eq 'MDT') {
-#       $median_images_path = $Hf->get_value('median_images_path');
-#    }
-# # Set up work
-    my $label_transform_chain = $Hf->get_value('label_transform_chain');
-    my ($use_l_in,$label_input_file) = $Hf->get_value_check('label_input_file');
-    $label_atlas_nickname = $Hf->get_value('label_atlas_nickname');
-    $label_atlas = $Hf->get_value('label_atlas_name');
-    
-    if ($label_atlas_nickname eq 'NO_KEY') {
+    # Set up work
+    # label_input_file, eg user exact specificaiton override mode.
+    (my $use_l_in,$label_input_file) = $Hf->get_value_check('label_input_file');
+    (my $use_l_a_n,$label_atlas_nickname) = $Hf->get_value_check('label_atlas_nickname');
+    # Label_atlas_name is ALWAYS SET, but nickname may not be.
+    $label_atlas_name = $Hf->get_value('label_atlas_name');
+    if (! $use_l_a_n ) {
         if ( $use_l_in ) {
             (my $dummy_path , $label_atlas_nickname) = fileparts($label_input_file,2);
 	    # convert filename to nick name with expectation that nickname is just in front of labeltype keyword.
-            $label_atlas_nickname =~ s/_(labels|quagmire|mess).*//;
+	    # Dont get confused that this is the inverse of what you're looking for!
+            $label_atlas_nickname =~ s/_($samba_label_types).*//x;
+	    printd(5,"Calculated label_atlas_nickname -> $label_atlas_nickname\n");die;
         } else {
-            $label_atlas_nickname=$label_atlas;
+            $label_atlas_nickname=$label_atlas_name;
         }
         $Hf->set_value('label_atlas_nickname',$label_atlas_nickname);
-    }
-    my $source_label_folder='';
-    my $use_default_labels =0;
-    if ($label_transform_chain ne 'NO_KEY') {
-        ($source_label_folder, $extra_transform_string)=resolve_transform_chain($label_transform_chain);
-    } else {
-        undef $source_label_folder;
-        undef $extra_transform_string;
     }
     # label_input_file, 
     # The design goal for this variable is to give users a way to specify an arbitrary file,
     # auto-resolving that based on fuzzy logic is inconsistent and will give users unexpected behavior on typo's
     # so the ENTIRE else condition was a waste of time to write.... 
+    # This stands in as an alternateive to guessing everything based on one key detail.
     if ( $use_l_in ) {
-	if ( -f $label_input_file ) { 
-	    $atlas_label_path = $label_input_file;
-	} else {
+	if (! -f $label_input_file ) { 
 	    error_out("label_input_file specified, and was not found. Please fix your input (omit or specify a valid path) and re-start DebugInfo: use($use_l_in) file($label_input_file)");
 	}
     } else {
+	# Label_atlas_dir is only used here to get the base directory of the labeling atlas. 
+	# It's set in create_affine_reg_to_atlas_Init_check, OR by the user on input.
         my ($use_lad,$label_atlas_dir)   = $Hf->get_value_check('label_atlas_dir');
-        if (defined $source_label_folder) {
-            $label_atlas_dir = $source_label_folder;
-            $label_atlas_dir=~ s/[\/]*$//; # Remove trailing slashes
-            (my $dummy, $label_atlas) = fileparts($label_atlas_dir,2);
-        }
-        if ($use_lad ) { 
-	    #$label_atlas_dir ne 'NO_KEY'
-	    my @l_folders;
-	    push(@l_folders,File::Spec->catfile($label_atlas_dir,"labels","$label_atlas_nickname"));
-	    push(@l_folders,File::Spec->catfile($label_atlas_dir,"labels_${label_atlas}","$label_atlas_nickname"));
-	    push(@l_folders,$label_atlas_dir);
-	    my $labels_folder = '/CurrentlyUnset';
-	    #"${label_atlas_dir}/labels_${label_atlas}"; # TODO: Will need to add another layer of folders here
-	    while ( ! -d $labels_folder ) {
-		$labels_folder=shift(@l_folders);
+	my ($use_l_t_c,$label_transform_chain) = $Hf->get_value_check('label_transform_chain');
+	if ($use_l_t_c ) {
+	    # Assumptions
+	    #   label_transform_chain is complete, from starting post to all but the current link.
+	    #   We only specify if we want it, It superceeds all the other things. 
+	    ($label_atlas_dir, $extra_transform_string)=resolve_transform_chain($label_transform_chain);
+	    if (! defined $label_atlas_dir){
+		die "Error resolving transform chain from $label_transform_chain";
 	    }
-
-            if ( ! -e $labels_folder ) {
-		error_out("Problem finding labels_folder!");
-                $labels_folder = ${label_atlas_dir};
+	    $label_atlas_dir=~ s/[\/]*$//; # Remove trailing slashes
+	    (my $dummy, $label_atlas_name) = fileparts($label_atlas_dir,2);
+	}
+        if ($use_lad ) {
+	    # We got the "label_atlas_dir" which is the base for the whole atlas and the labels can be nested deeper
+	    # So we make a list of good places to look, in order, and we take the first valid.
+	    # Unfortunately we could be hiding behind a label_atlas_nickname, AND if the user didnt set that to the 
+	    # right one we'll fail.
+	    # I think that means we'd like to deprecate label_atlas_dir auto-resolve behavior.
+	    my @l_folders;
+	    # When there is only one choice inside a labels or labels_label_atlas_name folder we could just use that, 
+	    # and treat it as a nick name. 
+	    # Hey lets resvolve nickname here If it's not been set explicitly.
+	    # So, that is :
+	    my @available_nicks;
+	    @available_nicks=filesystem_search(File::Spec->catdir($label_atlas_dir,"labels"),  "^[^_].*", 1, '-d' );
+	    # trim the search base off
+	    foreach(@available_nicks) { $_=basename $_; }# $_=~s/$td//gx; }
+	    #Data::Dump::dump(@available_nicks);
+	    my $an_info='';
+	    if( ! $use_l_a_n ) {
+		if(scalar(@available_nicks)>1){
+		    $an_info="please set a label_atlas_nickname from available nicks:".join(",",@available_nicks);
+		    if(scalar(@available_nicks)==1){
+			# Guessing is really only okay when there's just one.
+			printd(5,"Guessed the nickname for the label output changing $label_atlas_nickname into $available_nicks[0]\n");		    $label_atlas_nickname=$available_nicks[0];
+		    }
+		}
+	    }
+	    # BUT guessing things is what made all this code so tough to begin with.
+	    # The bestest way to fix it would probably be leave metadata with the atlas folder itself instead 
+	    # of forcing some conventions deep in here.
+	    # Lets set that... when we have no nickname set, look for metadata
+	    push(@l_folders,File::Spec->catdir($label_atlas_dir,"labels","$label_atlas_nickname"));
+	    push(@l_folders,File::Spec->catdir($label_atlas_dir,"labels_${label_atlas_name}","$label_atlas_nickname"));
+	    push(@l_folders,File::Spec->catdir($label_atlas_dir,"labels_${label_atlas_name}"));
+	    push(@l_folders,File::Spec->catdir($label_atlas_dir,"labels"));
+	    push(@l_folders,$label_atlas_dir);
+	    #Oh multi_choice_dir, another abomination of process.
+	    $label_atlas_dir=multi_choice_dir(\@l_folders);
+	    if ( ! -e $label_atlas_dir ) {
+		error_out("Problem finding label_atlas_dir!");
             }
-            if ($label_input_file ne 'NO_KEY') {
-		error_out('Impossible condition!');
-                # In this case, it takes use specified filename: *_labels.nii.gz or *_quagmire.nii.gz or *_mess.nii.gz
-                # In general this must be a file name with extension, but no directory
-                # But in theory, anything in the form *_* (where there are NO underscores in the second wildcard string)
-                # The first wildcard string is the parent folder, which in turn is in the labels_${label_atlas} folder
-                # NOTE: If there is a discrepency between the name of the parent folder and the name of the label file
-                #       up to but not including the last underscore, the full file path will need to be specified
-                my $second_folder= $label_input_file;
-                $second_folder =~ s/_[^_]*$//;
-                $atlas_label_path  = "${labels_folder}/${second_folder}/${label_input_file}";
-            } else {
-		$atlas_label_path  = get_nii_from_inputs($labels_folder,$label_atlas,'(labels|quagmire|mess)');
-		if ( ! -f "$atlas_label_path" ) { error_out("$atlas_label_path"); }
-            }
-        } else {
-            $use_default_labels = 1;
-        }
+	    $label_input_file = get_nii_from_inputs($label_atlas_dir,$label_atlas_name,'('.$samba_label_types.')');
+	    if ( ! -f "$label_input_file" ) {
+		error_out("label_input_dir auto resolution of label file failed, $label_input_file".$an_info); }
+	} else {
+            #$use_default_labels = 1;
+	    # Default labels fail,
+	    die "this condidtion should be unreachable, contact programmer";
+            # THIS TEMPORARY DEFAULT IS NOW DEACTIVATED!   
+	    $label_input_file  ="${WORKSTATION_DATA}/atlas/chass_symmetric3_RAS/chass_symmetric3_RAS_labels.nii.gz"; 
+	}
     }
-    #} else {        
-    # (my $source_label_folder, $extra_transform_string)=resolve_transform_chain($label_transform_chain);
-    # if ($label_input_file ne 'NO_KEY') {
-    #     $atlas_label_path = $label_input_file;
-    # } else {
-    #     $atlas_label_path  ="${source_label_folder}/chass_symmetric3_labels.nii.gz"; # THIS IS ONLY A TEMPORARY DEFAULT!
-    # }      
+
+    # Notate which "label type" we're dealing with, (mess|quagmire|labels)
+    # Being senstitive to the frequent orientation postfix.
+    #my ($d1,$n,$d3)=fileparts($label_input_file,2);
+    #my @parts = split('_',$n);
+    #$label_type = pop(@parts);
+    #if ($label_type =~ /^[SPIRAL]{3}$/) {
+    #    $label_type = pop(@parts);
     #}
-
-    if ($use_default_labels) {
-        $atlas_label_path  ="${WORKSTATION_DATA}/atlas/chass_symmetric3_RAS/chass_symmetric3_RAS_labels.nii.gz"; # THIS IS ONLY A TEMPORARY DEFAULT!   
-    }
-
-    my ($d1,$n,$d3)=fileparts($atlas_label_path,2);
-    my @parts = split('_',$n);
-    $label_type = pop(@parts);
-    if ($label_type =~ /^[SPIRAL]{3}$/) {
-        $label_type = pop(@parts);
-    }
-
+    # More concisely
+    # TAKE CARE WITH THIS REGEX, this is extracting a word, NOT searching and replacing,
+    # that moves where the parenthesis belongs!
+    ( $label_type ) = $label_input_file =~ /($samba_label_types)/x;
     $Hf->set_value('label_type',$label_type);   
 
-    $label_reference_path = $Hf->get_value('label_reference_path');    
+    $label_reference_path = $Hf->get_value('label_reference_path');
     $label_refname = $Hf->get_value('label_refname');
     $mdt_contrast = $Hf->get_value('mdt_contrast');
     $inputs_dir = $Hf->get_value('inputs_dir');
@@ -631,22 +693,28 @@ sub warp_atlas_labels_vbm_Runtime_check {
     # TODO: look at the label lookup table and get max number.
     #       That will trash poorly curated atlas data. AND THAT IS PERFECT! 
     #       Atlases SHOULD be well curated, else WHY are they an atlas?
-    #my $header_output = `PrintHeader ${atlas_label_path}`;
-    my $header_output = join("\n",run_and_watch("PrintHeader ${atlas_label_path}") );
+    #my $header_output = `PrintHeader ${label_input_file}`;
+    my $header_output = join("\n",run_and_watch("PrintHeader ${label_input_file}") );
     my $max_label_number;
     if ($header_output =~ /Range[\s]*\:[\s]*\[[^,]+,[\s]*([0-9\-\.e\+]+)/) {
         $max_label_number = $1;
         print "Max_label_number = ${max_label_number}\n"; 
     }
+    # Now will always be false because fsl_odt superceeds them
     $do_byte = 0;
     $do_short = 0;
     if ($max_label_number <= 255) {
-        $do_byte = 1;
+        #$do_byte = 1;
+	$fsl_odt="char";
     } elsif ($max_label_number <= 65535){
-        $do_short = 1;
+        #$do_short = 1;
+	# NOTE: No ushort available.
+	# reports back:
+	#   Error: Unknown datatype "ushort" - Possible datatypes are: char short int float double input
+	$fsl_odt="short";
     }
     
-    $label_path = $Hf->get_value('labels_dir');
+    $labels_dir = $Hf->get_value('labels_dir');
     $work_path = $Hf->get_value('regional_stats_dir');
     if ($group eq 'MDT') {
         $current_path = $Hf->get_value('median_images_path')."/labels_MDT";
@@ -662,35 +730,25 @@ sub warp_atlas_labels_vbm_Runtime_check {
             $msg = "current_label_space has been explicitly set to: ${current_label_space}";
         }
         printd(35,$msg);
-        #my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
-        #$current_path = "$intermediary_path/${label_atlas_nickname}";
-        #$Hf->set_value('label_results_dir',$current_path);
-        #if (! -e $intermediary_path) {
-        #    mkdir ($intermediary_path,$permissions);
-        #}
-        #if (! -e $current_path) {
-        #    mkdir ($current_path,$permissions);
-        #}
-	if ($label_path eq 'NO_KEY') {
+	if ($labels_dir eq 'NO_KEY') {
 	    # This was erroneously set earlier by other modules! 
 	    # This code is REPLICATED in three other places!
 	    # Trying to have it active only here because this is where we use it.
 	    #2019-08-28 The grand task of unentangle labled bits
-	    #$label_path = "${work_path}/labels";
-	    $label_path = $Hf->get_value('regional_stats_dir')
+	    #$labels_dir = "${work_path}/labels";
+	    $labels_dir = $Hf->get_value('regional_stats_dir')
 		."/${current_label_space}_${label_refname}_space";
-	    $Hf->set_value('labels_dir',$label_path);
+	    $Hf->set_value('labels_dir',$labels_dir);
 	}
-	if (! -e $label_path) {
+	if (! -e $labels_dir) {
 	    use File::Path qw(mkpath);
-	    mkpath($label_path,0,$permissions);
+	    mkpath($labels_dir,0,$permissions);
 	}
         #}
-	$current_path="$label_path";
+	$current_path="$labels_dir";
     }
     print " $PM: current path is ${current_path}\n";
     $results_dir = $Hf->get_value('results_dir');
-    #$convert_labels_to_RAS=$Hf->get_value('convert_labels_to_RAS');
     (my $f_ok,$convert_labels_to_RAS)=$Hf->get_value_check('convert_labels_to_RAS');
     if ( ! $f_ok ) { $convert_labels_to_RAS=0; }
     if ($convert_labels_to_RAS == 1) {
@@ -705,7 +763,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
             mkdir ($almost_MDT_results_dir,$permissions);
         }
 
-        #$final_MDT_results_dir = "${almost_MDT_results_dir}/${label_atlas}/";
+        #$final_MDT_results_dir = "${almost_MDT_results_dir}/${label_atlas_name}/";
         $final_MDT_results_dir = "${almost_MDT_results_dir}/MDT/";
         if (! -e $final_MDT_results_dir) {
             mkdir ($final_MDT_results_dir,$permissions);
@@ -717,7 +775,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
             mkdir ($almost_results_dir,$permissions);
         }
 
-        #$final_results_dir = "${almost_results_dir}/${label_atlas}/";
+        #$final_results_dir = "${almost_results_dir}/${label_atlas_name}/";
 
         if (defined $current_label_space) {
             $final_results_dir = "${almost_results_dir}/${current_label_space}_${label_refname}_space/";
@@ -757,22 +815,26 @@ sub warp_atlas_labels_vbm_Runtime_check {
         my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
         if ($local_lookup eq 'NO_KEY') {
             my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup[.].*\$"; 
-            ($local_lookup) = find_file_by_pattern($current_path,$local_pattern);
+	    ($local_lookup) = find_file_by_pattern($current_path,$local_pattern,1);
             if ((defined $local_lookup) && ( -e $local_lookup) ) {
                 $Hf->set_value("${runno}_${label_atlas_nickname}_label_lookup_table",$local_lookup);
             } else {
-                my ($atlas_label_dir, $dummy_1, $dummy_2) = fileparts($atlas_label_path,2);
+                my ($atlas_label_dir, $dummy_1, $dummy_2) = fileparts($label_input_file,2);
                 if ( -d "$atlas_label_dir" ) {
                     my $pattern = "^.*lookup[.].*\$";
-                    my ($source_lookup) = find_file_by_pattern($atlas_label_dir,$pattern);
+                    my ($source_lookup) = find_file_by_pattern($atlas_label_dir,$pattern,1);
+
                     if ((defined $source_lookup) && ( -e $source_lookup)) {
                         my ($aa,$bb,$ext)=fileparts($source_lookup,2);
                         run_and_watch("cp ${source_lookup} ${current_path}/${runno}_${label_atlas_nickname}_${label_type}_lookup${ext}");
                     }
-                    ($local_lookup) = find_file_by_pattern($current_path,$local_pattern);
+                    ($local_lookup) = find_file_by_pattern($current_path,$local_pattern,1);
+		    #Data::Dump::dump($source_lookup,$label_input_file,$atlas_label_dir,$current_path,$local_lookup);
                     if ((defined $local_lookup) && ( -e $local_lookup) ) {
                         $Hf->set_value("${runno}_${label_atlas_nickname}_label_lookup_table",$local_lookup);
-                    }
+                    } else {
+			die "I insist you have a lookup table, and try though I might I could not get one.";
+		    }
                 }
             }
         }   

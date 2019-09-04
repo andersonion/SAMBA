@@ -36,7 +36,11 @@ my $PM_code = 65;
 
 #my $compilation_date = "20180227_1439";#"20170616_2204"; Updated 27 Feb 2018, BJA--will now ignore any voxels with contrast values of zero (assumed to be masked)
 my $compilation_date = "stable";
-my $write_individual_stats_executable_path = "$MATLAB_EXEC_PATH/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec_v2.sh"; 
+#$compilation_date='20190830_1741';
+#$compilation_date='20190904_1305';
+#$compilation_date='latest';
+
+my $write_individual_stats_executable_path = "$MATLAB_EXEC_PATH/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec.sh"; 
 my $write_rat_report_executable_path = "$MATLAB_EXEC_PATH/label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh";
 
 # ------------------
@@ -54,7 +58,6 @@ sub  calculate_individual_label_statistics_vbm {
                 undef $local_lookup;
             }
             ($job) = calculate_label_statistics($runno,$input_labels,$local_lookup);
-# cluck("Testing skip all but one");last;
             if ($job) {
                 push(@jobs,$job);
             }
@@ -203,7 +206,7 @@ sub calculate_label_statistics {
     if (! defined $lookup_table) { $lookup_table='';}
     my $exec_args ="${runno} ${input_labels} ${channel_comma_list_2} ${image_dir} ${current_path} ${space_string} ${label_atlas_nickname} ${lookup_table} ${mask_with_first_contrast}";
 
-    Data::Dump::dump(split(' ',$exec_args));die;
+    #Data::Dump::dump(split(' ',$exec_args));die;
     my $go_message = "$PM: Calculating individual label statistics for runno: ${runno}\n" ;
     my $stop_message = "$PM: Failed to properly calculate individual label statistics for runno: ${runno} \n" ;
     
@@ -344,7 +347,8 @@ sub  calculate_individual_label_statistics_Runtime_check {
         mkdir ($stat_path,$permissions);
     }
 
-    $current_path = "${stat_path}/individual_label_statistics/";
+    #$current_path = "${stat_path}/individual_label_statistics/";
+    $current_path = "${stat_path}";
     if (! -e $current_path) {
         mkdir ($current_path,$permissions);
     }

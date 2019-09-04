@@ -434,29 +434,27 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
         $log_msg=$log_msg."\tNo affine contrast specified; using rigid contrast \"${rigid_contrast}\" for affine registrations.\n";
     }
 
-    #if ($create_labels) {
     if ($register_MDT_to_atlas || $create_labels) {
         $mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
         @mdt_contrasts = split('_',$mdt_contrast_string); 
         $mdt_contrast = $mdt_contrasts[0];
-        my $expected_atlas_path = '';
+	# Atlas path in this context is atlas image, and annoyingly is just a short term temp var 
         my $label_atlas_name = $Hf->get_value('label_atlas_name');
         my $label_atlas_dir=''; 
         # Test to see if this is an arbitrary file/folder
         if ( -e $label_atlas_name) {
-            #print("Label_atlas_name found as an object\n\t($label_atlas_name)\n");die;
             if ( -d $label_atlas_name) {
+		# Its a directory, so we're in kinda normal mode.
                 $label_atlas_dir=$label_atlas_name;
+		# silly slash fixer here.
                 $label_atlas_dir =~ s/[\/]*$//;
                 (my $dummy_path , $label_atlas_name) = fileparts($label_atlas_dir,2);
-                $expected_atlas_path = "${label_atlas_dir}/${label_atlas_name}_${mdt_contrast}.nii.gz"; # added .gz 22 October 2015 
                 $atlas_path  = get_nii_from_inputs($label_atlas_dir,$label_atlas_name,$mdt_contrast);
-#die "$label_atlas_name\n\n$atlas_path\n\n$expected_atlas_path\n\n";
-            } else { #  Assume its a specific file...
-                $atlas_path =$label_atlas_name;
-                $expected_atlas_path=$atlas_path;
+            } else { 
+                #  Assume its a specific LABEL file
+		$atlas_path = $label_atlas_name;
                 (my $dummy_path , $label_atlas_name) = fileparts($label_atlas_name,2);
-                $label_atlas_name =~ s/_labels$//;
+                $label_atlas_name =~ s/_$samba_label_types$//x;
             }
         } else {
             #print("label_atlas_name not a direct object\n\t($label_atlas_name)\n");die;
@@ -464,12 +462,11 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
             if (! -d $label_atlas_dir) {
                 if ($label_atlas_dir =~ s/\/data/\/CIVMdata/) {}
             }
-            $expected_atlas_path = "${label_atlas_dir}/${label_atlas_name}_${mdt_contrast}.nii.gz"; # added .gz 22 October 2015 
             $atlas_path  = get_nii_from_inputs($label_atlas_dir,$label_atlas_name,$mdt_contrast);
         }
         
         if (data_double_check($atlas_path))  {
-            $init_error_msg = $init_error_msg."For label affine contrast ${mdt_contrast}: missing atlas nifti file ${expected_atlas_path} (note optional \'.gz\')\n";
+            $init_error_msg = $init_error_msg."For mdt contrast ${mdt_contrast}: missing atlas nifti file ${atlas_path}\n";
         } else {
             $Hf->set_value('label_atlas_path',$atlas_path);
             $Hf->set_value('label_atlas_dir',$label_atlas_dir);
@@ -831,13 +828,20 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
             #my $template_path = $Hf->get_value('template_work_dir');
 	    #2019-08-28 The grand task of unentangle labled bits
             #$work_path = "${template_path}/stats_by_region";
+	    my $old_fashioned_work_path="${template_path}/stats_by_region/labels/transforms";
 	    # MAYBE we want to have this be per atlas?
             $work_path = "${template_path}/transforms";
 	    my $rsd="${template_path}/vox_measure";
 	    #$Hf->set_value('regional_stats_dir',$work_path);
 	    $Hf->set_value('regional_stats_dir',$rsd);
-            if (! -e $work_path) {
-                mkdir ($work_path,$permissions);
+            if (! -e $work_path ) {
+		if ( ! -e $old_fashioned_work_path ) {
+		    mkdir ($work_path,$permissions);
+		} else {
+		    printd(5,"Old data directory detected, Will attempt to link to new structure to omit completed work.\n");
+		    sleep_with_countdown(5);
+		    run_and_watch("ln -s $old_fashioned_work_path $work_path");
+		}
             }
         }
 	# Label path has no business being set here.

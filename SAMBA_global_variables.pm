@@ -154,6 +154,7 @@ $reservation
 $Hf
 $mdt_to_reg_start_time
 
+$samba_label_types
 $valid_formats_string
  );
 

@@ -55,6 +55,9 @@ sub convert_all_to_nifti_vbm {
 # could use image name (suffix) to figure out datatype
     ($skip) = @_;
     if ( ! defined($skip) || (defined($skip) && $skip eq '' )  ) {$skip = 0;}
+    # Temporarily putting this work all on slow master to solve network/mount problems.
+    my $PQ=$ENV{'PIPELINE_QUEUE'};
+    $ENV{'PIPELINE_QUEUE'}='slow_master';
     my $start_time = time;
     my $run_again = 1;  
     my $second_run=0;  
@@ -63,8 +66,6 @@ sub convert_all_to_nifti_vbm {
 
         my @nii_cmds;
         my @nii_files;
-
-
         foreach my $runno (@array_of_runnos) {
             foreach my $ch (@channel_array) {
                 my $go = $go_hash{$runno}{$ch};
@@ -72,13 +73,21 @@ sub convert_all_to_nifti_vbm {
                     my $job;
                     my $current_file=get_nii_from_inputs($in_folder,$runno,$ch);
                     my $Hf_key = "original_orientation_${runno}";
-                    #my $Hf_key = "original_orientation_${runno}_${ch}";# May need to evolve to where each image is checked for proper orientation.
-                    my $current_orientation= $Hf->get_value($Hf_key);# Insert orientation finder function here? No, want to out-source, I think.
-                    if ($current_orientation eq 'NO_KEY') {
+		    my $I_key=$Hf_key;
+                    # May need to evolve to where each image is checked for proper orientation.
+                    #my $Hf_key = "original_orientation_${runno}_${ch}";
+                    # Insert orientation finder function here? No, want to out-source, I think.
+		    my ($o_ok,$current_orientation)= $Hf->get_value_check($Hf_key);
+                    if (! $o_ok ) { 
                         $Hf_key = "original_study_orientation";
-                        $current_orientation= $Hf->get_value($Hf_key);
-                        if ($current_orientation eq 'NO_KEY') {
-                            if ((defined $flip_x) || ($flip_z)) { # Going to assume that these archaic notions will come in pairs.
+			($o_ok,$current_orientation)= $Hf->get_value_check($Hf_key);
+			if (! $o_ok ) { 
+                            if ((defined $flip_x) || ($flip_z)) { 
+                            # Going to assume that these archaic notions will come in pairs.
+				carp("flip options are depricated and dangerous! ".
+				     "Please use \"original_study_orientation\", with \"original_orientation_RUNNO\"\n".
+				     "for non-matching data.\n");
+				sleep_with_countdown(3);
                                 if (($flip_x) && ($flip_z)) {
                                     $current_orientation = 'PLI';
                                 } elsif ($flip_x) {
@@ -91,17 +100,18 @@ sub convert_all_to_nifti_vbm {
                             } else {
                                 $current_orientation = 'ALS';
                             }
+			    $Hf->set_value($I_key,$current_orientation);
                         }
                     } else {
                         print "Using custom orientation for runno $runno: $current_orientation.\n\n";
                     }
-
-
                     if ($current_file =~ /[\n]+/) {
                         print "Unable to find input image for $runno and $ch in folder: ${in_folder}.\n".$current_file;
                     } else {
                         # push(@nii_files,$current_file);
-                        my $please_recenter=1; # Currently, this is stuck "on", as we can't turn it off in our function.
+			# recetner currently stuck "on", as we can't turn it off in our function,
+			# but we're ready to do better.
+                        my $please_recenter=1; 
                         ($job) =  set_center_and_orientation_vbm($current_file,$current_path,$current_orientation,$working_image_orientation,$please_recenter);
                         if ($job) {
                             push(@jobs,$job);
@@ -110,14 +120,6 @@ sub convert_all_to_nifti_vbm {
                 }
             }
         }
-        # if ($nii_files[0] ne '') {
-        #       my $message="\n$PM:\nThe following files will be prepared by Matlab for the VBM pipeline:\n".
-        #           join("\n",@nii_files)."\n\n";
-        #       print "$message";
-        # }
-        # foreach my $file (@nii_files) {
-        #       recenter_nii_function($file,$current_path,$skip,$Hf);
-        # }
         if (cluster_check() && scalar(@jobs)) {
             my $interval = 2;
             my $verbose = 1;
@@ -131,10 +133,8 @@ sub convert_all_to_nifti_vbm {
         my $case = 2;
         ($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
 
-        
         #my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time); #moved outside of while loop.
         #print "$PM took ${real_time} seconds to complete.\n";
-
         if (($error_message eq '') || ($second_run)) {
             $run_again = 0;
         } else {
@@ -150,24 +150,14 @@ sub convert_all_to_nifti_vbm {
                 error_out("${error_message}",0);
             }
         }
-
     }
-
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time);
     print "$PM took ${real_time} seconds to complete.\n";
     if ($error_message ne '') {
         error_out("${error_message}",0);
     } 
-    # else { # Deprecated with advent of matlab executables. #BJA, 11 August 2017
-    # # Clean up matlab junk
-    #   my $test_string = `ls ${work_dir} `;
-    #   if ($test_string =~ /.m$/) {
-    #       `rm ${work_dir}/*.m`;
-    #   }
-    #   if ($test_string =~ /matlab/) {
-    #       `rm ${work_dir}/*matlab*`;
-    #   }
-    # }
+    $ENV{'PIPELINE_QUEUE'}=$PQ;
+    return;
 }
 
 

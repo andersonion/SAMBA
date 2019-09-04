@@ -1,32 +1,30 @@
 function study_stats_by_contrast_exec(input_path,contrast_or_contrasts,string_of_runnos,output_path)
+% study_stats_by_contrast_exec(input_path,contrast_string,runno_string,output_path)
+% input_path - directory of stat files
+% contrast_string - comma list of contrasts to look at, 
+%                   (fieldnames of stat sheet).
+% runno_string - comma list of runnnos
+% output_path - where to save the grouped stats, either a directory or a
+% file.
 %
-%
-% The stats files are assumed to be in the directory specified by the input_path, in the form of {runno}*stats.txt
+% stat files in the directory specified by the input_path, in the form of {runno}*stats.txt
 % For the pipeline, the wildcard should correspond to _{atlas_id}_labels_in_{space}_space_.
-% If multiple files in the folder match this pattern, then the one most recently "touched"  will be used.
+% If MUTLTIPLE files match this pattern, the one most recently modified will be used.
 %
-% out_file is optional; if an existing directory is specified, it will be
+% output_path is optional; if an existing directory is specified, it will be
 % used with the default format for output name: studywide_stats_for_{contrast}.txt
 
 
 if ~isdeployed
-    
-    if ~exist('contrast','var')
-        contrast_or_contrasts='volume,dwi,fa,fa_std,dwi_std,fa_CoV,dwi_CoV';
-    end
-    
+    if ~exist('contrast_or_contrasts','var')
+        contrast_or_contrasts='volume,dwi,fa,fa_std,dwi_std,fa_CoV,dwi_CoV'; end
     if ~exist('input_path','var')
-        input_path='/civmnas4/rja20/';
-    end
-    
+        input_path='/civmnas4/rja20/'; end
     if ~exist('output_path','var')
-        output_path=['/civmnas4/rja20/studywide_stats_for_' contrast_or_contrasts '.txt'];
-    end
-    
+        output_path=['EMPTY TESTING /civmnas4/rja20/studywide_stats_for_' contrast_or_contrasts '.txt']; end
     if ~exist('string_of_runnos','var')
-        string_of_runnos = 'N57008,N57009,N57010,N57020';
-        %string_of_runnos = 'N51406,N51193';
-    end
+        string_of_runnos = 'N57008,N57009,N57010,N57020'; end
+        %string_of_runnos = 'N51406,N51193'; end
 end
 
 if exist('output_path','var')
@@ -51,10 +49,10 @@ for cc = 1:length(contrast_or_contrasts_cell)
         out_file = out_file2;
     end
     
-    figure_support = 0; % First round of code will not support figures, but want to keep code just in case
+    % First round of code will not support figures, but want to keep code just in case
+    figure_support = 0; 
     
     allrunnos = strsplit(string_of_runnos,',');
-    
     master_timestamp=0;
     
     if exist(out_file,'file')
@@ -69,7 +67,6 @@ for cc = 1:length(contrast_or_contrasts_cell)
     existing_runnos = master_T.Properties.VariableNames;
     
     current_width = length(existing_runnos);
-    
     for i=1:numel(allrunnos)
         action_code=0; %  0: append, 1: update(replace), 2: skip,
         runno=char(allrunnos{i});
@@ -112,18 +109,11 @@ for cc = 1:length(contrast_or_contrasts_cell)
                 end
                     
                 def_vol = 'volume_mm3';
-                if strcmp(contrast,'volume')
+                if strcmp(contrast,'volume') ...
+                    || strcmp(contrast,'vol') ...
+                    || strcmp(contrast,'volume (mm3)')
                     contrast=def_vol;
                 end
-                
-                if strcmp(contrast,'vol')
-                    contrast=def_vol;
-                end
-                
-                if strcmp(contrast,'volume (mm3)')
-                    contrast=def_vol;
-                end
-                
                 % After 19 Feb 2019 we start explicitly providing stats beyond
                 % the implied mean value of the contrast
                 try
@@ -135,7 +125,6 @@ for cc = 1:length(contrast_or_contrasts_cell)
                 
                 temp_T = table();
                 temp_T.ROI = T.ROI;
-                
                 try
                     temp_T.structure = T.structure;
                 catch
@@ -146,7 +135,6 @@ for cc = 1:length(contrast_or_contrasts_cell)
                 if ~current_width;
                     master_T = temp_T;
                     current_width = 1;
-                    
                 else
                     try
                         master_T = outerjoin(master_T,temp_T,'Keys',{'ROI','structure'},'MergeKeys',1);

@@ -93,6 +93,7 @@ if ( 0 ) {
 # A forced wait time after starting each bit. (also used when we're doing check and wait operations.)
 my $interval = 0.1; ##Normally 1
 $valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
+$samba_label_types='labels|quagmire|mess';
 
 $civm_ecosystem = 1; # Begin implementing handling of code that is CIVM-specific
 if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
@@ -203,6 +204,9 @@ U_specid U_species_m00 U_code
 
     if (! defined $do_vba) {
         $do_vba = 0;
+    } elsif($do_vba) {
+	carp "VBA has not been tested recently, and there have been MANY changes in structure! We apologize in advance if this doesnt work, AND we dont have time allocated to fix it. Please feel free to clone the code, repair it, and issue a pull request";
+	sleep_with_countdown(45);
     }
 
 ## The following are mostly ready-to-go variables (i.e. non hard-coded)
@@ -272,6 +276,7 @@ U_specid U_species_m00 U_code
     printd(1000,"\tstats are $stats_file\n");
     
     $preprocess_dir = $dir_work.'/preprocess';
+    #Poor form co-opting inputs-dir nomenclature to switch what we're up to
     $inputs_dir = $preprocess_dir.'/base_images';
     
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
@@ -310,14 +315,16 @@ U_specid U_species_m00 U_code
     } else {
         $runlist = $complete_comma_list;
     }
-    
     my $multiple_runnos = 0;
     if ($runlist =~ /,/) {
         $multiple_runnos = 1;
     }
     
     my $multiple_groups=0;
-    if ((scalar @group_2)>0) {$multiple_groups = 1;}
+    if ((scalar @group_2)>0) {
+	$multiple_groups = 1;
+	carp "Multi-group support out of date! you may experience trailing crashes";
+    }
 ## End duplication control
     
     if (! defined $image_dimensions) {
@@ -352,7 +359,6 @@ U_specid U_species_m00 U_code
         }
     }
 
-    
     # Check for previous run (startup headfile in inputs?)
     my $c_input_headfile="${pristine_input_dir}/current_inputs.headfile";
     if ( -f ${c_input_headfile}) {
@@ -369,7 +375,6 @@ U_specid U_species_m00 U_code
             error_out(" Unable to read current inputs parameter file ${c_input_headfile}."); 
             return(0);
         }
-
         my @excluded_keys=qw(hfpcmt);
         my $include=0;
         my $Hf_comp = '';
@@ -442,11 +447,14 @@ U_specid U_species_m00 U_code
     print STDOUT " Running the main code of $PM. \n";
     
     ## Initilization code starts here.
-    
 # Check command line options and report related errors
-    
-# Check backwards.  This will avoid replicating the check for needed input data at every step.
-# Report errors forwards, since this is more user friendly.
+# WAFFELED ON FORWARDS OR BACKWARDS:
+#   Check backwards will avoid replicating the check for needed input data at every step.
+#   Report errors forwards, since this is more user friendly.
+#   CAUSES PROBLEMS WITH SOME MODULES WHO SET VARIABLES IN THEIR INIT CODE FOR LATER MODULES TO USE!
+# So we're actually checking forwards.
+#   Forwards seems the correct direction to init, but we should then run 
+#   outputchecks starting at the back, ... and somehow only complete trailing work.
     my $init_error_msg='';
     
     my @modules_for_Init_check = qw(
@@ -473,27 +481,21 @@ U_specid U_species_m00 U_code
      vbm_analysis_vbm
      apply_warps_to_bvecs
       );
-# 20 July 2017, BJA: swapped check order of mask images and set reference space
-    
+
     my %init_dispatch_table;
-    
-    
-    my $checkCall; # Using camelCase here to avoid the potential need for playing the escape character game when calling command with backticks, etc.
+    # Using camelCase here to avoid the potential need for playing the escape 
+    # character game when calling command with backticks, etc.
+    my $checkCall; 
     my $Init_suffix = "_Init_check";
-    
     # for (my $mm = $#modules_for_Init_check; $mm >=0; $mm--)) { # This checks backwards
     for (my $mm = 0; $mm <= $#modules_for_Init_check; $mm++) { # This checks forwards
         my $module = $modules_for_Init_check[$mm];
-        
-        $checkCall = "${module}${Init_suffix}";
+	$checkCall = "${module}${Init_suffix}";
         $init_dispatch_table{$checkCall}=eval('\&$checkCall'); # MUST USE SINGLE QUOTES on RHS!!!
-        
-        print STDOUT "Check call is $checkCall\n";
+	print STDOUT "Check call is $checkCall\n";
         my $temp_error_msg = '';
         $temp_error_msg=$init_dispatch_table{$checkCall}();
-        #$temp_error_msg=set_reference_space_vbm_Init_check();
-        
-        if ((defined $temp_error_msg) && ($temp_error_msg ne '')  ) {
+	if ((defined $temp_error_msg) && ($temp_error_msg ne '')  ) {
             if ($init_error_msg ne '') {
                 $init_error_msg = "${init_error_msg}\n------\n\n${temp_error_msg}"; # This prints the results forwards
                 # $init_error_msg = "${temp_error_msg}\n------\n\n${init_error_msg}"; # This prints the results backwards
@@ -502,14 +504,12 @@ U_specid U_species_m00 U_code
             }
         }
     }
-    
     if ($init_error_msg ne '') {
         log_info($init_error_msg,0);
         error_out("\n\nPrework errors found:\n${init_error_msg}\nNo work has been performed!\n");
     } else {
         log_info("No errors found during initialization check stage.\nLet the games begin!\n");
     }
-    
 # Begin work:
     if (! -e $inputs_dir) {
         mkdir($inputs_dir);
@@ -541,7 +541,7 @@ U_specid U_species_m00 U_code
     sleep($interval);
     if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
         printd(5,"Tensor create data will invent rd from mean(e2+e3)\n");
-    push(@channel_array,'rd');
+	push(@channel_array,'rd');
         $channel_comma_list = $channel_comma_list.',rd';
         $Hf->set_value('channel_comma_list',$channel_comma_list);
     }
@@ -632,9 +632,10 @@ U_specid U_species_m00 U_code
         mask_for_mdt_vbm(); #$PM_code = 45
         sleep($interval);
     } else {
-    printd(5,"WARNING: This code has not been tested in quite some time!\n"
-           ."If you test it sucessfully, let the sloppy programmer know he can remove this wait\n");
-    sleep_with_countdown(30);
+	printd(5,"WARNING: This code has not been tested in quite some time!\n"
+	       ."If you test it sucessfully, let the sloppy programmer know he can remove this wait\n"
+	       ."Please enjoy the next 30 seconds ... " );
+	sleep_with_countdown(30);
     #
     # PAIRWISE VERSION
     #
@@ -737,35 +738,33 @@ U_specid U_species_m00 U_code
 		    warp_atlas_labels_vbm($group_name,$a_label_space); #$PM_code = 63
                     sleep($interval);
 		    carp "WARP applied images for \"pre_rigid_native_space\" are inherrently silly. This just introduces rounding error!";
-                    foreach my $a_contrast (@current_channel_array) {
+		    foreach my $a_contrast (@current_channel_array) {
                         apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
                     }
-                    calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
-#die "TESTING DEBUG";
+		    calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
+
 		    if ($multiple_runnos) {
-			die "TABLULATE AND STAT COMPARISON DISABLED";
                         tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
-                        if ($multiple_groups) {     
-                            label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
+                        if ($multiple_groups) {
+			    label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
                         }
                     }
                     if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
-                        apply_warps_to_bvecs($a_label_space);       
+                        apply_warps_to_bvecs($a_label_space);
                     }
                 }
                 sleep($interval);
             }
         }
     }
-#die "TESTING DEBUG";
     if ($do_vba) {
+	carp "VBA has not been tested recently, and there have been MANY changes in structure! We apologize in advance if this doesnt work, AND we dont have time allocated to fix it. Please feel free to clone the code, repair it, and issue a pull request";
         my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53 
         push(@channel_array,$new_contrast);
         $channel_comma_list = $channel_comma_list.','.$new_contrast;
         $Hf->set_value('channel_comma_list',$channel_comma_list);
         sleep($interval);
-        
-        if ($multiple_groups) {
+	if ($multiple_groups) {
             vbm_analysis_vbm(); #$PM_code = 72
             sleep($interval);
         }
@@ -805,17 +804,11 @@ sub add_defined_variables_to_headfile {
 #---------------------
 
     my ($Hf,@variable_names)=@_;
-
     for my $variable_name (@variable_names) {
-        
-        if (defined eval("\$".$variable_name)) {
-            my $variable_value = eval("\$".${variable_name});
-            $Hf->set_value($variable_name,$variable_value);
-        }
+	my $variable_value = eval("\$".${variable_name});
+	$Hf->set_value($variable_name,$variable_value) if (defined $variable_value );
     }
-    #$Hf->print();die;
-    return();
-
+    return;
 }
 
 #---------------------
