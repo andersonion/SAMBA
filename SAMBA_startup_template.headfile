@@ -19,7 +19,7 @@ channel_comma_list=dwi,fa
 ## Hint: At a minimum, this must at least include any contrasts used to drive registration.
 
 # Rigid (coarse) alignment options
-atlas_name=chass_symmetric2
+atlas_name=chass_symmetric3_RAS
 rigid_contrast=dwi
 
 # Non-linear (diffeomorphic) registration options
@@ -44,7 +44,9 @@ vbm_reference_space=native
 
 
 ## Connectivity processing options
-
+#convert_labels_to_RAS=0
+# In conjuction with setting owrking orientation to RAS this flag is strongly discouraged as it generates a agreat deal of mess.
+# It has largly been disabled in the code.
 #convert_labels_to_RAS=1
 ## Hint: historically, the default working orientation is ALS, so convert_labels_to_RAS will turn final labels from ALS to RAS.
 
@@ -65,38 +67,33 @@ do_connectivity=0
 
 ## Image orientation options 
 
-#working_image_orientation=ALS
-## Hint: All work will be performed in working_image_orientation, which is ALS by default which is based on the current standard atlas orientation.
-## Hint: Support of arbitrary orientations is forthcoming, and will be RAS in the future.
+#working_image_orientation=RAS
+## Hint: All work will be performed in working_image_orientation, 
+#  which should follow atlas orientation.
 
-#original_study_orientation=PRS
+#original_study_orientation=ARI
 ## Hint: This describes the current orientation of all the incoming images, assuming they are uniformly oriented.
-## Hint: Support for handling outliers is forthcoming and will be in the form of:
-##       original_orientation_N51201=LPI (i.e. original_orientation_$runno=...)
+## Hint: Support for handling outliers specify them individually with  original_orientation_$runno=...
+##  ex:
+#  original_orientation_N51201=LPI 
 
+## Hint: flip options are deprecated in favor of just speicifying your original orientation. 
+# These WILL NOT WORK in the future. 
 #flip_x=1
 ## Hint: flip_x=1 will rotate incoming images from PRS to ALS.
-## Hint: This will be deprecated shortly.
-
-
 #flip_z=0
 ## Hint: flip_z=1 will rotate incoming images from ARI to ALS.
-## Hint: This will be deprecated shortly.
-
 ## Hint: flip_x=1 and flip_z=1 will take images from PLI to ALS.
 
-
-
-
 # Label options
+# create_labels is a single big job from your study average to the label_atlas
 create_labels=1
 label_atlas_name=chass_symmetric3_RAS
 ## Hint: This is the name of the ANATOMY (i.e. images) upon which your source labels are overlaid
 
-label_input_file=
+#label_input_file=
 ## Hint: If the name of your labels does not exactly match the label_atlas_name--perhaps due to multiple
 ##       versions of labels for the same anatomicaly atlas
-
 
 label_space=pre_rigid
 ## Hint: Multiple, comma-limited label_space options can be specified, and include:
@@ -120,9 +117,10 @@ port_atlas_mask=0
 
 
 ## VBA Options
-
 vba_contrast_comma_list=dwi,fa,e1,jac
-## Hint: If not all contrasts should be analyzed with VBA, this comma-delimited list of image contrasts will specify which ones will be used with VBA. If this variable is not set, VBA will be performed on all available contrasts (except the nii4D).
+## Hint: If not all contrasts should be analyzed with VBA, this comma-delimited 
+#  list of image contrasts will specify which ones will be used with VBA. 
+#  If this variable is not set, VBA will be performed on all available contrasts (except the nii4D).
 
 smoothing_comma_list=1,2,3,0.1mm
 ## Hint: This comma-delimited list specifies the smoothing radii you want to try before performing VBA; no specified units defaults to 'vox', while 'mm' can be specified if need be.
