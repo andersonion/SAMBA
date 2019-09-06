@@ -152,6 +152,7 @@ sub warp_atlas_labels_vbm {  # Main code
 	# because WE DIDNT MAKE ANY WE WANT CLEANED :p
         #symbolic_link_cleanup($current_path,$PM);
     }
+=item
     my @jobs_2;
     if ($convert_labels_to_RAS == 1) {
 die;die;die;# no seriously, die.
@@ -170,6 +171,7 @@ die;die;die;# no seriously, die.
             }
         }
     }
+=cut
 }
 
 # ------------------
