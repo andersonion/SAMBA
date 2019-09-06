@@ -5,11 +5,15 @@
 # When you "use" this file, you get all these globals.
 # INSTEAD YOU CAN "require" this, 
 # then pluck out individuals with ${SAMBA_global_variablnes::variable_name}
+# (Maybe that highlights a path away from 100 globals to concise limited scoping?)
 # This is done for very select functions in pipeline utilities so that these 
-# variables done destroy the current namespace.
+# variables don't destroy the current namespace.
 # 
 # It should be evident that Any code using a SAMBA_global_variable IS SAMBA CODE,
 # and therefore shouldn't be separate.
+#
+# Broadly these are variables from our input headfile we want to share, 
+# with some additions.
 package SAMBA_global_variables;
 use strict;
 use warnings;
@@ -158,17 +162,11 @@ $samba_label_types
 $valid_formats_string
  );
 
+    # make all of these vars "SAMBA_global_variables" package variables "properly"
+    # using our, in a nasty eval one liner
     my $dirty_eval_string = 'our '.join('; our ',@EXPORT).';';
-
     eval($dirty_eval_string);
 
-    # Build a string of all initialized variables, etc, that contain only letters, numbers, or '_'.
-    foreach my $entry ( keys %SAMBA_global_variables:: )  { 
-        #print "$entry\n";
-        #if ($entry =~ /^[A-Za-z0-9_]+$/) {
-        #       $kevin_spacey = $kevin_spacey." $entry ";
-        #}
-    }
 }
 
 1;
