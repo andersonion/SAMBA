@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 # create_rd_from_e2_and_e3_vbm.pm 
 #
 #  2015/02/25: original version

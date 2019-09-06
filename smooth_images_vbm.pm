@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 # smooth_images_vbm.pm 
 # Originally written by BJ Anderson, CIVM
 

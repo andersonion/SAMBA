@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 # set_reference_space_vbm.pm 
 
 #  2015/07/23  BJ Anderson, CIVM -- switched from PrintHeader to fslhd for getting header info, though most of this switch happened in pipeline utilites.
@@ -613,8 +613,7 @@ sub set_reference_space_vbm_Init_check {
         $Hf->set_value('label_refspace_path',$inputs_dir);
     }
     $Hf->set_value('base_images_for_labels',$process_dir_for_labels);
-    
-    
+        
     if ($process_dir_for_labels == 1) {
         my $intermediary_path = "${inputs_dir}/reffed_for_labels";
         my $current_folder;

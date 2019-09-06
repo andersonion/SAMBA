@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 
 # vbm_analysis_vbm.pm 
 

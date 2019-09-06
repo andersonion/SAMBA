@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 
 use strict;
 use warnings;
@@ -54,6 +54,7 @@ sub pull_multi {
     # setting "normal" variable usage internal just this hack from SAMBA variable project_name
     my $project_code = $project_name; 
     if ($project_code =~ /enam/ ) {
+	# a random testing project code, now out of date.
         #Data::Dump::dump((\@runnos,\@contrasts,\@machines));die;
     }
     my $inputs_dir=$Hf->get_value('pristine_input_dir');
@@ -131,6 +132,9 @@ sub pull_multi {
     #$debug_val=50;
     Data::Dump::dump(@master_cmd_list) if $debug_val > 35; 
     confess if ($debug_val >= 50 && $debug_val < 100 ) ;
+    # thought about force slow_master queue to ease data permission grab madness.
+    # %ENV{'PIPELINE_QUEUE'}='slow_master';
+    # But this code should only be run on the master node because we dont use srun or sbatch.
     return execute_indep_forks(1,"get my data",@master_cmd_list);
     #print "Return = $return";
 } 

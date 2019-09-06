@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 
 #  tabulate_label_statistics_by_contrast_vbm.pm 
 
@@ -24,7 +24,7 @@ if (! defined($MATLAB_2015b_PATH)) {
 my $matlab_path = "${MATLAB_2015b_PATH}";
 
 my ($current_path, $image_dir,$runlist,$ch_runlist,$in_folder,$out_folder);
-my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_atlas_name,$label_atlas_nickname,$label_path);
+my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_atlas_name,$label_atlas_nickname,$labels_dir);
 my ($individual_stat_dir);
 my (@array_of_runnos,@channel_array,@initial_channel_array);
 #my ($predictor_id); # SAVE FOR LAST ROUND OF LABEL STATS CODE
@@ -241,9 +241,9 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
         $space_string = 'atlas';
     }
 
-    $label_path = $Hf->get_value('labels_dir');
+    $labels_dir = $Hf->get_value('labels_dir');
     my $label_refname = $Hf->get_value('label_refname');
-    my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
+    my $intermediary_path = "${labels_dir}/${current_label_space}_${label_refname}_space";
 
     my $stat_path = $Hf->get_value('stat_path');
     #$individual_stat_dir = "${stat_path}/individual_label_statistics/";

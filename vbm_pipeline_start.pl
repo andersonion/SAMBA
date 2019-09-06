@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # vbm_pipeline_start.pl
 # originally created as vbm_pipeline, 2014/11/17 BJ Anderson CIVM
 # vbm_pipeline_start spun off on 2017/03/14 BJ Anderson CIVM
@@ -68,8 +68,6 @@ if ( 0 ) {
     $permissions = 0755;
 }
 $permissions=0777 ^ $cur_mask;
-
-#my $interval = 1;
 
 # a do it again variable, will allow you to pull data from another vbm_run
 $test_mode = 0;

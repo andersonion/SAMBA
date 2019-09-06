@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 # SAMBA_global_variables.pm 
 # Originally written by James Cook & BJ Anderson, CIVM
 # A messy but singluar place to globalize all the globals.

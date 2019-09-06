@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 
 #  label_stat_comparisons_between_groups_vbm.pm 
 
@@ -28,7 +28,7 @@ if (! defined($MATLAB_2015b_PATH)) {
 my $matlab_path = "${MATLAB_2015b_PATH}";
 
 my ($current_path,$in_folder,$out_folder);
-my ($channel_comma_list,$space_string,$current_label_space,$label_atlas,$label_atlas_nickname,$label_path);
+my ($channel_comma_list,$space_string,$current_label_space,$label_atlas,$label_atlas_nickname,$labels_dir);
 my ($studywide_stats_dir);
 my (@array_of_runnos,@channel_array,@initial_channel_array);
 my ($predictor_id);
@@ -259,9 +259,9 @@ sub  label_stat_comparisons_between_groups_Runtime_check {
 	$space_string = 'atlas';
     }
 
-    $label_path = $Hf->get_value('labels_dir');
+    $labels_dir = $Hf->get_value('labels_dir');
     my $label_refname = $Hf->get_value('label_refname');
-    my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
+    my $intermediary_path = "${labels_dir}/${current_label_space}_${label_refname}_space";
 
     my $stat_path = $Hf->get_value('stat_path');
     $studywide_stats_dir = "${stat_path}/studywide_label_statistics/";

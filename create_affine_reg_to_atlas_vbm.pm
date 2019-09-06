@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 # create_affine_reg_to_atlas_vbm.pm 
 #  2015/01/02  BJ - added capability to register to any image, not just atlas; for use with full-affine registration.
 
@@ -11,7 +11,7 @@ my $NAME = "Create bulk rigid/affine registration to a specified atlas";
 my $DESC = "ants";
 my $ggo = 1;  # Needed for compatability with seg_pipe code
 
-my ($rigid_atlas,$contrast, $runlist,$work_path,$current_path,$label_atlas,$label_path);
+my ($rigid_atlas,$contrast, $runlist,$work_path,$current_path,$label_atlas);
 my ($affine_metric,$affine_shrink_factors,$affine_iterations,$affine_gradient_step,$affine_convergence_thres);
 my ($affine_convergence_window,$affine_smoothing_sigmas,$affine_sampling_options,$affine_radius);
 my ($xform_code,$xform_path,$xform_suffix,$label_atlas_dir,$atlas_path,$inputs_dir);
@@ -820,7 +820,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 	#2019-08-28 The grand task of unentangle labled bits
         #$work_path = $Hf->get_value('regional_stats_dir');
 	$work_path = $Hf->get_value('label_transform_dir');
-        #$label_path = $Hf->get_value('labels_dir');
+        #$labels_dir = $Hf->get_value('labels_dir');
         $current_path = $Hf->get_value('label_transform_dir');
 	my $template_path = $Hf->get_value('template_work_dir');
         if ($work_path eq 'NO_KEY') {
@@ -845,19 +845,19 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
             }
         }
 	# Label path has no business being set here.
-        #if ($label_path eq 'NO_KEY') {
+        #if ($labels_dir eq 'NO_KEY') {
 	#    #2019-08-28 The grand task of unentangle labled bits
-        #    #$label_path = "${work_path}/labels";
-	#    $label_path = $Hf->get_value('regional_stats_dir')
+        #    #$labels_dir = "${work_path}/labels";
+	#    $labels_dir = $Hf->get_value('regional_stats_dir')
 	#	."/${current_label_space}_${label_refname}_space";
-        #    $Hf->set_value('labels_dir',$label_path);
-        #    if (! -e $label_path) {
-        #        mkdir ($label_path,$permissions);
+        #    $Hf->set_value('labels_dir',$labels_dir);
+        #    if (! -e $labels_dir) {
+        #        mkdir ($labels_dir,$permissions);
         #    }
         #}
         if ($current_path eq 'NO_KEY') {
 	    #2019-08-28 The grand task of unentangle labled bits
-            #$current_path = "${label_path}/transforms"; #$current_path = "${work_path}/labels_${label_atlas}";
+            #$current_path = "${labels_dir}/transforms"; #$current_path = "${work_path}/labels_${label_atlas}";
             $current_path = "${work_path}";
             $Hf->set_value('label_transform_dir',$current_path);
             if (! -e $current_path) {

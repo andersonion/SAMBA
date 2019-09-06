@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 # vbm_pipeline_workflow.pm
 # vbm_pipeline created 2014/11/17 BJ Anderson CIVM
 # vbm_pipeline_workflow created 2017/03/14 BJ Anderson CIVM
@@ -733,7 +733,8 @@ U_specid U_species_m00 U_code
                     push (@current_channel_array,'nii4D');
                 }
                 @current_channel_array = uniq(@current_channel_array);
-                foreach my $a_label_space (@label_spaces) {
+                #foreach my $a_label_space (@label_spaces) {
+                while (my $a_label_space= shift(@label_spaces) ) {
                     #warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
 		    warp_atlas_labels_vbm($group_name,$a_label_space); #$PM_code = 63
                     sleep($interval);
@@ -752,7 +753,12 @@ U_specid U_species_m00 U_code
                     if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
                         apply_warps_to_bvecs($a_label_space);
                     }
+		    last;
                 }
+		if (scalar(@label_spaces) ) {
+		    cluck("Code defficient, and doesnt really handle multiple label spaces at the same time :( ");
+		    sleep_with_countdown(3);
+		}
                 sleep($interval);
             }
         }

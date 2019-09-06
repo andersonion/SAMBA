@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 # calculate_mdt_warps_vbm.pm 
 
 my $PM = "calculate_mdt_warps_vbm.pm";

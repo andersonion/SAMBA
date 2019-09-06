@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 # warp_atlas_labels_vbm.pm 
 # Originally written by BJ Anderson, CIVM
 
@@ -32,7 +32,7 @@ my $do_inverse_bool = 0;
 my ($atlas,$rigid_contrast,$mdt_contrast, $runlist,$work_path,$rigid_path,$current_path,$write_path_for_Hf);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir,$results_dir,$final_results_dir,$median_images_path);
 my ($mdt_path,$template_name, $diffeo_path,$work_done);
-my ($label_path,$label_reference_path,$label_refname,$do_byte,$do_short);
+my ($label_reference_path,$label_refname,$do_byte,$do_short);
 my ($fsl_odt); # To replace do_byte and do_short, just set fsl_odt when appropriate, else it'll be undefined.
 my (@array_of_runnos,@files_to_create,@files_needed);
 my @jobs=();
@@ -72,10 +72,10 @@ my $label_type;
 #   labels/CCF3/chass_symmetric3_RAS_CCF3_labels.nii.gz
 
 
-# This is what folder we're saving output to, often regional_stats_dir
-# furhter messy, interanl to headfiles its labels_dir
+# label_path was folder for output, often regional_stats_dir
+# further messy, internal to headfiles its labels_dir
 # THIS HAS BEEN CONVERTED TO labels_dir
-# label_path
+
 
 # More synonyms. This one we kinda like, becuase it takes the specific 
 # label_reference_path and converst it to the generic idea "reference_image"
@@ -541,14 +541,14 @@ sub warp_atlas_labels_vbm_Init_check {
 
     my $create_labels = $Hf->get_value('create_labels');
     my $label_atlas_name = $Hf->get_value('label_atlas_name');
-    if (0) { # Code was moved from vbm_pipeline_workflow.pm, and we want to deactivate it for now.
-        if (($create_labels eq 'NO_KEY') && (defined $label_atlas_name)){
-            $create_labels = 1;
-        } elsif (! defined $label_atlas_name) {
-            $create_labels = 0;
-        }
-        $Hf->set_value('create_labels',$create_labels);
-    }
+    #if (0) { # Code was moved from vbm_pipeline_workflow.pm, and we want to deactivate it for now.
+    #if (($create_labels eq 'NO_KEY') && (defined $label_atlas_name)){
+    #    $create_labels = 1;
+    #} elsif (! defined $label_atlas_name) {
+    #    $create_labels = 0;
+    #}
+    #$Hf->set_value('create_labels',$create_labels);
+    #}
     my $label_space = $Hf->get_value('label_space');
     if ($label_space eq 'NO_KEY') {
         $label_space = "pre_affine"; # Pre-affine is the tentative default label space.
@@ -582,7 +582,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	    # convert filename to nick name with expectation that nickname is just in front of labeltype keyword.
 	    # Dont get confused that this is the inverse of what you're looking for!
             $label_atlas_nickname =~ s/_($samba_label_types).*//x;
-	    printd(5,"Calculated label_atlas_nickname -> $label_atlas_nickname\n");die;
+	    printd(5,"Calculated label_atlas_nickname -> $label_atlas_nickname\n");die "Programmer testing";
         } else {
             $label_atlas_nickname=$label_atlas_name;
         }
@@ -718,14 +718,13 @@ sub warp_atlas_labels_vbm_Runtime_check {
     $work_path = $Hf->get_value('regional_stats_dir');
     if ($group eq 'MDT') {
         $current_path = $Hf->get_value('median_images_path')."/labels_MDT";
-        if (! -e $current_path) {
-            mkdir ($current_path,$permissions);
-        }
     } else {
         my $msg;
         if (! defined $current_label_space) {
             $msg = "\$current_label_space not explicitly defined. Checking Headfile...";
             $current_label_space = $Hf->get_value('label_space');
+	    carp("inline space setting discouraged, Tell your programmer");
+	    sleep(1);
         } else {
             $msg = "current_label_space has been explicitly set to: ${current_label_space}";
         }
@@ -745,7 +744,10 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	    mkpath($labels_dir,0,$permissions);
 	}
         #}
-	$current_path="$labels_dir";
+	$current_path = "$labels_dir";
+    }
+    if (! -e $current_path) {
+	mkdir ($current_path,$permissions);
     }
     print " $PM: current path is ${current_path}\n";
     $results_dir = $Hf->get_value('results_dir');

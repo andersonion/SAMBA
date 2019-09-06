@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 # apply_mdt_warps_vbm.pm 
 # Originally written by BJ Anderson, CIVM
 
@@ -31,7 +31,7 @@ use civm_simple_util qw(printd trim $debug_val);
 my $do_inverse_bool = 0;
 my ($runlist,$rigid_path,$current_path,$write_path_for_Hf);
 my ($inputs_dir,$mdt_creation_strategy);
-my ($interp,$template_path, $template_name, $diffeo_path,$work_done,$vbm_reference_path,$label_reference_path,$label_refname,$label_results_path,$label_path);
+my ($interp,$template_path, $template_name, $diffeo_path,$work_done,$vbm_reference_path,$label_reference_path,$label_refname,$label_results_path,$labels_dir);
 my (@array_of_runnos,@files_to_create,@files_needed);
 my @jobs=();
 my (%go_hash);
@@ -58,7 +58,7 @@ my %output_file_hash;
 sub apply_mdt_warps_vbm {  # Main code
 # ------------------
     my $direction;
-   ($current_contrast,$direction,$group,$current_label_space) = @_; # added optional current_label_space
+    ($current_contrast,$direction,$group,$current_label_space) = @_; # added optional current_label_space
     my $start_time = time;
 
     $interp = "Linear"; # Hardcode this here for now...may need to make it a soft variable.
@@ -268,9 +268,10 @@ sub apply_mdt_warp {
 	$out_file = "${current_path}/${runno}_${current_contrast}.nii${gz}"; # Added '.gz', 2 September 2015
 	$reference_image = $label_reference_path;
     
-    if (! defined $current_label_space) {die "\$current_label_space error! It is not being defined when $PM is called with \$group_name = \"all\". See your local programmer.";}
+	if (! defined $current_label_space) {
+	    die "\$current_label_space error! It is not being defined when $PM is called with \$group_name = \"all\". See your local programmer.";}
     
-    if ($direction eq 'f') {
+	if ($direction eq 'f') {
 	    $direction_string = 'forward';
 	    if ($current_label_space eq 'pre_rigid') {
 		$start=0;
@@ -306,7 +307,6 @@ sub apply_mdt_warp {
     }
 
     my $image_to_warp = get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
-    
     my $warp_string = $Hf->get_value("${direction_string}_xforms_${runno}");
     if ($warp_string eq 'NO_KEY') {
 	$warp_string=$Hf->get_value("mdt_${direction_string}_xforms_${runno}")
@@ -343,7 +343,7 @@ sub apply_mdt_warp {
         $opt_e_string = ' -e 3 ';
     } 
     
-    if ( 1 #$current_label_space =~ /pre_rigid/ && 0
+    if ( $current_label_space =~ /pre_rigid/
 	 || ( ($current_contrast eq 'nii4D') && (! data_double_check($out_file,1)))  ) {
     #skip apply warp
 	# Should also skip when pre_rigid_native space BECAUSE THAT IS OUR PREPROCESS_BASE_IMAGE SPACE!
@@ -564,7 +564,6 @@ sub apply_mdt_warps_vbm_Runtime_check {
     my ($direction)=@_;
  
 # # Set up work
-
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_path = $Hf->get_value('rigid_work_dir');
 
@@ -617,27 +616,31 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	if (! defined $current_label_space) {
 	    $msg = "current_label_space not explicitly defined. Checking Headfile...\n";
 	    $current_label_space = $Hf->get_value('label_space');
+	    carp("inline space setting discouraged, Tell your programmer");
+	    sleep(1);
 	} else {
 	    $msg="current_label_space has been explicitly set to: ${current_label_space}\n";
 	}
 	#printd(0,$msg);die;
 	printd(35,$msg);
 	
-	# label_path is set, "in the new way" ->  vox_measure/MEASURESPACE
-	$label_path=$Hf->get_value('labels_dir');
+	# labels_dir is set, "in the new way" ->  vox_measure/MEASURESPACE
+	$labels_dir=$Hf->get_value('labels_dir');
 	# results not set yet, may never be, commenting.
 	#$label_results_path=$Hf->get_value('label_results_path');
 	
-	# Always reset, and rarely sett to start with, so we just wont'd do this yet.
+	# Always reset, and rarely set to start with, so we just wont'd do this yet.
 	# $current_path=$Hf->get_value('label_images_dir');
 	$median_images_path = $Hf->get_value('median_images_path');
 
 	#if ($current_path eq 'NO_KEY') {
 	# For now lets simplify our ouput structuring to put everything in mega bucket.
-	$current_path = $label_path;
+	# Except this is NOT space sensitive! Whoops!!
+	carp "output not sensitive to space, whoops... ";sleep_with_countdown(5);
+	$current_path = $labels_dir;
 	####
 	# In special case we can adjust label_images_dir to label_refspace_folder(preprocess/base_images)....
-	# Lets do that just for funsizes :D 
+	# Lets do that just for funsies :D 
 	####
 	if ( $current_label_space =~ /pre_rigid/ ){
 	    $Hf->set_value('label_images_dir',$Hf->get_value('label_refspace_folder'));
@@ -646,6 +649,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	if (! -e $current_path) {
 	    mkdir ($current_path,$permissions);
 	}
+
 	(my $f_ok,$convert_images_to_RAS)=$Hf->get_value_check('convert_labels_to_RAS');
 	if ( ! $f_ok ) { $convert_images_to_RAS=0; }
 	if ($convert_images_to_RAS == 1) {
@@ -688,11 +692,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	print " ERROR: Invalid group ID in $PM.  Dying now...\n";
 	die;
     }
-    
-    if (! -e $current_path) {
-	mkdir ($current_path,$permissions);
-    }
-    
+
     $write_path_for_Hf = "${current_path}/.${template_name}_amw_temp.headfile";
 
 #   Functionize?

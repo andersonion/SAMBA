@@ -27,7 +27,7 @@ use pull_civm_tensor_data;
 
 my ($runlist,$current_path,$write_path_for_Hf);
 my ($pristine_inputs_dir);
-my ($template_name,$label_refname,$label_path);
+my ($template_name,$label_refname);
 my (@array_of_runnos,@files_to_create,@files_needed);
 my @jobs=();
 my (%go_hash,$go_message);
@@ -496,7 +496,6 @@ sub apply_warps_to_bvecs_Runtime_check {
     printd(35,$msg);
 
     #$results_dir = $Hf->get_value('results_dir');
-    #$label_path = $Hf->get_value('labels_dir');
     $current_path = $Hf->get_value('label_images_dir');
     if (! -e $current_path) {
 	confess("Missing expected directory:$current_path");

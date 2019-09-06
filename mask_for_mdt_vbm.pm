@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 
 # mask_for_mdt_vbm.pm 
 

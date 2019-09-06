@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 # pairwise_reg_vbm.pm 
 
 my $PM = "pairwise_reg_vbm.pm";

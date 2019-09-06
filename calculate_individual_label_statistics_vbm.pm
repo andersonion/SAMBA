@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/false
 #  calculate_individual_label_statistics_vbm.pm 
 #  2017/06/16  Created by BJ Anderson, CIVM.
 
@@ -22,7 +22,7 @@ if (! defined($MATLAB_2015b_PATH)) {
 my $matlab_path =  "${MATLAB_2015b_PATH}";
 
 my ($current_path, $image_dir,$work_dir,$runlist,$ch_runlist,$in_folder,$out_folder);
-my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$label_path,$label_atlas_name,$label_atlas_nickname);
+my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$labels_dir,$label_atlas_name,$label_atlas_nickname);
 my (@array_of_runnos,@channel_array);
 #my ($predictor_id); # SAVE FOR LAST ROUND OF LABEL STATS CODE
 my @jobs=();
@@ -328,15 +328,15 @@ sub  calculate_individual_label_statistics_Runtime_check {
     }
 
     my $label_refname = $Hf->get_value('label_refname');
-    $label_path = $Hf->get_value('labels_dir');
-    $work_dir=$label_path;
+    $labels_dir = $Hf->get_value('labels_dir');
+    $work_dir=$labels_dir;
     $image_dir=$Hf->get_value('label_images_dir');
 
-    my $stat_path=$label_path;
+    my $stat_path=$labels_dir;
     if ( $current_label_space !~ /pre_rigid/ ){
 	die "HEllo iNTErMedaiaryPath! This code has been disabled due to lack of testing. Your work is mostly done, but you'll need to measure your own label stats, Avizo does a competent job (don't forget to load the lookup table too). (or pick on the programmer to blindly enable this to see what happens:D ).";
 
-	my $intermediary_path = "${label_path}/${current_label_space}_${label_refname}_space";
+	my $intermediary_path = "${labels_dir}/${current_label_space}_${label_refname}_space";
 	$image_dir = "${intermediary_path}/images/";
 	$work_dir="${intermediary_path}/${label_atlas_nickname}/";
 	$stat_path = "${work_dir}/stats/";
