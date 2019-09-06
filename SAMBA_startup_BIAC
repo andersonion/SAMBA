@@ -1,0 +1,58 @@
+#!/bin/bash
+# Custom SAMBA startup with frozen pipeline code including pipeline_utilities(:D ) shush now
+if [[ -d $SAMBA_PATH ]];then
+    SPATH=${SAMBA_PATH};
+else
+    SPath="${HOME}/SAMBA";
+fi
+echo "frozen dance at ${SPath}";
+## For BIAC:
+PU_path="${SPath}/../pipeline_utilities";
+if [[ ! -d ="${PU_path}" ]];then
+    PU_path="${HOME}/pipeline_utilities";
+fi
+export RADISH_PERL_LIB=${PU_path};
+
+#export RADISH_PERL_LIB="${HOME}/SAMBA/local/lib/perl5:${RADISH_PERL_LIB}";
+
+local_perl="${SPath}/local/lib/perl5";
+if [[ -d "${local_perl}" ]];then
+    export RADISH_PERL_LIB="${local_perl}:${RADISH_PERL_LIB}";
+fi
+
+echo "adjust lib path from $RADISH_PERL_LIB";
+declare -x RADISH_PERL_LIB=$(echo $RADISH_PERL_LIB|sed -E "s:${WORKSTATION_HOME}/+shared/+pipeline_utilities:${SPath}/.pipeline_utilities:g");
+echo "to $RADISH_PERL_LIB";
+echo ${SPath}/vbm_pipeline_start.pl $@
+#sleep 2
+echo " "
+echo " "
+sge_test=$(which qsub | grep sge | wc -l);
+if [[ $sge_test == 1 ]]; then
+    sb_dir=${HOME}/SAMBA_sbatch;
+    if [[ ! -d ${sb_dir} ]];then
+	mkdir -m 775 ${sb_dir};
+    fi
+    
+    date_tag=$(date --rfc-3339=seconds | tr ' ' '_' | tr ':' '.' | tr -d '-');
+    name="SAMBA_pipeline_${date_tag}";
+    sbatch_file="${HOME}/SAMBA_sbatch/${name}.bash";
+    source_sbatch="${SPath}/SAMBA_SGE_job.bash";
+    cp ${source_sbatch} ${sbatch_file};
+    echo "#\$ -N ${name}" >> ${sbatch_file};
+    echo "${SPath}/vbm_pipeline_start.pl $@" >> ${sbatch_file};
+    cmd="qsub -terse  -b y -V ${sbatch_file}";
+#cmd="qsub -terse  -N SAMBA_pipeline -M ${USER}@duke.edu -m ea -o ${HOME}/SAMBA_sbatch/slurm-"'$JOB_ID'".out -e ${HOME}/SAMBA_sbatch/slurm-"'$JOB_ID'".out -b y -V ${SPath}/vbm_pipeline_start.pl $@";
+
+echo $cmd;
+
+echo " ";
+echo " ";
+
+   job_id=$($cmd | tail -1);
+#qsub  ${SPath}/vbm_pipeline_start.pl $@;
+   echo "JOB ID = ${job_id}";
+   tail -f "${HOME}/SAMBA_sbatch/slurm-$job_id.out";
+else
+    ${SPath}/vbm_pipeline_start.pl $@;
+fi

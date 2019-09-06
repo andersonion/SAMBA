@@ -50,7 +50,20 @@ if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 if (! defined $dims) {$dims = 3;}
 
 
-my $matlab_path = '/cm/shared/apps/MATLAB/R2015b/'; #Need to make this more general, i.e. look somewhere else for the proper and/or current version.
+# 18 July 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths                                                                                                                                           
+
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH);
+if (! defined($MATLAB_EXEC_PATH)) {
+    $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+
+
+my $matlab_path =  "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";                                                                                                                                                          
+#my $matlab_path = '/cm/shared/apps/MATLAB/R2015b/'; #Need to make this more general, i.e. look somewhere else for the proper and/or current version. #Deprecated 22 August 2019
 
 # ------------------
 sub vbm_analysis_vbm {
@@ -335,8 +348,9 @@ sub surfstat_analysis_vbm {
     my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
     my $exec_testing =1;
     my $jid = 0;
-    if ($exec_testing) {
-	my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
+    if ($exec_testing) {	
+	my $executable_path = "${MATLAB_EXEC_PATH}/surfstat_executable/run_surfstat_for_vbm_pipeline_exec.sh"; 
+	# my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
 	my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
 	my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
 	

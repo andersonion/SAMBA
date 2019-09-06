@@ -45,7 +45,8 @@ if (! defined($MATLAB_2015b_PATH)) {
 }
 
 my $matlab_path = ${MATLAB_2015b_PATH};
-my $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec_v2.sh"; 
+#my $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec_v2.sh"; # James renamed on 9 August 2019, removing '_v2'
+my $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec.sh"; 
 
 
 #if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}

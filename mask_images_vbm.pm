@@ -201,43 +201,47 @@ sub mask_images_Output_check {
     if ($case == 1) {
         if ($do_mask) {
             $message_prefix = "  Masked images have been found for the following runno(s) and will not be re-processed:\n";
-        } else {
+        } elsif ($pre_masked){
+	    $message_prefix = "  Pre-masked and properly named images have been found for the following runno(s) and will not be re-processed:\n";
+	} else {
             $message_prefix = "  Unmasked and properly named images have been found for the following runno(s) and will not be re-processed:\n";
         }
     } elsif ($case == 2) {
         if ($do_mask) {
             $message_prefix = "  Unable to properly mask images for the following runno(s) and channel(s):\n";
-        } else {
+        } elsif ($pre_masked) {
+	    $message_prefix = "  Unable to properly rename the pre-masked images for the following runno(s) and channel(s):\n";
+	} else {
             $message_prefix = "  Unable to properly rename the unmasked images for the following runno(s) and channel(s):\n";
         }
     }   # For Init_check, we could just add the appropriate cases.
     
     foreach my $runno (@array_of_runnos) {
 
-
+	
 	my $sub_existing_files_message='';
 	my $sub_missing_files_message='';
 	
 
 	foreach my $ch (@channel_array) {
-
-        if ($do_mask) {
-            $file_1 = "${current_path}/${runno}_${ch}_masked.nii";
+	    
+	    if (($do_mask) || ($pre_masked) ) {
+		$file_1 = "${current_path}/${runno}_${ch}_masked.nii";
 	    } else {
-            $file_1 = "${current_path}/${runno}_${ch}.nii";
-        }
+		$file_1 = "${current_path}/${runno}_${ch}.nii";
+	    }
 
 	    if (data_double_check($file_1)) {
-            $file_1 = $file_1.'.gz'; # 8 Feb 2016: added .gz    
+		$file_1 = $file_1.'.gz'; # 8 Feb 2016: added .gz    
 	    }
 	    
-        if (data_double_check($file_1,$case-1) ) { 
-            $go_hash{$runno}{$ch}=1;#*$do_mask; Moving the $do_mask logic elsewhere because we want action either way.
-            push(@file_array,$file_1);
-            $sub_missing_files_message = $sub_missing_files_message."\t$ch";
+	    if (data_double_check($file_1,$case-1) ) { 
+		$go_hash{$runno}{$ch}=1;#*$do_mask; Moving the $do_mask logic elsewhere because we want action either way.
+		push(@file_array,$file_1);
+		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
 	    } else {
-            $go_hash{$runno}{$ch}=0;
-            $sub_existing_files_message = $sub_existing_files_message."\t$ch";
+		$go_hash{$runno}{$ch}=0;
+		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
 	    }
 	}
 
@@ -448,12 +452,19 @@ sub rename_one_image {
 # ------------------
     my ($runno,$ch) = @_;
     my $centered_path = get_nii_from_inputs($current_path,$runno,$ch); ## THIS IS WHERE THINGS PROBABLY BROKE  24 October 2018 (Wed)
-    my $out_path = "${current_path}/${runno}_${ch}.nii.gz"; # 12 Feb 2016: Added .gz
+    my $masked_prefix = 'un';    
+    my $masked_suffix='';
+    if ($pre_masked) {
+	$masked_suffix = '_masked';
+	$masked_prefix = 'pre';
+    }
+    my $out_path = "${current_path}/${runno}_${ch}${masked_suffix}.nii.gz"; # 12 Feb 2016: Added .gz # 29 August 2019: Added $masked_suffix.
     
     my $rename_cmd = "mv ${centered_path} ${out_path}";
+   
 
-    my $go_message = "$PM: Renaming unmasked image from \"${centered_path}\" to \"${out_path}\"." ;
-    my $stop_message = "$PM: Unable to rename unmasked image from \"${centered_path}\" to \"${out_path}\":\n${rename_cmd}\n";
+    my $go_message = "$PM: Renaming ${masked_prefix}masked image from \"${centered_path}\" to \"${out_path}\"." ;
+    my $stop_message = "$PM: Unable to rename ${masked_prefix}masked image from \"${centered_path}\" to \"${out_path}\":\n${rename_cmd}\n";
     
     my @test = (0);
     my $node = '';
@@ -471,7 +482,7 @@ sub rename_one_image {
 	my $cmd = $rename_cmd;
 	
 	my $home_path = $current_path;
-	my $Id= "${runno}_${ch}_rename_unmasked_image";
+	my $Id= "${runno}_${ch}_rename_${masked_prefix}masked_image";
 	my $verbose = 2; # Will print log only for work done.
 	$jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
@@ -486,7 +497,7 @@ sub rename_one_image {
     }
 
     if ((data_double_check($out_path)) && (not $jid)) {
-        error_out("$PM: missing unmasked image: ${out_path}");
+        error_out("$PM: missing ${masked_prefix}masked image: ${out_path}");
     }
     print "** $PM expected output: ${out_path}\n";
   

@@ -948,7 +948,10 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     my $portable_code = 1;
     if (data_double_check($id_warp)) {
 	if ( $portable_code ) {
-	    my $id_cmd = "ComposeMultiTransform 3 ${id_warp} -R ${first_image}";
+
+#	    my $id_cmd = "ComposeMultiTransform 3 ${id_warp} -R ${first_image}";
+#	    5 Sept 2019, BJA: ComposeMultiTransform would not produce zeros, but instead max out the datatype, fixing with antsApplyTransforms:
+	    my $id_cmd = "antsApplyTransforms -v -d 3 -o [${id_warp},1] -r ${first_image}";
 	    log_info("Creating identity warp: ${id_warp}\n${id_cmd}");
 	    `${id_cmd}`;
 	} else {

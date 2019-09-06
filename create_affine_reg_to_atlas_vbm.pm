@@ -953,7 +953,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                 # If there are an even number of control images, it will select the larger/smaller of the middle two.
             
                 if (scalar @controls > 2) {
-                # James's CRAZY finder funtion, uses open dir, and a regex to match.
+                # James's CRAZY finder function, uses open dir, and a regex to match.
                 # this regex is (runnoA|runnoB).*$contrast.*[.]n.*
                 # note this finds any .n* images
                 # could/should set the "acceptable" images someplace and use that as part of the regex
@@ -963,14 +963,18 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                 
                 my %volume_hash;
                 for my $c_runno (uniq(@controls)) {
-
-                    my $c_file = get_nii_from_inputs($inputs_dir, $c_runno, "${contrast}_masked");
-
-                        if ($c_file !~ /[\n]+/) {
-                           my $volume = `fslstats ${c_file} -V | cut -d ' ' -f2`;
-                            chomp($volume);
-                            $volume_hash{$volume}=$c_runno;
-                        }
+		    my $masked_suffix='';
+		    # 29 August 2019, BJA: I shouldn't support this algorithm if images are unmasked, but will for now.
+		    if ($pre_masked || $do_mask) {
+			$masked_suffix = '_masked';
+		    }
+                    my $c_file = get_nii_from_inputs($inputs_dir, $c_runno, "${contrast}${masked_suffix}");
+		    
+		    if ($c_file !~ /[\n]+/) {
+			my $volume = `fslstats ${c_file} -V | cut -d ' ' -f2`;
+			chomp($volume);
+			$volume_hash{$volume}=$c_runno;
+		    }
                     
                 }
                     use List::Util qw(sum);

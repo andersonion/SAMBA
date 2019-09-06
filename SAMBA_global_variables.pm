@@ -91,6 +91,7 @@ $diffeo_sampling_options
 
 $vbm_reference_space
 $reference_path
+$force_isotropic_resolution
 $resample_images
 $resample_factor
 
