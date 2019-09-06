@@ -353,8 +353,13 @@ sub iterative_pairwise_reg_vbm_Init_check {
 	    $log_msg = $log_msg."\tThis is the default value, since it was not otherwise specified.\n";
 	}
 
-	my $initial_template = $Hf->get_value('initial_template');
-	if (! data_double_check($initial_template))  {
+	#
+	# WARNING: Initial template is never(ever) set! why is that?
+	#
+	# this causes odd intermittent failures for this code, so swapped to check code.
+	my ($v_ok,$initial_template) = $Hf->get_value_check('initial_template');
+	if ($v_ok && ! data_double_check($initial_template))  {
+	   cluck "Unexpected code path, If you notice this let the programmer know";
 	   my($path,$name,$suffix)= fileparts($initial_template,2);
 	   if ($name =~ s/(_i)([0-9]+)$//) {
 	       my $starting_iteration = (1+$2);
@@ -362,17 +367,17 @@ sub iterative_pairwise_reg_vbm_Init_check {
 	       $Hf->set_value('template_name',$name);
 	       $log_msg = $log_msg."\tAn initialization template has been specified with the name: $name\n";
 	       $log_msg = $log_msg."\tIt appears to be from iteration ${2}; template creation will resume at ${starting_iteration}.\n";
-
 	   }
 	   else {
 	       $Hf->set_value('template_name',$name);
 	       $log_msg = $log_msg."\tAn initialization template has been specified with the name: $name\n";
 	       $log_msg = $log_msg."\tTemplate creation will attempt to pick up where any previous work may have left off.\n";
 	   }
-	}
+	} 
 
 	$match_registration_levels_to_iteration = $Hf->get_value('match_registration_levels_to_iteration');
-	if (($match_registration_levels_to_iteration eq 'NO_KEY') ||($match_registration_levels_to_iteration eq 'UNDEFINED_VALUE'))  {
+	if (($match_registration_levels_to_iteration eq 'NO_KEY') 
+	    ||($match_registration_levels_to_iteration eq 'UNDEFINED_VALUE'))  {
 	    $match_registration_levels_to_iteration=1;
 	    $Hf->set_value('match_registration_levels_to_iteration',$match_registration_levels_to_iteration);
 	}
@@ -688,10 +693,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     $rigid_path = $Hf->get_value('rigid_work_dir');
     $mdt_path = $Hf->get_value('mdt_work_dir');
 
-    $template_path = $Hf->get_value('template_work_dir'); #
-
     $current_path = $Hf->get_value('mdt_diffeo_path'); #
-
     my $template_checkpoint_completed = $Hf->get_value('template_checkpoint_completed');
     if  ($template_checkpoint_completed eq 'NO_KEY') {
 	$template_checkpoint_completed = 0;
@@ -722,11 +724,33 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     }
 
 
-    $initial_template = $Hf->get_value('initial_template');
-    $template_name = $Hf->get_value('template_name');
+    $runlist = $Hf->get_value('control_comma_list');
+    if ($runlist eq 'EMPTY_VALUE') {
+	@array_of_runnos = ();
+    } else {
+	@array_of_runnos = split(',',$runlist);
+    }
+    @sorted_runnos=sort(@array_of_runnos);
+    my $number_of_template_runnos = scalar(@sorted_runnos);    
+    my $v_ok;
+    ($v_ok,$template_name) = $Hf->get_value_check('template_name');
+    if ( ! $v_ok ) {
+        $template_name = "${mdt_contrast}MDT_${template_predictor}_n${number_of_template_runnos}";
+        $Hf->set_value('template_name',$template_name);
+    }
+    ($v_ok,$template_path) = $Hf->get_value_check('template_work_dir');
+    if ( ! $v_ok ) {
+	# we dont update the hf key yet becuase we havnt checked all previous work yet.
+        $template_path = "${mdt_path}/${template_name}_i${current_iteration}";
+    }
     $starting_iteration = $Hf->get_value('starting_iteration_for_template_creation');
-
-    if (! data_double_check($initial_template)){
+    #
+    # WARNING: Initial template is never(ever) set! why is that?
+    #
+    # this causes odd intermittent failures for this code, so swapped to check code.
+    ($v_ok,$initial_template) = $Hf->get_value_check('initial_template');
+    if ($v_ok && ! data_double_check($initial_template)){
+	cluck "Unexpected code path, If you notice this let the programmer know";
 	my $initial_source_iteration=0;
 	my($path,$name,$suffix)= fileparts($initial_template,2);
 	if ((defined $starting_iteration) && ($starting_iteration > 0)) { 
@@ -736,35 +760,10 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
 	}
 	run_and_watch("cp ${initial_template} ${master_template_dir}/${template_name}_i${initial_source_iteration}.${suffix}");
     }
-
-
-    $runlist = $Hf->get_value('control_comma_list');
-
-    if ($runlist eq 'EMPTY_VALUE') {
-	@array_of_runnos = ();
-    } else {
-	@array_of_runnos = split(',',$runlist);
-    }
-
-
-
-    @sorted_runnos=sort(@array_of_runnos);
-
-    my $number_of_template_runnos = $#sorted_runnos + 1;
-
-    if ($template_name eq 'NO_KEY') {
-        $template_name = "${mdt_contrast}MDT_${template_predictor}_n${number_of_template_runnos}";
-        $Hf->set_value('template_name',$template_name);
-    }
-    if ($template_path eq 'NO_KEY') {
-        $template_path = "${mdt_path}/${template_name}_i${current_iteration}"; # Unsure if I should add current iteration here.
-    }
-    
     if ($current_path eq 'NO_KEY') {
         $current_path = "${template_path}/MDT_diffeo";
     }
     my $original_template_name = $template_name;
-#if ($template_path eq 'NO_KEY') {
 ######### Generate an appropriate template name, check for redundancy
     print "Should run checkpoint here!\n\n";
     my $checkpoint = $Hf->get_value('last_headfile_checkpoint'); # For now, this is the first checkpoint, but that will probably evolve.

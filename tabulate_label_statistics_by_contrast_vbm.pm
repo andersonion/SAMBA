@@ -76,7 +76,7 @@ sub  tabulate_label_statistics_by_contrast_vbm {
 
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
 
-    my $write_path_for_Hf = "${current_path}/${label_atlas_nickname}_${space_string}_temp.headfile";
+    my $write_path_for_Hf = "${current_path}/stats_collate_${label_atlas_nickname}_${space_string}_temp.headfile";
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
@@ -111,6 +111,7 @@ sub tabulate_label_statistics_by_contrast_Output_check {
 	my $sub_missing_files_message='';
 	
 	my $file_1 = "${current_path}/studywide_stats_for_${contrast}.txt" ;
+	$file_1 = "${current_path}/collated_${contrast}_${label_atlas_nickname}_${space_string}_stats.txt" ;
 #	print "${file_1}\n\n\n";
 	if (data_double_check($file_1,$case-1)) {
 	    $go_hash{$contrast}=1;
@@ -167,7 +168,7 @@ sub tabulate_label_statistics_by_contrast {
     my ($current_contrast) = @_;
 
     #my $exec_args_ ="${runno} {contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";# Save for part 3..
-    my $exec_args ="${individual_stat_dir} ${current_contrast} ${runlist} ${current_path}";
+    my $exec_args ="${individual_stat_dir} ${current_contrast} ${runlist} ${current_path}/collated_${current_contrast}_${label_atlas_nickname}_${space_string}_stats.txt";
 
     my $go_message = "$PM: Tabulating study-wide label statistics for contrast: ${current_contrast}\n" ;
     my $stop_message = "$PM: Failed to properly tabulate study_wide label statistics for contrast: ${current_contrast} \n" ;

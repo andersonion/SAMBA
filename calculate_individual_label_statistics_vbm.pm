@@ -53,10 +53,15 @@ sub  calculate_individual_label_statistics_vbm {
         $go = $go_hash{$runno};
         if ($go) {
             my $input_labels = "${work_dir}/${runno}_${label_atlas_nickname}_${label_type}.nii.gz";
-            my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
+	    my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
             if ($local_lookup eq 'NO_KEY') {
                 undef $local_lookup;
             }
+	    if($current_label_space =~ /MDT/ ) {
+		# in the tset case labelfile hf key was WHS_MDT_labels
+		#$input_labels=$Hf->get_value("${label_atlas_nickname}_${current_label_space}_${label_type}.nii.gz")
+		$input_labels=$Hf->get_value("${label_atlas_nickname}_${current_label_space}_labels");
+	    }
             ($job) = calculate_label_statistics($runno,$input_labels,$local_lookup);
             if ($job) {
                 push(@jobs,$job);
@@ -92,7 +97,7 @@ sub  calculate_individual_label_statistics_vbm {
     my $real_time = vbm_write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
-    my $write_path_for_Hf = "${current_path}/${label_atlas_nickname}_${space_string}_temp.headfile";
+    my $write_path_for_Hf = "${current_path}/stats_calc_${label_atlas_nickname}_${space_string}_temp.headfile";
     if ($error_message ne '') {
         error_out("${error_message}",0);
     } else {
@@ -241,6 +246,7 @@ sub write_rat_report {
     my $project_id = $Hf->get_value('U_code');
 
     #my $exec_args_ ="${runno} {contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";# Save for part 3..
+
     my $exec_args ="${runno} ${input_labels} 'e1,rd,fa' ${image_dir} ${current_path} ${project_id} 'Rat' ${spec_id}";
 
     my $go_message = "$PM: Writing rat report for runno: ${runno}\n" ;
@@ -331,16 +337,39 @@ sub  calculate_individual_label_statistics_Runtime_check {
     $labels_dir = $Hf->get_value('labels_dir');
     $work_dir=$labels_dir;
     $image_dir=$Hf->get_value('label_images_dir');
-
     my $stat_path=$labels_dir;
-    if ( $current_label_space !~ /pre_rigid/ ){
-	die "HEllo iNTErMedaiaryPath! This code has been disabled due to lack of testing. Your work is mostly done, but you'll need to measure your own label stats, Avizo does a competent job (don't forget to load the lookup table too). (or pick on the programmer to blindly enable this to see what happens:D ).";
+
+    if ( $current_label_space =~ /MDT/ ) {
+	# When MDT space but not MDT images, its desireable to move the stats 
+	# relative to the labels ...
+	#  for now we'll fix it by setting labels dir to a lie,
+	#  (where we would have saved them IF we were generating new files)
+	#
+    }
+    # checking "the new way" with the post_affine, i Like how it works out, 
+    # so whis whole block of intermediary will be commented for now.
+=item dead_intermediary_code
+    if ( $current_label_space !~ /pre_rigid|MDT/ ){
+	# It is not clear this path setting should be here at all!
+	# In theory the image and stat dir shouldnt need updating right now.
+	# just in case I'm wrong, only the two known good cases jump through this.
+	my $intermediary_path = "${labels_dir}/${current_label_space}_${label_refname}_space";
+	die "HEllo iNTErMedaiaryPath! This code has been disabled due to lack of testing.".
+	    "Your work is mostly done, but you'll need to measure your own label stats, ".
+	    "Avizo does a competent job (don't forget to load the lookup table too). \n".
+	    "(or pick on the programmer to blindly enable this to see what happens:D ).\n".
+	    "labels_dir=$labels_dir\n".
+	    "stat_path=$stat_path\n".
+	    "image_dir=$image_dir\n".
+	    "inter=$intermediary_path\n".
+	    "  would expand inter with stats, images, and $label_atlas_nickname";
 
 	my $intermediary_path = "${labels_dir}/${current_label_space}_${label_refname}_space";
 	$image_dir = "${intermediary_path}/images/";
 	$work_dir="${intermediary_path}/${label_atlas_nickname}/";
 	$stat_path = "${work_dir}/stats/";
     }
+=cut
     
     $Hf->set_value('stat_path',${stat_path});
     if (! -e $stat_path) {

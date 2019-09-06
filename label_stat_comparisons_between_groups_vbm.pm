@@ -83,15 +83,13 @@ sub  label_stat_comparisons_between_groups_vbm {
 
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
 
-    my $write_path_for_Hf = "${current_path}/${label_atlas_nickname}_${space_string}_temp.headfile";
-
+    my $write_path_for_Hf = "${current_path}/stats_compare_${label_atlas_nickname}_${space_string}_temp.headfile";
     if ($error_message ne '') {
 	error_out("${error_message}",0);
     } else {
 	$Hf->write_headfile($write_path_for_Hf);
     }
-      
-
+    return;
 }
 
 

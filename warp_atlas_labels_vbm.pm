@@ -191,7 +191,9 @@ sub warp_atlas_labels_Output_check {
     my $missing_files_message = '';
     #my $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
     foreach my $runno (@array_of_runnos) {
-        if ($group eq 'MDT') {
+	if ($group eq 'MDT' 
+	    || $current_label_space =~ /MDT/ 
+	    ) {
             $out_file = "${current_path}/MDT_${label_atlas_nickname}_${label_type}.nii.gz";
             $Hf->set_value("${label_atlas_nickname}_MDT_labels",$out_file);
         }else {
@@ -321,8 +323,11 @@ sub apply_mdt_warp_to_labels {
     my ($runno) = @_;
     my ($cmd);
     my $out_file;
-    if ($group eq 'MDT') {
-        $out_file = "${current_path}/MDT_${label_atlas_nickname}_${label_type}.nii.gz";
+    # May want to let space = MDT here in addition to group
+    if ($group eq 'MDT' 
+	|| $current_label_space =~ /MDT/ 
+	) {
+	$out_file = "${current_path}/MDT_${label_atlas_nickname}_${label_type}.nii.gz";
     } else {
         $out_file = "${current_path}/${runno}_${label_atlas_nickname}_${label_type}.nii.gz";
     }
@@ -588,37 +593,27 @@ sub warp_atlas_labels_vbm_Runtime_check {
         }
         $Hf->set_value('label_atlas_nickname',$label_atlas_nickname);
     }
-    # label_input_file, 
-    # The design goal for this variable is to give users a way to specify an arbitrary file,
-    # auto-resolving that based on fuzzy logic is inconsistent and will give users unexpected behavior on typo's
-    # so the ENTIRE else condition was a waste of time to write.... 
-    # This stands in as an alternateive to guessing everything based on one key detail.
-    if ( $use_l_in ) {
-	if (! -f $label_input_file ) { 
-	    error_out("label_input_file specified, and was not found. Please fix your input (omit or specify a valid path) and re-start DebugInfo: use($use_l_in) file($label_input_file)");
+    # Label_atlas_dir is only used here to get the base directory of the labeling atlas. 
+    # It's set in create_affine_reg_to_atlas_Init_check, OR by the user on input.
+    my ($use_lad,$label_atlas_dir)   = $Hf->get_value_check('label_atlas_dir');
+    my ($use_l_t_c,$label_transform_chain) = $Hf->get_value_check('label_transform_chain');
+    if ($use_l_t_c ) {
+	# Assumptions
+	#   label_transform_chain is complete, from starting post to all but the current link.
+	#   We only specify if we want it, It superceeds all the other things. 
+	($label_atlas_dir, $extra_transform_string)=resolve_transform_chain($label_transform_chain);
+	if (! defined $label_atlas_dir){
+	    die "Error resolving transform chain from $label_transform_chain";
 	}
-    } else {
-	# Label_atlas_dir is only used here to get the base directory of the labeling atlas. 
-	# It's set in create_affine_reg_to_atlas_Init_check, OR by the user on input.
-        my ($use_lad,$label_atlas_dir)   = $Hf->get_value_check('label_atlas_dir');
-	my ($use_l_t_c,$label_transform_chain) = $Hf->get_value_check('label_transform_chain');
-	if ($use_l_t_c ) {
-	    # Assumptions
-	    #   label_transform_chain is complete, from starting post to all but the current link.
-	    #   We only specify if we want it, It superceeds all the other things. 
-	    ($label_atlas_dir, $extra_transform_string)=resolve_transform_chain($label_transform_chain);
-	    if (! defined $label_atlas_dir){
-		die "Error resolving transform chain from $label_transform_chain";
-	    }
-	    $label_atlas_dir=~ s/[\/]*$//; # Remove trailing slashes
-	    (my $dummy, $label_atlas_name) = fileparts($label_atlas_dir,2);
-	}
-        if ($use_lad ) {
-	    # We got the "label_atlas_dir" which is the base for the whole atlas and the labels can be nested deeper
-	    # So we make a list of good places to look, in order, and we take the first valid.
-	    # Unfortunately we could be hiding behind a label_atlas_nickname, AND if the user didnt set that to the 
-	    # right one we'll fail.
-	    # I think that means we'd like to deprecate label_atlas_dir auto-resolve behavior.
+	$label_atlas_dir=~ s/[\/]*$//; # Remove trailing slashes
+	(my $dummy, $label_atlas_name) = fileparts($label_atlas_dir,2);
+    }
+    if ($use_lad ) {
+	# We got the "label_atlas_dir" which is the base for the whole atlas and the labels can be nested deeper
+	# So we make a list of good places to look, in order, and we take the first valid.
+	# Unfortunately we could be hiding behind a label_atlas_nickname, AND if the user didnt set that to the 
+	# right one we'll fail.
+	# I think that means we'd like to deprecate label_atlas_dir auto-resolve behavior.
 	    my @l_folders;
 	    # When there is only one choice inside a labels or labels_label_atlas_name folder we could just use that, 
 	    # and treat it as a nick name. 
@@ -656,12 +651,17 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	    $label_input_file = get_nii_from_inputs($label_atlas_dir,$label_atlas_name,'('.$samba_label_types.')');
 	    if ( ! -f "$label_input_file" ) {
 		error_out("label_input_dir auto resolution of label file failed, $label_input_file".$an_info); }
-	} else {
-            #$use_default_labels = 1;
-	    # Default labels fail,
-	    die "this condidtion should be unreachable, contact programmer";
-            # THIS TEMPORARY DEFAULT IS NOW DEACTIVATED!   
-	    $label_input_file  ="${WORKSTATION_DATA}/atlas/chass_symmetric3_RAS/chass_symmetric3_RAS_labels.nii.gz"; 
+    } else {
+	#$use_default_labels = 1;
+	# Default labels fail,
+	die "this condidtion should be unreachable, contact programmer";
+	# THIS TEMPORARY DEFAULT IS NOW DEACTIVATED!   
+	$label_input_file  ="${WORKSTATION_DATA}/atlas/chass_symmetric3_RAS/chass_symmetric3_RAS_labels.nii.gz"; 
+    }
+    # label_input_file  stands in as an alternateive to guessing everything based on one key detail.
+    if ( $use_l_in ) {
+	if (! -f $label_input_file ) { 
+	    error_out("label_input_file specified, and was not found. Please fix your input (omit or specify a valid path) and re-start DebugInfo: use($use_l_in) file($label_input_file)");
 	}
     }
 
@@ -714,42 +714,47 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	$fsl_odt="short";
     }
     
-    $labels_dir = $Hf->get_value('labels_dir');
-    $work_path = $Hf->get_value('regional_stats_dir');
-    if ($group eq 'MDT') {
+    my $msg;
+    if (! defined $current_label_space || $current_label_space eq '' ) {
+	$msg = "\$current_label_space not explicitly defined. Checking Headfile...";
+	$current_label_space = $Hf->get_value('label_space');
+	carp("inline space setting discouraged, Tell your programmer");
+	sleep(1);die($msg);
+    } else {
+	$msg = "current_label_space has been explicitly set to: ${current_label_space}";
+    }
+    printd(35,$msg);
+    
+    #$labels_dir = $Hf->get_value('labels_dir');
+    #if ($labels_dir eq 'NO_KEY') {
+    # This was erroneously set earlier by other modules! 
+    # This code was REPLICATED in three other places!
+    # Trying to have it active only here because this is where we use it.
+    #2019-08-28 The grand task of unentangle labled bits
+    #$work_path = $Hf->get_value('regional_stats_dir');
+    #$labels_dir = "${work_path}/labels";
+    $labels_dir = $Hf->get_value('regional_stats_dir')
+	."/${current_label_space}_${label_refname}_space";
+    $Hf->set_value('labels_dir',$labels_dir);
+    #}
+    if (! -e $labels_dir) {
+	use File::Path qw(mkpath);
+	mkpath($labels_dir,0,$permissions);
+    }
+    #}
+    if ($group eq 'MDT'
+	|| $current_label_space =~ /MDT/ 
+	) {
         $current_path = $Hf->get_value('median_images_path')."/labels_MDT";
     } else {
-        my $msg;
-        if (! defined $current_label_space) {
-            $msg = "\$current_label_space not explicitly defined. Checking Headfile...";
-            $current_label_space = $Hf->get_value('label_space');
-	    carp("inline space setting discouraged, Tell your programmer");
-	    sleep(1);
-        } else {
-            $msg = "current_label_space has been explicitly set to: ${current_label_space}";
-        }
-        printd(35,$msg);
-	if ($labels_dir eq 'NO_KEY') {
-	    # This was erroneously set earlier by other modules! 
-	    # This code is REPLICATED in three other places!
-	    # Trying to have it active only here because this is where we use it.
-	    #2019-08-28 The grand task of unentangle labled bits
-	    #$labels_dir = "${work_path}/labels";
-	    $labels_dir = $Hf->get_value('regional_stats_dir')
-		."/${current_label_space}_${label_refname}_space";
-	    $Hf->set_value('labels_dir',$labels_dir);
-	}
-	if (! -e $labels_dir) {
-	    use File::Path qw(mkpath);
-	    mkpath($labels_dir,0,$permissions);
-	}
-        #}
 	$current_path = "$labels_dir";
     }
+    
     if (! -e $current_path) {
 	mkdir ($current_path,$permissions);
     }
     print " $PM: current path is ${current_path}\n";
+=item disabled code
     $results_dir = $Hf->get_value('results_dir');
     (my $f_ok,$convert_labels_to_RAS)=$Hf->get_value_check('convert_labels_to_RAS');
     if ( ! $f_ok ) { $convert_labels_to_RAS=0; }
@@ -797,6 +802,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
         #    mkdir ($final_ROIs_dir,$permissions);
         #}
     }
+=cut
 
     $write_path_for_Hf = "${current_path}/.${template_name}_wal_temp.headfile";
     if ($group ne 'MDT') {

@@ -133,6 +133,8 @@ sub apply_mdt_warps_vbm {  # Main code
 	#}
     }
     
+
+=item more dead code
     my @jobs_2;
     if (($convert_images_to_RAS == 1) && ($gid == 2)){
 die;die;die;# no seriously, die.
@@ -159,6 +161,8 @@ die;die;die;# no seriously, die.
         #    `gzip ${current_path}/*nii4D*nii`;  
         #}
     }
+=cut
+
 }
 
 
@@ -185,6 +189,9 @@ sub apply_mdt_warps_Output_check {
 
      my $existing_files_message = '';
      my $missing_files_message = '';
+     my $verbose_thresh=45;
+     printd($verbose_thresh,"Previously complete check: \n") if ($case == 1 );
+     printd($verbose_thresh,"Output checking: \n") if ($case == 2 );
      foreach my $runno (@array_of_runnos) {
 	 if ($direction eq 'f' ) {
 	     if ($gid == 2) {
@@ -195,31 +202,41 @@ sub apply_mdt_warps_Output_check {
 	 } elsif ($direction eq 'i') {
 	     $out_file =  "${current_path}/MDT_to_${runno}_${current_contrast}.nii.gz";  #Added '.gz', 2 September 2015
 	 }
+	 ###
+	 # crazy patch testing the output file.
+	 # Unfortunatly has to be done in two places until we can update the replicated output path calculation.
+	 my $alt_output= get_nii_from_inputs($current_path,$runno,$current_contrast); 
+	 if ($alt_output !~ /[\n]+/) { $out_file = $alt_output ; }
+	 ###
 	 # This patches in our special case where output is just input (when we're not doing any work here)
 	 # This is imperfect, but it does reduce useless replication
 	 if ( exists $output_file_hash{$runno} && $case==2 ) {
-	     $out_file=$output_file_hash{$runno};
+	     $out_file = $output_file_hash{$runno};
 	     printd(25,"\tOnfly adjust output to $out_file\n");
 	 }
+	 ###
+	 printd($verbose_thresh,"\t$out_file ...\n");
 	 if (data_double_check($out_file,$case-1)) {
 	     #if ($out_file =~ s/\.gz$//) {
-		 #if (data_double_check($out_file)) {
-		     $go_hash{$runno}=1;
-		     push(@file_array,$out_file);
-		     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-		     my $p = $debug_val>0 ? "\t(".$out_file.")" : "";
-		     $missing_files_message = $missing_files_message."\t$runno$p\n";
-		 #} else {
-		  #   `gzip -f ${out_file}`; #Is -f safe to use?
-		  #   $go_hash{$runno}=0;
-		  #   $existing_files_message = $existing_files_message."\t$runno\n";
-		 #}
+	     #if (data_double_check($out_file)) {
+	     $go_hash{$runno}=1;
+	     push(@file_array,$out_file);
+	     # This code may be activated for use with Init_check and generating lists of work to be done.
+	     #push(@files_to_create,$full_file);
+	     my $p = $debug_val>0 ? "\t(".$out_file.")" : "";
+	     $missing_files_message = $missing_files_message."\t$runno$p\n";
+	     #} else {
+	     #   `gzip -f ${out_file}`; #Is -f safe to use?
+	     #   $go_hash{$runno}=0;
+	     #   $existing_files_message = $existing_files_message."\t$runno\n";
+	     #}
 	     #}
 	 } else {
 	     $go_hash{$runno}=0;
 	     $existing_files_message = $existing_files_message."\t$runno\n";
 	 }
      }
+     printd($verbose_thresh,"Done!\n");
      if (($existing_files_message ne '') && ($case == 1)) {
 	 $existing_files_message = $existing_files_message."\n";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
@@ -267,8 +284,7 @@ sub apply_mdt_warp {
     if ($gid == 2 ) {
 	$out_file = "${current_path}/${runno}_${current_contrast}.nii${gz}"; # Added '.gz', 2 September 2015
 	$reference_image = $label_reference_path;
-    
-	if (! defined $current_label_space) {
+    	if (! defined $current_label_space) {
 	    die "\$current_label_space error! It is not being defined when $PM is called with \$group_name = \"all\". See your local programmer.";}
     
 	if ($direction eq 'f') {
@@ -305,13 +321,17 @@ sub apply_mdt_warp {
 	    $stop=3;
 	}
     }
-
+    ###
+    # crazy patch testing the output file.
+    # Unfortunatly has to be done in two places until we can update the replicated output path calculation.
+    my $alt_output= get_nii_from_inputs($current_path,$runno,$current_contrast); 
+    if ($alt_output !~ /[\n]+/) { $out_file = $alt_output ; }
+    ###
     my $image_to_warp = get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
     my $warp_string = $Hf->get_value("${direction_string}_xforms_${runno}");
     if ($warp_string eq 'NO_KEY') {
 	$warp_string=$Hf->get_value("mdt_${direction_string}_xforms_${runno}")
     }
-
     my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
 ##
     if ((defined $current_label_space) && ($current_label_space eq 'atlas') ) {
@@ -329,10 +349,13 @@ sub apply_mdt_warp {
 	$reference_image=$reference_image.'.gz';
     }
 
-    my $test_dim =  `fslhd ${image_to_warp} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;#`PrintHeader ${image_to_warp} 2`;
+    
+    my $fsl_test_cmd="fslhd ${image_to_warp} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2";
+    my $test_dim =  `$fsl_test_cmd`;#`PrintHeader ${image_to_warp} 2`;
     if (! looks_like_number($test_dim) ) {
 	error_out("Problem gathering dim info from $image_to_warp"); 
     }
+    
     #my @dim_array = split('x',$test_dim);
     #my $real_dim = $#dim_array +1;
     my $opt_e_string='';
@@ -342,17 +365,23 @@ sub apply_mdt_warp {
     } elsif ($test_dim > 1) {
         $opt_e_string = ' -e 3 ';
     } 
-    
-    if ( $current_label_space =~ /pre_rigid/
-	 || ( ($current_contrast eq 'nii4D') && (! data_double_check($out_file,1)))  ) {
-    #skip apply warp
-	# Should also skip when pre_rigid_native space BECAUSE THAT IS OUR PREPROCESS_BASE_IMAGE SPACE!
-	# Looks like the "SMARTY" clever way to do that would be to see if the warp chain was empty.
-	# Skipping this isn't known good... it just sounds like it! How will we valiate?
-	# Best understanding is that this is good becuase all images "follow the same path" to base_images
-	$go=0;
-    } else {
-      $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} ${opt_e_string} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";  
+    $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} ${opt_e_string} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";  
+    if ($current_contrast eq 'nii4D') {
+	cluck("NII4D HANDLING DEFFICIENT! It will be skipped, however the commands will be allowed to generate in case you want to be adventurous");
+	if (($convert_images_to_RAS == 1) && ($gid == 2)) {
+	    my $tmp_file;   
+	    if ($runno eq 'MDT') {
+		$tmp_file= "${median_images_path}/MDT_${current_contrast}_tmp.nii";
+	    } else {
+		$tmp_file= "${current_path}/${runno}_${current_contrast}_tmp.nii";
+            }
+	    $cmd=$cmd."cp ${out_file} ${tmp_file};\n";
+	}
+	$cmd=$cmd."gzip ${out_file};\n";
+	### defficient nii4d handling skip lines
+	$go = 0;
+	$out_file="/usr/bin/false";
+	###
     }
     if (trim($warp_train) eq '' ) {
 	# If we're not applying any warps, then we simply link to output.
@@ -363,35 +392,24 @@ sub apply_mdt_warp {
 	#$cmd="ln -s $image_to_warp $out_file";
 	$cmd="echo Skipped transform application for $image_to_warp";
 	# THIS IS DIFFICIENT IN THAT THE OUTPUT DOESNT KNOW WE"VE UPDATED OUT_FILE.
-	$out_file=$image_to_warp;
-    } else {
-	if ($current_contrast eq 'nii4D') {
-	    die "NII4D HANDLING DEFFICIENT!";
-	    if (($convert_images_to_RAS == 1) && ($gid == 2)) {
-		my $tmp_file;   
-		if ($runno eq 'MDT') {
-		    $tmp_file= "${median_images_path}/MDT_${current_contrast}_tmp.nii";
-		} else {
-		    $tmp_file= "${current_path}/${runno}_${current_contrast}_tmp.nii";
-            }
-		$cmd=$cmd."cp ${out_file} ${tmp_file};\n";
-	    }
-	    $cmd=$cmd."gzip ${out_file};\n";
-	}
-    }
+	$out_file = $image_to_warp;
+	$go=0;
+    } 
+
     # This lets our output check not attempt to re-resolve files, 
     # in case we change our mind in this funciton about where our output is.
     $output_file_hash{$runno}=$out_file;
     
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} MDT warp(s) to ${current_contrast} image for  ${runno}:\n${cmd}\n";
+
     my @test=(0);
     if (defined $reservation) {
 	@test =(0,$reservation);
     }
-
     my $mem_request = 75000;  # Added 23 November 2016,  Will need to make this smarter later.
     #my $input_size = 1024*(stat $image_to_warp)[7];
+
     my $input_size=1;
     for (my $ii=1; $ii<6; $ii++){
 	my $c_string = `fslhd ${image_to_warp} | grep dim${ii} | grep -v pix`;
@@ -406,8 +424,7 @@ sub apply_mdt_warp {
 	$input_size = $input_size*$c_dim_size;
     }
     my $bytes_per_point = 8; # Going to go with 64-bit depth by default, though float is the usual case;   
-    $input_size = $input_size*($bytes_per_point/1024/1024); # Originally just divided by 1024 instead of 1024*1024...was calculating request in kB instead of MB!
-
+    $input_size = $input_size*($bytes_per_point/1024/1024); 
     my $expected_max_mem = int(6.2*$input_size);
     printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
     if ($expected_max_mem > $mem_request) {
@@ -445,6 +462,9 @@ sub apply_mdt_warp {
 sub convert_images_to_RAS {
 # ------------------
     die "bad";
+
+=item BLOCK COMMENTOR
+
     my ($runno,$contrast) = @_;
     my ($cmd);
     my ($out_file,$input_image,$work_file);
@@ -541,6 +561,9 @@ sub convert_images_to_RAS {
     }
     
     return($jid_2,$out_file);
+
+=cut
+
 }
 
 
@@ -588,7 +611,6 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	    $runlist = $Hf->get_value('control_comma_list');
 	    $Hf->set_value('template_comma_list',$runlist); # 1 Feb 2016, just added these. If bug, then check here.
 	}
-	
     } elsif ($gid == 0) {
 	# the non-template group,
 	# this formerly masqueraeded as compare 
@@ -611,7 +633,6 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	$label_reference = $Hf->get_value('label_reference');
 	$label_reference_path = $Hf->get_value('label_reference_path');
 	$label_refname = $Hf->get_value('label_refname');
-
 	my $msg;
 	if (! defined $current_label_space) {
 	    $msg = "current_label_space not explicitly defined. Checking Headfile...\n";
@@ -621,35 +642,31 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	} else {
 	    $msg="current_label_space has been explicitly set to: ${current_label_space}\n";
 	}
-	#printd(0,$msg);die;
 	printd(35,$msg);
-	
-	# labels_dir is set, "in the new way" ->  vox_measure/MEASURESPACE
-	$labels_dir=$Hf->get_value('labels_dir');
-	# results not set yet, may never be, commenting.
-	#$label_results_path=$Hf->get_value('label_results_path');
-	
-	# Always reset, and rarely set to start with, so we just wont'd do this yet.
-	# $current_path=$Hf->get_value('label_images_dir');
 	$median_images_path = $Hf->get_value('median_images_path');
-
-	#if ($current_path eq 'NO_KEY') {
 	# For now lets simplify our ouput structuring to put everything in mega bucket.
-	# Except this is NOT space sensitive! Whoops!!
-	carp "output not sensitive to space, whoops... ";sleep_with_countdown(5);
-	$current_path = $labels_dir;
 	####
-	# In special case we can adjust label_images_dir to label_refspace_folder(preprocess/base_images)....
+	# In special cases we can adjust label_images_dir to existing data
+	# ex: label_refspace_folder(preprocess/base_images)....
 	# Lets do that just for funsies :D 
 	####
+=item spam terminal for all images and 
+	carp "WARP applied images for \"$a_label_space\" are inherrently silly. ".
+	    "This just introduces rounding error!\n".
+	    "Will not warp!" if( $current_label_space =~ /pre_rigid|MDT/ );
+=cut
 	if ( $current_label_space =~ /pre_rigid/ ){
 	    $Hf->set_value('label_images_dir',$Hf->get_value('label_refspace_folder'));
-	    $current_path=$Hf->get_value('label_images_dir');
-	}
+	} elsif ( $current_label_space =~ /MDT/ ){
+	    $Hf->set_value('label_images_dir',$Hf->get_value('mdt_images_path'));
+	} else {
+	    $Hf->set_value('label_images_dir',$Hf->get_value('labels_dir'));
+    	}
+	$current_path=$Hf->get_value('label_images_dir');	
 	if (! -e $current_path) {
 	    mkdir ($current_path,$permissions);
 	}
-
+=item disabled conver_to_
 	(my $f_ok,$convert_images_to_RAS)=$Hf->get_value_check('convert_labels_to_RAS');
 	if ( ! $f_ok ) { $convert_images_to_RAS=0; }
 	if ($convert_images_to_RAS == 1) {
@@ -658,6 +675,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	    # if we want to support "additional" orientations we should 
 	    # blanket replicate all "results" into new orientation.
 	    die "THIS IS OUTMODED AND BAD";
+	    
 	    $results_dir = $Hf->get_value('results_dir');
 	    #$almost_MDT_results_dir = "${results_dir}/labels/";
 	    $almost_MDT_results_dir = "${results_dir}/connectomics/";
@@ -686,26 +704,21 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	    #$Hf->set_value('final_label_results_dir',$final_results_dir);
 	    #$Hf->set_value('final_connectomics_results_dir',$final_results_dir);
 	}
-
+=cut    
 	$runlist = $Hf->get_value('complete_comma_list');
     } else {
 	print " ERROR: Invalid group ID in $PM.  Dying now...\n";
 	die;
     }
-
     $write_path_for_Hf = "${current_path}/.${template_name}_amw_temp.headfile";
-
 #   Functionize?
     if ($runlist eq 'EMPTY_VALUE') {
 	@array_of_runnos = ();
     } else {
 	@array_of_runnos = split(',',$runlist);
     }    
-
 #
-
-    $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
-
+#    $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
     my $case = 1;
     my ($dummy,$skip_message)=apply_mdt_warps_Output_check($case,$direction);
 
@@ -714,7 +727,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
     }
 
 # check for needed input files to produce output files which need to be produced in this step?
-
+    return;
 }
 
 1;

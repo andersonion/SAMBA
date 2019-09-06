@@ -95,11 +95,18 @@ my $interval = 0.1; ##Normally 1
 $valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
 $samba_label_types='labels|quagmire|mess';
 
-$civm_ecosystem = 1; # Begin implementing handling of code that is CIVM-specific
+# a flag to indicate we're in the civm eco system so all the parts should work
+# and we try to resolve all the funny things.
+$civm_ecosystem = 1; 
 if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
     $civm_ecosystem = 1;
 } elsif ( $ENV{'BIGGUS_DISKUS'} =~ /civmnas4/) {
     $civm_ecosystem = 1;
+} elsif (! exists $ENV{'WORKSTATION_HOSTNAME'} 
+	 || ! defined load_engine_deps() ) {
+    $civm_ecosystem = 0;
+    printd(5,"WARNING: appears to be outside the full eco-system. Disabling overly specific bits\n");
+    sleep_with_countdown(3);
 }
 
 
@@ -724,7 +731,13 @@ U_specid U_species_m00 U_code
         if ( $create_labels ) {
             # label_space is comma sep global
             my @label_spaces = split(',',$label_space);
-            warp_atlas_labels_vbm('MDT'); #$PM_code = 63
+	    my $qa_space='MDT';
+	    my $qa_only_mdt=0;
+	    if( $label_space !~ /$qa_space/ ){
+		push(@label_spaces,'MDT');
+		$qa_only_mdt=1;
+	    }
+            warp_atlas_labels_vbm('MDT','MDT'); #$PM_code = 63
             sleep($interval);
             if ( ! $stop_after_mdt_creation ) {
                 $group_name = "all";
@@ -734,31 +747,33 @@ U_specid U_species_m00 U_code
                 }
                 @current_channel_array = uniq(@current_channel_array);
                 #foreach my $a_label_space (@label_spaces) {
+		my @prev_channel=@current_channel_array;
                 while (my $a_label_space= shift(@label_spaces) ) {
                     #warp_atlas_labels_vbm('all',$a_label_space); #$PM_code = 63
 		    warp_atlas_labels_vbm($group_name,$a_label_space); #$PM_code = 63
                     sleep($interval);
-		    carp "WARP applied images for \"pre_rigid_native_space\" are inherrently silly. This just introduces rounding error!";
+		    if ( $qa_only_mdt && $a_label_space =~ /MDT/ ) { 
+			@current_channel_array=qw(dwi fa);
+		    }
 		    foreach my $a_contrast (@current_channel_array) {
                         apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
                     }
 		    calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
-
 		    if ($multiple_runnos) {
                         tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
                         if ($multiple_groups) {
 			    label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
                         }
                     }
+		    if ( $qa_only_mdt && $a_label_space =~ /MDT/ ) { 
+			# intentionally skipping bvec if we just quietly insisted on making a bigger mess.
+			next;
+		    }
                     if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
                         apply_warps_to_bvecs($a_label_space);
                     }
-		    last;
+		    @current_channel_array=@prev_channel;
                 }
-		if (scalar(@label_spaces) ) {
-		    cluck("Code defficient, and doesnt really handle multiple label spaces at the same time :( ");
-		    sleep_with_countdown(3);
-		}
                 sleep($interval);
             }
         }

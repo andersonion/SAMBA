@@ -28,14 +28,11 @@ if ~isdeployed
 end
 
 if exist('output_path','var')
-    if ~exist(output_path,'dir')
-        output_path = input_path;
-    else
-        if ~strcmp('/',output_path(end))
-            out_file2=output_path;
-        end
+    if ~strcmp('/',output_path(end))
+        out_file2=output_path;
     end
 else
+    error('Need output path specified!');
     output_path = input_path;
 end
 contrast_or_contrasts_cell=strsplit(contrast_or_contrasts,',');
@@ -51,10 +48,8 @@ for cc = 1:length(contrast_or_contrasts_cell)
     
     % First round of code will not support figures, but want to keep code just in case
     figure_support = 0; 
-    
     allrunnos = strsplit(string_of_runnos,',');
     master_timestamp=0;
-    
     if exist(out_file,'file')
         %new_table = 0;
         mt_info = dir(out_file);
