@@ -16,10 +16,11 @@ https://github.com/jamesjcook/pipeline_utilities/blob/master/civm_simple_util.pm
 The pipeline is initiated by running:
 vbm_pipeline_start.pl
 
-Two optional arguments can be accepted, the first is a headfile with the basic input parameters for the pipeline.  If the first option is not an existing file, it will default to starting up based on study_variables.pm (not recommended).  Please see input_parameters_template.headfile for a good starting point.
+Two optional arguments can be accepted, in any order.
+One is a headfile with the basic input parameters for the pipeline. 
+Please see SAMBA_startup_template.headfile for a good starting point.
 
-The second option (or first if no headfile is specified) is one of the following:
-the integer number of cluster nodes that the pipeline will try to saturate with work (default is 4).
+The other option is either an integer number of cluster nodes to try and saturate with work (default is 4).
 or
 a valid slurm reservation
 
