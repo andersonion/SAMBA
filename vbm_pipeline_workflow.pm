@@ -739,7 +739,35 @@ U_specid U_species_m00 U_code
 	    }
             warp_atlas_labels_vbm('MDT','MDT'); #$PM_code = 63
             sleep($interval);
-            if ( ! $stop_after_mdt_creation ) {
+	    # It would be nice to run the calc stats on our vbm dataset...
+	    # the function interface doesnt exist, but the internal call has one.
+	    #calculate_individual_label_statistics_vbm($a_label_space);
+	    # so roughly, that is
+	    #my $label_measure_jid = calculate_label_statistics($runno,$input_labels,$lookup_table);
+            #my $label_measure_jid = calculate_label_statistics('MDT',$Hf->get_value("MDT_${label_atlas_nickname}_".$Hf->get_value("label_type")),
+	    #                     $Hf->get_value("MDT_${label_atlas_nickname}_labels_lookup_table"));
+	    # Quick check didnt work due to the horrfic hard cody nature , tried after the loop of work also and it failed too.
+	    #
+	    
+=item
+# Here's an ugly breakdown of the call and args to that funtion. Maybe we can do an inline sbatch call.
+stat_exec="/cm/shared/workstation_code_dev/matlab_execs/write_individual_stats_executable/stable/run_write_individual_stats_exec.sh";
+mat_runtime="/cm/shared/apps/MATLAB/R2015b";
+template_dir=/mnt/civmbigdata/civmBigDataVol/jjc29/VBM_16gaj38_chass_symmetric3_RAS_CodeTest_CE-work/dwi/SyN_0p23_3_0p5_fa/faMDT_NoNameYet_n6_i4
+median_images=$template_dir/median_images
+
+/mnt/civmbigdata/civmBigDataVol/jjc29/VBM_16gaj38_chass_symmetric3_RAS_CodeTest_CE-work/dwi/SyN_0p23_3_0p5_fa/faMDT_NoNameYet_n6_i4/vox_measure/atlas_native_space 
+label_file=$Hf->get_value("MDT_${label_atlas_nickname}_".$Hf->get_value("label_type"));
+lookup_file=$Hf->get_value("MDT_${label_atlas_nickname}_labels_lookup_table"));
+command=$stat_exec, $mat_runtime, MDT, $label_file, "dwi,fa,adc,e1,e2,e3,rd", $median_images/labels_MDT, $stat_dir, "MDT", "WHS",$lookup_file, 1
+$stat_dir
+atlas WHS NO_KEY 1
+
+write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,space,atlas_id,lookup,mask_with_contrast1
+
+
+=cut
+	    if ( ! $stop_after_mdt_creation ) {
                 $group_name = "all";
                 my @current_channel_array = @channel_array;
                 if ($do_connectivity) {
@@ -776,7 +804,7 @@ U_specid U_species_m00 U_code
                 }
                 sleep($interval);
             }
-        }
+	}
     }
     if ($do_vba) {
 	carp "VBA has not been tested recently, and there have been MANY changes in structure! We apologize in advance if this doesnt work, AND we dont have time allocated to fix it. Please feel free to clone the code, repair it, and issue a pull request";
