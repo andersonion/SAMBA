@@ -152,7 +152,7 @@ sub warp_atlas_labels_vbm {  # Main code
 	# because WE DIDNT MAKE ANY WE WANT CLEANED :p
         #symbolic_link_cleanup($current_path,$PM);
     }
-=item
+=item convert_labels_to_RAS DISABLED
     my @jobs_2;
     if ($convert_labels_to_RAS == 1) {
 die;die;die;# no seriously, die.
@@ -426,32 +426,31 @@ sub apply_mdt_warp_to_labels {
         $cmd = ${create_cmd};
     }
 
+    my @cmds = ($cmd);
+
     my $go_message =  "$PM: create ${label_atlas_nickname} label set for ${runno}";
     my $stop_message = "$PM: could not create ${label_atlas_nickname} label set for ${runno}:\n${cmd}\n";
 
-    my @test=(0);
-    if (defined $reservation) {
-        @test =(0,$reservation);
-    }
-    
-    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
     my $jid = 0;
     if (cluster_check) {
+	my @test=(0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
         my $home_path = $current_path;
         my $Id= "create_${label_atlas_nickname}_labels_for_${runno}";
         my $verbose = 1; # Will print log only for work done.
+	my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
         $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
         if (not $jid) {
             error_out($stop_message);
         }
     } else {
-        my @cmds = ($cmd);
         if (! execute($go, $go_message, @cmds) ) {
             error_out($stop_message);
         }
     }
 
-    #if ((!-e $out_file) && (not $jid)) {
     if ($go && (not $jid)) {
         error_out("$PM: could not start for ${label_atlas_nickname} label set for ${runno}: ${out_file}");
     }
@@ -464,6 +463,7 @@ sub apply_mdt_warp_to_labels {
 sub convert_labels_to_RAS {
 # ------------------
     die "dirty vestigal friend";
+=item convert_labels_to_RAS DISABLED
     my ($runno) = @_;
     my ($cmd);
     my ($out_file,$input_labels,$work_file);
@@ -537,6 +537,7 @@ sub convert_labels_to_RAS {
         print "** $PM expected output: ${out_file}\n";
     }
     return($jid_2,$out_file);
+=cut
 }
 
 # ------------------
@@ -756,7 +757,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	mkdir ($current_path,$permissions);
     }
     print " $PM: current path is ${current_path}\n";
-=item disabled code
+=item convert_labels_to_RAS DISABLED
     $results_dir = $Hf->get_value('results_dir');
     (my $f_ok,$convert_labels_to_RAS)=$Hf->get_value_check('convert_labels_to_RAS');
     if ( ! $f_ok ) { $convert_labels_to_RAS=0; }

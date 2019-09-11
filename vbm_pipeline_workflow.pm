@@ -124,6 +124,13 @@ sub vbm_pipeline_workflow {
 # Concatanate and uniq comparison list to create reg_to_mdt(?) group list
 # Create a master list of all specimen that are to be pre-processed and rigid/affinely aligned
 
+    
+    my $pipe_adm="";
+    my $grp=getgrgid((getpwuid($<))[3]);
+    if(! defined $CODE_DEV_GROUP
+       || $CODE_DEV_GROUP ne $grp ) {
+	$pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
+    } 
 
     my @variables_to_headfile=qw(
 start_file project_id image_dimensions
@@ -557,7 +564,7 @@ U_specid U_species_m00 U_code
 # mask is rather dirty it overwrites and removes its working images.
     mask_images_vbm(); #$PM_code = 14
     sleep($interval);
-    
+
     set_reference_space_vbm(); #$PM_code = 15
     sleep($interval);
     
@@ -786,7 +793,11 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
 		    foreach my $a_contrast (@current_channel_array) {
                         apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
                     }
-		    calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
+		    if ( ! ( $qa_only_mdt && $a_label_space =~ /MDT/ ) ) { 
+			calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
+		    } else {
+			calculate_individual_label_statistics_vbm($a_label_space,@current_channel_array); #$PM_code = 65
+		    }
 		    if ($multiple_runnos) {
                         tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66 
                         if ($multiple_groups) {
@@ -841,8 +852,6 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
     my $email_content = $subject_line.$completion_message.$results_message.$local_time_stamp.$time_stamp;
     `echo "${email_content}" > ${email_file}`;
     my $pwuid = getpwuid( $< );
-    my $pipe_adm="";
-    $pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
     my $USER_LIST="$pwuid\@duke.edu$pipe_adm";
     `sendmail -f $process.civmcluster1\@dhe.duke.edu $USER_LIST < ${email_file}`;
     

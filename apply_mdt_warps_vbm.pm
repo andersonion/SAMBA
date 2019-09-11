@@ -403,10 +403,6 @@ sub apply_mdt_warp {
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} MDT warp(s) to ${current_contrast} image for  ${runno}:\n${cmd}\n";
 
-    my @test=(0);
-    if (defined $reservation) {
-	@test =(0,$reservation);
-    }
     my $mem_request = 75000;  # Added 23 November 2016,  Will need to make this smarter later.
     #my $input_size = 1024*(stat $image_to_warp)[7];
 
@@ -430,9 +426,14 @@ sub apply_mdt_warp {
     if ($expected_max_mem > $mem_request) {
 	$mem_request = $expected_max_mem;
     }
+    my @cmds = ($cmd);
 
     my $jid = 0;
     if (cluster_check) {
+	my @test=(0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
 	my $home_path = $current_path;
 	my $Id= "${runno}_${current_contrast}_apply_${direction_string}_MDT_warp";
 	my $verbose = 1; # Will print log only for work done.
@@ -441,18 +442,17 @@ sub apply_mdt_warp {
 	    error_out($stop_message);
 	}
     } else {
-	my @cmds = ($cmd);
 	if (! execute($go, $go_message, @cmds) ) {
 	    error_out($stop_message);
 	}
 	$jid=1;
     }
 
-    #if ((!-e $out_file) && (not $jid)) {
     if ($go && (not $jid)) {
 	error_out("$PM: could not start for ${current_contrast} image with ${direction_string} MDT warp(s) applied for ${runno}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
+
     return($jid,$out_file);
 }
 
@@ -658,7 +658,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	if ( $current_label_space =~ /pre_rigid/ ){
 	    $Hf->set_value('label_images_dir',$Hf->get_value('label_refspace_folder'));
 	} elsif ( $current_label_space =~ /MDT/ ){
-	    $Hf->set_value('label_images_dir',$Hf->get_value('mdt_images_path'));
+	    $Hf->set_value('label_images_dir',$Hf->get_value('reg_images_path'));
 	} else {
 	    $Hf->set_value('label_images_dir',$Hf->get_value('labels_dir'));
     	}

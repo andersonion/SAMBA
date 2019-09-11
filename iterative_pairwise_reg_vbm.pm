@@ -23,7 +23,6 @@ my $log_msg="";
 my ($expected_number_of_jobs,$hash_errors);
 my ($mem_request,$mem_request_2,$jobs_in_first_batch);
 my $max_iterations;
-my $batch_folder;
 my $counter=0;
 my $current_checkpoint = 1; # Bound to change! Change here!
 my $write_path_for_Hf;
@@ -109,7 +108,7 @@ sub iterative_pairwise_reg_vbm {  # Main code
    if (cluster_check() && (@jobs)) {
        my $interval = 15;
        my $verbose = 1;
-       my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
+       my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
        
        if ($done_waiting) {
 	   print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
@@ -259,12 +258,6 @@ sub create_iterative_pairwise_warps {
 	"ln -s ${out_warp} ${new_warp};\n".
 	"ln -s ${out_inverse} ${new_inverse};\n".#.
 	"rm ${out_affine};\n";
-    my @test = (0);
-    my $node = '';
-    
-    if (defined $reservation) {
-	@test =(0,$reservation);
-    }
 
     if (! data_double_check($out_warp,$out_inverse)) {
 	$pairwise_cmd = '';
@@ -291,13 +284,16 @@ sub create_iterative_pairwise_warps {
 	}
     }
 
+    my $cmd = $pairwise_cmd.$rename_cmd;
+    my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
 
     my $jid = 0;
     if (cluster_check) {
-	my $cmd = $pairwise_cmd.$rename_cmd;
-	
+	my @test = (0);    
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
 	my $home_path = $current_path;
-	$batch_folder = $home_path.'/sbatch/';
 	my $Id= "${moving_runno}_to_MDT_create_iterative_pairwise_warp";
 	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
@@ -305,17 +301,16 @@ sub create_iterative_pairwise_warps {
 	    error_out();
 	}
     } else {
-	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
 	if (! execute($go, $go_message, @cmds) ) {
 	    error_out($stop_message);
 	}
     }
 
-    #if (((!-e $new_warp) | (!-e $new_inverse)) && (not $jid)) {
     if ($go && (not $jid)) {
 	error_out($stop_message);
     }
     print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
+
     return($jid);
 }
 

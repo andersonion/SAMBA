@@ -1,8 +1,10 @@
 function [ CoV_array ] = calculate_coeffecient_of_variation( individual_stat_file,field, delta )
-%CALCULATE_COEFFECIENT_OF_VARIATION Smartly calculate CoV between L/R ROIs
+% CoV_triplets = CALCULATE_COEFFECIENT_OF_VARIATION Smartly calculate CoV between L/R ROIs
 %   Input an individual stat file as produced by VBA, etc pipeline
 %   Define the field (vol, fa, etc) on which to work
 %   Use a difference constant 'delta' to map L-R pairs
+% Output is 3xN array of roi,cov,mean for each roi found
+
 %individual_stat_file='/cm/shared/CIVMdata/atlas/xmas2015rat_symmetric_cropped/xmas2015rat_symmetric_cropped_xmas2015rat_symmetric_cropped_labels_in_native_space_stats.txt';
 %individual_stat_file='/civmnas4/rja20/data_from_glusterspace/VBM_17gaj40_chass_symmetric2_CAST-work/dwi/SyN_0p25_3_0p5_fa/faMDT_all_n8_i6/stats_by_region/labels/pre_rigid_native_space/CAST_symmetric_R/stats/individual_label_statistics/N54823_CAST_symmetric_R_labels_in_native_space_stats.txt';
 isf=individual_stat_file;
@@ -10,6 +12,7 @@ isf=individual_stat_file;
 %delta=1;
 
 do_process=1;
+CoV_array=[];
 if exist(isf, 'file')
     % this line fails when we have header lines... like in the old days : (
     master_T = readtable( isf,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t');
@@ -26,7 +29,6 @@ if exist(isf, 'file')
     clear master_T_o;
 else
     error('Missing file %s',isf);
-    CoV_array=0;
     do_process=0;
 end
 if do_process
@@ -100,7 +102,7 @@ if do_process
     CoV_array(1,:)=intermediate_array(1,:);
     % It is important that the second std option be set to 0 to match what Nian did in Excel.
     CoV_array(2,:)=std(intermediate_array(2:3,:),0,1)./mean(intermediate_array(2:3,:),1); 
-    
+    CoV_array(3,:)=mean(intermediate_array(2:3,:),1);
 end
 %end
 

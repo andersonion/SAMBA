@@ -1,4 +1,4 @@
-function [out_file]=generate_QA_for_coeffecient_of_variation(runno_or_id,stat_files,string_of_contrasts,atlas_label_prefix,delta)
+function [out_file,out_table]=generate_QA_for_coeffecient_of_variation(runno_or_id,stat_files,string_of_contrasts,atlas_label_prefix,delta)
 % function [out_file]=generate_QA_for_coeffecient_of_variation(runno_or_id,stat_file,string_of_contrasts,atlas_label_prefix,delta)
 % runno_or_id, 
 % stats - the path to the stats file, routinely  ...measured_in_native_space.txt
@@ -50,8 +50,29 @@ atlas_lookup_table=[atlas_label_prefix '_lookup.txt'];
 if ~exist('delta','var')
     delta=1000;
 end
+sort_col='ROI';
 if exist(volume_order_file,'file')
     order_T=readtable(volume_order_file,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t');
+    % logical index for order_T header of col named *sort_order*
+    log_idx=~cellfun(@isempty,strfind(order_T.Properties.VariableNames,'sort_order'));
+    % index of just that col
+    idx=find(log_idx);
+    sort_col=order_T.Properties.VariableNames{idx};
+    % if our sort column is exactly sort_order, expand it to specify who's
+    % sort it is.
+    if strcmp(sort_col,'sort_order')
+        [~,vo_nam]=fileparts(atlas_label_prefix);
+        tmp=regexpi(vo_nam,'^(.*)(_labels|quagmire|mess).*$','tokens');
+        if ~isempty(tmp)
+            vo_nam=tmp{1}{1};
+        end
+        sort_col_out=sprintf('%s_volume_%s',sort_col,vo_nam);
+        order_T.Properties.VariableNames{idx}=sort_col_out;sort_col=sort_col_out;
+        fprintf('Sorting column had identity added, it is now: %s\n',sort_col);
+    else
+        fprintf('Sorting column(%s) appears to have identity, will not expand\n',sort_col);
+    end
+    order_T=lowercase_table(order_T,'ROI|(^R|G|B|A$)|(sort_order.*)');
 end
 
 %sorted_ROIs=order_T.ROI;
@@ -61,9 +82,21 @@ else
     files=stat_files;
 end
 [out_dir,~,~]=fileparts(files{1});
+out_qa_lookups=fullfile(out_dir,'qa_lookups');
+out_dir=fullfile(out_dir,'reports');
 out_contrast_string=strrep(string_of_contrasts,',','_');
-out_file = [out_dir '/QA_summary_' runno_or_id '_CoVs_' out_contrast_string '.pdf'];
-out_data = [out_dir '/QA_data_' runno_or_id '_CoVs_' out_contrast_string '.mat'];
+rep_prefix='Graph_summary';
+tab_prefix='raw_data';
+dat_prefix='figure_source';
+if ~exist(out_dir,'dir')
+    mkdir(out_dir);
+end
+if ~exist(out_qa_lookups,'dir')
+    mkdir(out_qa_lookups);
+end
+out_file = fullfile(out_dir,sprintf('%s_%s_CoVs_%s.pdf',rep_prefix, runno_or_id, out_contrast_string));
+out_table= fullfile(out_dir,sprintf('%s_%s_CoVs_%s.txt',tab_prefix, runno_or_id, out_contrast_string));
+out_data = fullfile(out_dir,sprintf('%s_%s_CoVs_%s.mat',dat_prefix, runno_or_id, out_contrast_string));
 
 %{
 % Commented out because the code doesnt actually support cell input
@@ -73,11 +106,30 @@ else
     names=runno_or_id;
 end
 %}
+% if we have structure, we dont need atlas_lookup_T.
+try
+    atlas_lookup_T=readtable(atlas_lookup_table,'ReadVariableNames', false,'HeaderLines',0,'Delimiter',' ' ...
+        ,'Format','%d64 %s %d %d %d %d %s','CommentStyle','#');
+catch
+    atlas_lookup_T=readtable(atlas_lookup_table,'ReadVariableNames', true,'Delimiter','\t');
+end
+atlas_lookup_T=lowercase_table(atlas_lookup_T,'ROI');
+% atlas_lookup_T.Properties.VariableNames={'ROI' 'Structure' 'R' 'G' 'B' 'A' 'Comments'};
+%atlas_lookup_T.Properties.VariableNames={'ROI' 'structure' 'R' 'G' 'B' 'A' 'Comments'};
+atlas_lookup_T.Properties.VariableNames{1}='ROI';
+atlas_lookup_T.Properties.VariableNames{2}='structure';
+atlas_lookup_T.Properties.VariableNames{3}='R';
+atlas_lookup_T.Properties.VariableNames{4}='G';
+atlas_lookup_T.Properties.VariableNames{5}='B';
+atlas_lookup_T.Properties.VariableNames{6}='A';
 
-% {'volume_mm3' 'adc' 'dwi' 'e1' 'e2' 'e3' 'fa' 'rd' 'b0'}
+% Build a proper sorted master_T to save in the data file
+% taking advantage that the first column should be volume 
+master_CoV_T=table;
 contrasts=strsplit(string_of_contrasts,','); 
 for CC=1:numel(contrasts)
     field=contrasts{CC};
+    field_out_name=[lower(field) '_CoV'];
     % for FF=1:numel(files)
     % file=files{FF};
     file=files{1};
@@ -88,30 +140,37 @@ for CC=1:numel(contrasts)
         mkdir(tempdir);
     end
     [ CoV_array ] = calculate_coeffecient_of_variation( file,field,delta);
-    CoV_T=table(CoV_array(1,:)',CoV_array(2,:)','VariableNames',{'ROI' [field '_CoV']});
-    
-    % if we have structure, we dont need atlas_lookup_T.
-    try
-        atlas_lookup_T=readtable(atlas_lookup_table,'ReadVariableNames', false,'HeaderLines',0,'Delimiter',' ' ...
-            ,'Format','%d64 %s %d %d %d %d %s','CommentStyle','#');
-    catch
-        atlas_lookup_T=readtable(atlas_lookup_table,'ReadVariableNames', true,'Delimiter','\t');
+    % due to the nature of this code its okay if we dont have some
+    if numel(CoV_array)==0
+        [~,fn]=fileparts(file);
+        warning('%s must be missing from file %s, no CoV returned',field,fn);
+        continue;
     end
-    % atlas_lookup_T.Properties.VariableNames={'ROI' 'Structure' 'R' 'G' 'B' 'A' 'Comments'};
-    %atlas_lookup_T.Properties.VariableNames={'ROI' 'structure' 'R' 'G' 'B' 'A' 'Comments'};
-    atlas_lookup_T.Properties.VariableNames{1}='ROI';
-    atlas_lookup_T.Properties.VariableNames{2}='structure';
-    atlas_lookup_T.Properties.VariableNames{3}='R';
-    atlas_lookup_T.Properties.VariableNames{4}='G';
-    atlas_lookup_T.Properties.VariableNames{5}='B';
-    atlas_lookup_T.Properties.VariableNames{6}='A';
+    CoV_T=table(CoV_array(1,:)',CoV_array(2,:)',CoV_array(3,:)','VariableNames',{'ROI' field_out_name field});
+    if ~isempty(regexpi(field,'(vol(ume)?(_?)(mm3)?)|(vox(el)?'))
+        % TO SPLIT THE DIFFERENCE of different data handling, the third
+        % column(the average) is multipled by 2 for volume measures, 
+        % because they're averaged in the function, which is more often
+        % correct.
+        CoV_T{:,3}=CoV_T{:,3}*2;
+    end
+    
     if exist(volume_order_file,'file')
-        full_T=sortrows(outerjoin(order_T,CoV_T,'Keys','ROI','Type','left','MergeKeys',true),'sort_order');
+        full_T=outerjoin(order_T,CoV_T,'Keys','ROI','Type','left','MergeKeys',true,'LeftVariables',{'ROI','structure',sort_col});
     else
-        full_T=sortrows(outerjoin(atlas_lookup_T,CoV_T,'Keys','ROI','Type','left','MergeKeys',true),'ROI');
+        full_T=outerjoin(atlas_lookup_T,CoV_T,'Keys','ROI','Type','left','MergeKeys',true);
     end
-    
-    %CoV_array(1,(sorted_ROIs==CoV_array(1,:)'));
+    % if full_T doesnt have volume, but master_CoV_T does, Add it.
+    if ~any(strcmp('volume_mm3',full_T.Properties.VariableNames)) ...
+            && any(strcmp('volume_mm3',master_CoV_T.Properties.VariableNames))
+        full_T=outerjoin( full_T,master_CoV_T,'Keys','ROI','Type','left','MergeKeys',true,'RightVariables',{ 'volume_mm3'});
+    end
+    if isempty(master_CoV_T)
+        master_CoV_T=full_T;
+    else
+        master_CoV_T=outerjoin(master_CoV_T,full_T,'Keys','ROI','Type','left','MergeKeys',true,'RightVariables',{field_out_name,field});
+    end
+    full_T=sortrows(full_T,sort_col);
     
     %% Build lookup table for visual QA with green/yellow/red motif
     % In the future, want to make thresholds dynamic, i.e. account for
@@ -119,9 +178,9 @@ for CC=1:numel(contrasts)
     % I think this replicates the red rois with the yellows.
     % Which is probably cleaned up by table operations forcing unique
     % later.
-    red_ROIs=   full_T.ROI(find(full_T.([field '_CoV'])>=red_thresh));
-    yellow_ROIs=full_T.ROI(find(full_T.([field '_CoV'])>=yellow_thresh));
-    green_ROIs= full_T.ROI(find(full_T.([field '_CoV'])<yellow_thresh));
+    red_ROIs=   full_T.ROI(find(full_T.(field_out_name)>=red_thresh));
+    yellow_ROIs=full_T.ROI(find(full_T.(field_out_name)>=yellow_thresh));
+    green_ROIs= full_T.ROI(find(full_T.(field_out_name)<yellow_thresh));
     
     % We might want to change this to be bright red/yellow for volume
     % outliers and medium red/yellow for other contrast outliers
@@ -136,8 +195,12 @@ for CC=1:numel(contrasts)
     greens= floor([green_ROIs'; (green_rndm*green_RGB)';   80*ones(size(green_ROIs  ))']');
     RGB_d=[reds;yellows;greens];
     RGB_T=table(RGB_d(:,1),RGB_d(:,2),RGB_d(:,3),RGB_d(:,4),RGB_d(:,5),repmat('#',[1 size(RGB_d,1)])','VariableNames',{'ROI' 'R' 'G' 'B' 'A' 'Comment_break'});
-    
-    lookup_T_left=join(RGB_T,full_T,'Keys','ROI','RightVariables', {[field '_CoV']});
+    full_T_fields={field_out_name};
+    %  if any(strfind('sort_order',full_T.Properties.VariableNames))
+    if exist(volume_order_file,'file')
+        full_T_fields=[full_T_fields sort_col];
+    end
+    lookup_T_left=join(RGB_T,full_T,'Keys','ROI','RightVariables', full_T_fields);
     lookup_T_right=lookup_T_left;
     lookup_T_right.ROI=lookup_T_right.ROI+delta;
     lookup_T=union(lookup_T_left,lookup_T_right);
@@ -149,7 +212,7 @@ for CC=1:numel(contrasts)
         'RightKeys',1,...
         'LeftVariables',{'ROI','structure'},...
         'MergeKeys',true);
-    QA_lookup_path=fullfile(stat_dir,regexprep(stat_file_name,'_(labels|measured)_.*txt',...
+    QA_lookup_path=fullfile(out_qa_lookups,regexprep(stat_file_name,'_(labels|measured)_.*txt',...
         ['_labels_lookup_outliers_in_CoV_of_' field '.txt']));
     %writetable(QA_lookup_T,QA_lookup_path,'Delimiter',' ')
     if ~exist(QA_lookup_path,'file')
@@ -173,7 +236,7 @@ for CC=1:numel(contrasts)
         case 'sorted_by_volume'
             %plot(full_T.sort_order,full_T.([contrast '_CoV']),'o','LineWidth',1); \
             x_axis=full_T.sort_order;
-            y_axis=full_T.([field '_CoV']);
+            y_axis=full_T.(field_out_name);
             min_range=min(x_axis(:));
             max_range=max(x_axis(:));
             rng=round(max_range-min_range)+1;
@@ -181,7 +244,7 @@ for CC=1:numel(contrasts)
         case 'log_volume'
             %plot(CoV_array(1,:),CoV_array(2,:),'o','LineWidth',1);
             x_axis= log10(full_T.volume_mm3);
-            y_axis=full_T.([field '_CoV']);
+            y_axis=full_T.(field_out_name);
             min_range=floor((min(x_axis(:)))*2)/2;
             max_range=ceil(max(x_axis(:))*2)/2;
             rng=floor((max_range-min_range)*2)+1;
@@ -194,7 +257,6 @@ for CC=1:numel(contrasts)
             rng=round(max_range-min_range)+1;
             step=1;
     end
-    % end % Loop over multiple stats files
        
     red_flags=[];
     %red_flags=find(full_T.([contrast '_CoV'])>=0.1);
@@ -227,11 +289,12 @@ for CC=1:numel(contrasts)
     %% set axes labels
     switch plot_option
         case 'sorted_by_volume'
-            xlabel('ROI rank small to large')
+             [~,n]=fileparts(volume_order_file);
+            xlabel(strrep(['ROI rank from ' n],'_','\_'));
         case 'log_volume'
-            xlabel('log_1_0(vol mm^3)')
+            xlabel('log_1_0(vol mm^3)');
         otherwise
-            xlabel('ROI')
+            xlabel('ROI');
     end
     % have to escape _ in labels else they get subscripted.
     if ~strcmp(field,'volume_mm3')
@@ -290,8 +353,9 @@ if exist(out_file,'file')
 end
 append_pdfs(out_file ,out_pdf{:});
 % Selective save will be far better behavior.
-vars=strsplit('runno_or_id out_contrast_string atlas_lookup_table c_fig stat_files plot_option out_data out_file' );
+vars=strsplit('runno_or_id out_contrast_string master_CoV_T c_fig stat_files plot_option out_data out_file' );
 save(out_data,vars{:} );
+writetable(master_CoV_T,out_table,'Delimiter','\t','WriteVariableNames',1);
 % Cleanup intermediary figures
 if cleanup && exist(out_file,'file')
     for cc=1:numel(contrasts)
@@ -305,4 +369,11 @@ else
     end
 end
 close all;
+end
+function T=lowercase_table(T,untouch_pat)
+    for cn=1:numel(T.Properties.VariableNames)
+        if isempty(regexpi(T.Properties.VariableNames{cn},untouch_pat))
+             T.Properties.VariableNames{cn}= lower(T.Properties.VariableNames{cn});
+        end
+    end
 end

@@ -175,13 +175,14 @@ sub iterative_calculate_average_mdt_warp {
 
     $fraction_cmd = "MultiplyImages ${dims} ${out_file_2} -${update_step_size} ${out_file_1};\n";
     my $cmd = $avg_cmd.$fraction_cmd.$clean_cmd;
+    my @cmds = ($cmd);
     
     my $jid = 0;
-    my @test=0;
-    if (defined $reservation) {
-	@test =(0,$reservation);
-    }
     if (cluster_check()) {
+	my @test=0;
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
 	my $home_path = $current_path;
 	my $Id= "create_update_warp";
 	my $verbose = 1; # Will print log only for work done.
@@ -191,16 +192,12 @@ sub iterative_calculate_average_mdt_warp {
 	    error_out("$PM: could not create update warp:\n${cmd}\n");
 	}
     } else {
-	my @cmds = ($cmd);
 	if (! execute($go, "$PM: create update warp", @cmds) ) {
 	    error_out("$PM: could not create update warp:\n${cmd}\n");
 	}
     }
 
-    #if ((data_double_check($out_file_1)) && (not $jid)) {
     if ($go && (not $jid)) {
-	# I think that data_double_checking transform path here causes this to wait for completion,
-	# while erroneously giving errors.
 	error_out("$PM: could not start for warp: ${out_file_1}");
     }
     print "** $PM expected output: ${out_file_1}\n";

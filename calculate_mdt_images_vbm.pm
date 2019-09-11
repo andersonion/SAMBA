@@ -220,37 +220,32 @@ sub calculate_average_mdt_image {
         $avg_cmd = $avg_cmd.";\n";
     }
     $cmd = $avg_cmd.$update_cmd.$cleanup_cmd.$copy_cmd;
+    my @cmds = ($cmd);
 
     my $go_message =  "$PM: created average MDT image(s) for contrast:  ${contrast}";
     my $stop_message = "$PM: could not create an average MDT image for contrast: ${contrast}:\n${cmd}\n";
 
-    my @test=(0);
-    if (defined $reservation) {
-        @test =(0,$reservation);
-    }
-
-    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
-
     my $jid = 0;
     if (cluster_check) {
+	my @test=(0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
         my $home_path = $current_path;
         my $Id= "${contrast}_calculate_average_MDT_image";
         my $verbose = 1;
+	my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
         $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
         if (not $jid) {
             error_out($stop_message);
         }
     } else {
-        my @cmds = ($cmd);
-        if (! execute($go,$go_message, @cmds) ) {
+	if (! execute($go,$go_message, @cmds) ) {
             error_out($stop_message);
         }
     }
 
-    #if ((!-e $out_file) && (not $jid)) {
     if ($go && (not $jid)) {
-        # I think that ouput checking here causes this to fail erroneously
-        # Now deferring until our intentional output checking at end of module.
         error_out("$PM: could not start average MDT image for contrast: ${contrast}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";

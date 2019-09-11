@@ -151,24 +151,36 @@ sub mask_images_vbm {
             print STDOUT  "  All input images have been masked; moving on to next step.\n";
         }
     }
+
     my $case = 2;
     my ($dummy,$error_message)=mask_images_Output_check($case);
 
-
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
-
 
     if (($error_message ne '') && ($do_mask)) {
         error_out("${error_message}",0);
     } else {
         # Clean up matlab junk
-        if (`ls ${work_dir} | grep -E /.m$/`) {
-            `rm ${work_dir}/*.m`;
-        }
-        if (`ls ${work_dir} | grep -E /matlab/`) {
-            `rm ${work_dir}/*matlab*`;
-        }
+	#if (`ls ${work_dir} | grep -E /.m$/`) {
+        #    `rm ${work_dir}/*.m`;
+        #}
+        #if (`ls ${work_dir} | grep -E /matlab/`) {
+        #    `rm ${work_dir}/*matlab*`;
+        #}
+	# if "ls" command is successful (finds existing items), then executes "rm" command.
+	# "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
+	# While the first inclination is to use run_and_watch, we dont care at all if we succeed or fail here.
+	# We only care if there is work found to do, so we'll simply capture output to let this fail quietly.
+	# Added -v to rm because wildcard rm is scary !
+	my @matlab_stubs=`ls ${work_dir}/*.m 2> /dev/null`;
+	my @matlab_files=`ls ${work_dir}/*matlab* 2> /dev/null`;
+	chomp(@matlab_stubs);chomp(@matlab_files);
+	if(scalar(@matlab_stubs) || scalar(@matlab_files) ) {
+	    my $rm_cmd=sprintf("rm -v %s",sprintf("%s ",@matlab_stubs,@matlab_files));
+	    #cluck("Testing:$PM\n\t$rm_cmd");sleep_with_countdown(15);
+	    run_and_watch("$rm_cmd");
+	}
     }
 }
 
@@ -200,35 +212,30 @@ sub mask_images_Output_check {
     }   # For Init_check, we could just add the appropriate cases.
     
     foreach my $runno (@array_of_runnos) {
-
-
 	my $sub_existing_files_message='';
 	my $sub_missing_files_message='';
-	
-
 	foreach my $ch (@channel_array) {
-
-        if ($do_mask) {
-            $file_1 = "${current_path}/${runno}_${ch}_masked.nii";
+	    if ($do_mask) {
+		$file_1 = "${current_path}/${runno}_${ch}_masked.nii";
 	    } else {
-            $file_1 = "${current_path}/${runno}_${ch}.nii";
-        }
-
-	    if (data_double_check($file_1)) {
-            $file_1 = $file_1.'.gz'; # 8 Feb 2016: added .gz    
+		$file_1 = "${current_path}/${runno}_${ch}.nii";
 	    }
-	    
-        if (data_double_check($file_1,$case-1) ) { 
-            $go_hash{$runno}{$ch}=1;#*$do_mask; Moving the $do_mask logic elsewhere because we want action either way.
-            push(@file_array,$file_1);
-            $sub_missing_files_message = $sub_missing_files_message."\t$ch";
+	    if (data_double_check($file_1,0) ) {
+		$file_1 = $file_1.'.gz'; # 8 Feb 2016: added .gz    
+	    }
+	    # Would like to not do slow disk mode when do_mask is 0.
+	    # I think just combining case-1 and do_maks will work.
+	    if (data_double_check($file_1,  ( $case-1 && $do_mask )   ) ) { 
+		$go_hash{$runno}{$ch}=1;#*$do_mask; Moving the $do_mask logic elsewhere because we want action either way.
+		push(@file_array,$file_1);
+		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
 	    } else {
-            $go_hash{$runno}{$ch}=0;
-            $sub_existing_files_message = $sub_existing_files_message."\t$ch";
+		$go_hash{$runno}{$ch}=0;
+		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
 	    }
 	}
 
-
+	
 	if (($sub_existing_files_message ne '') && ($case == 1)) {
 	    $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
 	} elsif (($sub_missing_files_message ne '') && ($case == 2)) {
@@ -244,7 +251,6 @@ sub mask_images_Output_check {
     }
      
     my $error_msg='';
-    
     if (($existing_files_message ne '') && ($case == 1)) {
 	$error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
     } elsif (($missing_files_message ne '') && ($case == 2)) {
@@ -263,18 +269,15 @@ sub strip_mask_vbm {
     my $jid = 0;
     my ($go_message, $stop_message);
 
-
     my $matlab_exec_args="${input_file} ${dim_divisor} ${mask_threshold} ${mask_path} ${num_morphs} ${morph_radius} ${status_display_level}";
     $go_message = "$PM: Creating mask from file: ${input_file}\n" ;
     $stop_message = "$PM: Failed to properly create mask from file: ${input_file}\n" ;
 
-    my @test=(0);
-    if (defined $reservation) {
-	@test =(0,$reservation);
-    }
-    my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
-
     if (cluster_check) {
+	my @test=(0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
 	my $go =1;	    
 #	my $cmd = $pairwise_cmd.$rename_cmd;
 	my $cmd = "${strip_mask_executable_path} ${matlab_path} ${matlab_exec_args}";
@@ -282,6 +285,7 @@ sub strip_mask_vbm {
 	my $home_path = $current_path;
 	my $Id= "creating_mask_from_contrast_${template_contrast}";
 	my $verbose = 2; # Will print log only for work done.
+	my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
 	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out($stop_message);
@@ -337,19 +341,16 @@ sub port_atlas_mask_vbm {
     my $go_message =  "$PM: Creating port atlas mask for ${runno}\n";
     my $stop_message = "$PM: Unable to create port atas mask for ${runno}:  $cmd\n";
     
-    my @test = (0);
-    my $node = '';
-    if (defined $reservation) {
-	@test =(0,$reservation);
-    }
-
-    my $mem_request = 60000;
-
     my $jid = 0;
     if (cluster_check) {
+	my @test = (0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
 	my ($home_path,$dummy1,$dummy2) = fileparts($port_mask,2);
 	my $Id= "${runno}_create_port_atlas_mask";
 	my $verbose = 2; # Will print log only for work done.
+	my $mem_request = 60000;
 	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out($stop_message);
@@ -358,12 +359,14 @@ sub port_atlas_mask_vbm {
 	if (! execute($go, $go_message, @cmds) ) {
 	    error_out($stop_message);
 	}
+	$jid=1;
     }
 
-    if (data_double_check($port_mask)  && (not $jid)) {
-	error_out("$PM: could not properly create port atlas mask: ${port_mask}");
-	print "** $PM: port atlas mask created ${port_mask}\n";
+    if ($go && (not $jid)) {
+	error_out("$PM: could not start port atlas mask: ${port_mask}");
     }
+    print "** $PM expected output: ${port_mask}\n";
+
     return($jid);
 }
 
@@ -389,41 +392,36 @@ sub mask_one_image {
    # my $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};\n";
     my $copy_hd_cmd = '';#"CopyImageHeaderInformation ${centered_path} ${out_path} ${out_path} 1 1 1 ${im_a_real_tensor};\n"; # 24 Feb 2018, disabling, function seems to be broken and wreaking havoc
     my $remove_cmd = "if [[ -f ${out_path} ]];then\n rm ${centered_path};\nfi\n";
+
+    my $cmd = $apply_cmd.$copy_hd_cmd.$remove_cmd;
+    my @cmds = ($apply_cmd,$remove_cmd);
+    
     my $go_message = "$PM: Applying mask created by ${template_contrast} image of runno $runno" ;
     my $stop_message = "$PM: could not apply ${template_contrast} mask to ${centered_path}:\n${apply_cmd}\n" ;
     
-    my @test = (0);
-    my $node = '';
-    
-    if (defined $reservation) {
-	@test =(0,$reservation);
-    }
-
-    my $mem_request = 100000; # 12 April 2017, BJA: added higher memory request (60000) because of nii4Ds...may need to even go higher, but really should do this smartly.
-    # 10 July 2017, BJA: Increased from 60000, to 100000, because we were trying to process 8.1GB files
     my $jid = 0;
     if (cluster_check) {
-
-    
-	my $cmd = $apply_cmd.$copy_hd_cmd.$remove_cmd;
-	
+	my @test = (0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
 	my $home_path = $current_path;
 	my $Id= "${runno}_${ch}_apply_${template_contrast}_mask";
 	my $verbose = 2; # Will print log only for work done.
+	my $mem_request = 100000; # 12 April 2017, BJA: upped mem req from 60000 because of nii4Ds...may need to even go higher	
 	$jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}
     } else {
-
-	my @cmds = ($apply_cmd,$remove_cmd);
 	if (! execute($go, $go_message, @cmds) ) {
 	    error_out($stop_message);
 	}
+	$jid=1;
     }
 
-    if ((data_double_check($out_path)) && (not $jid)) {
-	error_out("$PM: missing masked image: ${out_path}");
+    if ($go && (not $jid)) {
+	error_out("$PM: could not start for masked image: ${out_path}");
     }
     print "** $PM expected output: ${out_path}\n";
   
@@ -439,41 +437,35 @@ sub rename_one_image {
     
     my $rename_cmd = "mv ${centered_path} ${out_path}";
 
+    my $cmd = $rename_cmd;
+    my @cmds = ($rename_cmd);
+
     my $go_message = "$PM: Renaming unmasked image from \"${centered_path}\" to \"${out_path}\"." ;
     my $stop_message = "$PM: Unable to rename unmasked image from \"${centered_path}\" to \"${out_path}\":\n${rename_cmd}\n";
     
-    my @test = (0);
-    my $node = '';
-    
-    if (defined $reservation) {
-        @test =(0,$reservation);
-    }
-
-    my $mem_request = 100000; # 12 April 2017, BJA: added higher memory request (60000) because of nii4Ds...may need to even go higher, but really should do this smartly.
-    # 10 July 2017, BJA: Increased from 60000, to 100000, because we were trying to process 8.1GB files
     my $jid = 0;
     if (cluster_check) {
-
-    
-	my $cmd = $rename_cmd;
-	
+	my @test = (0);    
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
 	my $home_path = $current_path;
 	my $Id= "${runno}_${ch}_rename_unmasked_image";
 	my $verbose = 2; # Will print log only for work done.
+	my $mem_request = 100;
 	$jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (! $jid) {
 	    error_out($stop_message);
 	}
     } else {
-
-	my @cmds = ($rename_cmd);
 	if (! execute($go, $go_message, @cmds) ) {
 	    error_out($stop_message);
 	}
+	$jid=1;
     }
 
-    if ((data_double_check($out_path)) && (not $jid)) {
-        error_out("$PM: missing unmasked image: ${out_path}");
+    if ($go && (not $jid)) {
+        error_out("$PM: could not start for unmasked image: ${out_path}");
     }
     print "** $PM expected output: ${out_path}\n";
   
@@ -572,12 +564,16 @@ sub mask_images_vbm_Init_check {
                 $expected_rigid_atlas_path = "${expected_rigid_atlas_path}.gz";
             }
             $source_rigid_atlas_path = $expected_rigid_atlas_path;
+	    ### try to deal with upper vs lower case abbreviations.
+	    #
+	    # That should not longer be necesary
             my $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast); #Added 14 March 2017
             if ($test_path =~ s/\.gz//) {} # Strip '.gz', 15 March 2017
             my ($dumdum,$rigid_atlas_filename,$rigid_atlas_ext)= fileparts($test_path,2);
             #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
             $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_filename}${rigid_atlas_ext}"; #Updated 14 March 2017
-
+	    #
+	    ###
             if (data_double_check($rigid_atlas_path))  {
                 $rigid_atlas_path=$rigid_atlas_path.'.gz';
                 if (data_double_check($rigid_atlas_path))  {
@@ -587,7 +583,7 @@ sub mask_images_vbm_Init_check {
                         if (data_double_check($original_rigid_atlas_path))  { # Updated 1 September 2016
                             $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
                         } else {
-                            my $cp_cmd="cp ${original_rigid_atlas_path} ${preprocess_dir})";
+                            my $cp_cmd="cp ${original_rigid_atlas_path} ${preprocess_dir}";
                             if ($original_rigid_atlas_path !~ /\.gz$/) {
 				carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
 				$cp_cmd=$cp_cmd." && "."gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";
@@ -596,8 +592,12 @@ sub mask_images_vbm_Init_check {
                         }
                     }
                 } else {
+		    #### WARNING: Disabling this due to broken logic of lets gzip a gzipped file. 
+		    # It may have 
+=item erroneous gzipping?		    
 		    carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
                     run_and_watch("gzip ${rigid_atlas_path}");
+=cut
                     #$rigid_atlas_path=$rigid_atlas_path.'.gz'; #If things break, look here! 27 Sept 2016
                     $original_rigid_atlas_path = $expected_rigid_atlas_path;
                 }
@@ -615,11 +615,11 @@ sub mask_images_vbm_Init_check {
     if ($do_mask eq 'NO_KEY') { $do_mask=0;}
         if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
         my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii.gz"; ## Set default mask for porting here!
-        if (! -f $default_mask) {
+        if (! -e $default_mask) {
             if ($default_mask =~ s/\/data/\/CIVMdata/) {
-                if (! -f $default_mask) {
+                if (! -e $default_mask) {
                     $default_mask = "${default_mask}.gz";
-                if (! -f $default_mask) {
+                if (! -e $default_mask) {
                     if ($default_mask =~ s/\/CIVMdata/\/data/) {}
                 }
             }

@@ -1,4 +1,5 @@
-function write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,space,atlas_id,varargin)
+function write_individual_stats_exec(runno,label_file,contrast_list,image_dir, ...
+    output_dir,space,atlas_id,varargin)
 % New inputs:
 % runno: run number of interest
 % label_file: Full path to labels
@@ -9,8 +10,61 @@ function write_individual_stats_exec(runno,label_file,contrast_list,image_dir,ou
 % atlas_id: used in header; may be used for pulling label names in the future.
 % Following two are optional, and their order doesn't matter.
 % lookup_table: a lookup table to load to keep our names/details straight
-% first_contrast_mask: use first contrast to omit bits s
-%
+% first_contrast_mask: use first contrast to omit bits
+
+%% Blank line above to separate help from const warning of gotchas.
+%{
+_stats.txt sheet gotchas
+Voxels is the count of voxels for that value in the label map.
+Exterior means "excluded in labels". It is left in the stat sheets as a quality metric 
+of masking and missed data. Its non-null volume could be seen as a measure of mask error.
+Volume is the volume covered by a label (voxels * voxelsize^3).
+
+null columns are voxels with a value of exactly 0. 
+The nulls indicate calculation errors OR data which has been masked out.
+mean/min/max/std exclude any nulls, if you wish to include nulls, you'll need to scale accordingly.
+The percent null (per structure) may be an indicator of reliability(and of course not the 
+whole story).
+Dwi and derived data are masked independently, that is why dwi nulls != fa nulls.
+
+Total brain volume is not readily available from stat sheets due to masking, and the 
+labelset does not cover 100% of the brain.  
+Sum of ventricle volume is not reliable due to data masking 
+(any ventricle which borders the exterior of the brain is likely to be masked out).
+Non Ventricle BrainVolume should be available as the sum of non-ventricle structure volumes, 
+or that sum - the sum of nulls.x
+%}
+% do some ugly file read back to avoid the sytatical bleh of changing every
+% line of the gotchas text. To the next maintainer, i'm sorry .
+% This relies on the first block comment being the gotchas.( %{ -> %} )
+% this is nearly function ready as "save first block comment of source" :D !
+gotcha_cache=fullfile(fileparts(mfilename('fullpath')),sprintf('%s_gotchas.txt',mfilename()));
+if ~exist(gotcha_cache,'file')
+    s_cmd=sprintf('sed -e ''1,/^%%{/ d'' -e ''/^%%}/q'' %s.m',mfilename('fullpath'));
+    [s,gotchastext]=system(s_cmd);
+    if s~=0
+        warning('Gotcha text unsucessful.');
+    else
+        tfid=fopen(gotcha_cache,'w');
+        if tfid<1
+            tfid=1;
+        else
+            onCleanup(@() fclose(tfid));
+        end
+        fprintf(tfid,'%s',gotchastext);
+    end
+else
+    tfid=fopen(gotcha_cache,'r');
+    if tfid>2
+        onCleanup(@() fclose(tfid));
+        gotchastext=fread(tfid,inf,'char=>char',0);
+    end
+end
+if exist('gotchastext','var')
+    fprintf('%s',gotchastext);
+end
+% fomer header info, these headers have bd dropped in favor of more
+% spreadsheety behavior
 % A header is written at the top of the file listing on their own line:
 %   --contrasts for which label stats have been calculated (this is to
 %       faciliate checking for previous work, in case a new contrast is to be
@@ -60,9 +114,6 @@ if numel(varargin)>0
         error(error_msg);
     end
 end
-
-
-
 if ~isdeployed &&  exist('iambj','var')
     if exist('iambj','var')
         %% bj test variables:
@@ -206,6 +257,7 @@ contrasts = strsplit(contrast_list,',');
 %output_stats = [output_dir output_name '_stats.txt'];
 output_name=sprintf('%s_%s_measured_in_%s_space_stats.txt',runno,atlas_id,space);
 output_stats = fullfile(output_dir,output_name);
+statsheet_gotchas=fullfile(output_dir,sprintf('%s_%s_measured_in_%s_space_stats.txt','gotchas',atlas_id,space));
 previous_work=zeros(size(contrasts));
 if exist(output_stats,'file')
     working_table = readtable(output_stats,'Delimiter','\t');
@@ -241,7 +293,7 @@ if contrasts_to_process > 0
         % contrast_stats=zeros(size(volume_mm3));
         % Does not yet support '_RAS' suffix, etc yet.
         % BLEH Forced file name patterns, how disapointing.
-        filenii_i=[image_dir runno '_' contrast '.nii']; 
+        filenii_i=fullfile(image_dir,[runno '_' contrast '.nii']); 
         if ~exist(filenii_i,'file')
             if exist([filenii_i '.gz'],'file')
                 filenii_i = [filenii_i '.gz'];
@@ -476,6 +528,12 @@ end
 %% Write to file
 writetable(final_table,output_stats,'QuoteStrings',true,'Delimiter','\t','WriteVariableNames',true);
 total_elapsed_time=toc(start_of_script);
+if exist(gotcha_cache,'file') && ~exist(statsheet_gotchas,'file')
+    [s,sout]=system(sprintf('cp -p %s %s',gotcha_cache,statsheet_gotchas));
+    if s~=0 
+        warning(sout);
+    end
+end
 fprintf('WORK COMPLETE! Results written to %s.\nTotal processing time: %f s.',output_stats,total_elapsed_time);
 end
 function the_file=sloppy_file_lookup(the_dir,varargin)

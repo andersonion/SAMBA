@@ -397,6 +397,8 @@ sub apply_affine_rotation {
                 
     }
 
+    my @cmds = ($cmd);
+
     $go_message =  "$PM: apply ${direction_string} affine rotations to bvecs for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} affine rotations to bvecs  for  ${runno}:\n${cmd}\n";
 
@@ -415,20 +417,19 @@ sub apply_affine_rotation {
             error_out($stop_message);
         }
     } else {
-        my @cmds = ($cmd);
         if (! execute($go, $go_message, @cmds) ) {
             error_out($stop_message);
         }
+	$jid=1;
     }
 
-    if ((!-e $out_file) && (not $jid)) {
-        error_out("$PM: missing bvecs with ${direction_string} affine rotations  applied for ${runno}: ${out_file}");
+    if ($go && (not $jid)) {
+        error_out("$PM: could not start for bvecs with ${direction_string} affine rotations  applied for ${runno}: ${out_file}");
     }
-    #print "** $PM expected output: ${out_file}\n";
     print "** $PM expected output: ${out_file}\n";
+
     return($jid,$out_file);
 }
-
 
 # ------------------
 sub apply_warps_to_bvecs_Init_check {

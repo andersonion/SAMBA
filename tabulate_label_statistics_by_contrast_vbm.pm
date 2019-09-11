@@ -1,7 +1,5 @@
 #!/usr/bin/false
-
 #  tabulate_label_statistics_by_contrast_vbm.pm 
-
 #  2017/06/19  Created by BJ Anderson, CIVM.
 
 my $PM = " tabulate_label_statistics_by_contrast_vbm.pm";
@@ -38,8 +36,8 @@ my $PM_code = 66;
 
 #my $compilation_date = "20170619_1151";
 
+# New enhancements stabilized.
 my $compilation_date = "stable";
-#$compilation_date="20190905_1035";
 my $tabulate_study_stats_executable_path = "$MATLAB_EXEC_PATH/study_stats_by_contrast_executable/${compilation_date}/run_study_stats_by_contrast_exec.sh"; 
 
 # ------------------
@@ -48,6 +46,7 @@ sub  tabulate_label_statistics_by_contrast_vbm {
  
     ($current_label_space,@initial_channel_array) = @_;
     my $start_time = time;
+    @channel_array=();
     tabulate_label_statistics_by_contrast_Runtime_check();
 
     foreach my $contrast (@channel_array) {
@@ -249,7 +248,6 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
     my $stat_path = $Hf->get_value('stat_path');
     #$individual_stat_dir = "${stat_path}/individual_label_statistics/";
     $individual_stat_dir = "${stat_path}";
-
     $current_path = "${stat_path}/studywide_label_statistics/";
     if (! -e $current_path) {
         mkdir ($current_path,$permissions);
@@ -259,11 +257,7 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
     if ($runlist eq 'NO_KEY') {
         $runlist = $Hf->get_value('complete_comma_list');
     }
-
     #@array_of_runnos = split(',',$runlist);
- 
-
-
     foreach my $contrast (@initial_channel_array) {
 	if ($contrast !~ /^(ajax|jac|nii4D)/) {
 	    push(@channel_array,$contrast);
@@ -280,8 +274,6 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
     if ($skip_message ne '') {
 	print "${skip_message}";
     }
-
-
 }
 
 

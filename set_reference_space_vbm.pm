@@ -70,16 +70,18 @@ sub set_reference_space_vbm {  # Main code
 		my $in_file = $runno_hash{$runno};
 		my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
 		($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
+		my $ref_dep;
 		if ($job) {
 		    push(@jobs_1,$job);
 		    push(@jobs,$job); 
+		    $ref_dep='afterany:'.$job;
 		}
 		# second, schedule the apply dependent on transformy being done.
 		my @runno_files=grep /$runno/,@$array_ref;
 		for my $out_file (@runno_files) {
 		    my ($dumdum,$in_name,$in_ext) = fileparts($out_file,2);
 		    my $in_file = "${preprocess_dir}/${in_name}${in_ext}";
-		    ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file,'afterany:'.$job);
+		    ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file,$ref_dep);
 		    if ($job) {
 			push(@jobs_2,$job);
 			push(@jobs,$job);
@@ -116,7 +118,7 @@ sub set_reference_space_vbm {  # Main code
                 push(@jobs_2,$job);
             }
         }
-	}
+	} # END lock_step conditional for the old way.
     }
     # All scheduling done.
     # these lock_step lines are to avoid changing code before it's tested. 
@@ -166,7 +168,6 @@ sub set_reference_space_vbm {  # Main code
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
-    
     if ($error_message ne '') {
         error_out("${error_message}",0);
     } 
@@ -293,7 +294,13 @@ sub set_reference_space_Output_check {
 
 	# THIS IS DOING WORK IN A CHECK FUNCTION THAT IS VERY NAUGHTY.
         if ($case == 2) {
-            symbolic_link_cleanup($refspace_folder_hash{$V_or_L},$PM);
+	    # James's highly suspecs that we didnt do slow disk checking for the results 
+	    # of this we were at the mercy of slow disk problems due to this cleanup.
+	    # So, all the better to throw this out, many parts have been made more
+	    # symbolic link friendly, and as such this is less and less useful. 
+	    # (not that he'll ever admit it was useful :p ) 
+	    carp("Symbolic link cleanup skipped on $refspace_folder_hash{$V_or_L}");
+            #symbolic_link_cleanup($refspace_folder_hash{$V_or_L},$PM);
         }
     }
     return(\%file_array_ref,$full_error_msg);
@@ -709,15 +716,19 @@ sub set_reference_space_vbm_Init_check {
             }
             my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
             #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
-
+	    ### try to deal with upper vs lower case abbreviations.
+	    #
+	    # That should not longer be necesary
             my $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast); #Added 14 March 2017
             if ($test_path =~ s/\.gz//) {} # Strip '.gz', 15 March 2017
             my ($dumdum,$rigid_atlas_filename,$rigid_atlas_ext)= fileparts($test_path,2);
             #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
             $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_filename}${rigid_atlas_ext}"; #Updated 14 March 2017
-
+	    #
+	    ###
 
             if (data_double_check($rigid_atlas_path))  {
+		Data::Dump::dump(["not found, so trying gz",$rigid_atlas_path]);
                 $rigid_atlas_path=$rigid_atlas_path.'.gz';
                 if (data_double_check($rigid_atlas_path))  {
                     $original_rigid_atlas_path  = get_nii_from_inputs($preprocess_dir,$rigid_atlas_name,$rigid_contrast);
@@ -736,7 +747,12 @@ sub set_reference_space_vbm_Init_check {
                         }
                     }
                 } else {
+		    #### WARNING: Disabling this due to broken logic of lets gzip a gzipped file. 
+		    # It may have 
+=item erroneous gzipping?
+		    Data::Dump::dump(["found,... but trying gz? wtf mate",$rigid_atlas_path,$expected_rigid_atlas_path]);
                     run_and_watch("gzip ${rigid_atlas_path}");
+=cut
                     #$rigid_atlas_path=$rigid_atlas_path.'.gz'; #If things break, look here! 27 Sept 2016
                     $original_rigid_atlas_path = $expected_rigid_atlas_path;
                 }

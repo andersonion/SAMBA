@@ -219,39 +219,38 @@ sub calculate_jacobian {
 #    $unzip_command = "gunzip -c ${out_file}logjacobian.nii.gz > ${out_file}.nii;\n";  
     
     $cmd=$jac_command.$unzip_command;
+    my @cmds = ($jac_command,$unzip_command);
+
     my $go_message =  "$PM: Calculate jacobian images in ${space_string} for ${runno}";
     my $stop_message = "$PM:  Unable to calculate jacobian images in ${space_string} for ${runno}:\n${cmd}\n";
     
-    my @test=(0);
-    if (defined $reservation) {
-	@test =(0,$reservation);
-    }
-    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
-    
     my $jid = 0;    
     if (cluster_check) {
+	my @test=(0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
 	my $home_path = $current_path;
 	my $Id= "${runno}_calculate_jacobian_in_${space_string}_space";
 	my $verbose = 1; # Will print log only for work done.
+	my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out($stop_message);
 	}
     } else {
-	my @cmds = ($jac_command,$unzip_command);
 	if (! execute($go, $go_message, @cmds) ) {
 	    error_out($stop_message);
 	}
     }
     
-    if ((!-e $out_file) && (not $jid)) {
+    if ($go && (not $jid)) {
 	error_out("$PM: missing jacobian image in ${space_string} space for ${runno}: ${out_file}");
     }
-
-    print "** $PM expected output: ${out_file}\n"; #Added '.gz' 2 September 2015 -- Don't have a clue why I thought that would be useful...
+    print "** $PM expected output: ${out_file}\n"; 
   
     return($jid,$out_file);
- }
+}
 
 
 # ------------------
