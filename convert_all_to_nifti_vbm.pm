@@ -45,8 +45,11 @@ my (@jobs);
 my ($dummy,$error_message);
 
 my $working_image_orientation;
-#my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
-my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
+# this exec had been "stable" for a long time. It was in sore need of a couple revisions.
+# namely handling inputs are links, and output dir is prescribed.
+my $img_exec_version='20170403_1100';
+$img_exec_version='stable';
+my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/$img_exec_version/run_img_transform_exec.sh";
 
 # ------------------
 sub convert_all_to_nifti_vbm {
@@ -55,15 +58,15 @@ sub convert_all_to_nifti_vbm {
 # could use image name (suffix) to figure out datatype
     ($skip) = @_;
     if ( ! defined($skip) || (defined($skip) && $skip eq '' )  ) {$skip = 0;}
-    # Temporarily putting this work all on slow master to solve network/mount problems.
-    my $PQ=$ENV{'PIPELINE_QUEUE'};
-    $ENV{'PIPELINE_QUEUE'}='slow_master';
     my $start_time = time;
     my $run_again = 1;  
-    my $second_run=0;  
+    my $second_run=0;
+    # bool to switch between set center on nodes through slurm or, swamp the master node.
+    # This was added due to network tomfoolery where nodes may not have mounts.
+    my $schedule_set_center=0;
     while ($run_again) {
         convert_all_to_nifti_vbm_Runtime_check();
-
+	
         my @nii_cmds;
         my @nii_files;
         foreach my $runno (@array_of_runnos) {
@@ -109,17 +112,21 @@ sub convert_all_to_nifti_vbm {
                         print "Unable to find input image for $runno and $ch in folder: ${in_folder}.\n".$current_file;
                     } else {
                         # push(@nii_files,$current_file);
-			# recetner currently stuck "on", as we can't turn it off in our function,
+			# recenter currently stuck "on", as we can't turn it off in our function,
 			# but we're ready to do better.
                         my $please_recenter=1; 
-                        ($job) =  set_center_and_orientation_vbm($current_file,$current_path,$current_orientation,$working_image_orientation,$please_recenter);
-                        if ($job) {
+                        ($job,my $nii_cmd) =  set_center_and_orientation_vbm($current_file,$current_path,$current_orientation,$working_image_orientation,$please_recenter,$schedule_set_center);
+			push(@nii_cmds,$nii_cmd);
+                        if ($job&& $schedule_set_center) {
                             push(@jobs,$job);
                         }
                     }
                 }
             }
         }
+	if (! $schedule_set_center) {
+	    execute_indep_forks(1,"set_orient_".$Hf->get_value('project_id'),@nii_cmds);
+	}
         if (cluster_check() && scalar(@jobs)) {
             my $interval = 2;
             my $verbose = 1;
@@ -152,11 +159,10 @@ sub convert_all_to_nifti_vbm {
         }
     }
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time);
-    print "$PM took ${real_time} seconds to complete.\n";
     if ($error_message ne '') {
         error_out("${error_message}",0);
     } 
-    $ENV{'PIPELINE_QUEUE'}=$PQ;
+    print "$PM took ${real_time} seconds to complete.\n";
     return;
 }
 
@@ -224,17 +230,12 @@ sub convert_all_to_nifti_Output_check {
 # ------------------
 sub set_center_and_orientation_vbm {
 # ------------------
-    my ($input_file,$output_folder,$current_orientation,$desired_orientation,$recenter) = @_;
+    my ($input_file,$output_folder,$current_orientation,$desired_orientation,$recenter,$go) = @_;
     if (! defined $recenter) {$recenter=1;} # Unused for now.
 
-    if ($output_folder !~ /\/$/) {
-        $output_folder=$output_folder.'/';
-    }
-
     my $matlab_exec_args='';
-
     my $jid = 0;
-    my $go =1;
+    if (! defined $go) {$go = 1; }
     my ($go_message, $stop_message);
 
 #    if ($current_orientation eq $desired_orientation) {
@@ -243,11 +244,14 @@ sub set_center_and_orientation_vbm {
     $matlab_exec_args="${input_file} ${current_orientation} ${desired_orientation} ${output_folder}";
     # our matlab execs dont like symbolic links, so we try to resolve that here for this one. 
     # May try to hunt down the matlab code which fails in the future.
+    # This portion of code has trouble with network shares which are not common to nodes.
     if ( -l $input_file ) {
+#	carp("$input_file is a link, historically this was a problem for img_transform_exec, however it should be better now");
+=item  patched exec supersceeds this
         my $true_file=readlink ${input_file};
-        die "Trouble resolving link with " if ! -f $true_file;
+        die "Trouble resolving link with " if -l $true_file;
         # there are a bunch of issues with renaming inputs here, so we resolve those 
-        # in line checking for the exected input and the expected output.
+        # in line checking for the expected input and the expected output.
         my ($ip,$in,$ie)=fileparts($input_file,2);
         $in=$in."_${desired_orientation}".$ie;
         my ($tp,$tn,$te)=fileparts($true_file,2);
@@ -260,30 +264,30 @@ sub set_center_and_orientation_vbm {
             log_info("moved $incorrect_output to $correct_output. Let the programmer know you saw this!");
         }
         $matlab_exec_args="$true_file ${current_orientation} ${desired_orientation} ${output_folder} && mv $incorrect_output $correct_output";
+=cut
         
     }
+    
+    my $cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
+
     $go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;
     $stop_message = "$PM: Failed to properly reorientate to ${desired_orientation} and recenter file: ${input_file}\n" ;
-#    }
-    my @test=(0);
-    if (defined $reservation) {
-        @test =(0,$reservation);
-    }
-    my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
-
+    
     if (cluster_check) {
-        my $cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
+	my @test=(0);
+	if (defined $reservation) {
+	    @test =(0,$reservation);
+	}
         my $home_path = $current_path;
         my $Id= "recentering_and_setting_image_orientation_to_${desired_orientation}";
         my $verbose = 1; # Will print log only for work done.
+	my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
         $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
-        if ($go ) {
-            if ( not $jid ) {
-                error_out($stop_message);
-            }
-        }
+        if ($go && ( not $jid ) ){
+	    error_out($stop_message);
+	}
     }
-    return($jid);
+    return($jid,$cmd);
 }
 
 
@@ -398,7 +402,6 @@ sub convert_all_to_nifti_vbm_Runtime_check {
     if ($skip_message ne '') {
         print "${skip_message}";
     }
-
     ($dummy,$skip_message)=convert_all_to_nifti_Output_check($case);
     if ($skip_message ne '') {
         print "${skip_message}";

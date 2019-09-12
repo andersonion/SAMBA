@@ -38,7 +38,7 @@ is_tensor=0;
 % using hilarious cludge to take letters (1/0) or numbers (1/0) for bools.
 if length(varargin) > 0
     if ~isempty(varargin{1})
-        [output_path, ~,~] = fileparts(varargin{1});
+        output_path=varargin{1};
     end
     if length(varargin) > 1
         if ~isempty(varargin{2})
@@ -137,6 +137,10 @@ end
 ext='.nii.gz';
 if ~use_exact_output
     output_path=fullfile(out_dir,[img_name suff ext]);
+end
+if exist(output_path,'file')
+    warning('Existing output:%s, not regenerating',output_path);
+    return;
 end
 %affine_mat.AffineTransform_double_3_3=affine_matrix_string';
 %affine_mat.fixed_string=affine_fixed_string';
