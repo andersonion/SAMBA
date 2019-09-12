@@ -664,9 +664,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	    $Hf->set_value('label_images_dir',$Hf->get_value('labels_dir'));
     	}
 	$current_path=$Hf->get_value('label_images_dir');	
-	if (! -e $current_path) {
-	    mkdir ($current_path,$permissions);
-	}
+
 =item disabled conver_to_
 	(my $f_ok,$convert_images_to_RAS)=$Hf->get_value_check('convert_labels_to_RAS');
 	if ( ! $f_ok ) { $convert_images_to_RAS=0; }
@@ -710,6 +708,9 @@ sub apply_mdt_warps_vbm_Runtime_check {
     } else {
 	print " ERROR: Invalid group ID in $PM.  Dying now...\n";
 	die;
+    }
+    if (! -e $current_path) {
+	mkdir ($current_path,$permissions);
     }
     $write_path_for_Hf = "${current_path}/.${template_name}_amw_temp.headfile";
 #   Functionize?
