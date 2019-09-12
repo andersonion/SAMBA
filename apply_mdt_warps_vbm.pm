@@ -40,6 +40,7 @@ my $job;
 
 #my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
 my $compilation_date="20170403_1100";
+# Only used with convert to RAS and we dont like that function!
 my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/$compilation_date/run_img_transform_exe.sh";
 
 my $current_label_space;

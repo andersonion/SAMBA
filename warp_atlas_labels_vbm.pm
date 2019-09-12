@@ -106,7 +106,9 @@ my $almost_MDT_results_dir;
 
 #my $make_ROIs_executable_path = "/glusterspace/BJ/run_Labels_to_ROIs_exec.sh";
 my $make_ROIs_executable_path = "${MATLAB_EXEC_PATH}/Labels_to_ROIs_executable/20161006_1100/run_Labels_to_ROIs_exec.sh";
-my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
+
+# Only used with convert to RAS and we dont like that function!
+#my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
 
 my $current_label_space; # 21 April 2017 -- BJA: Previously this wasn't initialized, but was still imported from the calling .pl (or at least that's my theory).
 
