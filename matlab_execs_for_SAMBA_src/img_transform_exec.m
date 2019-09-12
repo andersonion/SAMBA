@@ -1,4 +1,13 @@
-function niiout=img_transform_exe_V4(img,current_vorder,desired_vorder,varargin)
+function niiout=img_transform_exec(img,current_vorder,desired_vorder,varargin)
+% function niiout=img_transform_exec(img,current_vorder,desired_vorder,varargin)
+
+% img='/civmnas4/rja20/SingleSegmentation_16gaj38_chass_symmetric3_RAS_N56456-inputs/N56456_color_nqa.nii.gz';
+%img='/civmnas4/rja20/img_transform_testing/S64570_m000_DTI_tensor.nii';
+%img='/cm/shared/CIVMdata/atlas/C57/transforms_chass_symmetric3/chass_symmetric3_to_C57/chass_symmetric3_to_MDT_warp.nii.gz';
+%current_vorder='ARI';
+%desired_vorder='RAS';
+%varargin={};
+%path_specified='/civmnas4/rja20/SingleSegmentation_16gaj38_chass_symmetric3_RAS_N56456-work/preprocess/';
 %% Modified 8 Feb 2016, BJ Anderson, CIVM
 %  Added code to write corresponding affine transform matrix in ANTs format
 %% Modified 22 March 2017, BJ Anderson, CIVM
@@ -14,19 +23,23 @@ function niiout=img_transform_exe_V4(img,current_vorder,desired_vorder,varargin)
 %  then it just copies the file with the desired_vorder suffix.
 
 %% 5 February 2019, BJ Anderson, CIVM
-%  Attempting to add 
+%  Attempting to add vector and color support, maybe add tensor support at another
+%  time? Hope to add code that spits out a fully usable affine.mat that
+%  includes proper translation.
 
 %% Variable Check
 
 write_transform = 0;
 recenter=1;
+is_RGB=0;
+is_vector=0;
+is_tensor=0;
 
 if length(varargin) > 0
-    
     if ~isempty(varargin{1})
-        temp_path = varargin{1};
-        [path_specified, ~,~] = fileparts(temp_path);
-        path_specified = [path_specified '/'];
+        % temp_path = varargin{1};
+        % [path_specified, ~,~] = fileparts(temp_path);
+        [path_specified, ~,~] = fileparts(varargin{1});
     end
     
     if length(varargin) > 1
@@ -40,7 +53,6 @@ if length(varargin) > 0
             write_transform = varargin{2};
         end
     end
-    
 end
 
 
@@ -88,7 +100,7 @@ end
 
 if strcmp(desired_vorder,current_vorder)
         if recenter
-            if strcmp('.gz',);
+            %if strcmp('.gz',);
             origin=round(size(new)./2);
             origin=origin(1:3);
         else
@@ -97,23 +109,54 @@ if strcmp(desired_vorder,current_vorder)
 else
     
     %% Load and Analyze data
-    nii=load_nii(img);
-    %nii=load_untouch_nii(img);
+    try 
+        n1t=tic;
+        nii=load_niigz(img);       
+    catch
+        time_1=toc(n1t);
+        n2t=tic;
+        nii=load_nii(img);
+        time_2=toc(n2t);
+        warning(['Function load_niigz (runtime: ' num2str(time_1) ') failed with datatype: ' num2str(nii.hdr.dime.datatype) ' (perhaps because it currently doesn''t support RGB?). Used load_nii instead (runtime: ' num2str(time_2) ').']);
+    end
     dims=size(nii.img);
-    if length(dims)>5
+    if length(dims)>6
         error('Image has > 5 dimensions')
     elseif length(dims)<3
         error('Image has < 3 dimensions')
     end
     new=nii.img;
     
+    %% Feb 2019 -- Figure out if we have RGB/vector/tensor here.
+    
+    data_string = nifti1('data_type',nii.hdr.dime.datatype);
+    if strcmp(data_string(1:3),'rgb')
+       is_RGB=1;
+       is_vector=1;
+       %todo: either here or in nifti1, pull out the intent_code that
+       %matches to data_string and explicitly set in:
+       % nii.hdr.dime.intent_code=verified_intent_code;
+       %if length(data_string)==3;
+       %     nii.hdr.dime.intent_code=2003;
+       %else
+       %    nii.hdr.dime.intent_code=2004;
+       %    end
+       
+    elseif ((length(dims) > 4) && (dims(5)==3));
+        is_vector=1;
+    elseif ((length(dims) > 5) && (dims(5)==6)); % This a GUESS at how to tell if we have tensor...which seems to be pretty reliable.
+        is_tensor=1;
+    end
+    
+    
+    
     %% Voxel order preparation
     
     orig='RLAPSI';
-    flip='LRPAIS';
+    flip_string='LRPAIS';
     
     %% Affine transform matrix preparation
-    x_row = [1 0 0];  % x and y are swapped in Matlab
+    x_row = [1 0 0];  % x and y are swapped in Matlab --but why then don't we swap x_row and y_row here?
     y_row = [0 1 0];  % x and y are swapped in Matlab
     z_row = [0 0 1];
     
@@ -122,10 +165,13 @@ else
     xpos=strfind(desired_vorder,current_vorder(1));
     if isempty(xpos) %assume flip
         display('Flipping first dimension')
-        new=flipdim(new,1);
+        new=flip(new,1);
         orig_ind=strfind(orig,current_vorder(1));
-        current_vorder(1)=flip(orig_ind);
+        current_vorder(1)=flip_string(orig_ind);
         %xpos=strfind(desired_vorder,current_vorder(1));  %I think this is incorrect and unused code (BJA); see Evan's quickfix.
+        if (is_vector) && (is_RGB ==0)
+             new(:,:,:,1,1)=-1*new(:,:,:,1,1);
+        end
         
         x_row=x_row*(-1);
     end
@@ -134,10 +180,13 @@ else
     ypos=strfind(desired_vorder,current_vorder(2));
     if isempty(ypos) %assume flip
         display('Flipping second dimension')
-        new=flipdim(new,2);
+        new=flip(new,2);
         orig_ind=strfind(orig,current_vorder(2));
-        current_vorder(2)=flip(orig_ind);
+        current_vorder(2)=flip_string(orig_ind);
         %ypos=strfind(desired_vorder,current_vorder(2));  %I think this is incorrect and unused code (BJA); see Evan's quickfix.
+        if (is_vector) && (is_RGB ==0)
+             new(:,:,:,1,2)=-1*new(:,:,:,1,2);
+        end
         y_row=y_row*(-1);
     end
     
@@ -145,11 +194,13 @@ else
     zpos=strfind(desired_vorder,current_vorder(3));
     if isempty(zpos) %assume flip
         display('Flipping third dimension')
-        new=flipdim(new,3);
+        new=flip(new,3);
         orig_ind=strfind(orig,current_vorder(3));
-        current_vorder(3)=flip(orig_ind);
+        current_vorder(3)=flip_string(orig_ind);
         %zpos=strfind(desired_vorder,current_vorder(3)); %I think this is incorrect and unused code (BJA); see Evan's quickfix.
-        
+        if (is_vector) && (is_RGB ==0)
+             new(:,:,:,1,3)=-1*new(:,:,:,1,3);
+        end
         z_row=z_row*(-1);
     end
     %% quick fix for correct ordering
@@ -161,9 +212,20 @@ else
     display(['Dimension order is:' num2str(xpos) ' ' num2str(ypos) ' ' num2str(zpos)] )
     
     if length(dims)==5
-        new=permute(new,[xpos ypos zpos 4 5]);
+        if is_tensor
+            new=permute(new,[xpos ypos zpos 4 5]);  % I think more sophisticated handling is required in for tensors! I think tensors are dim==5
+        else
+            if is_vector
+                new=new(:,:,:,1,[xpos, ypos, zpos]);
+            end
+            new=permute(new,[xpos ypos zpos 4 5]);
+        end
     elseif length(dims)==4
+        if is_RGB
+            new=new(:,:,:,[xpos, ypos, zpos]);
+        end
         new=permute(new,[xpos ypos zpos 4]);
+        
     elseif length(dims)==3
         new=permute(new,[xpos ypos zpos]);
     end
@@ -204,6 +266,9 @@ else
     end
     newnii=make_nii(new,nii.hdr.dime.pixdim(2:4),origin,nii.hdr.dime.datatype);
     %newnii=make_nii(new,nii.hdr.dime.pixdim(2:4),[0 0 0],nii.hdr.dime.datatype);
+    newnii.hdr.dime.intent_code=nii.hdr.dime.intent_code;
+    
+    
 end
 if exist('path_specified','var')
     path = path_specified;
@@ -215,5 +280,4 @@ save_nii(newnii,niiout);
 %newnii = nii;
 %newnii.img = new;
 %save_untouch_nii(newnii,niiout);
-end
-end
+%end
