@@ -22,6 +22,7 @@ require pipeline_utilities;
 
 my ($current_path,$template_contrast,$erode_radius);
 my ($do_mask,$pre_masked,$mdt_skull_strip,$default_mask_threshold);
+my $do_vba_mask;
 my ($incumbent_raw_mask, $incumbent_eroded_mask);
 my $go=1;
 
@@ -110,19 +111,24 @@ sub mask_for_mdt_Output_check {
     my $message_prefix ='';
     my @file_array=();
     my ($file_1);
-
+    my $mask_suf="_er${erode_radius}.nii";
+    # Thought about making the erroded mask optional based on do_vba 
+    # but that significantly complicates things
+    #if (! $do_vba_mask ) { 
+    # $mask_suf=".nii.gz";
+    #}
     if ($incumbent_eroded_mask ne 'NO_KEY'){
         $file_1 = $incumbent_eroded_mask;
     } else {
         # Need this file to be uncompressed for later use; removed .gz 26 Oct 2015.
-        $file_1 = "${current_path}/MDT_mask_er${erode_radius}.nii"; 
+        $file_1 = "${current_path}/MDT_mask$mask_suf";
     }
     # hard sloppy update old path to new
     my $former_path= "${current_path}/MDT_mask_e${erode_radius}.nii"; 
-    if ( -e $former_path) {
+    if ( -e $former_path ) {
 	qx/mv $former_path $file_1/;
     }
-
+    
     my $existing_files_message = '';
     my $missing_files_message = '';
     
@@ -189,7 +195,11 @@ sub extract_and_erode_mask {
         $mask_command_1 = '';
     }
     #my $CMD_SEP=" && \\";
+           
     $mask_command_2 = "ImageMath 3 ${out_path} ME ${raw_mask} ${erode_radius};\n";
+    if ($do_vba_mask ){
+	#$mask_command_2="";
+    }
 
     my $cmd = $mask_command_1.$mask_command_2;
     my @cmds = ($mask_command_1,$mask_command_2);
@@ -240,6 +250,7 @@ sub mask_for_mdt_vbm_Runtime_check {
 
 # # Set up work
     $do_mask = $Hf->get_value('do_mask');
+    $do_vba_mask = $Hf->get_value('do_vba');
     $pre_masked = $Hf->get_value('pre_masked');
     $incumbent_raw_mask = $Hf->get_value('MDT_raw_mask');
     $incumbent_eroded_mask = $Hf->get_value('MDT_eroded_mask');
