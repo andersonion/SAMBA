@@ -77,24 +77,21 @@ sub calculate_mdt_warps_vbm {  # Main code
 	    print STDOUT  "  All warps-to-MDT-space calculation jobs have completed; moving on to next step.\n";
 	}
     }
+
     my $case = 2;
     my ($dummy,$error_message)=calculate_mdt_warps_Output_check($case,$direction);
     $Hf->write_headfile($write_path_for_Hf);
-=item 
-    # dirty executable and world readable behavior :p
-    `chmod 777 ${write_path_for_Hf}`;
-=cut
-    
-
+  
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
-    print "$PM took ${real_time} seconds to complete.\n";
 
     if ((defined $error_message) && ($error_message ne '') ) {
         error_out("${error_message}",0);
     } else {
         symbolic_link_cleanup($pairwise_path,$PM);
     }
-    
+
+    print "$PM took ${real_time} seconds to complete.\n";
+    return;
 }
 
 

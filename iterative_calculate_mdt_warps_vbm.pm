@@ -61,9 +61,10 @@ sub iterative_calculate_mdt_warps_vbm {  # Main code
 	    print STDOUT  "  Update Warp has been created; moving on to next step.\n";
 	}
     }
-
-
+    
     $Hf->set_value('last_update_warp',$last_update_warp);
+
+    symbolic_link_cleanup($current_path,$PM);
 
     my $case = 2;
     my ($error_message)=iterative_calculate_mdt_warps_Output_check($case);
