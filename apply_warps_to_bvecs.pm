@@ -75,9 +75,24 @@ sub apply_warps_to_bvecs {  # Main code
     }
     my $case = 2;
     my ($dummy,$error_message)=apply_warps_to_bvecs_Output_check($case,$direction);
-
     my $real_time = vbm_write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
-    print "$PM took ${real_time} seconds to complete.\n";
+
+    #
+    # SUPER HORRIBLE KLUDGE because this keeps failing when we're too fast.
+    #
+    if( $real_time<180 && $error_message ne '') {
+	carp("LIGHTNING RUN DEBUG ENGAGED! Module took $real_time seconds,".
+	     "and is known to fail erroneously when we're too fast.\n".
+	     "Dumping current \"output\" and doing a recheck");
+	run_and_watch("pushd \$PWD;cd $current_path; ls -l *ecc*bv*txt;popd");
+	($dummy,$error_message)=apply_warps_to_bvecs_Output_check($case,$direction);
+	# update our "real time" because we got hit with output delays again. 
+	$real_time = vbm_write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
+	# if after a recheck we're still failing, delay a long time.
+	my $delay=3;
+	if( $error_message ne '') { $delay=30;}
+	sleep_with_countdown($delay); 
+    }
 
     @jobs=(); # Clear out the job list, since it will remember everything if this module is used iteratively.
     if ($error_message ne '') {
@@ -85,6 +100,7 @@ sub apply_warps_to_bvecs {  # Main code
     } else {
         $Hf->write_headfile($write_path_for_Hf);
     }
+    print "$PM took ${real_time} seconds to complete.\n";
 }
 
 # ------------------
@@ -131,9 +147,9 @@ sub apply_warps_to_bvecs_Output_check {
     
     my $error_msg='';
     if (($existing_files_message ne '') && ($case == 1)) {
-        $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
+        $error_msg =  "$PM($current_label_space):\n${message_prefix}${existing_files_message}";
     } elsif (($missing_files_message ne '') && ($case == 2)) {
-        $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
+        $error_msg =  "$PM($current_label_space):\n${message_prefix}${missing_files_message}";
     }
 
     my $file_array_ref = \@file_array;
@@ -183,6 +199,7 @@ sub apply_affine_rotation {
         }
     }
 
+=item disable
     my $RAS_results_dir;
     if ($convert_labels_to_RAS) {
 	die "dirty little convert to RAS";
@@ -191,6 +208,7 @@ sub apply_affine_rotation {
             mkdir ( $RAS_results_dir,$permissions);
         }
     }
+=cut
 
     # my $image_to_warp = get_nii_from_inputs($inputs_dir,$runno,$current_contrast); 
     # Look up the bvecs we hope to have grabbed already.
@@ -201,6 +219,11 @@ sub apply_affine_rotation {
         $v_ok=0; }
     if ( ! $v_ok || ! -e ${original_bvecs}) {
         # On not finding them, try a re-init to fill that in.
+	
+	#
+	# Conceptually dirty data grabbing very late in processing.
+	#
+=item disabled data fetch code
         pull_civm_tensor_data_Init_check();     
         ($v_ok,$original_bvecs ) = $Hf->get_value_check("original_bvecs_${runno}");
         if ( ${original_bvecs} !~ m/b_?table/ ) { 
@@ -212,6 +235,7 @@ sub apply_affine_rotation {
             pull_civm_tensor_data($runno,'b_table');
             ($v_ok,$original_bvecs ) = $Hf->get_value_check("original_bvecs_${runno}");
         }
+=cut
         if ( ${original_bvecs} !~ m/b_?table/ ) { 
             $v_ok=0; }
 	if ( ! $v_ok || ! -e ${original_bvecs}) {
@@ -311,22 +335,24 @@ sub apply_affine_rotation {
             my $xform_pat="xform_(${temp_runno})_m([0-9]+)\.(.*)0GenericAffine\.(.*)\$";
             my @xforms=find_file_by_pattern("${pristine_inputs_dir}",$xform_pat);
             if ( scalar(@xforms) ) {
-		
 		#
 		# DIRTY in-line behavior switch and copy to kludge mounted directory problems.
 		#
 		# if any are not in a path with ecc_xforms, try to move any.
+		my $ecc_dir=File::Spec->catdir($pristine_inputs_dir,"ecc_xforms");
+		if (! -d $ecc_dir ) {
+		    mkdir(File::Spec->catdir($pristine_inputs_dir,"ecc_xforms"),$permissions);
+		}
 		my @t_xforms=grep(!/ecc_xforms/,@xforms);
 		if ( scalar(@t_xforms) ) {
-		    my $ecc_dir=File::Spec->catdir($pristine_inputs_dir,"ecc_xforms");
-		    mkdir(File::Spec->catdir($pristine_inputs_dir,"ecc_xforms"),$permissions);
 		    run_and_watch("find $pristine_inputs_dir -maxdepth 1 -name 'xform*' -exec mv {} $ecc_dir/ ".'\;');
 		    @xforms=find_file_by_pattern("${pristine_inputs_dir}",$xform_pat);
-		    symbolic_link_cleanup($ecc_dir,$PM);
 		    if (! scalar(@xforms) ) {
 			confess("Xform organize fail!"); }
 		}
+		symbolic_link_cleanup($ecc_dir,$PM);
                 $xforms_found=1;
+		# using xform 1 out of the list to simplify our regex sytax a bit.
                 my $xform_1=$xforms[0];
                 $xform_1 =~ /$xform_pat/x;
                 (my $tr,my $nstr,$xform_type,my $t_ext)=($1,$2,$3,$4);
@@ -405,6 +431,7 @@ sub apply_affine_rotation {
     }
 
     $cmd = "${bvec_transform_executable_path} ${matlab_path} ${original_bvecs} -o ${out_file_prefix} ${bval_string} ${ALS_to_RAS} ${warp_train} ${native_to_ALS} ${ecc_and_affine_flips} ${scanner_flip};\n";  
+=item disable
     if ($convert_labels_to_RAS){
         my $copy_bvecs_cmd= "cp ${out_file} ${RAS_results_dir};\n";
            $cmd=$cmd.$copy_bvecs_cmd;
@@ -413,9 +440,8 @@ sub apply_affine_rotation {
             $cmd=$cmd.$copy_bvals_cmd;
                 
     }
-
+=cut
     my @cmds = ($cmd);
-
     $go_message =  "$PM: apply ${direction_string} affine rotations to bvecs for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} affine rotations to bvecs  for  ${runno}:\n${cmd}\n";
 
