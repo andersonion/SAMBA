@@ -117,7 +117,7 @@ sub apply_warps_to_bvecs_Output_check {
             $go_hash{$runno}=1;
             push(@file_array,$out_file);
             #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-            $missing_files_message = $missing_files_message."\t$runno\n";
+            $missing_files_message = $missing_files_message."\t$runno\n";#  :\t( $out_file )\n";
 	} else {
             $go_hash{$runno}=0;
             $existing_files_message = $existing_files_message."\t$runno\n";
@@ -206,7 +206,7 @@ sub apply_affine_rotation {
         if ( ${original_bvecs} !~ m/b_?table/ ) { 
             $v_ok=0; }
         if ( ! $v_ok || ! -e ${original_bvecs}) {
-            # Still missing, or not reasonably set, try to fetch them
+	    # Still missing, or not reasonably set, try to fetch them
             # (this is for new data... and will fail the pipeline on old data. :( )
 	    # The fail behavior has been "patched" to allow it to continue.
             pull_civm_tensor_data($runno,'b_table');
@@ -311,6 +311,21 @@ sub apply_affine_rotation {
             my $xform_pat="xform_(${temp_runno})_m([0-9]+)\.(.*)0GenericAffine\.(.*)\$";
             my @xforms=find_file_by_pattern("${pristine_inputs_dir}",$xform_pat);
             if ( scalar(@xforms) ) {
+		
+		#
+		# DIRTY in-line behavior switch and copy to kludge mounted directory problems.
+		#
+		# if any are not in a path with ecc_xforms, try to move any.
+		my @t_xforms=grep(!/ecc_xforms/,@xforms);
+		if ( scalar(@t_xforms) ) {
+		    my $ecc_dir=File::Spec->catdir($pristine_inputs_dir,"ecc_xforms");
+		    mkdir(File::Spec->catdir($pristine_inputs_dir,"ecc_xforms"),$permissions);
+		    run_and_watch("find $pristine_inputs_dir -maxdepth 1 -name 'xform*' -exec mv {} $ecc_dir/ ".'\;');
+		    @xforms=find_file_by_pattern("${pristine_inputs_dir}",$xform_pat);
+		    symbolic_link_cleanup($ecc_dir,$PM);
+		    if (! scalar(@xforms) ) {
+			confess("Xform organize fail!"); }
+		}
                 $xforms_found=1;
                 my $xform_1=$xforms[0];
                 $xform_1 =~ /$xform_pat/x;
@@ -321,6 +336,7 @@ sub apply_affine_rotation {
                 confess ("Failed to find transforms with $xform_pat in $pristine_inputs_dir, Is this diffusion_calc data? That needs its data manually added to the inputs a great deal of the time.");
             }
 	} else {
+=item Verbose bleh	    
             my $zero_tester = '1';
             if ($temp_runno =~ s/(\_m[0]+)$//){}
             for my $type ('nii','nhdr'){
@@ -350,6 +366,7 @@ sub apply_affine_rotation {
                     } 
                 }
             }
+=cut
         } # end VerboseProgramming Check.
         if (! $xforms_found) {
             $eddy_current_correction=0; 
@@ -358,7 +375,7 @@ sub apply_affine_rotation {
     }
     if ($eddy_current_correction) {
         # This is assuming that we are dealing with the outputs of tensor_create, as of April 2017
-        $ecc_affine_xform = "${pristine_inputs_dir}/xform_${temp_runno}_m${exes_from_zeros}.${xform_type}0GenericAffine.mat"; 
+        $ecc_affine_xform = "${pristine_inputs_dir}/ecc_xforms/xform_${temp_runno}_m${exes_from_zeros}.${xform_type}0GenericAffine.mat"; 
         $ecc_string = '_ecc';
     } else {
         $ecc_affine_xform = '';

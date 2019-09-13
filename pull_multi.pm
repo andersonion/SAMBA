@@ -57,9 +57,10 @@ sub pull_multi {
 	# a random testing project code, now out of date.
         #Data::Dump::dump((\@runnos,\@contrasts,\@machines));die;
     }
-    my $inputs_dir=$Hf->get_value('pristine_input_dir');
+    my $inputs_dir;
     for my $runno (@runnos) {
         for my $contrast (@contrasts) {
+	    $inputs_dir=$Hf->get_value('pristine_input_dir');
             my @c_cmds;
             my $file_prefix='';
             my $target_dir = "${BIGGUS_DISKUS}/${project_code}/${runno}";
@@ -67,6 +68,7 @@ sub pull_multi {
             if ($contrast =~ /^m\*GenericAffine\*$/ ){
                 $target_dir = "${BIGGUS_DISKUS}/${project_code}/${runno}/ecc_xforms";
                 $file_prefix='xform_';
+		$inputs_dir=File::Spec->catdir($Hf->get_value('pristine_input_dir'),"ecc_xforms");
             }
             # Magic contrast 'nii4D'
             #my $swap_order=0;
@@ -134,7 +136,7 @@ sub pull_multi {
     confess if ($debug_val >= 50 && $debug_val < 100 ) ;
     # thought about force slow_master queue to ease data permission grab madness.
     # %ENV{'PIPELINE_QUEUE'}='slow_master';
-    # But this code should only be run on the master node because we dont use srun or sbatch.
+    # But this code should only be run on the master node anyway, because we dont use srun or sbatch.
     return execute_indep_forks(1,"get my data",@master_cmd_list);
     #print "Return = $return";
 } 
