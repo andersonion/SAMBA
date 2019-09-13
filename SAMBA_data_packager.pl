@@ -230,6 +230,15 @@ sub main {
                                     $c_r,
                                     sprintf("SyN_%s_%s",$p_d,$c_mdt),
                                     sprintf("%sMDT_%s_n%i_i%i",$c_mdt,$mdt_p,$MDT_n,$i_mdt)  );
+    # the anoyingly named "inputs_dir" which is NOT the -inputs dir!
+    ( $v_ok,my $base_images) = $hf->get_value_check("inputs_dir");
+    if ( ! $v_ok ) {
+	$base_images=File::Spec->catfile($BIGGUS_DISKUS,
+					 sprintf("%s-inputs",$n_vbm),
+					 "preprocess",
+					 "base_images"  );
+    }
+    
     if ( ! defined $mdtname ) { 
         # if mdtname not set, and we had an o_s assume the o_s is mdname, else error
         if ( $o_s ne '' ) {
@@ -337,8 +346,26 @@ sub main {
         # pre_rigid_native_space should actually be the measure space.... 
         # Best science comes from untouched voxels, (we think)
         # so hard coding this isn't the worst idea.
-        my $in_im_dir=File::Spec->catfile($mdtpath,"stats_by_region","labels","pre_rigid_native_space","images");
-        my $sub_lookup=transmogrify_folder($in_im_dir,$output_path,$Specimen,$Specimen);
+	# New updates in the labels have ruined this structure finding
+	# Furhter complicating things the output results headfile only has one entry for the label_images_dir and it gets overwritten for each measure space.
+	# That should be fixed, but before that we need to most always grab pre_rigid_native_space
+	# Turns out that is "preprocess/base_images" 99+% of the time, So we'll deal with that, 
+	# AND that those names ARE NOT DESIRED OUTPUT NAMES.
+	# we're gonna hide the renamey in transmogrify.
+	my $in_im_dir=multi_choice_dir(
+	    [
+	     $base_images,
+	     File::Spec->catfile($mdtpath,"stats_by_region","labels","pre_rigid_native_space","images"),
+	     # $hf->get_value("label_images_dir"),
+	    ]
+	    );
+	
+        #my $sub_lookup=transmogrify_folder($in_im_dir,$output_path,$Specimen,$Specimen);
+	# 4 part machhcing, speimen, _something{1..n}, _masked{0,1}, compoundext
+	my $inpat="($Specimen)((?:_[^_]+)+?)(_masked)?((?:[.][^.]+)+)\$";
+	my $outpat='$1$2$4';
+	#$outpat='\1\2\4';
+        my $sub_lookup=transmogrify_folder($in_im_dir,$output_path,$inpat,$outpat);
         if ( scalar(keys(%$sub_lookup)) ) {
             print("\t Linking up images\n");
             while (my ($key, $value) = each %$sub_lookup ) {
@@ -405,6 +432,30 @@ sub main {
     return 0;
 }
 
+
+# repl from 
+# https://stackoverflow.com/questions/392643/how-to-use-a-variable-in-the-replacement-side-of-the-perl-substitution-operator/392649#392649
+sub repl { 
+    my $find = shift; 
+    my $replace = shift; 
+    my $var = shift;
+
+    # Capture first 
+    my @items = ( $var =~ $find ); 
+    $var =~ s/$find/$replace/; 
+    for( reverse 0 .. $#items ){ 
+        my $n = $_ + 1; 
+        #  Many More Rules can go here, ie: \g matchers  and \{ } 
+	#::ADDITIONAL COMENTARY::
+	# I dont understand what is meant by "ManyMoreRules cangohere"
+	# For my simple needs, no more rules were required.
+#printd(25,"n:$n $items[$_]\n") ;
+        $var =~ s/\\$n/${items[$_]}/g ;
+        $var =~ s/\$$n/${items[$_]}/g ;
+    }
+    return $var; 
+}
+
 sub transmogrify_folder {
     # File name transmogrifier ... 
     # A messy idea, and as such is nearly impossible to name reasonably.
@@ -414,17 +465,66 @@ sub transmogrify_folder {
     # input keyword   with  output keyword.
     # eg, get ready to rename on the fly from the inputfolder to the output folder.
     # returns hash(ref) of in path to outpath
-    my ($in_path,$out_path,$in_key,$out_key)=@_;
+    my ($in_path,$out_path,$in_key,$oreg)=@_;
     my %transfer_setup;
-
+    #printd(30,"in_key:$in_key conv to $oreg\n");
     my @files = find_file_by_pattern($in_path,".*$in_key.*",1);
+
+    #compound contrast test code sloppyily hacked in.
+    # result was that fa_color became color, which isnt too bad really.
+    #push(@files,"/mnt/civmbigdata/civmBigDataVol/jjc29/VBM_18gaj42_chass_symmetric3_RAS_BXD62_stat-work/dwi/SyN_0p25_3_0p5_fa/faMDT_all_n4_i6/median_images/MDT_fa_color.nii.gz");
+    my $test=grep m/_masked/x, @files;
+    if ($test ) {
+	# 
+#	push(@files,'/mnt/civmbigdata/civmBigDataVol/jjc29/VBM_18gaj42_chass_symmetric3_RAS_BXD62_stat-work/preprocess/base_images/N57008_fa_color_masked.nii.gz');
+	#Data::Dump::dump(@files);die;
+    }
+    my $out_is_reg=1;
+    if($in_key =~ /[(].*[)]/x ){
+	# Has match portions already, do not adjust
+    } else {
+	#Adjust non-pat match in/out keys to be pattern match    
+	if ($in_key eq $oreg ){
+	    # When in and out are the same
+	    $in_key="^(.*)($in_key)(.*)\$";
+	    $oreg='$1$2$3';
+	} else {
+	    # when in and out are not the same
+	    $in_key="^(.*)($in_key)(.*)\$";
+	    $oreg="\$1$oreg\$3";
+	}
+    }
+    # a more legit solution to the evaled replace string
+    # per https://stackoverflow.com/questions/392643/how-to-use-a-variable-in-the-replacement-side-of-the-perl-substitution-operator
+    #however, it appears string::sub is not a default module
+    #use String::Substitution qw( sub_modify );
+    #my $find = 'start (.*) end';
+    #my $replace = 'foo $1 bar';
+    #my $var = "start middle end";
+    #sub_modify($var, $find, $replace);
     foreach (@files) {
         if( $_ !~ /^.*(txt|csv|xlsx?|headfile)|(nhdr|nrrd|raw.gz)|(nii([.]gz)?)$/ ) {
             next;
         }
         my $n=basename$_;
         my $o=$n;
-        $o=~s/$in_key/$out_key/;
+	if($out_is_reg) {
+	    #require String::Substitution;
+	    #String::Substitution->import(qw( sub_modify ));
+	    #sub_modify($o, $in_key, $oreg);
+	    # an alternative way to get it done, and may be the code inside sub_modify.
+	    #my @parts=~($o =~ $in_key);
+	    #Data::Dump::dump([$o,$in_key,\@parts,$oreg]);die;
+	    #$o=~ s/$in_key/$oreg/;
+	    #foreach (reverse 0..$#parts ){
+	    #my $n=$_+1;
+	    ##$o = ~/\\$n/${parts[$_]}/g;
+	    #}
+	    $o=repl($in_key,$oreg,$o);
+	    #Data::Dump::dump([$n,$in_key,$oreg,$o]);
+	} else{
+	    $o=~s/$in_key/$oreg/;
+	}
         printd(5, "\t".$n."   ..   ".$o."\n");
         $o=File::Spec->catfile($out_path,$o);
         if (! -e $o ) {
@@ -521,7 +621,8 @@ sub package_transforms_MDT {
 ###
 # get the warp
 ###
-    my $warp=File::Spec->catfile("$ThisPackageInRoot","stats_by_region","labels","transforms","MDT_to_${TargetDataPackage}_warp.nii.gz");
+    #"$ThisPackageInRoot","stats_by_region","labels","transforms"
+    my $warp=File::Spec->catfile($a_dir,"MDT_to_${TargetDataPackage}_warp.nii.gz");
     my $ThisPackage_TargetDataPackage_warp=File::Spec->catfile(${road_backward},basename( $warp));
     if ( ! -e $ThisPackage_TargetDataPackage_warp ) {
         die "EXPCTED warp missing !($warp)" unless -e $warp ;
@@ -530,7 +631,8 @@ sub package_transforms_MDT {
 ###
 # get the "inverse" warp.
 ###
-    $warp=File::Spec->catfile("$ThisPackageInRoot","stats_by_region","labels","transforms","${TargetDataPackage}_to_MDT_warp.nii.gz");
+    #"$ThisPackageInRoot","stats_by_region","labels","transforms"
+    $warp=File::Spec->catfile($a_dir,"${TargetDataPackage}_to_MDT_warp.nii.gz");
     my $TargetDataPackage_ThisPackage_warp=File::Spec->catfile($road_forward,basename( $warp));
     if (  ! -e $TargetDataPackage_ThisPackage_warp ) {
         qx(ln -s $warp $TargetDataPackage_ThisPackage_warp);
@@ -746,7 +848,15 @@ sub package_labels_SPEC {
     my($ThisPackageInRoot,$ThisPackageOutLocation,$ThisPackageName,$LabelNick,$CollectionSource)=@_;
     # root - /mnt/civmbigdata/civmBigDataVol/jjc29/VBM_18enam01_chass_symmetric3_RAS_A2-work/dwi/SyN_0p25_3_0p5_fa/faMDT_all_n8_i6
     # /stats_by_region/labels/pre_rigid_native_space/WHS
-    my $source_label_root=File::Spec->catfile($ThisPackageInRoot,'stats_by_region','labels','pre_rigid_native_space');
+
+    #my $source_label_root=File::Spec->catfile($ThisPackageInRoot,'stats_by_region','labels','pre_rigid_native_space');
+    my $source_label_root=multi_choice_dir(  
+	[
+	 File::Spec->catfile($ThisPackageInRoot,"vox_measure","pre_rigid_native_space"),
+	 File::Spec->catfile($ThisPackageInRoot,'stats_by_region','labels','pre_rigid_native_space'),
+	]  );
+
+
     #my @label_nicks=find_file_by_pattern($source_label_root,'.*',1);
     # have
     #data_NICK_labels_lookup.txt
@@ -768,7 +878,12 @@ sub package_labels_SPEC {
     if ( ! -d $nick_folder ) {
         make_path($nick_folder);
     }
-    my $label_in_folder=File::Spec->catfile($source_label_root,$LabelNick);
+    my $label_in_folder=multi_choice_dir(
+	[
+	 File::Spec->catfile($source_label_root,$LabelNick),
+	 $source_label_root
+	]
+	);
     my $sub_lookup=transmogrify_folder($label_in_folder,$nick_folder,$ThisPackageName,$ThisPackageName);
     # Filter out the redundant RAS copy
     my $regex='.*RAS.*';
