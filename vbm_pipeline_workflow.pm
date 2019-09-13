@@ -643,8 +643,12 @@ U_specid U_species_m00 U_code
             sleep($interval);
         }
         
-        mask_for_mdt_vbm(); #$PM_code = 45
-        sleep($interval);
+	if ($do_vba ) {
+	    # I think this is a Only need this if VBA
+	    # Let's omit
+	    mask_for_mdt_vbm(); #$PM_code = 45
+	    sleep($interval);
+	}
     } else {
 	printd(5,"WARNING: This code has not been tested in quite some time!\n"
 	       ."If you test it sucessfully, let the sloppy programmer know he can remove this wait\n"
