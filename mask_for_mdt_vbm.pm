@@ -115,7 +115,12 @@ sub mask_for_mdt_Output_check {
         $file_1 = $incumbent_eroded_mask;
     } else {
         # Need this file to be uncompressed for later use; removed .gz 26 Oct 2015.
-        $file_1 = "${current_path}/MDT_mask_e${erode_radius}.nii"; 
+        $file_1 = "${current_path}/MDT_mask_er${erode_radius}.nii"; 
+    }
+    # hard sloppy update old path to new
+    my $former_path= "${current_path}/MDT_mask_e${erode_radius}.nii"; 
+    if ( -e $former_path) {
+	qx/mv $former_path $file_1/;
     }
 
     my $existing_files_message = '';
@@ -173,7 +178,7 @@ sub extract_and_erode_mask {
     # ------------------
 
     my ($mask_source,$raw_mask) = @_;     
-    my $out_path =   "${current_path}/MDT_mask_e${erode_radius}.nii";
+    my $out_path =   "${current_path}/MDT_mask_er${erode_radius}.nii";
     my ($mask_command_1,$mask_command_2);
 
     if (data_double_check($raw_mask)) {
