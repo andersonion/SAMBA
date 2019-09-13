@@ -53,7 +53,7 @@ sub mask_for_mdt_vbm {
             my $morph_radius = 2;
             my $dim_divisor = 2;
             my $status_display_level=0;
-            
+
             if (data_double_check($raw_mask_path)) {
                 $nifti_args ="\'$mask_source\', $dim_divisor, $mask_threshold, \'$raw_mask_path\',$num_morphs , $morph_radius,$status_display_level";
                 $nifti_command = make_matlab_command('strip_mask',$nifti_args,"MDT_${template_contrast}_",$Hf,0); # 'center_nii'
@@ -61,11 +61,9 @@ sub mask_for_mdt_vbm {
                 $Hf->set_value('MDT_raw_mask',$raw_mask_path);
             }
         }
-        
-        ($job,$eroded_mask_path) = extract_and_erode_mask($mask_source,$raw_mask_path); 
+	($job,$eroded_mask_path) = extract_and_erode_mask($mask_source,$raw_mask_path); 
     }
 
-    
     if (cluster_check() && ($job)) {
         my $interval = 1;
         my $verbose = 1;
@@ -84,21 +82,23 @@ sub mask_for_mdt_vbm {
     } else {
         $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time);
     }
-    print "$PM took ${real_time} seconds to complete.\n";
-
-
+    
     if ($error_message ne '') {
         error_out("${error_message}",0);
     } else {
         if (($go) && ($mdt_skull_strip)) {
             # Clean up matlab junk
-            `rm ${current_path}/*.m`;
-            `rm ${current_path}/*matlab*`;
-        }
-
-
+	    my @matlab_stubs=`ls ${current_path}/*.m 2> /dev/null`;
+	    my @matlab_files=`ls ${current_path}/*matlab* 2> /dev/null`;
+	    chomp(@matlab_stubs);chomp(@matlab_files);
+	    if(scalar(@matlab_stubs) || scalar(@matlab_files) ) {
+		my $rm_cmd=sprintf("rm -v %s",sprintf("%s ",@matlab_stubs,@matlab_files));
+		#cluck("Testing:$PM\n\t$rm_cmd");sleep_with_countdown(15);
+		run_and_watch("$rm_cmd");
+	    }
+	}
     }
-
+    print "$PM took ${real_time} seconds to complete.\n";
 }
 
 
@@ -114,37 +114,45 @@ sub mask_for_mdt_Output_check {
     if ($incumbent_eroded_mask ne 'NO_KEY'){
         $file_1 = $incumbent_eroded_mask;
     } else {
-        $file_1 = "${current_path}/MDT_mask_e${erode_radius}.nii.gz"; # Need this file to be uncompressed for later use; removed .gz 26 Oct 2015.
+        # Need this file to be uncompressed for later use; removed .gz 26 Oct 2015.
+        $file_1 = "${current_path}/MDT_mask_e${erode_radius}.nii"; 
     }
 
     my $existing_files_message = '';
     my $missing_files_message = '';
-
     
     if ($case == 1) {
         $message_prefix = " Eroded MDT mask has already been found and will not be regenerated.";
     } elsif ($case == 2) {
         $message_prefix = "  Unable to properly generate eroded MDT mask.";
     }   # For Init_check, we could just add the appropriate cases.
-    
-#    print " File_1 = ${file_1}\n";
-    if (data_double_check($file_1)) {
-        if ($file_1 =~ s/\.gz$//) {
-            if (data_double_check($file_1)) {
-                $go = 1;
-                push(@file_array,$file_1);
-                $missing_files_message = $missing_files_message."\n";
-            } else {
-                $go = 0; #Formerly has a gzip line above this line, but realized we needed this to be decompressed for MatLab during VBA.
-                $Hf->set_value('MDT_eroded_mask',$file_1);
-                $existing_files_message = $existing_files_message."\n";
+    undef $go;
+    if (data_double_check($file_1,$case-1)) {
+	# Expected file not found, Lets try an accidentally gzipped file.
+	# A "rare" edge case where this is likely is: blanket gzipping all nifti's 
+        if ($file_1 !~ s/\.gz$//) {
+            if (! data_double_check($file_1.".gz")) {
+	    # Sloppy cleaning up behavior where we decompress the mask here,
+	    # if we dont want it compressed we should say so when we create it.
+		# we dont check hard for output in this case, mostly because this case shouldn't happen.
+		# we'll rely on failing to gunzip to crash the pipe.
+		
+		#Is -f safe to use? 
+		run_and_watch("gunzip -f ${file_1}.gz");
+		$go = 0;
             } 
         }
     } else {
-        `gunzip -f ${file_1}`; #Is -f safe to use? # Need this file to be uncompressed for later use; changed gzip to gunzip and moved here from a few lines above on 26 Oct 2015.
-        $go = 0;
-        $Hf->set_value('MDT_eroded_mask',$file_1);
+	$go = 0;
+    }
+    
+    if(defined $go && ! $go ) {
+	$Hf->set_value('MDT_eroded_mask',$file_1);
         $existing_files_message = $existing_files_message."\n";
+    } else {
+	$go = 1;
+	push(@file_array,$file_1);
+	$missing_files_message = $missing_files_message."\n";
     }
     
     my $error_msg='';
@@ -175,7 +183,7 @@ sub extract_and_erode_mask {
     } else {
         $mask_command_1 = '';
     }
-
+    #my $CMD_SEP=" && \\";
     $mask_command_2 = "ImageMath 3 ${out_path} ME ${raw_mask} ${erode_radius};\n";
 
     my $cmd = $mask_command_1.$mask_command_2;
