@@ -87,7 +87,11 @@ do_connectivity=0
 
 # Label options
 # create_labels is a single big job from your study average to the label_atlas
+# if you dont need the labels, and just want the transforms you can use  "register_MDT_to_atlas"
 create_labels=1
+# Implied by create_labels=1, but lets you skip label application and measures if they're not your primary goal,
+# that is typically the case when you're a hybrid study as a waypoint.
+#register_MDT_to_atlas=1
 label_atlas_name=chass_symmetric3_RAS
 ## Hint: This is the name of the ANATOMY (i.e. images) upon which your source labels are overlaid
 
