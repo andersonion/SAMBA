@@ -1,0 +1,12 @@
+#! /bin/bash
+#export MATLAB_2015b_PATH="~/local_MATLAB/v90" # Deactivated 13 August 2019
+
+export MATLAB_EXEC_PATH="~/matlab_execs_for_SAMBA/"
+
+export BIGGUS_DISKUS=/mnt/BIAC/munin3.dhe.duke.edu/Badea/Lab/mouse
+export WORKSTATION_DATA=/mnt/BIAC/munin3.dhe.duke.edu/Badea/Lab/
+export MATLAB_2015b_PATH="/mnt/clustertmp/common/rja20_dev/MATLAB2015b_runtime/v90"
+export MATLAB_JAVA=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.191.b12-0.el7_5.x86_64/jre
+
+# For email support, need to add
+export NOTIFICATION_EMAIL=rja20@duke.edu
