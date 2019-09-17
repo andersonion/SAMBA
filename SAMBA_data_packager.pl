@@ -21,8 +21,17 @@ use Getopt::Std;
 use Scalar::Util qw(looks_like_number);
 use List::MoreUtils qw(uniq);
 
-use Env qw(RADISH_PERL_LIB WORKSTATION_DATA BIGGUS_DISKUS);
-die "Cannot find good perl directories, quiting" unless defined($RADISH_PERL_LIB);
+BEGIN {
+    # we could import radish_perl_lib direct to an array, however that complicates the if def checking.
+    my @env_vars=qw(RADISH_PERL_LIB BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
+    my @errors;
+    use Env @env_vars;
+    foreach (@env_vars ) {
+	push(@errors,"ENV missing: $_") if (! defined(eval("\$$_")) );
+    }
+    die "Setup incomplete:\n\t".join("\n\t",@errors)."\n  quitting.\n" if @errors;
+}
+
 use lib split(':',$RADISH_PERL_LIB);
 
 use pipeline_utilities;
@@ -376,7 +385,6 @@ sub main {
         # n_a_l_n - the nickname for the labelset.
         package_labels_SPEC($mdtpath,$output_path,$Specimen,$n_a_l_n,$n_vbm);
 	record_metadata($output_path);
-	
     }
 
     ###
@@ -546,8 +554,8 @@ sub transform_dir_setup {
     # name of road
     my $n_r="transforms";
     my $road=File::Spec->catfile($ThisPackageOutLocation,$n_r);
-    my $road_forward="$road/${TargetDataPackage}_to_${ThisPackageName}";
-    my $road_backward="$road/${ThisPackageName}_to_${TargetDataPackage}";
+    my $road_forward="$road/${ThisPackageName}_to_${TargetDataPackage}";
+    my $road_backward="$road/${TargetDataPackage}_to_${ThisPackageName}";
     if ( ! -e $road && -e $old_road ){
         qx(mv $old_road $road);
     }
@@ -614,7 +622,7 @@ sub package_transforms_MDT {
 ###
 # link the affine
 ###
-    my $ThisPackage_TargetDataPackage_affine=File::Spec->catfile(${road_backward},basename($aff));
+    my $ThisPackage_TargetDataPackage_affine=File::Spec->catfile(${road_forward},basename($aff));
     if ( ! -e $ThisPackage_TargetDataPackage_affine ) {
         qx(ln -vs $aff $ThisPackage_TargetDataPackage_affine);
     }
@@ -623,7 +631,7 @@ sub package_transforms_MDT {
 ###
     #"$ThisPackageInRoot","stats_by_region","labels","transforms"
     my $warp=File::Spec->catfile($a_dir,"MDT_to_${TargetDataPackage}_warp.nii.gz");
-    my $ThisPackage_TargetDataPackage_warp=File::Spec->catfile(${road_backward},basename( $warp));
+    my $ThisPackage_TargetDataPackage_warp=File::Spec->catfile(${road_forward},basename( $warp));
     if ( ! -e $ThisPackage_TargetDataPackage_warp ) {
         die "EXPCTED warp missing !($warp)" unless -e $warp ;
         qx(ln -s $warp $ThisPackage_TargetDataPackage_warp);
@@ -633,7 +641,7 @@ sub package_transforms_MDT {
 ###
     #"$ThisPackageInRoot","stats_by_region","labels","transforms"
     $warp=File::Spec->catfile($a_dir,"${TargetDataPackage}_to_MDT_warp.nii.gz");
-    my $TargetDataPackage_ThisPackage_warp=File::Spec->catfile($road_forward,basename( $warp));
+    my $TargetDataPackage_ThisPackage_warp=File::Spec->catfile($road_backward,basename( $warp));
     if (  ! -e $TargetDataPackage_ThisPackage_warp ) {
         qx(ln -s $warp $TargetDataPackage_ThisPackage_warp);
     }
@@ -644,7 +652,7 @@ sub package_transforms_MDT {
 # we have an explict transform instead of implict.
     my $n_ThisPackage_t_a=basename($ThisPackage_TargetDataPackage_affine);
     $n_ThisPackage_t_a=~ s/MDT_(.+)_to_${TargetDataPackage}_(.*)$/${TargetDataPackage}_to_MDT_$1_$2/;
-    my $TargetDataPackage_ThisPackage_affine="$road_forward/".$n_ThisPackage_t_a;
+    my $TargetDataPackage_ThisPackage_affine="$road_backward/".$n_ThisPackage_t_a;
     #my $antsCreateInverse="ComposeMultiTransform 3 ${TargetDataPackage_ThisPackage_affine} -i ${ThisPackage_TargetDataPackage_affine} && ConvertTransformFile 3 ${TargetDataPackage_ThisPackage_affine} ${TargetDataPackage_ThisPackage_affine} --convertToAffineType";
     my($p,$n,$e)=fileparts(${TargetDataPackage_ThisPackage_affine},3);
     my $p_i_t_c=File::Spec->catfile($p,$n.".sh");
@@ -674,26 +682,26 @@ sub package_transforms_MDT {
 # Backward path
     my ($t,$p_t);
     $t="_2_${ThisPackageName}_to_${TargetDataPackage}_warp.nii.gz";
-    $p_t=File::Spec->catfile(${road_backward},$t);
+    $p_t=File::Spec->catfile(${road_forward},$t);
     if (  ! -e $p_t ) {
         $t=basename $ThisPackage_TargetDataPackage_warp;
         qx(ln -sv $t $p_t);
     }
     $t="_1_${ThisPackageName}_to_${TargetDataPackage}_affine.mat";
-    $p_t=File::Spec->catfile(${road_backward},$t);
+    $p_t=File::Spec->catfile(${road_forward},$t);
     if (  ! -e $p_t ) {
         $t=basename $ThisPackage_TargetDataPackage_affine;
         qx(ln -sv $t $p_t);
     }
 # Forward path
     $t="_2_${TargetDataPackage}_to_${ThisPackageName}_affine.mat";
-    $p_t=File::Spec->catfile(${road_forward},$t);
+    $p_t=File::Spec->catfile(${road_backward},$t);
     if (  ! -e $p_t ) {
         $t=basename $TargetDataPackage_ThisPackage_affine;
         qx(ln -sv $t $p_t);
     }
     $t="_1_${TargetDataPackage}_to_${ThisPackageName}_warp.nii.gz";
-    $p_t=File::Spec->catfile(${road_forward},$t);
+    $p_t=File::Spec->catfile(${road_backward},$t);
     if (  ! -e $p_t ) {
         $t=basename $TargetDataPackage_ThisPackage_warp;
         qx(ln -sv $t $p_t);
@@ -703,7 +711,10 @@ sub package_transforms_MDT {
 
 sub package_transforms_SPEC {
     my ($ThisPackageInRoot,$ThisPackageOutLocation,$ThisPackageName,$TargetDataPackage,$CollectionSource)=@_;
-    
+    # ThisPackage should be the SPEC.
+    # Target should be our MDT name.
+    # the roadfoward is This to Target
+    # the roadbackward is Target to This
 ###
 # Get the affine transforms
 ###
@@ -724,26 +735,38 @@ sub package_transforms_SPEC {
 ###
     my($road_backward,$road_forward)=transform_dir_setup($ThisPackageInRoot,$ThisPackageOutLocation,$ThisPackageName,
                                                          $TargetDataPackage,$CollectionSource);
+    #Data::Dump::dump([$road_backward,$road_forward]);
 ###
 # handle affines (link/invert)
 ###
     my ($r_suff)=$rig =~ /.*_(rigid.*)/x;
     my ($a_suff)=$aff =~ /.*_(affine.*)/x;
 
-    # Confusion on which direction of transform we have on hand.
-    # Tried these first, but didnt get right answer, though, they're clearly right.
-    my $TargetDataPackage_ThisPackageName_rigid=File::Spec->catfile(${road_forward},sprintf("MDT_to_%s_%s",$ThisPackageName,$r_suff));
-    my $ThisPackageName_TargetDataPackage_rigid=File::Spec->catfile(${road_backward},basename($rig));
-    
-    #my $TargetDataPackage_ThisPackageName_rigid=File::Spec->catfile(${road_forward},basename($rig));
-    #my $ThisPackageName_TargetDataPackage_rigid=File::Spec->catfile(${road_backward},sprintf("%s_to_MDT_%s",$ThisPackageName,$r_suff));
+    # Confusion on which direction of transform we have on hand for the rigid.
+    # Pretty sure is a forward transform.
+    my $rigid_is_forward=1;
+    my ($TargetDataPackage_ThisPackageName_rigid,$ThisPackageName_TargetDataPackage_rigid);
+    if ($rigid_is_forward ) {
+	$ThisPackageName_TargetDataPackage_rigid=File::Spec->catfile(${road_forward},basename($rig));
+	
+	$TargetDataPackage_ThisPackageName_rigid=File::Spec->catfile(${road_backward},
+								     sprintf("MDT_to_%s_%s",$ThisPackageName,$r_suff));
+	qx(ln -vs $rig $ThisPackageName_TargetDataPackage_rigid);
+    } elsif (! $rigid_is_forward ) {
+	$TargetDataPackage_ThisPackageName_rigid=File::Spec->catfile(${road_forward},
+								     sprintf("%s_to_MDT_%s",$ThisPackageName,$r_suff));
+	$ThisPackageName_TargetDataPackage_rigid=File::Spec->catfile(${road_backward},basename($rig));
+	qx(ln -vs $rig $TargetDataPackage_ThisPackageName_rigid);
+    }
+    #Data::Dump::dump([$ThisPackageName_TargetDataPackage_rigid,$TargetDataPackage_ThisPackageName_rigid]);
     my ($i_out,$i_cmd);
     if ( ! -e $TargetDataPackage_ThisPackageName_rigid) {
+	die "Error, rigid is the backward transform, it must exist" if ! $rigid_is_forward;
         if ( 0 ) {
             qx(ln -vs $rig $TargetDataPackage_ThisPackageName_rigid);
         } else {
             ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform($rig,$TargetDataPackage_ThisPackageName_rigid);
-            my $create_inv=File::Spec->catfile($road_forward,
+            my $create_inv=File::Spec->catfile($road_backward,
                                                ".create_inverse_R.sh");
             open(my $f_id,'>',$create_inv);
             print($f_id "#!/bin/bash\n$i_cmd;\n");
@@ -751,20 +774,36 @@ sub package_transforms_SPEC {
         }
     }
     if ( ! -e $ThisPackageName_TargetDataPackage_rigid) {
+	die "Error, rigid is the forward transform, it must exist" if $rigid_is_forward;
         if ( 0 ) { 
             qx(ln -vs $rig $ThisPackageName_TargetDataPackage_rigid);
         } else {
             ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform(
                 $rig,$ThisPackageName_TargetDataPackage_rigid);
-            my $create_inv=File::Spec->catfile($road_forward,
+            my $create_inv=File::Spec->catfile($road_backward,
                                                ".create_inverse_R.sh");
             open(my $f_id,'>',$create_inv);
             print($f_id "#!/bin/bash\n$i_cmd;\n");
             close($f_id);
         }
     }
-    my $TargetDataPackage_ThisPackageName_affine=File::Spec->catfile(${road_forward},sprintf("MDT_to_%s_%s",$ThisPackageName,$a_suff));
-    my $ThisPackageName_TargetDataPackage_affine=File::Spec->catfile(${road_backward},basename($aff));
+    
+    my $ThisPackageName_TargetDataPackage_affine=
+	File::Spec->catfile(${road_forward},basename($aff));
+    my $TargetDataPackage_ThisPackageName_affine=
+	File::Spec->catfile(${road_backward},sprintf("MDT_to_%s_%s",$ThisPackageName,$a_suff));
+    #File::Spec->catfile(${road_backward},sprintf("%s_to_MDT_%s",$ThisPackageName,$a_suff));
+    if($rigid_is_forward ) {
+	qx(ln -vs $aff $ThisPackageName_TargetDataPackage_affine);
+    } elsif (! $rigid_is_forward ) {
+	qx(ln -vs $aff $TargetDataPackage_ThisPackageName_affine);
+    }
+    if ( ! -e $ThisPackageName_TargetDataPackage_affine) {
+	die "Error, affine is the forward transform, it must exist" if $rigid_is_forward;
+    }
+    if ( ! -e $TargetDataPackage_ThisPackageName_affine) {
+	die "Error, affine is the backward transform, it must exist" if ! $rigid_is_forward;
+    }
     if ( ! -e $TargetDataPackage_ThisPackageName_affine ) {
         ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform($aff,$TargetDataPackage_ThisPackageName_affine);
         my $create_inv=File::Spec->catfile($road_forward,".create_inverse_A.sh");
@@ -772,15 +811,12 @@ sub package_transforms_SPEC {
         print($f_id "#!/bin/bash\n$i_cmd;\n");
         close($f_id);
     }
-    if ( ! -e $ThisPackageName_TargetDataPackage_affine ) {
-        qx(ln -vs $aff $ThisPackageName_TargetDataPackage_affine);
-    }
 ###
 # get the warp
 ###
     #my $warp=File::Spec->catfile("$ThisPackageInRoot","stats_by_region","labels","transforms","MDT_to_${ThisPackageName}_warp.nii.gz");
     my $warp=File::Spec->catfile("$ThisPackageInRoot","reg_diffeo","MDT_to_${ThisPackageName}_warp.nii.gz");
-    my $TargetDataPackage_ThisPackageName_warp=File::Spec->catfile(${road_forward},basename( $warp));
+    my $TargetDataPackage_ThisPackageName_warp=File::Spec->catfile(${road_backward},basename( $warp));
     if ( ! -e $TargetDataPackage_ThisPackageName_warp ) {
         die "EXPCTED warp missing !($warp)" unless -e $warp ;
         qx(ln -s $warp $TargetDataPackage_ThisPackageName_warp);
@@ -790,50 +826,49 @@ sub package_transforms_SPEC {
 ###
     #$warp=File::Spec->catfile("$ThisPackageInRoot","stats_by_region","labels","transforms","${ThisPackageName}_to_MDT_warp.nii.gz");
     $warp=File::Spec->catfile("$ThisPackageInRoot","reg_diffeo","${ThisPackageName}_to_MDT_warp.nii.gz");
-    my $ThisPackageName_TargetDataPackage_warp=File::Spec->catfile($road_backward,basename( $warp));
+    my $ThisPackageName_TargetDataPackage_warp=File::Spec->catfile($road_forward,basename( $warp));
     if (  ! -e $ThisPackageName_TargetDataPackage_warp ) {
         qx(ln -s $warp $ThisPackageName_TargetDataPackage_warp);
     }
 ###
 # Create ordered links ( relative links to files in same folder just for our future selve's book keeping.
 ###
-# WARNING: These are the not in ants specification order(which is backwards). 
-# forward path
+# backward path
     my ($t,$p_t);
     $t="_1_${TargetDataPackage}_to_${ThisPackageName}_warp.nii.gz";
-    $p_t=File::Spec->catfile(${road_forward},$t);
+    $p_t=File::Spec->catfile(${road_backward},$t);
     if (  ! -e $p_t ) {
         $t=basename $TargetDataPackage_ThisPackageName_warp;
         qx(ln -sv $t $p_t);
     }
     $t="_2_${TargetDataPackage}_to_${ThisPackageName}_affine.mat";
-    $p_t=File::Spec->catfile(${road_forward},$t);
+    $p_t=File::Spec->catfile(${road_backward},$t);
     if (  ! -e $p_t ) {
         $t=basename $TargetDataPackage_ThisPackageName_affine;
         qx(ln -sv $t $p_t);
     }
     $t="_3_${TargetDataPackage}_to_${ThisPackageName}_rigid.mat";
-    $p_t=File::Spec->catfile(${road_forward},$t);
+    $p_t=File::Spec->catfile(${road_backward},$t);
     if (  ! -e $p_t ) {
         $t=basename $TargetDataPackage_ThisPackageName_rigid;
         qx(ln -sv $t $p_t);
     }
     
-# backward path
+# forward path
     $t="_1_${ThisPackageName}_to_${TargetDataPackage}_rigid.mat";
-    $p_t=File::Spec->catfile(${road_backward},$t);
+    $p_t=File::Spec->catfile(${road_forward},$t);
     if (  ! -e $p_t ) {
         $t=basename $ThisPackageName_TargetDataPackage_rigid;
         qx(ln -sv $t $p_t);
     }
     $t="_2_${ThisPackageName}_to_${TargetDataPackage}_affine.mat";
-    $p_t=File::Spec->catfile(${road_backward},$t);
+    $p_t=File::Spec->catfile(${road_forward},$t);
     if (  ! -e $p_t ) {
         $t=basename $ThisPackageName_TargetDataPackage_affine;
         qx(ln -sv $t $p_t);
     }
     $t="_3_${ThisPackageName}_to_${TargetDataPackage}_warp.nii.gz";
-    $p_t=File::Spec->catfile(${road_backward},$t);
+    $p_t=File::Spec->catfile(${road_forward},$t);
     if (  ! -e $p_t ) {
         $t=basename $ThisPackageName_TargetDataPackage_warp;
         qx(ln -sv $t $p_t);
