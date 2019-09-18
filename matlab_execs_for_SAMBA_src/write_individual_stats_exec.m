@@ -7,7 +7,8 @@ function write_individual_stats_exec(runno,label_file,contrast_list,image_dir, .
 % image_dir: Directory containing all the contrast images
 % output_dir
 % space: 'native','rigid','affine','mdt', or atlas'; used in header
-% atlas_id: used in header; may be used for pulling label names in the future.
+% atlas_id: 'WHS','CCF3CON', or 'CCF3' used in header; 
+%      may be used for pulling label names in the future.
 % Following two are optional, and their order doesn't matter.
 % lookup_table: a lookup table to load to keep our names/details straight
 % first_contrast_mask: use first contrast to omit bits
@@ -16,24 +17,30 @@ function write_individual_stats_exec(runno,label_file,contrast_list,image_dir, .
 %{
 _stats.txt sheet gotchas
 Voxels is the count of voxels for that value in the label map.
-Exterior means "excluded in labels". It is left in the stat sheets as a quality metric 
-of masking and missed data. Its non-null volume could be seen as a measure of mask error.
+Exterior means "excluded in labels". It is left in the stat sheets as a 
+quality metric of masking and missed data. Its non-null volume could be 
+seen as a measure of mask error.
 Volume is the volume covered by a label (voxels * voxelsize^3).
 
-null columns are voxels with a value of exactly 0. 
+Null columns are voxels with a value of exactly 0. 
 The nulls indicate calculation errors OR data which has been masked out.
-mean/min/max/std exclude any nulls, if you wish to include nulls, you'll need to scale accordingly.
-The percent null (per structure) may be an indicator of reliability(and of course not the 
-whole story).
-Dwi and derived data are masked independently, that is why dwi nulls != fa nulls.
+mean/min/max/std exclude any nulls, if you wish to include nulls, you'll 
+need to scale accordingly.
+The percent null (per structure) may be an indicator of reliability(and of
+course not the whole story).
+Dwi and derived data are masked independently, that is why dwi nulls not
+fa nulls. DTI and GQI scalars are generated indepenently and have different
+"invalid data" constraints, meaning fa,ad,rd,md nulls may not be
+qa,gfa,nqa,iso nulls.
 
-Total brain volume is not readily available from stat sheets due to masking, and the 
-labelset does not cover 100% of the brain.  
-Sum of ventricle volume is not reliable due to data masking 
-(any ventricle which borders the exterior of the brain is likely to be masked out).
-Non Ventricle BrainVolume should be available as the sum of non-ventricle structure volumes, 
-or that sum - the sum of nulls.x
+Total brain volume isn't readily available from stat sheets due to masking,
+and the labelset does not cover 100% of the brain.
+Sum of ventricle volume is not reliable due to data masking (any ventricle 
+which borders the exterior of the brain is likely to be masked out).
+Non Ventricle BrainVolume should be available as the sum of non-ventricle 
+structure volumes, or that sum - the sum of nulls.
 %}
+
 % do some ugly file read back to avoid the sytatical bleh of changing every
 % line of the gotchas text. To the next maintainer, i'm sorry .
 % This relies on the first block comment being the gotchas.( %{ -> %} )
