@@ -248,12 +248,16 @@ sub apply_affine_rotation {
 		#use File::Which;
 		#if ( -x which("gradmaker") ) {
 		if ( can_run("gradmaker") ) {
-                    my $cmd="gradmaker ${diffusion_headfile} ${grad_matrix}";
+		    my $cmd="gradmaker ${diffusion_headfile} ${grad_matrix}";
                     #printd(0,$cmd."\n");sleep_with_countdown(12);# a debug print and wait.
+		    if ( ! -e $grad_matrix) { 
                     run_and_watch($cmd);
-                    $cmd=sprintf("get_bval $diffusion_headfile");
-                    my @c_out=run_and_watch($cmd);
-                    write_array_to_file($bval_file,\@c_out);
+		    }
+		    if ( ! -e $bval_file ) {
+			$cmd=sprintf("get_bval $diffusion_headfile");
+			my @c_out=run_and_watch($cmd);
+			write_array_to_file($bval_file,\@c_out);
+		    }
                 }
                 # HAHA Single code required to run this!
                 # but we had to add to perl lib? So why dont we as part of diffusion_calc's installation?
