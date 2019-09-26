@@ -94,10 +94,35 @@ create_labels=1
 #register_MDT_to_atlas=1
 label_atlas_name=chass_symmetric3_RAS
 ## Hint: This is the name of the ANATOMY (i.e. images) upon which your source labels are overlaid
+## Other approved choices, C57, BTBR These are both based on chass_symmetric3_RAS and are under final validation.
+##   ( Some structures had updates done ) 
 
-#label_input_file=
+#
+#
+# While optional, it is now strongly encouraged to specify the label_input_file, and label_atlas_nickname
+#
+#
+
+#label_input_file=/exact/path/to/file.nii.gz
 ## Hint: If the name of your labels does not exactly match the label_atlas_name--perhaps due to multiple
 ##       versions of labels for the same anatomicaly atlas
+##  ex1, C57   /cm/shared/CIVMdata/atlas/C57/labels/WHS/C57_labels_RAS.nii.gz
+##  ex2, BTBR  /cm/shared/CIVMdata/atlas/BTBR/labels/WHS/BTBR_labels_RAS.nii.gz
+
+#label_atlas_nickname=JUSTABOUTANYTHING
+## Hint: To control the name of your output label file, instead of being named after the anatomy of the label registration.
+## Broadly, we like WHS when using a WHS labelset, 
+## If we're using the WHS derrived labels for our strain atlas using the combo WHS_STRAIN is encouraged
+## ex, for the updated C57 atlas, WHS_C57
+## or for the updated BTBR atlas, WHS_BTBR
+## This will adjust your output label file names to SPECIMEN/MDT_WHS_C57_labels.nii.gz, or SPECIMEN/MDT_WHS_BTBR_labels.nii.gz respectively. 
+## Take care that the nickname matches your exact file.
+
+#label_transform_chain=ATLAS1,ATLAS2,ATLAS3,ATLASN
+## Hint: Sometimes directly registering to atlas1 will give a non-optimal result. 
+## In this context Atlas can mean MDT, this variable is core to how we link multiple SAMBA runs together to account for significantly morpholigically different atlas data.
+## If specified simply as short names SAMBA looks in $WORKSTATION_DATA/atlas for a matching set of data, 
+## if specified as full paths (eg /path/to/samba_pkgs/ATLAS1 , SAMBA will try files matching /path/to/samba_pkgs/ATLAS1/ATLAS1_*contrast*nii.gz
 
 label_space=pre_rigid
 ## Hint: Multiple, comma-limited label_space options can be specified, and include:
