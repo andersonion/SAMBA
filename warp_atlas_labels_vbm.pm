@@ -592,7 +592,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	    # convert filename to nick name with expectation that nickname is just in front of labeltype keyword.
 	    # Dont get confused that this is the inverse of what you're looking for!
             $label_atlas_nickname =~ s/_($samba_label_types).*//x;
-	    printd(5,"Calculated label_atlas_nickname -> $label_atlas_nickname\n");die "Programmer testing";
+	    printd(5,"Calculated label_atlas_nickname -> $label_atlas_nickname\n");
         } else {
             $label_atlas_nickname=$label_atlas_name;
         }
@@ -613,7 +613,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	$label_atlas_dir=~ s/[\/]*$//; # Remove trailing slashes
 	(my $dummy, $label_atlas_name) = fileparts($label_atlas_dir,2);
     }
-    if ($use_lad ) {
+    if ($use_lad && ! $use_l_in) {
 	# We got the "label_atlas_dir" which is the base for the whole atlas and the labels can be nested deeper
 	# So we make a list of good places to look, in order, and we take the first valid.
 	# Unfortunately we could be hiding behind a label_atlas_nickname, AND if the user didnt set that to the 
@@ -656,13 +656,16 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	    $label_input_file = get_nii_from_inputs($label_atlas_dir,$label_atlas_name,'('.$samba_label_types.')');
 	    if ( ! -f "$label_input_file" ) {
 		error_out("label_input_dir auto resolution of label file failed, $label_input_file".$an_info); }
-    } else {
+    }
+=item 
+ else {
 	#$use_default_labels = 1;
 	# Default labels fail,
 	die "this condidtion should be unreachable, contact programmer";
 	# THIS TEMPORARY DEFAULT IS NOW DEACTIVATED!   
 	$label_input_file  ="${WORKSTATION_DATA}/atlas/chass_symmetric3_RAS/chass_symmetric3_RAS_labels.nii.gz"; 
     }
+=cut
     # label_input_file  stands in as an alternateive to guessing everything based on one key detail.
     if ( $use_l_in ) {
 	if (! -f $label_input_file ) { 
