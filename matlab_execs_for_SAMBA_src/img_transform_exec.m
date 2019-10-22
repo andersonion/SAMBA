@@ -35,7 +35,7 @@ is_RGB=0;
 is_vector=0;
 is_tensor=0;
 % todo: improve option handling
-% using hilarious cludge to take letters (1/0) or numbers (1/0) for bools.
+% using hilarious kludge to take letters (1/0) or numbers (1/0) for bools.
 if length(varargin) > 0
     if ~isempty(varargin{1})
         output_path=varargin{1};
@@ -59,12 +59,6 @@ if length(varargin) > 0
         end
     end
 end
-
-if ~recenter
-    warning('This code is defficient, it will ruin your center.');
-    pause(3);
-end
-
 % image check
 if ~exist(img,'file')
     error('Image cannot be found, please specify the full path as a string');
@@ -130,6 +124,8 @@ else
         end
     end
 end
+
+affine_out=fullfile(out_dir,[current_vorder '_to_' desired_vorder '_affine.mat']);
 if strcmp(ext,'.gz')
     nii_ext_len=4;
     img_name=img_name(1:end-nii_ext_len);
@@ -138,13 +134,22 @@ ext='.nii.gz';
 if ~use_exact_output
     output_path=fullfile(out_dir,[img_name suff ext]);
 end
-if exist(output_path,'file')
+
+%% early exit if done.
+if exist(output_path,'file') ...
+        && ( ~write_transform ...
+        || ( write_transform && exist(affine_out,'file') )  )
     warning('Existing output:%s, not regenerating',output_path);
     return;
 end
+
+if ~recenter
+    warning('This code is defficient, it will ruin your center.');
+    pause(3);
+end
+
 %affine_mat.AffineTransform_double_3_3=affine_matrix_string';
 %affine_mat.fixed_string=affine_fixed_string';
-affineout=fullfile(out_dir,[current_vorder '_to_' desired_vorder '_affine.mat']);
 
 orig='RLAPSI';
 flip_string='LRPAIS';
@@ -156,21 +161,34 @@ orig_current_vorder = current_vorder;
 %% Load and Analyze data
 try
     n1t=tic;
-    nii=load_niigz(img);
+    if ~exist(output_path,'file')
+        nii=load_niigz(img);
+    else
+        nii.hdr=load_niigz_hdr(img);
+    end
 catch
     time_1=toc(n1t);
     n2t=tic;
-    nii=load_nii(img);
+    if ~exist(output_path,'file')
+        nii=load_nii(img);
+    else
+        nii.hdr=load_nii_hdr(img);
+    end
     time_2=toc(n2t);
     warning(['Function load_niigz (runtime: ' num2str(time_1) ') failed with datatype: ' num2str(nii.hdr.dime.datatype) ' (perhaps because it currently doesn''t support RGB?). Used load_nii instead (runtime: ' num2str(time_2) ').']);
 end
-dims=size(nii.img);
+% dims=size(nii.img);
+dims=nii.hdr.dime.dim(2: nii.hdr.dime.dim(1)+1);
 if length(dims)>6
     error('Image has > 5 dimensions')
 elseif length(dims)<3
     error('Image has < 3 dimensions')
 end
-new=nii.img;
+if ~exist(output_path,'file')
+    new=nii.img;
+else 
+    new = zeros(dims);
+end
 
 %{
     warning('Untested no-op code');
@@ -200,7 +218,9 @@ if ~strcmp(desired_vorder,current_vorder)
         
     elseif ((length(dims) > 4) && (dims(5)==3));
         is_vector=1;
-    elseif ((length(dims) > 5) && (dims(5)==6)); % This a GUESS at how to tell if we have tensor...which seems to be pretty reliable.
+    elseif ((length(dims) > 5) && (dims(5)==6)); 
+        % This a GUESS at how to tell if we have tensor...which seems to be pretty reliable.
+        % Using intent code would be better!
         is_tensor=1;
     end
     %% Affine transform matrix preparation
@@ -254,6 +274,7 @@ if ~strcmp(desired_vorder,current_vorder)
     zpos=strfind(current_vorder,desired_vorder(3));
     %% perform swaps
     display(['Dimension order is:' num2str(xpos) ' ' num2str(ypos) ' ' num2str(zpos)] )
+    if ~exist(output_path,'file')
     if length(dims)==5
         if is_tensor
             % I think more sophisticated handling is required in for tensors! I think tensors are dim==5
@@ -272,8 +293,9 @@ if ~strcmp(desired_vorder,current_vorder)
     elseif length(dims)==3
         new=permute(new,[xpos ypos zpos]);
     end
+    end
     %% save affine transform
-    if (~exist(affineout,'file') && write_transform)
+    if (~exist(affine_out,'file') && write_transform)
         intermediate_affine_matrix = [x_row;y_row;z_row];
         iam = intermediate_affine_matrix;
         affine_matrix_for_points = [iam(xpos,:); iam(ypos,:); iam(zpos,:)]; % New code added to reflect that images are handled differently (i.e. inversely) than points
@@ -285,12 +307,19 @@ if ~strcmp(desired_vorder,current_vorder)
         affine_fixed_string = [0 0 0];
         try
             % sometims missing, dont care to track it down today.
-            write_affine_xform_for_ants(affineout,affine_matrix_string,affine_fixed_string);
+            write_affine_xform_for_ants(affine_out,affine_matrix_string,affine_fixed_string);
         catch merr
             disp(merr);
         end
         %save(affineout,'-struct','affine_mat');
     end
+end
+%% early exit if done.
+if exist(output_path,'file') ...
+        && ( ~write_transform ...
+        || ( write_transform && exist(affine_out,'file') )  )
+    warning('Existing output:%s, not regenerating',output_path);
+    return;
 end
 %% recenter ... if you're in to that junk
 if recenter
@@ -298,7 +327,7 @@ if recenter
     origin=origin(1:3);
 else
     % this ruins the origin if not recentering...
-    % which is kinda sill all around :P
+    % which is kinda silly all around :P
     origin=[];
 end
 %% make_nii/save_nii
