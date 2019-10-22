@@ -322,8 +322,8 @@ if contrasts_to_process > 0
     null_element_base = 0;
     
     label_orig=load_niigz(label_file);
-    voxel_vol=label_orig.hdr.dime.pixdim(2)*label_orig.hdr.dime.pixdim(3)*label_orig.hdr.dime.pixdim(4);
-    %labelim=label_orig.img(:);
+    voxel_vol=prod(label_orig.hdr.dime.pixdim(2:4));
+    %labelim=label_orig.img(:);1
     %clear label_orig; % We got everything we needed so can remove from memory
     %ROI=unique(labelim);
     ROI=unique(label_orig.img);
