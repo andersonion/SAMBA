@@ -19,7 +19,7 @@ channel_comma_list=dwi,fa
 ## Hint: At a minimum, this must at least include any contrasts used to drive registration.
 
 # Rigid (coarse) alignment options
-atlas_name=chass_symmetric3_RAS
+rigid_atlas_name=chass_symmetric3_RAS
 rigid_contrast=dwi
 
 # Non-linear (diffeomorphic) registration options
@@ -29,6 +29,7 @@ mdt_creation_strategy=iterative
 
 mdt_iterations=6
 ## Hint: You want at least 4 mdt_iterations, as this is the first fully-sampled level
+template_predictor=all
 
 diffeo_transform_parameters=0.5,3,0.5
 diffeo_iterations=100x100x100x60
@@ -62,14 +63,13 @@ do_connectivity=0
 
 #affine_contrast=dwi
 #affine_target=N51231
-## Hint: affine_target will be the first control runno if not specified.  Future support will allow for the average of the rigidly aligned images to be the affine registration target.
-
+## Hint: affine_target will be the most median volume brain(as found by brain mask size), or the specified Runno.
+#  Future support will allow for the average of the rigidly aligned images to be the affine registration target.
 
 ## Image orientation options 
-
-#working_image_orientation=RAS
-## Hint: All work will be performed in working_image_orientation, 
-#  which should follow atlas orientation.
+working_image_orientation=RAS
+## Hint: All work will be performed in working_image_orientation.
+# Best practics is RAS, alternatively you could specify the input orientation.
 
 #original_study_orientation=ARI
 ## Hint: This describes the current orientation of all the incoming images, assuming they are uniformly oriented.
