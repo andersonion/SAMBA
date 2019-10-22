@@ -1,0 +1,158 @@
+### REQUIRED PARAMETERS ###
+project_name=13.colton.01
+
+control_comma_list=N51211
+## Hint: control_comma_list should include all runnos that you want to contribute to the creation of the MDT (aka template)
+
+# old fashioned data channels fron tensor_create
+#channel_comma_list=fa,adc,dwi,e1,e2,e3
+# new dsi_studio data channels
+channel_comma_list=dwi,fa,ad,md,rd,iso,gfa,qa,nqa
+## Hint: At a minimum, this must at least include any contrasts used to drive registration.
+
+# Rigid (coarse) alignment options
+rigid_atlas_name=chass_symmetric3_RAS
+rigid_contrast=dwi
+
+# Non-linear (diffeomorphic) registration options
+mdt_contrast=fa
+mdt_creation_strategy=pairwise
+## Hint: options for mdt_creation_strategy include 'iterative' and 'pairwise'
+
+mdt_iterations=6
+## Hint: You want at least 4 mdt_iterations, as this is the first fully-sampled level
+template_predictor=all
+
+### as used in multispec runs
+# diffeo_transform_parameters=0.5,3,0.5
+### as used in single spec runs
+diffeo_transform_parameters=0.5,3,1
+diffeo_iterations=100x100x100x60
+
+### Various optional parameters ###
+# for single seg runs useing the specimen code is strongly encouranged
+optional_suffix=191030_1_1
+## Hint: optional_suffix will be appended to the main directory names, before -inputs/-work/-results.
+
+vbm_reference_space=native
+## Hint: vbm_reference_space can be a specific runno, an arbitrary image, the name of an atlas, or 'native' (the first control runno).
+
+## Connectivity processing options
+#convert_labels_to_RAS=0
+# In conjuction with setting owrking orientation to RAS this flag is strongly discouraged as it generates a agreat deal of mess.
+# It has largly been disabled in the code.
+#convert_labels_to_RAS=1
+## Hint: historically, the default working orientation is ALS, so convert_labels_to_RAS will turn final labels from ALS to RAS.
+
+do_connectivity=0
+## Hint: do_connectivity=1 will process the 4D diffusion nifti stack and bvals/bvecs to be used as input into another program such mrtrix or DSI studio
+##       Only DSI studio is fully supported right now for bval/bvec processing and formatting.
+
+#eddy_current_correction=1
+## Hint: When turned on eddy current correction was used during DTI tensor processing, the resulting rotations will be applied to the bvecs as well.
+
+# set nodes to 1 so we dont waste any resources.
+number_of_nodes_used=1
+
+## Affine registration options
+
+#affine_contrast=dwi
+#affine_target=N51231
+## Hint: affine_target will be the most median volume brain(as found by brain mask size), or the specified Runno.
+#  Future support will allow for the average of the rigidly aligned images to be the affine registration target.
+
+## Image orientation options 
+working_image_orientation=RAS
+## Hint: All work will be performed in working_image_orientation.
+# Best practics is RAS, alternatively you could specify the input orientation.
+
+#original_study_orientation=ARI
+## Hint: This describes the current orientation of all the incoming images, assuming they are uniformly oriented.
+## Hint: Support for handling outliers specify them individually with  original_orientation_$runno=...
+##  ex:
+#  original_orientation_N51201=LPI 
+
+## Hint: flip options are deprecated in favor of just speicifying your original orientation. 
+# These WILL NOT WORK in the future. 
+#flip_x=1
+## Hint: flip_x=1 will rotate incoming images from PRS to ALS.
+#flip_z=0
+## Hint: flip_z=1 will rotate incoming images from ARI to ALS.
+## Hint: flip_x=1 and flip_z=1 will take images from PLI to ALS.
+
+# Label options
+# create_labels is a single big job from your study average to the label_atlas
+# if you dont need the labels, and just want the transforms you can use  "register_MDT_to_atlas"
+create_labels=1
+# Implied by create_labels=1, but lets you skip label application and measures if they're not your primary goal,
+# that is typically the case when you're a hybrid study as a waypoint.
+#register_MDT_to_atlas=1
+label_atlas_name=chass_symmetric3_RAS
+## Hint: This is the name of the ANATOMY (i.e. images) upon which your source labels are overlaid
+## Other approved choices, C57, BTBR These are both based on chass_symmetric3_RAS and are under final validation.
+##   ( Some structures had updates done ) 
+
+#
+#
+# While optional, it is now strongly encouraged to specify the label_input_file, and label_atlas_nickname
+#
+#
+
+#label_input_file=/exact/path/to/file.nii.gz
+## Hint: If the name of your labels does not exactly match the label_atlas_name--perhaps due to multiple
+##       versions of labels for the same anatomicaly atlas
+##  ex1, C57   /cm/shared/CIVMdata/atlas/C57/labels/WHS/C57_labels_RAS.nii.gz
+##  ex2, BTBR  /cm/shared/CIVMdata/atlas/BTBR/labels/WHS/BTBR_labels_RAS.nii.gz
+
+#label_atlas_nickname=JUSTABOUTANYTHING
+## Hint: To control the name of your output label file, instead of being named after the anatomy of the label registration.
+## Broadly, we like WHS when using a WHS labelset, 
+## If we're using the WHS derrived labels for our strain atlas using the combo WHS_STRAIN is encouraged
+## ex, for the updated C57 atlas, WHS_C57
+## or for the updated BTBR atlas, WHS_BTBR
+## This will adjust your output label file names to SPECIMEN/MDT_WHS_C57_labels.nii.gz, or SPECIMEN/MDT_WHS_BTBR_labels.nii.gz respectively. 
+## Take care that the nickname matches your exact file.
+
+#label_transform_chain=ATLAS1,ATLAS2,ATLAS3,ATLASN
+## Hint: Sometimes directly registering to atlas1 will give a non-optimal result. 
+## In this context Atlas can mean MDT, this variable is core to how we link multiple SAMBA runs together to account for significantly morpholigically different atlas data.
+## If specified simply as short names SAMBA looks in $WORKSTATION_DATA/atlas for a matching set of data, 
+## if specified as full paths (eg /path/to/samba_pkgs/ATLAS1 , SAMBA will try files matching /path/to/samba_pkgs/ATLAS1/ATLAS1_*contrast*nii.gz
+
+label_space=pre_rigid
+## Hint: Multiple, comma-limited label_space options can be specified, and include:
+##       'pre_rigid': Native space of incoming images without any transforms applied
+##       'post_rigid' (or 'pre_affine'): Only the rigid linear transform will be applied to the images (no scaling or shearing)
+##       'post_affine': The rigid and affine linear transforms will be applied to the images (translation+rotation+scaling+shearing)
+##       'MDT': All images will be affinely and diffeomorphically mapped into the MDT label set
+##       'atlas': All images will be affinely and diffeomorphically mapped into the original atlas label set	
+  
+# Masking/skull-stripping options	
+skull_strip_contrast=dwi
+## Hint: our automated skull-stripping is optimized for dwi
+
+threshold_code=4
+do_mask=1
+port_atlas_mask=0
+## Hint: port_atlas_mask will align and scale the atlas mask to the results of the automated skull-stripping
+
+#pre_masked=0
+## Hint: pre_masked=1 will result in do_mask=0; this is if your input images are already masked.
+
+
+## VBA Options
+vba_contrast_comma_list=dwi,fa,e1,jac
+## Hint: If not all contrasts should be analyzed with VBA, this comma-delimited 
+#  list of image contrasts will specify which ones will be used with VBA. 
+#  If this variable is not set, VBA will be performed on all available contrasts (except the nii4D).
+
+smoothing_comma_list=1,2,3,0.1mm
+## Hint: This comma-delimited list specifies the smoothing radii you want to try before performing VBA; no specified units defaults to 'vox', while 'mm' can be specified if need be.
+
+vba_analysis_software=surfstat
+## Hint: multiple comma-delimited options can be specified and include: surfstat (default),fsl,ANTsR, and spm.
+## Hint: fsl must be included if you want to do nonparametric testing
+
+#nonparametric_permutations=6000
+#fdr_masks=ROI:51:1051,label:1:2:3:4:5:6,fa:0.3:1
+## Hint: Full help on how to specify ROI/label-based and threshholded contrast-based fdr maps is forthcoming.
