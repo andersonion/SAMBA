@@ -54,7 +54,7 @@ use vbm_pipeline_workflow;
 
 $schedule_backup_jobs=1;
 # Set pipeline utilities code dev group
-if ($ENV{'CODE_DEV_GROUP'} ne ''){
+if (exists $ENV{'CODE_DEV_GROUP'} && $ENV{'CODE_DEV_GROUP'} ne ''){
     $CODE_DEV_GROUP=$ENV{'CODE_DEV_GROUP'};
 }
 
@@ -110,8 +110,13 @@ if (! defined $nodes || $nodes eq '' ) {
             $ENV{'SLURM_RESERVATION'}=$reservation;
         }
     } else {
-        die "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\n\n\n".
-            " Maybe your start file($start_file) was not found !"; 
+        warn "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\n\n\n".
+            " Maybe your start file($start_file) was not found !\n".
+	    " Will start with # $nodes nodes in a few seconds."; 
+	undef $reservation;
+	sleep_with_countdown(4);
+	
+
         # formerly was allowed to continue with reservatoin set failure, 
         # this generates such a confusing mess that has been deprecated. 
         # $nodes = 4;
