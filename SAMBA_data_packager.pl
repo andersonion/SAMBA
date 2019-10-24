@@ -21,6 +21,7 @@ use Getopt::Std;
 use Scalar::Util qw(looks_like_number);
 use List::MoreUtils qw(uniq);
 
+# BOILER PLATE
 BEGIN {
     # we could import radish_perl_lib direct to an array, however that complicates the if def checking.
     my @env_vars=qw(RADISH_PERL_LIB BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME);
@@ -31,10 +32,15 @@ BEGIN {
     }
     die "Setup incomplete:\n\t".join("\n\t",@errors)."\n  quitting.\n" if @errors;
 }
-
 use lib split(':',$RADISH_PERL_LIB);
+# my absolute fav civm_simple_util components.
+use civm_simple_util qw(activity_log printd $debug_val);
 
 use pipeline_utilities;
+# pipeline_utilities uses GOODEXIT and BADEXIT, but it doesnt choose for you which you want. 
+$GOODEXIT = 0;
+$BADEXIT  = 1;
+# END BOILER PLATE
 use civm_simple_util qw(activity_log can_dump file_trim load_file_to_array write_array_to_file find_file_by_pattern file_mod_extreme is_writable round printd whoami whowasi debugloc sleep_with_countdown $debug_val $debug_locator);
 use Headfile;
 
@@ -67,11 +73,13 @@ sub main {
     my $hf_path=$ARGV[1];
     my @hf_errors;
     my $mdtname=$ARGV[2];
-    
+    my $SingleSegMode=0;
+
     if (! defined $output_path) {
         print( "Not enough input arguments, please specify your output_path, SAMBA startup file, and optionally the MDT name\n");
     }
     $output_path=file_trim($output_path);
+    my $output_base=dirname($output_path);
     # This whole startup segment belongs in some "samba_helper.pm" file.
     # something like "samba pathing" ...
     my $hf=new Headfile ('ro', $hf_path);
@@ -79,7 +87,7 @@ sub main {
     $hf->read_headfile or push(@hf_errors,"Unable to read $hf_path\n");
     if ( scalar(@hf_errors)>0 ){
         #print("Error_dump$#hf_errors\n");
-        die(join('',@hf_errors));
+        die join('',@hf_errors);
     }
     # group runs, a hash ref of arrays of group runnos.
     # we're expecting 1 group with 4 in this code,
@@ -119,14 +127,25 @@ sub main {
     }
     @individuals=uniq(@individuals);
     # when handling the MDT, the group runnos arnt used, so is non-fatal
+    
     if ( scalar(@individuals) < 1 ) {
         cluck "input runnos undefined!";
+    } elsif (scalar(@individuals)==1) {
+	## Detect SingleSeg mode.
+	$SingleSegMode=1;
+	printd(5,"SingleSegmentation Mode, there is no MDT, Sorry there is some handwaving in this mode.\n");
+	# Prefixing the data name with Atlas for us in capturing the transforms from the MDT dir.
+	#Maybe we should isntead postfix with Rigid, as its Rigidly aligned to the atlas.
+	$mdtname=$individuals[0]."Rig";
+	my $Specimen=$individuals[0];
+	$opts->{"link_images"}=0;
+	$output_path=File::Spec->catfile($output_base,$Specimen);
+	printd(5,"Adjusted \"MDT\" Transforms to $mdtname\n");
     }
     if( ! ${$opts->{"link_individuals"}} ) {
 	# if we're skipping the individuals.
 	@individuals=();
     }
-
     #sleep_with_countdown(1);
     # Our options hash is a bit cantankerous, have to use the odd ${$opts->{"option_name"}} 
     # syntax to get the value. 
@@ -233,12 +252,15 @@ sub main {
     #my $affpath=File::Spec->catfile($BIGGUS_DISKUS,
     #                                sprintf("%s-work",$n_vbm),
     #                                $c_r );
-
-    my $mdtpath=File::Spec->catfile($BIGGUS_DISKUS,
-                                    sprintf("%s-work",$n_vbm),
-                                    $c_r,
-                                    sprintf("SyN_%s_%s",$p_d,$c_mdt),
-                                    sprintf("%sMDT_%s_n%i_i%i",$c_mdt,$mdt_p,$MDT_n,$i_mdt)  );
+    # template_work_dir may be hfkey alternative for mdtpath.
+    ( $v_ok,my $mdtpath) = $hf->get_value_check("template_work_dir");
+    if ( ! $v_ok ) {
+	$mdtpath=File::Spec->catfile($BIGGUS_DISKUS,
+				     sprintf("%s-work",$n_vbm),
+				     $c_r,
+				     sprintf("SyN_%s_%s",$p_d,$c_mdt),
+				     sprintf("%sMDT_%s_n%i_i%i",$c_mdt,$mdt_p,$MDT_n,$i_mdt)  );
+    }
     # the anoyingly named "inputs_dir" which is NOT the -inputs dir!
     ( $v_ok,my $base_images) = $hf->get_value_check("inputs_dir");
     if ( ! $v_ok ) {
@@ -251,7 +273,8 @@ sub main {
     if ( ! defined $mdtname ) { 
         # if mdtname not set, and we had an o_s assume the o_s is mdname, else error
         if ( $o_s ne '' ) {
-            printd(5,"no mdtname specified, but we found an optional suffix $o_s, this is what we're going to call the mdt, it will be in all your transform names for this set of packaged data.\n IF YOU DON'T LIKE THAT CANCEL NOW AND SPECIFY AN MDTNAME on the command line\n");
+            printd(5,"no mdtname specified, but we found an optional suffix $o_s, this is what we're going to call the mdt, it will be in all your transform names for this set of packaged data.\n"
+		   ."IF YOU DON'T LIKE THAT CANCEL NOW AND SPECIFY AN MDTNAME on the command line\n");
             sleep_with_countdown(8);
             $mdtname=$o_s; 
         } else {
@@ -342,9 +365,14 @@ sub main {
     ###
     # Handle per specimen images as measured. 
     ###
-    # There are other specimen images available, but this seems like the bet choice.
-    my $output_base=dirname($output_path);
+    # There are other specimen images available, but this seems like the best choice.
+
+    ($v_ok, my $hf_dir)=$hf->get_value_check('pristine_input_dir');
+    if(! $v_ok ){ 
+	undef $hf_dir;
+    }
     # While we say specimen here, we may actually have runnos's... You were warned. 
+    my @spec_errs;
     for my $Specimen (@individuals) {
         my $output_path=File::Spec->catfile($output_base,$Specimen);
         if( -d $output_path) {
@@ -358,18 +386,19 @@ sub main {
 	# New updates in the labels have ruined this structure finding
 	# Furhter complicating things the output results headfile only has one entry for the label_images_dir and it gets overwritten for each measure space.
 	# That should be fixed, but before that we need to most always grab pre_rigid_native_space
-	# Turns out that is "preprocess/base_images" 99+% of the time, So we'll deal with that, 
-	# AND that those names ARE NOT DESIRED OUTPUT NAMES.
+	# Turns out that is "preprocess" 99+% of the time, 99+% of the time base-images just links up to preprocess.
+	# When it doesn't, it's not clear if there is an error or not, so we'll handle those one at a time manually
+	# Annoyingly the preprocess and base_images names ARE NOT DESIRED OUTPUT NAMES.
 	# we're gonna hide the renamey in transmogrify.
 	my $in_im_dir=multi_choice_dir(
 	    [
 	     $base_images,
+	     File::Spec->catfile($mdtpath,"vox_measure","pre_rigid_native_space"),
 	     File::Spec->catfile($mdtpath,"stats_by_region","labels","pre_rigid_native_space","images"),
 	     # $hf->get_value("label_images_dir"),
 	    ]
 	    );
-	
-        #my $sub_lookup=transmogrify_folder($in_im_dir,$output_path,$Specimen,$Specimen);
+	#my $sub_lookup=transmogrify_folder($in_im_dir,$output_path,$Specimen,$Specimen);
 	# 4 part machhcing, speimen, _something{1..n}, _masked{0,1}, compoundext
 	my $inpat="($Specimen)((?:_[^_]+)+?)(_masked)?((?:[.][^.]+)+)\$";
 	my $outpat='$1$2$4';
@@ -381,12 +410,68 @@ sub main {
                 qx(ln -vs $key $value);
             }
         }
-        package_transforms_SPEC($mdtpath,$output_path,$Specimen,$mdtname,$n_vbm);
+	package_transforms_SPEC($mdtpath,$output_path,$Specimen,$mdtname,$n_vbm);
+	if ( $SingleSegMode ) {
+	    # When in single seg mode we have a messy batch of transform in our directory.
+	    # This'll fix that by combining link dirs,and re-numbering, then pruning any identity files
+	    merge_transform_links($output_path,$Specimen,$mdtname,$n_a_l);
+	}
         # n_a_l_n - the nickname for the labelset.
         package_labels_SPEC($mdtpath,$output_path,$Specimen,$n_a_l_n,$n_vbm);
+
+	# if we're an input headfile we wont have a complete enough story for the image data.
+	# We can tell if the rigid_work_dir is set.
+	($v_ok,my $rwd)=$hf->get_value('rigid_work_dir');
+	my $sHF;
+	if ( ! $v_ok ) {
+	    # Find hf in progress from the image dirs.
+	    # Old name, faMDT_NoNameYet_n1_temp.headfile
+	    # New name .faMDT_all_n1_amw_temp.headfile
+	    # We may get multiple returns but they're all equally correct in this context. 
+	    my ($s_hf)=find_file_by_pattern($in_im_dir,"[.]?.*[.]headfile\$",1);
+	    if ( ! defined $s_hf ) {
+		# rigid_work_dir
+		error_out("Didn't find samba headfile in $in_im_dir\n");
+	    }
+	    $sHF= new Headfile('ro',$s_hf);
+	    $sHF->check() or push(@spec_errs,"unable to open SAMBA headfile\n (  $s_hf )\n");
+	    $sHF->read_headfile() or push(@spec_errs,"unable to read SAMBA headfile\n  ( $s_hf )\n");
+	} else {
+	    $sHF=$hf;
+	}
+	# Fetch the "headfile" from the input, die on multiple choices.
+	my $res_hf=File::Spec->catfile($output_path,sprintf("SAMBA_%s.headfile",$Specimen));
+	if ( defined $hf_dir && ! -e $res_hf ) { 
+	    # can tell tensor from diffusion via archivedestination_unique_item_name
+	    # That should be solid forever, But we dont need to here, We just want to make sure we capture what happend.
+	    #archivedestination_unique_item_name=diffusionN57240dsi_studio
+	    my @headfiles=find_file_by_pattern($hf_dir,".*$Specimen.*[.]headfile\$",1);
+	    if( scalar(@headfiles) != 1 ){ 
+		croak "Input Headfile lookup found # ".scalar(@headfiles)." headfiles, not sure how to proceed."
+		    ."\t (Searched $hf_dir for *$Specimen*.headfile)";
+	    } 
+	    my $hfname=basename($headfiles[0]);
+	    my $cp_cmd=sprintf("cp --preserve=timestamps %s %s && chmod u+w %s",$headfiles[0],$res_hf,$res_hf);
+	    printd(45,"$cp_cmd\n");
+	    run_and_watch($cp_cmd);
+	    #qx($cp_cmd) or die "error:$!\n"
+	    #."copying input hf to $res_hf\n"
+	    #."Is the archive connected?";
+	} elsif( ! -e $res_hf) {
+	    carp("ERR Couldn't fetch input headfile to maintain data logging.");
+	}
+	my $rHF= new Headfile('rw',$res_hf);
+	$rHF->check() or push(@spec_errs,"unable to open $Specimen headfile\n  ( $res_hf )\n");
+	$rHF->read_headfile() or push(@spec_errs,"unable to read $Specimen headfile\n  ($res_hf )\n");
+	$rHF->set_value("SAMBA_tag","R_");
+	$rHF->copy_in($sHF,"R_");
+	# add/ammend vars from the samba pipeline.
+	$rHF->write_headfile($res_hf);
 	record_metadata($output_path);
     }
-
+    if(scalar(@spec_errs) ){
+	die join('',@spec_errs);
+    }
     ###
     # MDT feedback
     ###
@@ -614,6 +699,12 @@ sub package_transforms_MDT {
 	$aff=qx(ls $a_dir/MDT_*_to_${TargetDataPackage}_affine.*) || die "affine find fail, even tried old fashioned location";
     }
     chomp($aff);
+
+    my $t_merge_file=File::Spec->catfile($ThisPackageOutLocation,"transforms",".merge.log");
+    if( -e $t_merge_file ) { 
+	warn("DID NOT UPDATE TRANFORMS for $ThisPackageName!\n"
+	     ."\tSome(or all) former transform links were merged, see hidden .merge.log for detail");
+	return;}
 ###
 # make Package forward and reverse directories
 ###
@@ -733,6 +824,11 @@ sub package_transforms_SPEC {
 ###
 # make Package foward and reverse directories
 ###
+    my $t_merge_file=File::Spec->catfile($ThisPackageOutLocation,"transforms",".merge.log");
+    if( -e $t_merge_file ) { 
+	warn("DID NOT UPDATE TRANFORMS for $ThisPackageName!\n"
+	     ."\tSome(or all) former transform links were merged, see hidden .merge.log for detail");
+	return;}
     my($road_backward,$road_forward)=transform_dir_setup($ThisPackageInRoot,$ThisPackageOutLocation,$ThisPackageName,
                                                          $TargetDataPackage,$CollectionSource);
     #Data::Dump::dump([$road_backward,$road_forward]);
@@ -751,12 +847,16 @@ sub package_transforms_SPEC {
 	
 	$TargetDataPackage_ThisPackageName_rigid=File::Spec->catfile(${road_backward},
 								     sprintf("MDT_to_%s_%s",$ThisPackageName,$r_suff));
-	qx(ln -vs $rig $ThisPackageName_TargetDataPackage_rigid);
+	if ( ! -e $ThisPackageName_TargetDataPackage_rigid) { 
+	    qx(ln -vs $rig $ThisPackageName_TargetDataPackage_rigid);
+	}
     } elsif (! $rigid_is_forward ) {
 	$TargetDataPackage_ThisPackageName_rigid=File::Spec->catfile(${road_forward},
 								     sprintf("%s_to_MDT_%s",$ThisPackageName,$r_suff));
 	$ThisPackageName_TargetDataPackage_rigid=File::Spec->catfile(${road_backward},basename($rig));
-	qx(ln -vs $rig $TargetDataPackage_ThisPackageName_rigid);
+	if ( ! -e $TargetDataPackage_ThisPackageName_rigid) {
+	    qx(ln -vs $rig $TargetDataPackage_ThisPackageName_rigid);
+	}
     }
     #Data::Dump::dump([$ThisPackageName_TargetDataPackage_rigid,$TargetDataPackage_ThisPackageName_rigid]);
     my ($i_out,$i_cmd);
@@ -766,8 +866,9 @@ sub package_transforms_SPEC {
             qx(ln -vs $rig $TargetDataPackage_ThisPackageName_rigid);
         } else {
             ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform($rig,$TargetDataPackage_ThisPackageName_rigid);
+	    my ($p,$n)=fileparts($TargetDataPackage_ThisPackageName_rigid,2);
             my $create_inv=File::Spec->catfile($road_backward,
-                                               ".create_inverse_R.sh");
+                                               ".create_inv_t_".$n."_R.sh");
             open(my $f_id,'>',$create_inv);
             print($f_id "#!/bin/bash\n$i_cmd;\n");
             close($f_id);
@@ -780,8 +881,9 @@ sub package_transforms_SPEC {
         } else {
             ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform(
                 $rig,$ThisPackageName_TargetDataPackage_rigid);
+	    my ($p,$n)=fileparts($ThisPackageName_TargetDataPackage_rigid,2);
             my $create_inv=File::Spec->catfile($road_backward,
-                                               ".create_inverse_R.sh");
+                                               ".create_inv_t_".$n."_R.sh");
             open(my $f_id,'>',$create_inv);
             print($f_id "#!/bin/bash\n$i_cmd;\n");
             close($f_id);
@@ -794,9 +896,13 @@ sub package_transforms_SPEC {
 	File::Spec->catfile(${road_backward},sprintf("MDT_to_%s_%s",$ThisPackageName,$a_suff));
     #File::Spec->catfile(${road_backward},sprintf("%s_to_MDT_%s",$ThisPackageName,$a_suff));
     if($rigid_is_forward ) {
-	qx(ln -vs $aff $ThisPackageName_TargetDataPackage_affine);
+	if ( ! -e $ThisPackageName_TargetDataPackage_affine) {
+	    qx(ln -vs $aff $ThisPackageName_TargetDataPackage_affine);
+	}
     } elsif (! $rigid_is_forward ) {
-	qx(ln -vs $aff $TargetDataPackage_ThisPackageName_affine);
+	if ( ! -e $TargetDataPackage_ThisPackageName_affine) {
+	    qx(ln -vs $aff $TargetDataPackage_ThisPackageName_affine);
+	}
     }
     if ( ! -e $ThisPackageName_TargetDataPackage_affine) {
 	die "Error, affine is the forward transform, it must exist" if $rigid_is_forward;
@@ -806,8 +912,9 @@ sub package_transforms_SPEC {
     }
     if ( ! -e $TargetDataPackage_ThisPackageName_affine ) {
         ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform($aff,$TargetDataPackage_ThisPackageName_affine);
-        my $create_inv=File::Spec->catfile($road_forward,".create_inverse_A.sh");
-        open(my $f_id,'>',$create_inv);
+	my ($p,$n)=fileparts($TargetDataPackage_ThisPackageName_affine,2);
+        my $create_inv=File::Spec->catfile($road_forward,".create_inv_t_".$n."_A.sh");
+        open(my $f_id,'>',$create_inv) or croak "error on open $create_inv: $!";
         print($f_id "#!/bin/bash\n$i_cmd;\n");
         close($f_id);
     }
@@ -877,6 +984,99 @@ sub package_transforms_SPEC {
     return;
 }
 
+sub merge_transform_links {
+    #merge_transform_links($output_path,$mdtname,$Specimen);
+    my($link_dir,@nodes) = @_;
+    # Given list of nodes, merge the transform links between these nodes to a singular pair.
+    if (scalar(@nodes)<3) { 
+	die("Needs at least 3 nodes to merge");
+    } elsif(scalar(@nodes)>3 && $debug_val<45 ) { 
+	die("UNTESTED MULTI LINK REMOVAL! will only proceed with serious debug val!");
+    }
+    my $t_merge_file=File::Spec->catfile($link_dir,"transforms",".merge.log");
+    my $missing_node_tollerance=0;
+    if ( -e $t_merge_file ) { 
+	$missing_node_tollerance=1;
+    }
+
+    open(my $m_id,'>>',$t_merge_file);
+    # Prev, current, next node.
+    my ($node_P,$node_C,$node_N);
+    # might be able to convert to a while loop like:
+    # while node count > 2   ?
+    # each loop iter would re-create nodes array removing the current node.
+    for(my $i_n=1;$i_n<$#nodes; $i_n++) {
+	# node P should actually always be the first node because we will remove the current node 
+	# once we extract its transforms.
+	#$node_P=$nodes[$i_n-1];
+	$node_P=$nodes[0];
+	# If we switch to a while loop i_n will always be 1 because we remove it at the end of the loop.
+	$node_C=$nodes[$i_n];
+	$node_N=$nodes[$i_n+1];
+	printd(5,"\t  dispersing transform node $node_C to $node_P and $node_N\n");
+
+	# link vars, forward/reverse curent, previous, and new link_f link_r
+	# we need to merge the forward link into the reverse link and clean out any unnecessary identities.
+	# the pair to merge forward 
+	my $l_fp=File::Spec->catdir($link_dir,"transforms",$node_P."_to_".$node_C);
+	my $l_fc=File::Spec->catdir($link_dir,"transforms",$node_C."_to_".$node_N);
+
+	#the pair to merge backward
+	my $l_rc=File::Spec->catdir($link_dir,"transforms",$node_N."_to_".$node_C);
+	my $l_rp=File::Spec->catdir($link_dir,"transforms",$node_C."_to_".$node_P);
+
+	# the result birectional pair which skips current becuase we merged it away.
+	my $n_l_f=File::Spec->catdir($link_dir,"transforms",$node_P."_to_".$node_N);
+	my $n_l_r=File::Spec->catdir($link_dir,"transforms",$node_N."_to_".$node_P);
+		
+	if( -d $l_fp && -d $l_fc 
+	    && $l_rc && -d $l_rp) {
+	    printd(65,"\tF:$l_fp\n\t\t$l_fc\n");
+	    printd(65,"\tR:$l_rc\n\t\t$l_rp\n");
+	    my @cmds;
+	    push(@cmds,concatenate_transform_dirs($l_fp, $l_fc));
+	    push(@cmds,sprintf("mv %s %s",$l_fp, $n_l_f) );
+	    push(@cmds,sprintf("cat %s >> %s",
+			       File::Spec->catfile($l_fc,"README.txt"),
+			       File::Spec->catfile($n_l_f,"README.txt")));
+	    push(@cmds,sprintf("rm %s",File::Spec->catfile($l_fc,"README.txt")) );
+	    push(@cmds,sprintf("find %s -iname \"%s\" -exec mv {} %s \\; ",$l_fc,".create_inv_t*.sh",$n_l_f) );
+	    push(@cmds,sprintf("rmdir %s",$l_fc) );
+	    
+	    
+	    push(@cmds,concatenate_transform_dirs($l_rc, $l_rp));
+	    push(@cmds,sprintf("mv %s %s",$l_rc, $n_l_r) );
+	    push(@cmds,sprintf("cat %s >> %s",
+			       File::Spec->catfile($l_rp,"README.txt"),
+			       File::Spec->catfile($n_l_r,"README.txt")));
+	    push(@cmds,sprintf("find %s -iname \"%s\" -exec mv {} %s \\; ",$l_rp,".create_inv_t*.sh",$n_l_r) );
+	    push(@cmds,sprintf("rm %s",File::Spec->catfile($l_rp,"README.txt")) );
+	    push(@cmds,sprintf("rmdir %s",$l_rp) );
+	    
+	    #execute(1,"ReduceTransformDirs",@cmds);
+	    printf($m_id "# Eliminate $node_C\n");
+	    foreach(@cmds){
+		run_and_watch($_); 
+		printf($m_id $_."\n");
+	    }
+	    # eliminating identity links 
+	    printd(15,"\t  Cleaning up identity transforms\n");
+	    prune_identity_transforms($n_l_r);
+	    prune_identity_transforms($n_l_f);
+	} else {
+	    if( $missing_node_tollerance 
+		&& -e $n_l_f
+		&& -e $n_l_r ) {
+		warn("DID NOT (re)MERGE TRANFORMS $node_C! It appears to have been done.\n");
+	    } else {
+		die "Link mis-match:\n"
+		    ."$l_fp\n\t$l_fc\n"
+		    ."$l_rc\n\t$l_rp";
+	    }
+	}
+    }
+    close($m_id);
+}
 sub package_labels_SPEC { 
 #    ($mdtpath,$output_path,$Specimen,$mdtname,$n_vbm);
     #my($ThisPackageInRoot,$ThisPackageOutLocation,$ThisPackageName,$TargetDataPackage,$CollectionSource)=@_;
@@ -964,9 +1164,154 @@ sub fix_ts_new {
     }
 }
 
+sub prune_identity_transforms { 
+    # using the _N_ transform files to allow procession in order remove identity transforms. 
+    # Make a log of the identity files removed. 
+    # Do not bother to renumber allowing us to re-neg on this if we need to.
+    my ($transform_dir)=@_;
+    
+    my @t_list=find_file_by_pattern($transform_dir,"^_.*");
+    my @i_list;
+    foreach(@t_list) {
+	if(is_ident_transform($_) ) {
+	    my $realname=readlink($_);
+	    push(@i_list,File::Spec->catfile($transform_dir,$realname));
+	    push(@i_list,$_);
+	}
+    }
+    #Data::Dump::dump(\@i_list) ;die;
+    my $rm_cmd=sprintf("rm %s",join(" ",@i_list) );
+    #execute(1,"remove identity transforms",$rm_cmd);
+    printd(45,"\t".$rm_cmd."\n");
+    run_and_watch($rm_cmd);
+}
+
+sub is_ident_transform {
+    my ($transform)=@_;
+    
+    # For warps we will not be using a very intelligent algorithm.
+    # We'll use the fact that zeros compress very well.
+    # If our warp size in bytes is less than 500 + 0.1*full_volume_size * 3(vector components)
+    # we'll assume its an identity.
+    my $is_ident=0;
+    if ( $transform =~ /[.]nii[.]gz$/ ){
+	my $nii_hf = new Headfile ('nifti', $_) or die;
+	$nii_hf->check() or print "nii check error\n";
+	my $FSLHD_PATH=qx/which fslhd/;
+	chomp($FSLHD_PATH);
+	if ( ! -f $FSLHD_PATH ) { 
+	    my $EC=load_engine_deps();
+	    my $FSLHD_PATH=File::Spec->catfile($EC->get_value('engine_app_fsl_dir'),"fslhd");
+	}
+	if ( ! -f $FSLHD_PATH ) { 
+	    croak("Couldnt find fslhd, is fsl installed?!")
+	}
+	my $ret = $nii_hf->read_nii_header($FSLHD_PATH, 0);
+	require HeadfileIO;
+	my $err=HeadfileIO::transcribe($nii_hf);
+	if ( ! $ret || $err ) {
+	    print("HF load_sucess:$ret Read errors:$err\n");
+	}
+	# min transform size is 
+	# 500 bytes for gzippy
+	# + 10% of (s
+	# 8x bytes for double ( using nbyper )
+	# 3x vector component
+	# prod(dimenssions)  )
+	my $min_t_size=(500.0 + 0.1 * $nii_hf->get_value("nbyper") * 3
+			*$nii_hf->get_value('dim_X')
+			*$nii_hf->get_value('dim_Y')
+			*$nii_hf->get_value('dim_Z')
+	    );
+	# Cwd::realpath($test_path);
+	my $t_size=-s Cwd::realpath($transform);
+	#printd(5,"transform is size $t_size \n");
+	if( $t_size < $min_t_size ) {
+	    #warn("Identity Me $transform\n");
+	    $is_ident=1;
+	} else {
+	    printd(45,"Transform size $t_size greater than min $min_t_size\n");
+	}
+    } elsif($transform =~/[.]mat|txt$/ ) {
+	# This accidentially gobbles up non transform txt files, cant really be 
+	# helped so we'll try to accept and adjust to that.
+	my $TI_PATH=qx/which antsTransformInfo/;
+	chomp($TI_PATH);
+	if(! -f $TI_PATH && exists $ENV{"ANTSPATH"} ) { 
+	    printd(5,"ANTSPATH not part of path, but really it should be\n");
+	    $TI_PATH=File::Spec->catfile($ENV{"ANTSPATH"},'antsTransformInfo');
+	}
+	my @transform_dump=qx($TI_PATH $transform);
+	#Data::Dump::dump(\@transform_dump);die;
+	my ($mat,$inv);
+	while ( my $line= shift @transform_dump) {
+	    if( $line !~ m/.*(Matrix|Inverse):.*/x ) {
+		#printd(45, "Skip -  $line");
+		next;
+	    } elsif( $line =~ /.*Matrix:.*/ ) {
+		$mat=shift @transform_dump;
+		$mat=$mat.shift @transform_dump;
+		$mat=$mat.shift @transform_dump;
+	    } elsif( $line =~ /.*Inverse:.*/ ) {
+		$inv=shift @transform_dump;
+		$inv=$inv.shift @transform_dump;
+		$inv=$inv.shift @transform_dump;
+	    } 
+	}
+	if(!defined $inv || ! defined $mat ) {
+	    croak "TRANSFORM read error!";
+	}
+	if($inv eq $mat ) {
+	    #warn("Identity Me $transform\n");    
+	    $is_ident=1;
+	}
+	
+    } else {
+	printd(15,"Not a transform $transform\n");
+    }
+    return $is_ident;
+}
+
+sub concatenate_transform_dirs {
+    my ($expanding_dir,$shrinking_dir)=@_;
+    my @cmds;
+    # find transforms in expanding
+    my @expand_list=find_file_by_pattern($expanding_dir,"^_.*");
+    # get highest N from expanding list
+    my ($maxN ) = basename($expand_list[$#expand_list]) =~ m/^_([0-9]+)_.*$/x;
+    my @shrink_list=find_file_by_pattern($shrinking_dir,"^_.*");
+    foreach ( @shrink_list ) {
+	if ( ! -e $_ ) {
+	    die("file find error on $_, link may have gone stale");
+	}
+	my ( $realname,$ln_name);
+	$realname=basename($_);
+	my( $cur_N) = $realname =~ m/^_([0-9]+)_.*$/x;
+	my $outname = $realname;
+	$maxN=$maxN+1;
+	$outname=~ s/$cur_N/$maxN/x;
+	$ln_name="";
+	if ( -l $_ ) { 
+	    $ln_name="L \"$realname\"";
+	    $realname=readlink($_);
+	} else {
+	    die "Links expected, something fishy going on";
+	}
+	if( -e File::Spec->catfile($expanding_dir,$realname) ){
+	    die("Existing transform in merge target! $realname in $expanding_dir\n"
+		."transform dirs are extra messy when merged, re-check is not supported, trash transform dir \n");
+	    #.File::Spec->catfile($link_dir,"transforms"));
+	}
+	printd(65,"Transfer %s -- %s  to dir %s\n",$ln_name,$realname,$expanding_dir);
+	push(@cmds,sprintf("mv %s %s",File::Spec->catfile($shrinking_dir,$realname),$expanding_dir));
+	push(@cmds,sprintf("mv %s %s",$_,File::Spec->catfile($expanding_dir,$outname)));
+    }
+    return @cmds;
+}
+
 sub record_metadata {
     # record_metadata sets all link timestamps to their true source as found by
-    # resolve_link and then runs ls -lR on the directory.
+    # realpath and then runs ls -lR on the directory.
     my ($output_path)=@_;
     # find all files in this output_path
     my @files=find_file_by_pattern($output_path,'.*');
