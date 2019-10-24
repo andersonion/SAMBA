@@ -315,10 +315,7 @@ if ~strcmp(desired_vorder,current_vorder)
     end
 end
 %% early exit if done.
-if exist(output_path,'file') ...
-        && ( ~write_transform ...
-        || ( write_transform && exist(affine_out,'file') )  )
-    warning('Existing output:%s, not regenerating',output_path);
+if exist(output_path,'file')
     return;
 end
 %% recenter ... if you're in to that junk
