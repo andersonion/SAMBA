@@ -19,12 +19,6 @@ use warnings;
 use Cwd qw(abs_path);
 use File::Basename;
 use List::Util qw(min max reduce);
-# List::MoreUtils is not part of CORE modules,
-#  and is a heavy weight requirement for just
-#  getting unique scalar values from an array.
-# Roll your own uniq is near trivial, and will probably get done to this code.
-# use List::MoreUtils qw(uniq);
-# Since it's included in our main we're gonna omit it here for now.
 
 use lib dirname(abs_path($0));
 BEGIN {
@@ -38,7 +32,6 @@ use lib split(':',$RADISH_PERL_LIB);
 # use ...
 # CIVM standard req
 use Headfile;
-use civm_simple_util qw(sleep_with_countdown    );
 use text_sheet_utils;
 
 # retrieve_archived_data is largely retired. 
@@ -82,14 +75,7 @@ our ($rigid_transform_suffix,$affine_transform_suffix, $affine_identity_matrix, 
 # a do it again variable, will allow you to pull data from another vbm_run
 
 $test_mode = 0;
-# Dont force umask, this should be left up to users.
-if ( 0 ) {
-    umask(002);
-}
-# Dont force permissions, this should be left up to users.
-if ( 0 ) {
-    $permissions = 0755;
-}
+
 # A forced wait time after starting each bit. (also used when we're doing check and wait operations.)
 my $interval = 0.1; ##Normally 1
 $valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
@@ -162,49 +148,53 @@ U_specid U_species_m00 U_code
     }
 
 ## Need to throw errors for empty lists, maybe dump headers for case of header not found; dump values from column in case of existing header
-    if (! @group_1) { # if (! defined @group_1) {
-        if (defined $group_1_runnos) {
-            @group_1 = split(',',$group_1_runnos);
-        } else {
-            @group_1=();
-        }
-    }
+    
+    ###
+    #GROUP SORTING
+    ###
+    # on inspection no arrays could be defined yet here. 
+    # SO, it is now an error for them to be defined.
+    # This whole thing is a candidate for a sub in SAMBA_global_variables
+    # I guess it'd be called resolve_groups ?
+    die if scalar(@group_1);
+    die if scalar(@group_2);
+    die if scalar(@control_group);
+    die if scalar(@compare_group);
+    my @all_runnos;
+    if ( 1 ) {
+	@all_runnos=SAMBA_global_variables::all_runnos();
+    } else {
 
-    if (! @group_2) { #if (! defined @group_2) {
-        if (defined $group_2_runnos) {
-            @group_2 = split(',',$group_2_runnos);
-        } else {
-            @group_2=();
-        }
-    }
+    # only group1 and group2 are expected to be exclusive, and that is not controlled here.
+    # Group names are somewhat misleading here, 
+    # Control really means "mdt" group, and compare means "Not-mdt" group.
+    
+    # The group management code takes advantage of the behaviorof push with empty arrays.
+    @group_1 = split(',',$group_1_runnos) if defined $group_1_runnos;
+    @group_2 = split(',',$group_2_runnos) if defined $group_2_runnos;
 
-    if (! @control_group) {
-        if (defined $control_comma_list) {
-            @control_group = split(',',$control_comma_list);
-        } elsif ((@group_1) && (@group_2)) {
-            @control_group = uniq(@group_1,@group_2);
-        } elsif (@group_1) {
-            @control_group = uniq(@group_1)
-        }
+    if ( defined $control_comma_list ) {
+	@control_group = split(',',$control_comma_list) ;
+    } else {
+	push(@control_group,@group_1);
+	push(@control_group,@group_2);
     }
-
-    if (! @compare_group) {
-        if (defined $compare_comma_list) {
-            @compare_group = split(',',$compare_comma_list);
-        } else {
-            @compare_group = @control_group;
-        }
-        
-        if ( scalar (@group_1) && $group_1[0] ne '') {
-            @compare_group=uniq(@compare_group,@group_1);
-        } 
-        
-        if ( scalar (@group_2) && $group_2[0] ne '') {
-            @compare_group=uniq(@compare_group,@group_2);
-        }
+    if (defined $compare_comma_list) {
+	@compare_group = split(',',$compare_comma_list);
+    } else {
+	@compare_group = @control_group;
     }
-
-    my @all_runnos = uniq(@control_group,@compare_group);
+    push(@compare_group,@group_1);
+    push(@compare_group,@group_2);
+    
+    # becuase we make no attempt to be clean about replication or runnos earlier, we need to uniq now.
+    @control_group=uniq(@control_group);
+    @compare_group=uniq(@compare_group);
+    @all_runnos = uniq(@control_group,@compare_group);
+    #Data::Dump::dump(
+    }
+	Data::Dump::dump(\@all_runnos);die;
+    die "DB";    
     my $single_seg=0;
     if (scalar(@all_runnos) == 1) {
         $do_vba = 0;

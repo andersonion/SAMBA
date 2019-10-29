@@ -16,8 +16,8 @@ use File::Basename;
 # List::MoreUtils is not part of CORE modules,
 #  and is a heavy weight requirement for just
 #  getting unique scalar values from an array.
-# Roll your own uniq is near trivial, and will probably get done to this code.
-use List::MoreUtils qw(uniq);
+# Roll your own uniq is near trivial, and is part of civm_simple_util now
+# use List::MoreUtils qw(uniq);
 #use JSON::Parse qw(json_file_to_perl valid_json assert_valid_json);
 
 BEGIN {
@@ -42,7 +42,7 @@ BEGIN {
     use lib split(':',$RADISH_PERL_LIB);
 }
 
-use civm_simple_util qw(activity_log printd $debug_val);
+use civm_simple_util qw(sleep_with_countdown activity_log printd uniq $debug_val );
 activity_log();
 use pipeline_utilities;
 use Headfile;
@@ -198,30 +198,9 @@ sub assign_parameters {
     my ($tempHf,$is_headfile) = (@_); # Current headfile implementation only supports strings/scalars
     my @unused_vars;
     if ($is_headfile) {
-	# WHEN civm, this'll most likely be the case.
-	printd(5,"Transcribing input headfile to variables\n");
-        foreach ($tempHf->get_keys) {
-            my $val = $tempHf->get_value($_);
-	    # Kevin was a space separated string of any globals in the main scope with headfile okay names
-	    # Was going to skip that madness by using main directly.
-	    # The variables of note all come from SAMBA_global_variables.
-	    # SO WE SHOULD USE THAT!!! ( HUR DUR!!!! )
-	    # Missing detail here is a check that all are used
-	    #if ($kevin_spacey =~ /$_/) {
-	    #if ( exists $main::{$_} ) {
-	    if ( exists $SAMBA_global_variables::{$_} ) {
-                if (defined $val) {
-                    eval("\$$_=\'$val\'");
-                    printd(5,"\t".$_." = $val\n");
-		    if ($_ eq 'rigid_atlas_name'){
-                        eval("\$tmp_rigid_atlas_name=\'$val\'");
-                    }
-                }
-            } else {
-		push(@unused_vars,$_);
-	    }
-        }
+	@unused_vars=SAMBA_global_variables::populate($tempHf);
     } else {
+	# Life would be easier if we loaded json to a headfile, then this segment wouldn't need exist.
         foreach (keys %{ $tempHf }) {
             #if ($kevin_spacey =~ /\b$_\b/) {
 	    if ( exists $SAMBA_global_variables::{$_} ) {

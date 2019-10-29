@@ -10,7 +10,6 @@ use strict;
 use warnings;
 require Headfile;
 require pipeline_utilities;
-use List::MoreUtils qw(uniq);
 
 use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
 if (! defined($MATLAB_EXEC_PATH)) {

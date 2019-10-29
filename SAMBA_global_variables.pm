@@ -14,6 +14,15 @@
 #
 # Broadly these are variables from our input headfile we want to share, 
 # with some additions.
+# 
+# Adding limited support functions, but really want to keep this pm 
+# ultra minimal. 
+# Derrived vars will be functions operating on the existing vars.
+# 
+# SUBROUTINES:
+# populate  -  taking a hf object populate our vars.
+# all_runnos - combine the relevant vars to create an array of all runnos.
+# 
 package SAMBA_global_variables;
 use strict;
 use warnings;
@@ -22,6 +31,8 @@ my $PM = "SAMBA_global_variables.pm";
 my $VERSION = "2019/01/16";
 my $DESC = "Master list of all global variables to be used by SAMBA, to be called in MAIN.";
 my $NAME = $PM =~ s/\.pm//;
+
+use civm_simple_util qw( uniq printd $debug_val);
 
 BEGIN {
     use Exporter;
@@ -161,12 +172,73 @@ $mdt_to_reg_start_time
 $samba_label_types
 $valid_formats_string
  );
+    # looks like we dont need to export if we call direct, and i'd rather call direct.
+    #Non-default export of the functions
+#    our @EXPORT_OK = qw(
+#populate
+#);
 
     # make all of these vars "SAMBA_global_variables" package variables "properly"
     # using our, in a nasty eval one liner
     my $dirty_eval_string = 'our '.join('; our ',@EXPORT).';';
     eval($dirty_eval_string);
+}
 
+use SAMBA_global_variables;
+sub populate {
+    my ($tempHf)=@_;
+    my @unused_vars;
+    die if ! defined $tempHf;
+    printd(5,"Transcribing input headfile to variables\n");
+    foreach ($tempHf->get_keys) {
+	my $val = $tempHf->get_value($_);
+	if ( exists $SAMBA_global_variables::{$_} ) {
+	    if (defined $val) {
+		eval("\$$_=\'$val\'");
+		printd(5,"\t".$_." = $val\n");
+		if ($_ eq 'rigid_atlas_name'){
+		    eval("\$tmp_rigid_atlas_name=\'$val\'");
+		}
+	    }
+	} else {
+	    push(@unused_vars,$_);
+	}
+    }
+    return @unused_vars;
+}
+
+
+sub all_runnos {
+    # While very tempting to create a function for group1, 2 compare and control in addition 
+    # to this one, it will be resisted for now because those are all bad groups for different reasons. 
+
+    # only group1 and group2 are expected to be exclusive, and that is not controlled here.
+    # Group names are somewhat misleading here, 
+    # Control really means "mdt" group, and compare means "Not-mdt" group.
+    
+    # The group management code takes advantage of the behaviorof push with empty arrays.
+    @group_1 = split(',',$group_1_runnos) if defined $group_1_runnos;
+    @group_2 = split(',',$group_2_runnos) if defined $group_2_runnos;
+
+    if ( defined $control_comma_list ) {
+	@control_group = split(',',$control_comma_list) ;
+    } else {
+	push(@control_group,@group_1);
+	push(@control_group,@group_2);
+    }
+    if (defined $compare_comma_list) {
+	@compare_group = split(',',$compare_comma_list);
+    } else {
+	@compare_group = @control_group;
+    }
+    push(@compare_group,@group_1);
+    push(@compare_group,@group_2);
+    
+    # becuase we make no attempt to be clean about replication or runnos earlier, we need to uniq now.
+    @control_group=uniq(@control_group);
+    @compare_group=uniq(@compare_group);
+
+    return uniq(@control_group,@compare_group);
 }
 
 1;

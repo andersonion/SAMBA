@@ -15,13 +15,6 @@ use warnings;
 use Cwd qw(abs_path);  # Verified as "necessary".
 use File::Basename;
 use List::Util qw(min max reduce); # Verified as "necessary".
-
-# List::MoreUtils is not part of CORE modules,
-#  and is a heavy weight requirement for just
-#  getting unique scalar values from an array.
-# Roll your own uniq is near trivial, and will probably get done to this code.
-# uniq and first_index are in use, need to check that and see about cleaning them out.
-use List::MoreUtils qw(uniq first_index); 
 #use vars used to be here
 use Env qw(BIGGUS_DISKUS);
 

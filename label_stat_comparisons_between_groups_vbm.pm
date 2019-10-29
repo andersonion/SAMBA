@@ -12,10 +12,6 @@ use strict;
 use warnings;
 #no warnings qw(bareword);
 
-#use vars used to be here
-require Headfile;
-require pipeline_utilities;
-use List::MoreUtils qw(uniq);
 
 # 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
 use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
