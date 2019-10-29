@@ -4,7 +4,7 @@
 # A messy but singluar place to globalize all the globals.
 # When you "use" this file, you get all these globals.
 # INSTEAD YOU CAN "require" this, 
-# then pluck out individuals with ${SAMBA_global_variablnes::variable_name}
+# then pluck out individuals with ${SAMBA_global_variables::variable_name}
 # (Maybe that highlights a path away from 100 globals to concise limited scoping?)
 # This is done for very select functions in pipeline utilities so that these 
 # variables don't destroy the current namespace.

@@ -49,6 +49,7 @@ use Headfile;
 
 use lib dirname(abs_path($0));
 use SAMBA_global_variables;
+use SAMBA_structure;
 use vars qw($start_file);
 use vbm_pipeline_workflow;
 
@@ -57,17 +58,17 @@ $schedule_backup_jobs=1;
 if (exists $ENV{'CODE_DEV_GROUP'} && $ENV{'CODE_DEV_GROUP'} ne ''){
     $CODE_DEV_GROUP=$ENV{'CODE_DEV_GROUP'};
 }
-
 # pipeline_utilities uses GOODEXIT and BADEXIT, but it doesnt choose for you which you want. 
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 
-my $cur_mask=umask;
+my $permission_mask=umask;
 # Dont force permissions, this should be left up to users.
+# We could specifiy an option for input if we think this is helpful at all.
 if ( 0 ) {
     $permissions = 0755;
 }
-$permissions=0777 ^ $cur_mask;
+$permissions=0777 ^ $permission_mask;
 
 # a do it again variable, will allow you to pull data from another vbm_run
 $test_mode = 0;
@@ -95,13 +96,13 @@ if ( ! -f $start_file && $start_file =~ /[^0-9]/ )  {
 $reservation='';
 if (! defined $nodes || $nodes eq '' ) {
     $nodes = 4 ;
-} else {
-    #$reservation=$nodes;
+} elsif( $nodes !~ /^[0-9]+$/ ) {
+    # filter nodes string to only valid reservation characters
     ($reservation ) = $nodes=~ /([[:alnum:]:_-]+)/x ;
-    #my $reservation_info = `scontrol show reservation ${reservation}`;
     my $cmd="scontrol show reservation \"${reservation}\"";
     my $reservation_info = qx/$cmd/;
-    if ($reservation_info =~ /NodeCnt=([0-9]*)/m) { # Unsure if I need the 'm' option)
+    # Unsure if I need the 'm' option)
+    if ($reservation_info =~ /NodeCnt=([0-9]*)/m) {
         $nodes = $1;
         # this slurm handling really belongs in some kinda cluter_env_cleaner function ....
         if ( cluster_scheduler() =~ /slurm/ ){
@@ -109,52 +110,21 @@ if (! defined $nodes || $nodes eq '' ) {
             $ENV{'SBATCH_RESERVATION'}=$reservation;
             $ENV{'SLURM_RESERVATION'}=$reservation;
         }
-    } else {
+    } else {	
         warn "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\n\n\n".
-            " Maybe your start file($start_file) was not found !\n".
-	    " Will start with # $nodes nodes in a few seconds."; 
+            " Maybe your start file($start_file) was not found !\n";
+	#" Will start with # $nodes nodes in a few seconds."; 
 	undef $reservation;
-	sleep_with_countdown(4);
-	
-
-        # formerly was allowed to continue with reservatoin set failure, 
-        # this generates such a confusing mess that has been deprecated. 
-        # $nodes = 4;
-        # print "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\nProceeding with NO reservation, and assuming you want to run on ${nodes} nodes.\n\n\n"; 
-        # $reservation = '';
-        # sleep(5);
+	die;
     }
 }
 print "Attempting to use $nodes nodes;\n\n";
 if ($reservation) { 
     print "Using slurm reservation = \"$reservation\".\n\n\n";
 }
-# Dont force umask, this should be left up to users. A warning for restritive umask IS appropriate.
-if ( 0 ) {
-    umask(002);
-}
 
-# require ... ( which are done in line unlike use).
-require study_variables_vbm;
-
-#$debug_val = 35;
-#my $msg =  "Your message here!";
-#printd(5,$msg);
-
-# variables, set up by the study vars script(study_variables_vbm.pm)
-
-# Build a string of all initialized variables, etc, whos names contain only letters, numbers, or '_'.
-# this is used as a filter for "globals" to set. I think that will be from the contents of our input headfile.
-# I think that means we've got a path to remove kevin spacey, but its so hard to unwind it's being left in.
-my $kevin_spacey='';
-foreach my $entry ( keys %main:: )  { 
-    if ($entry =~ /^[A-Za-z0-9_]+$/) {
-        $kevin_spacey = $kevin_spacey." $entry ";
-    }
-}
-#my $test_shit = join(' ',sort(split(' ',$kevin_spacey)))."\n\n\n";
-#print $test_shit;
-#die;
+# Commented this ugly beast out becuase its deprecated. 
+# require study_variables_vbm;
 
 my $tmp_rigid_atlas_name='';
 {
@@ -171,6 +141,7 @@ my $tmp_rigid_atlas_name='';
     if (! defined $do_vba) {
         $do_vba = 0;
     }
+    ### DO ALL WORK in pipe workflow
     vbm_pipeline_workflow();
 } #end main
 exit 0;
@@ -218,33 +189,42 @@ sub load_SAMBA_json_parameters {
     
     my $is_headfile=0;
     assign_parameters($tempHf,$is_headfile);
-
 }
-
 
 # ------------------
 sub assign_parameters {
 # ------------------
 # Replicate input parameter variable values into globals WHERE they're named the same.
     my ($tempHf,$is_headfile) = (@_); # Current headfile implementation only supports strings/scalars
+    my @unused_vars;
     if ($is_headfile) {
 	# WHEN civm, this'll most likely be the case.
+	printd(5,"Transcribing input headfile to variables\n");
         foreach ($tempHf->get_keys) {
             my $val = $tempHf->get_value($_);
-	    # Kevin is a space separated string of any globals that could be in an input parameter file
-	    if ($kevin_spacey =~ /$_/) {
+	    # Kevin was a space separated string of any globals in the main scope with headfile okay names
+	    # Was going to skip that madness by using main directly.
+	    # The variables of note all come from SAMBA_global_variables.
+	    # SO WE SHOULD USE THAT!!! ( HUR DUR!!!! )
+	    # Missing detail here is a check that all are used
+	    #if ($kevin_spacey =~ /$_/) {
+	    #if ( exists $main::{$_} ) {
+	    if ( exists $SAMBA_global_variables::{$_} ) {
                 if (defined $val) {
                     eval("\$$_=\'$val\'");
-                    print $_." = $val\n";
+                    printd(5,"\t".$_." = $val\n");
 		    if ($_ eq 'rigid_atlas_name'){
                         eval("\$tmp_rigid_atlas_name=\'$val\'");
                     }
                 }
-            }
+            } else {
+		push(@unused_vars,$_);
+	    }
         }
     } else {
         foreach (keys %{ $tempHf }) {
-            if ($kevin_spacey =~ /\b$_\b/) {
+            #if ($kevin_spacey =~ /\b$_\b/) {
+	    if ( exists $SAMBA_global_variables::{$_} ) {
                 #my $val = %{ $tempHf }->{($_)};
                 #print "\n\n$_\n\n"; 
                 die "json mode requires revalidation!!!";
@@ -269,8 +249,18 @@ sub assign_parameters {
                         }
                     }
                 }
-            }
+            } else {
+		push(@unused_vars,$_);
+	    }
         }
+    }
+    
+    if(scalar(@unused_vars) ) {
+	Data::Dump::dump(["Some headfile vars were not used, That is probably an error.",
+			  "Feeding a result headfile back in is not currnetly supported.",
+			  \@unused_vars,
+			  "Press ctrl+c to cancel"]) if can_dump();
+	sleep_with_countdown(15);
     }
     # do some default assignment 
     my @ps_array;

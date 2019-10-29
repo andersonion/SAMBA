@@ -131,7 +131,7 @@ sub vbm_pipeline_workflow {
        || $CODE_DEV_GROUP ne $grp ) {
 	$pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
     } 
-
+    # the components could be made responsible for filling this in by passing the array reference to their init routines
     my @variables_to_headfile=qw(
 start_file project_id image_dimensions
 control_comma_list compare_comma_list complete_comma_list channel_comma_list
@@ -206,13 +206,12 @@ U_specid U_species_m00 U_code
 
     my @all_runnos = uniq(@control_group,@compare_group);
     my $single_seg=0;
-    if ($#all_runnos < 1) {
+    if (scalar(@all_runnos) == 1) {
         $do_vba = 0;
         $single_seg=1;
         if (! $optional_suffix) {
             $optional_suffix = $all_runnos[0];
         }
-
         $mdt_creation_strategy='pairwise';
     }
 
@@ -224,20 +223,10 @@ U_specid U_species_m00 U_code
     }
 
 ## The following are mostly ready-to-go variables (i.e. non hard-coded)
-    if ($optional_suffix ne '') {
-        $optional_suffix = "_${optional_suffix}";
-    }
-    my $main_folder_prefix;
-    if ($single_seg) {
-        $main_folder_prefix = 'SingleSegmentation_';
-    } else  {
-        $main_folder_prefix = 'VBM_';  ## Want to switch these all to 'SAMBA'
-    }
-    my @project_components = split(/[.]/,$project_name); # $project_name =~ s/[.]//g;
-    $project_id =  join('',@project_components);
-    $project_id = $main_folder_prefix.$project_id.'_'.$rigid_atlas_name.$optional_suffix; #create_identifer($project_name);
-
-    ($pristine_input_dir,$dir_work,$results_dir,$result_headfile) = make_process_dirs($project_id); #new_get_engine_dependencies($project_id);
+    $project_id=SAMBA_structure::main_dir($project_name,scalar(@all_runnos),$rigid_atlas_name,$optional_suffix);
+    
+    #new_get_engine_dependencies($project_id);
+    ($pristine_input_dir,$dir_work,$results_dir,$result_headfile) = make_process_dirs($project_id); 
 
 ## Backwards compatability for rerunning work initially ran on glusterspace
 
