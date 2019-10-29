@@ -1,10 +1,10 @@
 ### REQUIRED PARAMETERS ###
 project_name=13.colton.01
 
-control_comma_list=N51211,N51221,N51231,N51383,N51386,N51136,N51201,N51234,N51241,N5125
+control_comma_list=N51211,N51221,N51231,N51383,N51386,N51136,N51201,N51234,N51241,N51252
 ## Hint: control_comma_list should include all runnos that you want to contribute to the creation of the MDT (aka template)
 
-compare_comma_list=N51211,N51221,N51231,N51383,N51386,N51136,N51201,N51234,N51241,N5125
+compare_comma_list=N51211,N51221,N51231,N51383,N51386,N51136,N51201,N51234,N51241,N51252
 ## Hint: compare_comma_list should include all runnos that should be independently re-registered to the final MDT once it has been created.
 
 group_1_runnos=N51211,N51221,N51231,N51383,N51386
