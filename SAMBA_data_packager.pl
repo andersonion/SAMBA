@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 # This was created as to help organize warp chains.
-
+# This is also used to help get data ready for archive
+#
 # This only creates links, and will only work for the person running the study!
-# Labels were initally faked out, but that has been disabled becuase we dont think we need them.
-#    # The labels are intentionally just a blank here to prevent trash propagation,
-#    # labels are expected by the code and it chokes if they're missing. 
 # 
 # this is one part of the larger idea of "promote" to atlas for an MDT, which we'll 
 # use as the targetatlas of future SAMBA runs.
+#
+
 
 
 # sys level include
@@ -51,9 +51,31 @@ exit main();
 
 sub main {
     activity_log();
-    #getopts? 
     # must define the options hashref before referincing inside it...of course. 
-    my $opts={};
+    my $output_base;
+    my $hf_path;
+    my $mdtname;
+    my $mdt_out_path;
+    my $v_ok;
+
+    # ex direct to var 
+    # $opt_href =  {  "input_string=s"=>\$input_string,  };    
+
+    my $opts={
+	# mdtname is what replaces MDT in the filenames for the MDT
+	#"mdtname=s"    =>\$mdtname,
+	#"output_base=s"=>\$output_base;
+	#"hf_path=s"    =>\$hf_path;
+    };
+    $opts->{"output_base=s"}=\$output_base;
+    $opts->{"hf_path=s"}=\$hf_path;
+    $opts->{"mdtname=s"}=\$mdtname;
+
+    # mdtdir prefixes for the mdt dir.
+    ${$opts->{"mdtdir_prefix=s"}}="MDT_";
+    $opts->{"mdt_out_path=s"}=\$mdt_out_path;
+    # this disables that behavior, alternatively you could specify --mdtdir_prefix=""
+    ${$opts->{"disable_mdtdir_prefix"}}=0;
     #${$opts->{"label_nick:s"}}="";
     #${$opts->{"label_dir:s"}}="";
     #${$opts->{"image_dir:s"}}="";
@@ -64,31 +86,109 @@ sub main {
     ${$opts->{"template_predictor=s"}}="";
     ${$opts->{"label_atlas_nickname=s"}}="";
     ${$opts->{"rsync_location=s"}}="";
+    ${$opts->{"instant_feedback!"}}=1;
     $opts=auto_opt($opts,\@ARGV);
-    #inputs headfile 
-    #mdtname is still required, it may be the optional suffix. (maybenot)
-    #want to add output path, 
-#and target atlas is part of headpile
-    my $output_path=$ARGV[0];
-    my $hf_path=$ARGV[1];
-    my @hf_errors;
-    my $mdtname=$ARGV[2];
-    my $SingleSegMode=0;
 
-    if (! defined $output_path) {
-        print( "Not enough input arguments, please specify your output_path, SAMBA startup file, and optionally the MDT name\n");
+    # insert positionals if we didnt get --args
+    if ( ! defined $mdtname ) {
+	$mdtname=$ARGV[2];
+	printd(80,"POSITIONAL mdtname ($mdtname)\n") if defined $mdtname;
     }
-    $output_path=file_trim($output_path);
-    my $output_base=dirname($output_path);
-    # This whole startup segment belongs in some "samba_helper.pm" file.
-    # something like "samba pathing" ...
+    if ( ! defined $hf_path ) {
+	$hf_path=$ARGV[1];
+	printd(80,"POSITIONAL hf_path ($hf_path)\n") if defined $hf_path;
+    }
+    if ( ! defined $output_base ) {
+	$output_base=$ARGV[0];
+	printd(80,"POSITIONAL output_base ($output_base)\n") if defined $output_base;
+    }
+
+    # Fomer handling of output/mdtnaming was confusing. 
+    # Promoting everything to a proper option while trying to handle the original behavior as kindly as possible.
+    # Added instant_feedback option default on to show users what we're going do and then STOP before we do it.
+
+    # Ex. flag option usage for my reference.
+    #if( ${$opts->{"FLAG"}} ) {
+    #}
+    if( ${$opts->{"disable_mdtdir_prefix"}} ) {
+	${$opts->{"mdtdir_prefix"}}="";
+    }
+    # If min args not defined here, quit with request for good minimal args
+    # output_base could output_base/mdt_out_dirname at this point, we resolve that just after loading the headfile
+    if(! defined $output_base || ! defined $hf_path ) {
+	die "Need mininmum args! please specify --output_base=/path/to/samba_paks/ --mdtname=template_group_criteria --hf_path=/path/to/some_samba.headfile\n";
+    }
+
+    ###
+    # Read headfile
+    ###
+    my @hf_errors;
     my $hf=new Headfile ('ro', $hf_path);
     $hf->check() or push(@hf_errors,"Unable to open $hf_path\n");
     $hf->read_headfile or push(@hf_errors,"Unable to read $hf_path\n");
     if ( scalar(@hf_errors)>0 ){
-        #print("Error_dump$#hf_errors\n");
-        die join('',@hf_errors);
+	die join('',@hf_errors);
     }
+    ($v_ok,my $o_s)=$hf->get_value_check("optional_suffix");
+    if (!$v_ok) { $o_s=''; }
+
+    ###
+    # Final chance to resolve mdtname.
+    ###
+    if(! defined $mdtname ){
+	# neither positional mdtname nor option specified.
+	# Last chance try it as part of our outputbase.
+	# output_base MUST be defined for this to work.
+	# That is only supported if the final dir component starts with MDT[-_]
+	#  OR maybe, we could allow a specified mdtdir_prefix 
+	#
+	my ($p,$n,$e)=fileparts($output_base,2);
+	# Maybe we should force case here? Final decision is to force uniform case, but not decide otherwise.
+	# $mp=uc($mp);
+	# $mp=lc($mp);
+	my ($mp,$sep,$mn) = $n =~ m/^(mdt|MDT)([-_])(.+)$/x;
+	if(defined $mp && $mp =~ m/mdt/ix ) {
+	    if (  ( !  ( ${$opts->{"mdtdir_prefix"}} eq ""
+			 || ${$opts->{"mdtdir_prefix"}} eq "MDT_" )  )
+		  && ${$opts->{"mdtdir_prefix"}} ne $mp.$sep  ) {
+		die "GUESSING mdtdir_prefix is dangerous, You should be more specific (add your mdtname to input args).\n";
+	    }
+    	    ${$opts->{"mdtdir_prefix"}}=$mp.$sep;
+	    $mdtname=$mn;
+	    $output_base=$p;
+	} else {
+	    # if mdtname not set, and we had an o_s assume the o_s is mdname, else error
+	    if ( $o_s ne '' ) {
+		printd(5,"no mdtname specified, but we found an optional suffix $o_s, this is what we're going to call the mdt, it will be in all your transform names for this set of packaged data.\n"
+		   ."IF YOU DON'T LIKE THAT CANCEL NOW AND SPECIFY AN MDTNAME on the command line\n");
+		sleep_with_countdown(8) if ( $debug_val < 15 && ! ${$opts->{"instant_feedback"}} ) ;
+		$mdtname=$o_s; 
+	    } else {
+		die "optional_suffix not available, Reqired arg missing ( --mdtname=template_group_criteria )\n";
+	    }
+	}
+    }
+    if ($mdtname =~ m/mdt/ix ) {
+	croak "your requested mdtname($mdtname) has MDT in it, this will generate trouble!\n"
+	    ." IF you want your folder containing the MDT to have MDT in it, you can do that,\n"
+	    ."    use the option --mdtname=NAME ";
+    }
+    if ( ! defined $mdt_out_path ) {
+	$mdt_out_path=File::Spec->catdir($output_base,${$opts->{"mdtdir_prefix"}}.$mdtname);
+	printd(80,"mdt_out_path auto-gen to $mdt_out_path\n");
+        #die( "Not enough input arguments, please specify your mdt_out_path, SAMBA startup file, and optionally the MDT name\n");
+    }
+    
+    # squash any bonus path separators and remove trailing ones. 
+    $mdt_out_path=file_trim($mdt_out_path);
+    $output_base=file_trim($output_base);
+    
+    my $SingleSegMode=0;
+    ###
+    # This whole path resolution segment belongs in some "samba_helper.pm" file.
+    # something like "samba pathing" ... or "samba structure"
+    ###
+
     # group runs, a hash ref of arrays of group runnos.
     # we're expecting 1 group with 4 in this code,
     # more than 1 group is an error, more than 4 per group is also an error. 
@@ -102,7 +202,6 @@ sub main {
     # it might be implied in a start headfile. So, we should gather both 
     # and the numbered groups, and run unique on them, to get a the full list. 
     my $gn=1;
-    my $v_ok;
     for(;$gn<100;$gn++) {
         ($v_ok,$g_r->{$gn})=$hf->get_value_check("group_${gn}_runnos");
         if (! $v_ok ) {
@@ -134,12 +233,15 @@ sub main {
 	## Detect SingleSeg mode.
 	$SingleSegMode=1;
 	printd(5,"SingleSegmentation Mode, there is no MDT, Sorry there is some handwaving in this mode.\n");
-	# Prefixing the data name with Atlas for us in capturing the transforms from the MDT dir.
-	#Maybe we should isntead postfix with Rigid, as its Rigidly aligned to the atlas.
+	# Postfixing the data name with Reg for use in capturing the transforms from the MDT dir.
+	# Then we merge transform links,
+	# from: Atlas <-> SpecRig <-> Spec 
+	#   to: Atlas <-> Spec
+	# and then remove any identity transforms.
 	$mdtname=$individuals[0]."Rig";
 	my $Specimen=$individuals[0];
-	$opts->{"link_images"}=0;
-	$output_path=File::Spec->catfile($output_base,$Specimen);
+	${$opts->{"link_images"}}=0;
+	$mdt_out_path=File::Spec->catfile($output_base,$Specimen);
 	printd(5,"Adjusted \"MDT\" Transforms to $mdtname\n");
     }
     if( ! ${$opts->{"link_individuals"}} ) {
@@ -184,8 +286,7 @@ sub main {
     ($v_ok,my $c_mdt)=$hf->get_value_check("mdt_contrast");
     ($v_ok,my $n_a_r)=$hf->get_value_check("rigid_atlas_name");
     if (!$v_ok) { $n_a_r=''; }
-    ($v_ok,my $o_s)=$hf->get_value_check("optional_suffix");
-    if (!$v_ok) { $o_s=''; }
+
     ($v_ok,my $n_a_l)=$hf->get_value_check("label_atlas_name");
     if(! $v_ok) { 
         $n_a_l=$n_a_r; 
@@ -269,44 +370,49 @@ sub main {
 					 "preprocess",
 					 "base_images"  );
     }
-    
-    if ( ! defined $mdtname ) { 
-        # if mdtname not set, and we had an o_s assume the o_s is mdname, else error
-        if ( $o_s ne '' ) {
-            printd(5,"no mdtname specified, but we found an optional suffix $o_s, this is what we're going to call the mdt, it will be in all your transform names for this set of packaged data.\n"
-		   ."IF YOU DON'T LIKE THAT CANCEL NOW AND SPECIFY AN MDTNAME on the command line\n");
-            sleep_with_countdown(8);
-            $mdtname=$o_s; 
-        } else {
-            die "Need mdtname, optional suffix not available!";
-        }
-    }
+    ####
+    # Now that samba structural elements are resolved, we can begin our work proper.
+    ##########
 
+    
     if ($debug_val==100 ) {
-	Data::Dump::dump(($output_path));
+	Data::Dump::dump(($mdt_out_path));
 	die "db:100 stop";
     }
-
+    if( ${$opts->{"instant_feedback"}} ){
+	Data::Dump::dump($opts) if can_dump();
+	printf( "Packing \"MDT\" into $mdt_out_path\n"
+		."  (from deep in $n_vbm\n"
+		."\t".File::Spec->catdir($mdtpath,'median_images')."\n  )\n"
+		."and specimen data into ".File::Spec->catdir($output_base,"Specimen")." (probably arranged by runno)\n"
+	    );
+	my $proceed='NULL';
+	while($proceed !~ /^[yn]?$/ix ) {
+	    $proceed=user_prompt("Do you with to proceed? (Y/n)"); }
+	if ($proceed !~ /^y?$/ix ) {
+	    die "User requested halt\n";
+	}
+    }
     #### 
     # handle MDT median_images
     ###
-    if( -d $output_path) {
-        carp("output ($output_path) already exists! attempting validation");
-    }  elsif(! -e $output_path ) {
-        make_path($output_path) or die $!;
+    if( -d $mdt_out_path) {
+        warn("output ($mdt_out_path) already exists! attempting validation\n");
+    }  elsif(! -e $mdt_out_path ) {
+        make_path($mdt_out_path) or die $!;
     }
-    ###
-    # discover images to link
-    ###
-    ###
-    # do the linking of images
-    ###
-    if ( $opts->{"link_images"} ) {
+    if ( ${$opts->{"link_images"}} ) {
         my $in_im_dir=File::Spec->catfile($mdtpath,"median_images");
         print("MDT images from $in_im_dir\n");
         my $mdt_lookup={};
-        $mdt_lookup=transmogrify_folder($in_im_dir,$output_path,'MDT',$mdtname);
+	###
+	# discover images to link
+	###
+        $mdt_lookup=transmogrify_folder($in_im_dir,$mdt_out_path,'MDT',$mdtname);
         if ( scalar(keys(%$mdt_lookup)) ) {
+	    ###
+	    # do the linking of images
+	    ###
             print("\t Linking up images\n");
             while (my ($key, $value) = each %$mdt_lookup ) {
                 qx(ln -vs $key $value);
@@ -320,9 +426,9 @@ sub main {
             $lp=$lp_a;
         }
         # first pass of labels out.
-        my $lo_o=File::Spec->catfile($output_path,"labels_${mdtname}");
+        my $lo_o=File::Spec->catfile($mdt_out_path,"labels_${mdtname}");
         # "accepted standard" labels out
-        my $lo=File::Spec->catfile($output_path,"labels");
+        my $lo=File::Spec->catfile($mdt_out_path,"labels");
         # if labels available for linkage
         if ( -e $lp  ) {
             # handle move former spec
@@ -357,9 +463,9 @@ sub main {
     
 # transcribe the name of the atlas for labels into targetatlas for code clarity. 
     my $TargetDataPackage=$n_a_l;
-    package_transforms_MDT($mdtpath,$output_path,$mdtname,$TargetDataPackage,$n_vbm);
-    #fix_ts_new($output_path,'README.txt');
-    record_metadata($output_path);
+    package_transforms_MDT($mdtpath,$mdt_out_path,$mdtname,$TargetDataPackage,$n_vbm);
+    #fix_ts_new($mdt_out_path,'README.txt');
+    record_metadata($mdt_out_path);
 # END arranging
     
     ###
@@ -374,11 +480,11 @@ sub main {
     # While we say specimen here, we may actually have runnos's... You were warned. 
     my @spec_errs;
     for my $Specimen (@individuals) {
-        my $output_path=File::Spec->catfile($output_base,$Specimen);
-        if( -d $output_path) {
-            carp("output ($output_path) already exists! attempting validation");
-        }  elsif(! -e $output_path ) {
-            make_path($output_path) or die $!;
+        my $spec_out_path=File::Spec->catfile($output_base,$Specimen);
+        if( -d $spec_out_path) {
+            warn("output ($spec_out_path) already exists! attempting validation\n");
+        }  elsif(! -e $spec_out_path ) {
+            make_path($spec_out_path) or die $!;
         }
         # pre_rigid_native_space should actually be the measure space.... 
         # Best science comes from untouched voxels, (we think)
@@ -398,26 +504,30 @@ sub main {
 	     # $hf->get_value("label_images_dir"),
 	    ]
 	    );
-	#my $sub_lookup=transmogrify_folder($in_im_dir,$output_path,$Specimen,$Specimen);
+	#my $sub_lookup=transmogrify_folder($in_im_dir,$spec_out_path,$Specimen,$Specimen);
 	# 4 part machhcing, speimen, _something{1..n}, _masked{0,1}, compoundext
 	my $inpat="($Specimen)((?:_[^_]+)+?)(_masked)?((?:[.][^.]+)+)\$";
 	my $outpat='$1$2$4';
 	#$outpat='\1\2\4';
-        my $sub_lookup=transmogrify_folder($in_im_dir,$output_path,$inpat,$outpat);
+        my $sub_lookup=transmogrify_folder($in_im_dir,$spec_out_path,$inpat,$outpat);
         if ( scalar(keys(%$sub_lookup)) ) {
             print("\t Linking up images\n");
             while (my ($key, $value) = each %$sub_lookup ) {
                 qx(ln -vs $key $value);
             }
         }
-	package_transforms_SPEC($mdtpath,$output_path,$Specimen,$mdtname,$n_vbm);
+	package_transforms_SPEC($mdtpath,$spec_out_path,$Specimen,$mdtname,$n_vbm);
 	if ( $SingleSegMode ) {
 	    # When in single seg mode we have a messy batch of transform in our directory.
 	    # This'll fix that by combining link dirs,and re-numbering, then pruning any identity files
-	    merge_transform_links($output_path,$Specimen,$mdtname,$n_a_l);
+	    merge_transform_links($spec_out_path,$Specimen,$mdtname,$n_a_l);
+	} else {
+   	    foreach ( glob(File::Spec->catdir($spec_out_path,"transforms","*/") ) ) {
+		prune_identity_transforms($_);
+	    }
 	}
         # n_a_l_n - the nickname for the labelset.
-        package_labels_SPEC($mdtpath,$output_path,$Specimen,$n_a_l_n,$n_vbm);
+        package_labels_SPEC($mdtpath,$spec_out_path,$Specimen,$n_a_l_n,$n_vbm);
 
 	# if we're an input headfile we wont have a complete enough story for the image data.
 	# We can tell if the rigid_work_dir is set.
@@ -440,7 +550,7 @@ sub main {
 	    $sHF=$hf;
 	}
 	# Fetch the "headfile" from the input, die on multiple choices.
-	my $res_hf=File::Spec->catfile($output_path,sprintf("SAMBA_%s.headfile",$Specimen));
+	my $res_hf=File::Spec->catfile($spec_out_path,sprintf("SAMBA_%s.headfile",$Specimen));
 	if ( defined $hf_dir && ! -e $res_hf ) { 
 	    # can tell tensor from diffusion via archivedestination_unique_item_name
 	    # That should be solid forever, But we dont need to here, We just want to make sure we capture what happend.
@@ -467,7 +577,7 @@ sub main {
 	$rHF->copy_in($sHF,"R_");
 	# add/ammend vars from the samba pipeline.
 	$rHF->write_headfile($res_hf);
-	record_metadata($output_path);
+	record_metadata($spec_out_path);
     }
     if(scalar(@spec_errs) ){
 	die join('',@spec_errs);
@@ -516,10 +626,10 @@ sub main {
     print("   rsync -a --copy-unsafe-links $output_base/ NEW_PATH/ \n");
     print(" You can ask Lucy or James to help you with that step.\n\n");
     print("To use this MDT for your next SAMBA run, add its path to your transform chain:\n");
-    print("\t$output_path \n");
-    #print("  cp -RPpn $output_path $WORKSTATION_DATA/atlas/".basename( $output_path)."\n");
+    print("\t$mdt_out_path \n");
+    #print("  cp -RPpn $mdt_out_path $WORKSTATION_DATA/atlas/".basename( $mdt_out_path)."\n");
     #print("#Or at least the linky stack,");
-    #print("  cp -RPpn $road $WORKSTATION_DATA/atlas/".basename( $output_path)."/$n_r\n");
+    #print("  cp -RPpn $road $WORKSTATION_DATA/atlas/".basename( $mdt_out_path)."/$n_r\n");
     
     #print("WARNING!!!! WITH RSYNC TRAILING SLASHES ARE IMPORTANT AND BOTH MUST BE PRESENT FOR CORRECT BEHAIVOR\n");
     return 0;
@@ -703,7 +813,7 @@ sub package_transforms_MDT {
     my $t_merge_file=File::Spec->catfile($ThisPackageOutLocation,"transforms",".merge.log");
     if( -e $t_merge_file ) { 
 	warn("DID NOT UPDATE TRANFORMS for $ThisPackageName!\n"
-	     ."\tSome(or all) former transform links were merged, see hidden .merge.log for detail");
+	     ."\tSome(or all) former transform links were merged, see hidden .merge.log for detail\n");
 	return;}
 ###
 # make Package forward and reverse directories
@@ -827,7 +937,7 @@ sub package_transforms_SPEC {
     my $t_merge_file=File::Spec->catfile($ThisPackageOutLocation,"transforms",".merge.log");
     if( -e $t_merge_file ) { 
 	warn("DID NOT UPDATE TRANFORMS for $ThisPackageName!\n"
-	     ."\tSome(or all) former transform links were merged, see hidden .merge.log for detail");
+	     ."\tSome(or all) former transform links were merged, see hidden .merge.log for detail\n");
 	return;}
     my($road_backward,$road_forward)=transform_dir_setup($ThisPackageInRoot,$ThisPackageOutLocation,$ThisPackageName,
                                                          $TargetDataPackage,$CollectionSource);
