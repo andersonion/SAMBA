@@ -190,16 +190,13 @@ sub populate {
     my @unused_vars;
     die if ! defined $tempHf;
     printd(5,"Transcribing input headfile to variables\n");
+    # For all variables in the given headfile, populate a samba global named the same.
     foreach ($tempHf->get_keys) {
-	my $val = $tempHf->get_value($_);
-	if ( exists $SAMBA_global_variables::{$_} ) {
-	    if (defined $val) {
-		eval("\$$_=\'$val\'");
-		printd(5,"\t".$_." = $val\n");
-		if ($_ eq 'rigid_atlas_name'){
-		    eval("\$tmp_rigid_atlas_name=\'$val\'");
-		}
-	    }
+	my ($v_ok,$val) = $tempHf->get_value_check($_);
+	if ( exists $SAMBA_global_variables::{$_} 
+	     && $v_ok && defined $val) {
+	    eval("\$$_=\'$val\'");
+	    printd(5,"\t".$_." = $val\n");
 	} else {
 	    push(@unused_vars,$_);
 	}
@@ -209,12 +206,16 @@ sub populate {
 
 
 sub all_runnos {
+    # After the globals have been loaded, and populate has been run we can see the derived var
+    # all_runnos
+    
     # While very tempting to create a function for group1, 2 compare and control in addition 
     # to this one, it will be resisted for now because those are all bad groups for different reasons. 
 
     # only group1 and group2 are expected to be exclusive, and that is not controlled here.
     # Group names are somewhat misleading here, 
     # Control really means "mdt" group, and compare means "Not-mdt" group.
+    # For the forseeable use cases what we really need is, MDT group, and Complete group.
     
     # The group management code takes advantage of the behaviorof push with empty arrays.
     @group_1 = split(',',$group_1_runnos) if defined $group_1_runnos;

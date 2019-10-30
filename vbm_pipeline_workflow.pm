@@ -147,61 +147,28 @@ U_specid U_species_m00 U_code
         $Hf->set_value('label_reference_space',$label_reference);
     }
 
-## Need to throw errors for empty lists, maybe dump headers for case of header not found; dump values from column in case of existing header
-    
     ###
     #GROUP SORTING
     ###
     # on inspection no arrays could be defined yet here. 
     # SO, it is now an error for them to be defined.
-    # This whole thing is a candidate for a sub in SAMBA_global_variables
-    # I guess it'd be called resolve_groups ?
     die if scalar(@group_1);
     die if scalar(@group_2);
     die if scalar(@control_group);
     die if scalar(@compare_group);
-    my @all_runnos;
-    if ( 1 ) {
-	@all_runnos=SAMBA_global_variables::all_runnos();
-    } else {
-
-    # only group1 and group2 are expected to be exclusive, and that is not controlled here.
-    # Group names are somewhat misleading here, 
-    # Control really means "mdt" group, and compare means "Not-mdt" group.
-    
-    # The group management code takes advantage of the behaviorof push with empty arrays.
-    @group_1 = split(',',$group_1_runnos) if defined $group_1_runnos;
-    @group_2 = split(',',$group_2_runnos) if defined $group_2_runnos;
-
-    if ( defined $control_comma_list ) {
-	@control_group = split(',',$control_comma_list) ;
-    } else {
-	push(@control_group,@group_1);
-	push(@control_group,@group_2);
-    }
-    if (defined $compare_comma_list) {
-	@compare_group = split(',',$compare_comma_list);
-    } else {
-	@compare_group = @control_group;
-    }
-    push(@compare_group,@group_1);
-    push(@compare_group,@group_2);
-    
-    # becuase we make no attempt to be clean about replication or runnos earlier, we need to uniq now.
-    @control_group=uniq(@control_group);
-    @compare_group=uniq(@compare_group);
-    @all_runnos = uniq(@control_group,@compare_group);
-    #Data::Dump::dump(
-    }
-	Data::Dump::dump(\@all_runnos);die;
-    die "DB";    
-    my $single_seg=0;
+    # Slopilly, all_runnos also populates the group arrays. 
+    # Due to how sloppy global_vars is (and how satisfying it is to call it all_runnos) 
+    # that has been conceeded, instead of renaming to group_resolve.
+    my @all_runnos=SAMBA_global_variables::all_runnos();
     if (scalar(@all_runnos) == 1) {
-        $do_vba = 0;
-        $single_seg=1;
+	# Single input == singleseg mode. 
+	# If we dont have a suffix we use our runno.
         if (! $optional_suffix) {
             $optional_suffix = $all_runnos[0];
         }
+	# vba doesn't make sense
+        $do_vba = 0;
+	# force pairwise
         $mdt_creation_strategy='pairwise';
     }
 
@@ -212,14 +179,10 @@ U_specid U_species_m00 U_code
 	sleep_with_countdown(45);
     }
 
-## The following are mostly ready-to-go variables (i.e. non hard-coded)
     $project_id=SAMBA_structure::main_dir($project_name,scalar(@all_runnos),$rigid_atlas_name,$optional_suffix);
-    
-    #new_get_engine_dependencies($project_id);
     ($pristine_input_dir,$dir_work,$results_dir,$result_headfile) = make_process_dirs($project_id); 
 
 ## Backwards compatability for rerunning work initially ran on glusterspace
-
 # search start headfile for references to '/glusterspace/'
     if ((defined $start_file) && ( -f $start_file)) {
         my $start_contents=`cat $start_file`;

@@ -6,8 +6,6 @@
 # Roughly modeled after seg_pipe_mc structure. (For better or for worse.)
 #
 
-my $PM = 'vbm_pipeline_start.pl'; 
-
 use strict;
 use warnings;
 
@@ -51,9 +49,13 @@ use lib dirname(abs_path($0));
 use SAMBA_global_variables;
 use SAMBA_structure;
 use vars qw($start_file);
+
+my $PM = 'vbm_pipeline_start.pl'; 
+my $git_log=git_log_last(dirname(__FILE__));
+my $PIPELINE_VERSION = $git_log->{"date"}." ".$git_log->{"commit"};
+
 use vbm_pipeline_workflow;
 
-$schedule_backup_jobs=1;
 # Set pipeline utilities code dev group
 if (exists $ENV{'CODE_DEV_GROUP'} && $ENV{'CODE_DEV_GROUP'} ne ''){
     $CODE_DEV_GROUP=$ENV{'CODE_DEV_GROUP'};
@@ -70,9 +72,12 @@ if ( 0 ) {
 }
 $permissions=0777 ^ $permission_mask;
 
+$debug_val=45;
+
 # a do it again variable, will allow you to pull data from another vbm_run
 $test_mode = 0;
 
+$schedule_backup_jobs=1;
 ### 
 # simple input handling, 
 # we accept a startup headfile, and/or a (number of nodes|reservation name)
@@ -123,10 +128,7 @@ if ($reservation) {
     print "Using slurm reservation = \"$reservation\".\n\n\n";
 }
 
-# Commented this ugly beast out becuase its deprecated. 
-# require study_variables_vbm;
 
-my $tmp_rigid_atlas_name='';
 {
     if ($start_file =~ /.*\.headfile$/) {
         $start_file = abs_path($start_file);
@@ -136,11 +138,13 @@ my $tmp_rigid_atlas_name='';
         #    load_SAMBA_json_parameters($start_file); 
     } else {
         die "Study variables is not good, so its no longer allowed";
-        study_variables_vbm();
+	# Commented this ugly beast out becuase it was deprecated long enough. 
+	# require study_variables_vbm;
+        # study_variables_vbm();
     }
-    if (! defined $do_vba) {
-        $do_vba = 0;
-    }
+    #if (! defined $do_vba) {
+    #    $do_vba = 0;
+    #}
     ### DO ALL WORK in pipe workflow
     vbm_pipeline_workflow();
 } #end main
@@ -195,6 +199,7 @@ sub load_SAMBA_json_parameters {
 sub assign_parameters {
 # ------------------
 # Replicate input parameter variable values into globals WHERE they're named the same.
+# Handles some implied options
     my ($tempHf,$is_headfile) = (@_); # Current headfile implementation only supports strings/scalars
     my @unused_vars;
     if ($is_headfile) {
@@ -224,7 +229,9 @@ sub assign_parameters {
                         eval("\$$_=\'$val\'");
                         print "$_ = ${$_}\n";   
                         if ($_ eq 'rigid_atlas_name') {
-                            eval("\$tmp_rigid_atlas_name=\'$val\'");
+			    # tmp_rigid is assigned direct later straight from the global, 
+			    # that should give identical behavior for undefined's
+                            #eval("\$tmp_rigid_atlas_name=\'$val\'");
                         }
                     }
                 }
@@ -244,7 +251,11 @@ sub assign_parameters {
     # do some default assignment 
     my @ps_array;
 
-    if (! defined $project_name) {
+    if ( defined $project_name) { 
+	printd(40,"project_name:$project_name\n");
+    } else {
+	printd(5,"UNTESTED CODE PATH: Watch carefully, and yell at programmer.\n");
+	sleep_with_countdown(4);
         my $project_string;
         if ($is_headfile) {
             $project_string = $tempHf->get_value('project_id');
@@ -254,7 +265,6 @@ sub assign_parameters {
             $project_string = $tempHf->{"project_id"};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
             # $project_string = %{ $tempHf }->{"project_id"}; # This is as originally formulated, but not quite right.
         }
-
         @ps_array = split('_',$project_string);
         shift(@ps_array);
         my $ps2 = shift(@ps_array);
@@ -262,85 +272,55 @@ sub assign_parameters {
             $project_name = "$1.$2.$3";
         }
 
+	# If opt suffix undefined, make it the ps_array
+	# making this the empty string most of the time.
         if (! defined $optional_suffix) {
             $optional_suffix = join('_',@ps_array);
+	    # tmp var was localized here because it's looks suspiciously like old garbage.
+	    my $tmp_rigid_atlas_name=$rigid_atlas_name;
             if ($tmp_rigid_atlas_name ne ''){
-                if ($optional_suffix =~ s/^(${tmp_rigid_atlas_name}[_]?)//) {}
+                $optional_suffix =~ s/^(${tmp_rigid_atlas_name}[_]?)//;
             }
-        }
-
-    }
-
-    if ((! defined ($pre_masked)) && (defined ($do_mask))) {
-        if ($do_mask) {
-            $pre_masked = 0;
-        } else {
-            $pre_masked=1;
+	    warn("No optional sufix, auto-guessing set to ($optional_suffix)\n");
         }
     }
 
-    if ((defined ($pre_masked)) && (! defined ($do_mask))) {
-        if ($pre_masked) {
-            $do_mask = 0;
-        } else {
-            $do_mask=1;
-        }
+    # pre_masked and do_masked are exclusive options, if one is true the other shouldn't be.
+    # They can both be set which will probably work, and is likely a waste of time.
+    # Originally this code didn't handle the case where neither was set. 
+    # Now adjusting that to the expected default of do_mask on, but we'll give a warning.
+    if (! defined $pre_masked && ! defined $do_mask ) { 
+	printd(5,"mask choices not specified, forcing do_mask on.\n");
+	sleep_with_countdown(3);
+	$do_mask=1;
     }
-
-    if (! defined $port_atlas_mask) { $port_atlas_mask = 0;}
-
+    $pre_masked = ! $do_mask unless defined $pre_masked;
+    $do_mask = ! $pre_masked unless defined $do_mask;    
+    
+    ### shortended version of original code
+    #if ((! defined ($pre_masked)) && (defined ($do_mask))) {
+    #  $pre_masked = ! $do_mask; }
+    # if ((defined ($pre_masked)) && (! defined ($do_mask))) {
+    #  $do_mask = !$pre_masked; }
+    
+    $port_atlas_mask = 0 unless defined $port_atlas_mask;
     if (($test_mode) && ($test_mode eq 'off')) { $test_mode = 0;}
 
     if (defined $channel_comma_list) {
+	# Filter vbm and non 3d channels from our channel list.
         my @CCL = split(',',$channel_comma_list);
         foreach (@CCL) {
             if ($_ !~ /(jac|ajax|nii4D)/) {
                 push (@channel_array,$_);
-            }
-        }
-
+	    } else {
+		warn("channel $_ is a special channel, and should not be part of the channel_comma_list, filtering it out.\n"
+		    ."\t(Don't worry it'll be used appropriately later.)\n");
+	    }
+	}
         @channel_array = uniq(@channel_array);
         $channel_comma_list = join(',',@channel_array);
     }
-
-    if (0) { # We want to retire the confusing concept of $atlas_name, when we really mean $rigid_atlas_name
-        my $atlas_name; # Only used here so perl won't throw up trying to check this code.
-        if (! defined  $atlas_name){
-            my ($r_atlas_name,$l_atlas_name);
-            if ($is_headfile) {
-                $r_atlas_name = $tempHf->get_value('rigid_atlas_name');
-                $l_atlas_name = $tempHf->get_value('label_atlas_name');
-                if ($r_atlas_name ne 'NO_KEY') {
-                    $atlas_name = $r_atlas_name;
-                } elsif ($l_atlas_name ne 'NO_KEY') {
-                    $atlas_name = $l_atlas_name;
-                } else {
-                    $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
-                }
-            } else {
-                die "json mode requires revalidation!!!";
-                $r_atlas_name = %{ $tempHf ->{'rigid_atlas_name'}}; # Option A: take hash in tempHf and store as scalar
-                $r_atlas_name = $tempHf->{'rigid_atlas_name'};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
-                #$r_atlas_name = %{ $tempHf }->{'rigid_atlas_name'}; # This is as originally formulated, but not quite right.
-
-                $l_atlas_name = %{ $tempHf ->{'label_atlas_name'}}; # Option A: take hash in tempHf and store as scalar
-                $l_atlas_name = $tempHf->{'label_atlas_name'};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
-                # $l_atlas_name = %{ $tempHf }->{'label_atlas_name'};
-
-                if ($r_atlas_name ne '') {
-                    $atlas_name = $r_atlas_name;
-                } elsif ($l_atlas_name ne '') {
-                    $atlas_name = $l_atlas_name;
-                } else {
-                    $atlas_name = 'chass_symmetric2'; # Will soon point this to the default dir, or let init module handle this.
-                }
-            }
-        }
-    }
-    if (! defined $optional_suffix) {
-        $optional_suffix = join('_',@ps_array);
-        if ($optional_suffix =~ s/^(${rigid_atlas_name}[_]?)//) {}
-    }
-
+    # Formerly did an auto assign of optional suffix, but it was form the json only code path, 
+    # so that was moved into that if condition.
 }
 
