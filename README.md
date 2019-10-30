@@ -7,14 +7,11 @@ This code was designed and tested to function within the data ecosystem of Duke 
 It is hoped that future versions will be able to offer more support for external users.
 
 There is some critical support code that is needed for the pipeline function.  This code can be found at:
-https://github.com/jamesjcook/pipeline_utilities/blob/master/pipeline_utilities.pm
+https://github.com/jamesjcook/pipeline_utilities/
+(If unavailables please contact user jamesjcook)
 
-which in turn needs:
-
-https://github.com/jamesjcook/pipeline_utilities/blob/master/civm_simple_util.pm
-
-The pipeline is initiated by running:
-vbm_pipeline_start.pl
+The pipeline is initiated by running: 
+vbm_pipeline_start.pl 
 
 Two optional arguments can be accepted, in any order.
 One is a headfile with the basic input parameters for the pipeline. 
