@@ -58,15 +58,7 @@ sub main {
     my $mdt_out_path;
     my $v_ok;
 
-    # ex direct to var 
-    # $opt_href =  {  "input_string=s"=>\$input_string,  };    
-
-    my $opts={
-	# mdtname is what replaces MDT in the filenames for the MDT
-	#"mdtname=s"    =>\$mdtname,
-	#"output_base=s"=>\$output_base;
-	#"hf_path=s"    =>\$hf_path;
-    };
+    my $opts={};
     $opts->{"output_base=s"}=\$output_base;
     $opts->{"hf_path=s"}=\$hf_path;
     $opts->{"mdtname=s"}=\$mdtname;
