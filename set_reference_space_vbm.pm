@@ -14,6 +14,7 @@ use warnings;
 
 use civm_simple_util;
 use convert_all_to_nifti_vbm;
+use List::Util qw(min max);
 
 # 01 July 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
 
@@ -407,39 +408,50 @@ sub set_reference_space_vbm_Init_check {
 	    mkdir ($inputs_dir,$permissions);
     }
 
-    my $resample_images = $Hf->get_value('resample_images');
-    my $resample_factor = $Hf->get_value('resample_factor');
-    if (($resample_factor ne 'NO_KEY') ||($resample_images ne 'NO_KEY') ) { ## Need to finish fleshing out this logic!
-        if (($resample_images == 0) || ($resample_images =~ /^(no|off)$/i) ) {
-            $resample_images=0;
-            $resample_factor=1;
-        } else {    
-            if (($resample_images == 1) || ($resample_images == 2) || ($resample_images =~ /^(yes|on)$/i) ) {
-                # Default is downsample by a factor of 2x
-                $resample_images=1;
-                $resample_factor=2;
-            } elsif ($resample_images !~ /[\-a-zA-Z]/) {
-                # We're going to cross our fingers and hope that by excluding letters and negative signs
-                # that we're left with valid positive numbers by which we can multiply the voxelsize
-                # Also note that "resample factor" is more accurately "downsample factor"
-    
-               
-            } else {
-                # Throw dying error.
-                my $resample_error="Bad resample_images field specified ${resample_images}. Only positive real numbers allowed.\n";
-                $init_error_msg=$init_error_msg.$resample_error;
-                
-            }
-        }
-    
-    } elsif (($resample_images eq 'NO_KEY' ) && ($resample_factor ne 'NO_KEY') ) {
-        # We assume that the resample factor has already been checked & will automatically be passed on
-        $resample_images=1;
+    my $enforcer = $Hf->get_value('force_isotropic_resolution'); # Should only really be used with VBM space, not label space
+    if (($enforcer eq 'NO_KEY') || ($enforcer eq 'UNDEFINED') || ($enforcer eq '') || (! $enforcer) ){
+	
+	my $resample_images = $Hf->get_value('resample_images');
+	my $resample_factor = $Hf->get_value('resample_factor');
+	if (($resample_factor ne 'NO_KEY') ||($resample_images ne 'NO_KEY') ) { ## Need to finish fleshing out this logic!
+	    if (($resample_images == 0) || ($resample_images =~ /^(no|off)$/i) ) {
+		$resample_images=0;
+		$resample_factor=1;
+	    } else {    
+		if (($resample_images == 1) || ($resample_images == 2) || ($resample_images =~ /^(yes|on)$/i) ) {
+		    # Default is downsample by a factor of 2x
+		    $resample_images=1;
+		    $resample_factor=2;
+		} elsif ($resample_images !~ /[\-a-zA-Z]/) {
+		    # We're going to cross our fingers and hope that by excluding letters and negative signs
+		    # that we're left with valid positive numbers by which we can multiply the voxelsize
+		    # Also note that "resample factor" is more accurately "downsample factor"
+		    $resample_factor = $resample_images;
+		    $resample_images=1;
+		    
+		} else {
+		    # Throw dying error.
+		    my $resample_error="Bad resample_images field specified ${resample_images}. Only positive real numbers allowed.\n";
+		    $init_error_msg=$init_error_msg.$resample_error;
+		    
+		}
+	    }
+	    
+	} elsif (($resample_images eq 'NO_KEY' ) && ($resample_factor ne 'NO_KEY') ) {
+	    # We assume that the resample factor has already been checked & will automatically be passed on
+	    $resample_images=1;
+	} else {
+	    $resample_images=0;
+	    $resample_factor=1;
+	}
+	
     } else {
-        $resample_images=0;
-        $resample_factor=1;
+	$resample_images=1;
+	$resample_factor='iso';
     }
-
+    
+    $Hf->set_value('resample_images',$resample_images);
+    $Hf->set_value('resample_factor',$resample_factor);
 
     my $create_labels= $Hf->get_value('create_labels');
 
@@ -921,7 +933,7 @@ sub set_reference_space_vbm_Runtime_check {
 		    `${rm_cmd}`;
 		}
 
-	    } else {
+ 	    } else {
 		my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
 		my $nifti_args = "\'${inpath}\' , \'${outpath}\'";    
 		my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
@@ -930,17 +942,39 @@ sub set_reference_space_vbm_Runtime_check {
     	}
 
         # 4 Feb 2019--use ResampleImageBySpacing here to create up/downsampled working space if desired.
-            #$Hf->get_value('resample_images');
-            #ResampleImageBySpacing 3 $in_ref $out_ref 0.18 0.18 0.18 0 0 1
-            #my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header(${out_ref});
+	# 6 Sept 2019--BJA: Also can use this to enforce isotropy
+	$resample_images = $Hf->get_value('resample_images');
+        if ($resample_images) {
+	    $resample_factor = $Hf->get_value('resample_factor');
+	    my $bbs = get_bounding_box_and_spacing_from_header(${outpath});
+	    my @ref_array=split( ' ',$bbs);
+	    my $voxel_size=pop(@ref_array);
+	    my @voxel_sizes=split( 'x',$voxel_size);
+	    #print @voxel_sizes; die;
+	    if ($resample_factor eq 'iso') {
+		my $iso_res = min(@voxel_sizes);
+		my $max_res = max(@voxel_sizes);
 
-            #$refspace_hash{$V_or_L} = $bounding_box_and_spacing;
-            #$Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
-
-        # write refspace_temp.txt (for human purposes, in case this module fails)
-    	write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp")
+		if (($inpath =~ /iso\./) && ($outpath =~ /iso\./) ) { # DO NOTHING
+		    print "DOING NUTTIN'!\n\n";
+		} elsif ($iso_res eq $max_res ) {
+		    print "HERE WE ARRRGH! $iso_res"; die;
+		} else {
+		    my $new_ref=$outpath;
+		    if ($new_ref =~ s/\.(.*)(\.gz)?$/_iso\.$1\.$2/) {}
+		    `ResampleImageBySpacing ${dims} $outpath $new_ref ${iso_res} ${iso_res} ${iso_res} 0 0 1`;
+		}
+	    } else { 
+		#ResampleImageBySpacing 3 $in_ref $out_ref 0.18 0.18 0.18 0 0 1
+		#my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header(${outpath_ref});
+		
+		#$refspace_hash{$V_or_L} = $bounding_box_and_spacing;
+		#$Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
+	    }
+	}
+	# write refspace_temp.txt (for human purposes, in case this module fails)
+	write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp")
     }
-
 
 ##  2 February 2016: Had "fixed" this code several months ago, however it was sending the re-centered rigid atlas to base_images, and not even 
 ##  creating a version for the preprocess folder. The rigid atlas will only be rereferenced if it is found in preprocess, which for new VBA runs

@@ -115,7 +115,7 @@ sub warp_atlas_labels_vbm {  # Main code
     }
 
     my @jobs_2;
-    if ($convert_labels_to_RAS == 1) {
+    if (($convert_labels_to_RAS ne 'NO_KEY') && ($convert_labels_to_RAS == 1) ) {
         foreach my $runno (@array_of_runnos) {
             ($job) = convert_labels_to_RAS($runno);
             if ($job) {

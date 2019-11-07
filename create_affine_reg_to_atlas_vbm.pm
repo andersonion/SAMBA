@@ -222,7 +222,7 @@ sub create_affine_reg_to_atlas_Output_check {
     
     
     foreach my $runno (@array_of_runnos) {
-	if ($runno eq "MDT_${mdt_contrast}") {
+	if (( defined ${mdt_contrast} ) && ($runno eq "MDT_${mdt_contrast}") ) {
 	    $full_file_1 = "${current_path}/${runno}_to_${label_atlas}_${xform_suffix}";
 	} else {
 	    $full_file_1 = "${current_path}/${runno}_${xform_suffix}";

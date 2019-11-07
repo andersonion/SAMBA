@@ -28,6 +28,7 @@ echo ${SPath}/vbm_pipeline_start.pl $@
 echo " "
 echo " "
 sge_test=$(which qsub | grep sge | wc -l);
+#if [[ ! 1 ]];then # For testing
 if [[ $sge_test == 1 ]]; then
     sb_dir=${HOME}/SAMBA_sbatch;
     if [[ ! -d ${sb_dir} ]];then
@@ -40,6 +41,7 @@ if [[ $sge_test == 1 ]]; then
     source_sbatch="${SPath}/SAMBA_SGE_job.bash";
     cp ${source_sbatch} ${sbatch_file};
     echo "#\$ -N ${name}" >> ${sbatch_file};
+    echo "#\$ -o ${HOME}/testes_are_ballses";
     echo "${SPath}/vbm_pipeline_start.pl $@" >> ${sbatch_file};
     cmd="qsub -terse  -b y -V ${sbatch_file}";
 #cmd="qsub -terse  -N SAMBA_pipeline -M ${USER}@duke.edu -m ea -o ${HOME}/SAMBA_sbatch/slurm-"'$JOB_ID'".out -e ${HOME}/SAMBA_sbatch/slurm-"'$JOB_ID'".out -b y -V ${SPath}/vbm_pipeline_start.pl $@";

@@ -439,6 +439,10 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               label_atlas_nickname
                               label_input_file
                               stop_after_mdt_creation
+                              number_of_nonparametric_seedsstop_after_mdt_creation
+                              force_isotropic_resolution
+                              resample_images
+                              resample_factor
                               number_of_nonparametric_seeds); #
 
 

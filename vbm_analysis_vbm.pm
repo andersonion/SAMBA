@@ -259,7 +259,7 @@ sub antsr_analysis_vbm {
 
     my @test = (0);
     my $go_message = "I guess we're testing out ANTsR vbm analysis here...\n";
-    my $mem_request = 120000;
+    my $mem_request = '120000';
     my $antsr_command = "Rscript ${stub_path} --save\n"; 
     print "ANTsR command = ${antsr_command}\n";
 
@@ -343,43 +343,69 @@ sub surfstat_analysis_vbm {
     if (! -e $contrast_path) {
 	mkdir ($contrast_path,$permissions);
     }
-    
-    my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
-    my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
-    my $exec_testing =1;
-    my $jid = 0;
-    if ($exec_testing) {	
-	my $executable_path = "${MATLAB_EXEC_PATH}/surfstat_executable/run_surfstat_for_vbm_pipeline_exec.sh"; 
-	# my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
-	my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
-	my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
-	
-	my @test=(0);
-	if (defined $reservation) {
-	    @test =(0,$reservation);
-	}
-	my $mem_request = '10000';
 
-	if (cluster_check) {
-	    my $go =1;	    
-#	my $cmd = $pairwise_cmd.$rename_cmd;
-	    my $cmd = "${executable_path} ${matlab_path} ${surfstat_args_2}";
+    # 4 October 2019, BJA: Crude test for complete set of results.
+    my $do_work_test = `ls ${contrast_path}/*.nii* 2> /dev/null | wc -l `;
+    chomp($do_work_test);
+    print "\n\ndo_work_test = x${do_work_test}x\n\n";
+    if ( $do_work_test < 10) {
+	 print "\n\ndo_work_test evaluated to less than 10\n\n";
+	my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
+	my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
+	my $exec_testing =1;
+	my $jid = 0;
+	if ($exec_testing) {
+	    my $executable_path = "${MATLAB_EXEC_PATH}/surfstat_executable/run_surfstat_exec.sh"; 
+	    #my $executable_path = "${MATLAB_EXEC_PATH}/surfstat_executable/run_surfstat_for_vbm_pipeline_exec.sh"; # Had to slightly rename after renaming and recompiling on civmcluster. 12 Sep 2019 BJA
+	    # my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
+	    my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
+	    my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
 	    
-	    my $home_path = $current_path;
-	    my $Id= "${contrast}_surfstat_VBA_for_${group_1_name}_vs_${group_2_name}";
-	    my $verbose = 2; # Will print log only for work done.
-	    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	    if (not $jid) {
-		error_out($stop_message);
+	    my @test=(0);
+	    if (defined $reservation) {
+		@test =(0,$reservation);
 	    }
+
+	    my $mem_request = '10000';
+	    my ($exec_folder,$dummy_1,$dummy_2) = fileparts(${executable_path},2);
+	    my $jo_test="${exec_folder}/java.opts";
+	    #print "\n\nexecutable_path = ${executable_path}\n\n\n";
+	    print "\n\njo_test = ${jo_test}\n\n\n";
+	    my $jo_exists = `ls ${jo_test} 2> /dev/null | wc -l`;
+
+	    if ( $jo_exists ) {
+		my $jo = `more $jo_test`;
+		print "\njo=$jo\n\n";
+		if ($jo =~ /-Xmx([0-9]*)([A-Za-z]?)/ ) {
+		    my $new_mem = 2 * $1; # Hope for the best here!
+		    $mem_request="${new_mem}$2";
+		}
+
+	    }
+	    print "Mem_request = ${mem_request}\n\n\n\n";
+	    #die;
+	    if (cluster_check) {
+		my $go =1;	    
+		my $cmd = "${executable_path} ${matlab_path} ${surfstat_args_2}";
+		
+		my $home_path = $current_path;
+		my $Id= "${contrast}_surfstat_VBA_for_${group_1_name}_vs_${group_2_name}";
+		my $verbose = 2; # Will print log only for work done.
+		$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+		if (not $jid) {
+		    error_out($stop_message);
+		}
+	    }
+	} else {
+	    my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
+	    print "surfstat command = ${surfstat_command}\n";
+	    my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
+	    print "Current state = $state\n";
 	}
-    } else {
-	my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
-	print "surfstat command = ${surfstat_command}\n";
-	my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
-	print "Current state = $state\n";
+	return($jid);
+    } else { 
+	return(0);
     }
-    return($jid);
 }
 
 # ------------------
@@ -723,7 +749,6 @@ sub fsl_nonparametric_analysis_prep {
     if ($custom_tfce_height ne 'NO_KEY') {
 	$tfce_height=$custom_tfce_height;
     }
-
 
     my $tfce_options='';
 

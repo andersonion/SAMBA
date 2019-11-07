@@ -145,13 +145,20 @@ sub smooth_images_Output_check {
 #	if ($file_path =~ s/(\.[A-Za-z0-9]*)$//) {
 #	    $file_ext = $1.$file_ext;
 #	}
-	if ($file_ext =~ s/\.gz//) {}#Do Nothing More
+
+
+	# BJA 25 September 2019: Updated surfstat_exec to read directly from nii.gz, will try to store on disk as nii.gz instead of .gz
+	# It is surmised that if the load_niigz code fails, surfstat will try to gunzip the files so it can still read the files;
+	# but this will leave them in the gunzipped state on the disk indefinitely;
+	# We are quashing the auto gunzip code below...
+
+	#if ($file_ext =~ s/\.gz//) {}#Do Nothing More
 	
 	$out_file = "${destination_directory}/${file_name}_${suffix}${file_ext}";
 
-	if (($case == 2) && (! data_double_check($out_file.'.gz'))) {
-	    `gunzip ${out_file}.gz`;  # We expect that smoothed files will need to be decompressed for VBM analysis (our primary use).
-	}
+	#if (($case == 2) && (! data_double_check($out_file.'.gz'))) {
+	#    `gunzip ${out_file}.gz`;  # We expect that smoothed files will need to be decompressed for VBM analysis (our primary use).
+	#}
 	
 	if (data_double_check($out_file)) {
 	    push(@files_to_process,$input_file);
@@ -211,7 +218,11 @@ sub smooth_images {
 #	    $file_ext = $1.$file_ext;
 #	}
 
-	if ($file_ext =~ s/\.gz$//) {}
+	
+	# BJA 25 September 2019: Updated surfstat_exec to read directly from nii.gz, will try to store on disk as nii.gz instead of .gz
+	# It is surmised that if the load_niigz code fails, surfstat will try to gunzip the files so it can still read the files;
+	# but this will leave them in the gunzipped state on the disk indefinitely;
+	#if ($file_ext =~ s/\.gz$//) {}
 
 	my $out_file = "${destination_directory}/${file_name}_${suffix}${file_ext}";
 	
