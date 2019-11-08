@@ -9,4 +9,4 @@ export MATLAB_2015b_PATH="/mnt/clustertmp/common/rja20_dev/MATLAB2015b_runtime/v
 export MATLAB_JAVA=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.191.b12-0.el7_5.x86_64/jre
 
 # For email support, need to add
-export NOTIFICATION_EMAIL=rja20@duke.edu
+export NOTIFICATION_EMAIL=${USER}@duke.edu
