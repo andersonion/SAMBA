@@ -1,7 +1,7 @@
 #!/bin/bash
 # Custom SAMBA startup with frozen pipeline code including pipeline_utilities(:D ) shush now
 if [[ -d $SAMBA_PATH ]];then
-    SPATH=${SAMBA_PATH};
+    SPath=${SAMBA_PATH};
 else
     SPath="${HOME}/SAMBA";
 fi
@@ -54,7 +54,8 @@ echo " ";
    job_id=$($cmd | tail -1);
 #qsub  ${SPath}/vbm_pipeline_start.pl $@;
    echo "JOB ID = ${job_id}";
-   tail -f "${HOME}/SAMBA_sbatch/slurm-$job_id.out";
+   #tail -f "${HOME}/SAMBA_sbatch/slurm-$job_id.out"; # This the behavior that I really want, but currently not getting!
+   tail -f "${HOME}/${name}.bash.o${job_id}";
 else
     ${SPath}/vbm_pipeline_start.pl $@;
 fi
