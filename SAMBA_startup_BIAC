@@ -54,6 +54,11 @@ echo " ";
    job_id=$($cmd | tail -1);
 #qsub  ${SPath}/vbm_pipeline_start.pl $@;
    echo "JOB ID = ${job_id}";
+   echo "";
+   echo "To stop this instance of SAMBA pipeline please use the following command:";
+   echo "qdel ${job_id}";
+   sleep 3;
+
    #sb_file="${HOME}/SAMBA_sbatch/slurm-$job_id.out"; # This the behavior that I really want, but currently not getting!
    sb_file="${HOME}/${name}.bash.o${job_id}";
 
