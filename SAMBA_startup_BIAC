@@ -8,7 +8,7 @@ fi
 echo "frozen dance at ${SPath}";
 ## For BIAC:
 PU_path="${SPath}/../pipeline_utilities";
-if [[ ! -d ="${PU_path}" ]];then
+if [[ ! -d "${PU_path}" ]];then
     PU_path="${HOME}/pipeline_utilities";
 fi
 export RADISH_PERL_LIB=${PU_path};
