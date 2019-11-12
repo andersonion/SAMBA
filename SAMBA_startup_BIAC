@@ -54,8 +54,11 @@ echo " ";
    job_id=$($cmd | tail -1);
 #qsub  ${SPath}/vbm_pipeline_start.pl $@;
    echo "JOB ID = ${job_id}";
-   #tail -f "${HOME}/SAMBA_sbatch/slurm-$job_id.out"; # This the behavior that I really want, but currently not getting!
-   tail -f "${HOME}/${name}.bash.o${job_id}";
+   #sb_file="${HOME}/SAMBA_sbatch/slurm-$job_id.out"; # This the behavior that I really want, but currently not getting!
+   sb_file="${HOME}/${name}.bash.o${job_id};
+
+   touch ${sb_file}; #Make sure it exists so we can immediately call the tail command without risk of erroring out.
+   tail -f "${sb_file}";
 else
     ${SPath}/vbm_pipeline_start.pl $@;
 fi
