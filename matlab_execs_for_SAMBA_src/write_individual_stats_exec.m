@@ -1,17 +1,49 @@
 function write_individual_stats_exec(runno,label_file,contrast_list,image_dir, ...
     output_dir,space,atlas_id,varargin)
-% New inputs:
-% runno: run number of interest
-% label_file: Full path to labels
-% contrast_list: comma-delimited (no spaces) string of contrasts
-% image_dir: Directory containing all the contrast images
-% output_dir
-% space: 'native','rigid','affine','mdt', or atlas'; used in header
-% atlas_id: 'WHS','CCF3CON', or 'CCF3' used in header; 
-%      may be used for pulling label names in the future.
-% Following two are optional, and their order doesn't matter.
+% WRITE_INDIVIDUAL_STATS_EXEC(img_ident,ident_label_file,contrast_list,search_dir,output_dir,measurespace,atlas_id,lookup_table,optimize_mem_bool)
+% Loads up a label file and series of image files and does basic measures 
+% of each regions. 
+% Saves at tab csv file with one line per region measured, 
+% columns are min,max,stddev,mean,spread,nulls for each image loaded, 
+% + volume_mm3 and region number and structure(abbrev__name). 
+% spread is stddev/mean
+% Also saves the gotchas disclaimers next to the stats sheet in the hopes 
+% of reducing mis-interpretation of the values.
+% 
+% It supports nrrd(nhdr) and niftis. 
+% 
+% Input images must be named after their identifier(runno or specid) and the contrast. 
+% Ideally IDENTIFIER_CONTRAST.IMGEXT, if your filenames are not the ideal 
+% case it will try to find files with the information in that order.
+% Auto find is fairly robust (and prefered over renaming), HOWEVER you
+% will need to read the output to be sure it loaded the images you expected.
+%
+% -- Inputs --
+% img_ident: identity of the img group, typically run number,
+%            could be anything.
+% ident_label_file: Full path to labels for this ident
+% contrast_list: comma-delimited (NO SPACES) string of contrasts
+% search_dir: Directory containing all the contrast images
+% output_dir: output stats folder, your file will be autonamed!(sorry)
+%             output name format,
+%             (img_ident)_(atlas_id)_measured_in_(space)_space_stats.txt
+%  The following two are only used in output name.
+% space: Preferred values, 'native','rigid','affine','mdt', or atlas'
+% atlas_id: Preffered values 'WHS','CCF3CON', or 'CCF3'. 
+%      (This should try to capture which label atlas is used, it could be 
+%       used for pulling label names in the future if they weren't in your
+%       lookup table.)
+% Following two are optional, and their order doesn't matter. 
+% and THEY ARE STRONGLY RECOMMENDED!
 % lookup_table: a lookup table to load to keep our names/details straight
-% first_contrast_mask: use first contrast to omit bits
+%               (modern label volumes should have a slicer compatabile
+%               lookuptable named after them ending in _lookup.txt.)
+% optimize_mem_bool: use first contrast to omit bits. Anywhere in the first
+%         contrast that is exactly 0 will not be part of your measurements.
+%         This is almost always a good idea, AND means you should specify
+%         dwi first.
+% 
+
 
 %% Blank line above to separate help from const warning of gotchas.
 %{
@@ -41,7 +73,7 @@ Non Ventricle BrainVolume should be available as the sum of non-ventricle
 structure volumes, or that sum - the sum of nulls.
 %}
 
-% do some ugly file read back to avoid the sytatical bleh of changing every
+% do some ugly file read back to avoid the syntatical bleh of changing every
 % line of the gotchas text. To the next maintainer, i'm sorry .
 % This relies on the first block comment being the gotchas.( %{ -> %} )
 % this is nearly function ready as "save first block comment of source" :D !
@@ -70,7 +102,7 @@ end
 if exist('gotchastext','var')
     fprintf('%s',gotchastext);
 end
-% fomer header info, these headers have bd dropped in favor of more
+% fomer header info, these headers have been dropped in favor of more
 % spreadsheety behavior
 % A header is written at the top of the file listing on their own line:
 %   --contrasts for which label stats have been calculated (this is to

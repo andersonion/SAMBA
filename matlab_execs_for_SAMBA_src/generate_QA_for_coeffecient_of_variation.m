@@ -1,21 +1,37 @@
 function [out_file,out_table]=generate_QA_for_coeffecient_of_variation(runno_or_id,stat_files,string_of_contrasts,atlas_label_prefix,delta)
-% function [out_file]=generate_QA_for_coeffecient_of_variation(runno_or_id,stat_file,string_of_contrasts,atlas_label_prefix,delta)
-% runno_or_id, 
-% stats - the path to the stats file, routinely  ...measured_in_native_space.txt
-% string_of_contrasts - the comma list of stuff, volume,dwi,fa,nqa_mean etc.
-% atlas_label_prefix - 
-% delta - when using offset labels, this lets us connect left and right. 
-%
-% Generates the L<->R CoV for each label and marks good,concerning,and bad
-% values. 
-% Saves CoV lookuptables by color for slicer - May switch format in the
-% future to the itk-snap one so that slicer or itk snap could be used to
-% spot check concerning values.
-% Generates figures for each "contrast" and concatenates them into a pdf
-% report.
+% [out_file,out_table]=generate_QA_for_coeffecient_of_variation(img_ident,stat_file,contrast_list,atlas_label_prefix,delta)
+% Generates L<->R CoV for each label and marks good,concerning,and bad values. 
 % 
+% Runs on a single stat file.
+% Saves CoV lookuptables by color for slicer based on violation of the 5% 
+% expected variation.
+%  (May switch lookup format to itk-snap in the future so that slicer or 
+%   itk snap could be used to spot check concerning values.)
+% Generates graph for each requested check(volume_mm3,dwi,etc), and 
+% concatenates them into a pdf report.
+%
+% -- Inputs--
+% img_ident: identity of the img group, typically run number,
+%            could be anything.
+% stat_file: path to the stats file, routinely  ...measured_in_native_space.txt
+% contrast_list: comma-delimited (NO SPACES) string of contrasts,
+%        (columns in your stat sheet)
+% atlas_label_prefix: where to look for a sort order/name list. 
+%         Expects a file atlas_label_prefix_volume_sort.txt and/or
+%         atlas_label_prefix_lookup.txt
+% delta:  constant offset to connect pair's of labels. 
+%         A way to connect left and right. 
+%
+% -- Outputs --
+% out_file: path of saved pdf file
+% out_table: path to saved matlab table(as tab csv) with all our cov and
+%            other info in it.
+
+
+% do we delete our component pdfs when we're done.
 cleanup=1;
-annotate_up_to = 12; % Max of how many red/yellow flags we want to annotate
+% Max of how many red/yellow flags we want to annotate
+annotate_up_to = 12; 
 
 % "quality" threholds
 % In the future, want to make thresholds dynamic, i.e. account for
@@ -97,7 +113,13 @@ end
 out_file = fullfile(out_dir,sprintf('%s_%s_CoVs_%s.pdf',rep_prefix, runno_or_id, out_contrast_string));
 out_table= fullfile(out_dir,sprintf('%s_%s_CoVs_%s.txt',tab_prefix, runno_or_id, out_contrast_string));
 out_data = fullfile(out_dir,sprintf('%s_%s_CoVs_%s.mat',dat_prefix, runno_or_id, out_contrast_string));
-
+if exist(out_file,'file') ...
+        && exist(out_table,'file') ...
+        && exist(out_data,'file')
+    fprintf('Previously completed %s\n',runno_or_id);
+    return;
+end
+    
 %{
 % Commented out because the code doesnt actually support cell input
 if ~iscell(runno_or_id)
@@ -127,9 +149,11 @@ atlas_lookup_T.Properties.VariableNames{6}='A';
 % taking advantage that the first column should be volume 
 master_CoV_T=table;
 contrasts=strsplit(string_of_contrasts,','); 
+out_pdf=cell(size(contrasts));
 for CC=1:numel(contrasts)
     field=contrasts{CC};
     field_out_name=[lower(field) '_CoV'];
+
     % for FF=1:numel(files)
     % file=files{FF};
     file=files{1};
@@ -138,6 +162,11 @@ for CC=1:numel(contrasts)
     tempdir=fullfile(stat_dir,'.qa_work');
     if ~exist(tempdir,'dir')
         mkdir(tempdir);
+    end
+    out_pdf{CC}=[tempdir '/QA_' runno_or_id '_CoV_' field '.pdf'];
+    if exist(out_pdf{CC},'file')
+        fprintf('%s:%s - %s done\n',runno_or_id,field,out_pdf{CC});
+        continue;
     end
     [ CoV_array ] = calculate_coeffecient_of_variation( file,field,delta);
     % due to the nature of this code its okay if we dont have some
@@ -330,6 +359,9 @@ for CC=1:numel(contrasts)
             legendary(rr).string=sprintf('%s:%0.1f%% - (ROI %3i)',letter,100*sorted_flags(rr),full_T.ROI(flag_ind));% missing structure in this case?;
         end
         legendary(rr).string=strrep(legendary(rr).string,'_','\_');
+        if numel(legendary(rr).string)>85
+            legendary(rr).string=legendary(rr).string(1:85);
+        end
     end
     %% plot threshold lines
     plot(min_range:step:max_range,ones([rng 1])*0.05,'--','Color', [0.9290 0.6940 0.1250], 'LineWidth',2)
@@ -345,7 +377,6 @@ for CC=1:numel(contrasts)
     hold off
     %print -depsc2 correlation.eps;
     %export_fig(['/civmnas4/rja20/BJs_march_test_' contrast '_CoVs.pdf'],'-pdf','-nofontswap','-painters','-nocrop', c_fig(CC))
-    out_pdf{CC}=[tempdir '/QA_' runno_or_id '_CoV_' field '.pdf'];
     export_fig(out_pdf{CC},'-pdf','-painters','-nocrop', c_fig(CC))
 end
 if exist(out_file,'file')
