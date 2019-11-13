@@ -143,9 +143,9 @@ nonparametric_permutations fdr_masks tfce_extent tfce_height fsl_cluster_size
 U_specid U_species_m00 U_code
 );
 
-    if (defined $label_reference) {
-        $Hf->set_value('label_reference_space',$label_reference);
-    }
+    #if (defined $label_reference_space) {
+    #    $Hf->set_value('label_reference_space',$label_reference_space);
+    #}
 
     ###
     #GROUP SORTING

@@ -531,7 +531,7 @@ sub apply_warps_to_bvecs_Runtime_check {
     $pristine_inputs_dir = $Hf->get_value('pristine_input_dir');
 
     $template_name = $Hf->get_value('template_name');
-    $label_reference = $Hf->get_value('label_reference');
+    $label_reference_space = $Hf->get_value('label_reference_space');
     $label_refname = $Hf->get_value('label_refname');
     
     my $msg;

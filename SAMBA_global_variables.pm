@@ -121,7 +121,7 @@ $resample_factor
 $register_MDT_to_atlas
 $create_labels
 $label_space
-$label_reference
+$label_reference_space
 
 $do_vba
 $fdr_masks
