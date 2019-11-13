@@ -15,6 +15,7 @@ use strict;
 use warnings;
 use Carp qw(carp croak cluck confess);
 
+use Cwd qw(abs_path);
 use File::Basename;
 use File::Path qw(make_path);
 use Getopt::Std;
@@ -46,6 +47,10 @@ use Headfile;
 
 # ex of use lib a module (called MyModule) in current dir
 # use lib dirname(__FILE__) . "MyModule";
+
+use lib dirname(abs_path($0));
+#use SAMBA_global_variables;
+use SAMBA_structure;
 
 exit main();
 
@@ -114,12 +119,42 @@ sub main {
     ###
     # Read headfile
     ###
-    my @hf_errors;
+    my @input_errors;
     my $hf=new Headfile ('ro', $hf_path);
-    $hf->check() or push(@hf_errors,"Unable to open $hf_path\n");
-    $hf->read_headfile or push(@hf_errors,"Unable to read $hf_path\n");
-    if ( scalar(@hf_errors)>0 ){
-	die join('',@hf_errors);
+    $hf->check() or push(@input_errors,"Unable to open $hf_path\n");
+    $hf->read_headfile or push(@input_errors,"Unable to read $hf_path\n");
+
+    # use the results_dir key to see if we're a results headfile or not.
+    ($v_ok,my $main_results)=$hf->get_value_check("results_dir");
+    my $main_dir;
+    if ( ! $v_ok ) { 
+	# If we're not a results headfile, try to find our results headfile and
+	# merge it with the input one so we have all the vars, and many will be
+	# exactly right.
+	#printd(5,"WARNING: Input headfiles not well supported\n");
+	require SAMBA_global_variables;
+	my @unused_vars=SAMBA_global_variables::populate($hf);
+	my @individuals=SAMBA_global_variables::all_runnos();
+	my $pc="CODE_NOT_FOUND";
+	$pc=${SAMBA_global_variables::project_name} or push(@input_errors,'Global project_name not found');
+	my $ran="RIGID_ATLAS_NOT_FOUND";
+	$ran=${SAMBA_global_variables::rigid_atlas_name} or push(@input_errors,'Global rigid_atlas_name not found');
+	my $opt_s="OPTIONAL_SUFFIX_NOT_FOUND";
+	$opt_s=${SAMBA_global_variables::optional_suffix} or push(@input_errors,'Global optional_suffix not found');
+	$main_dir=SAMBA_structure::main_dir($pc, scalar(@individuals),$ran,$opt_s);
+   
+	my $r_hfp=File::Spec->catfile($ENV{"BIGGUS_DISKUS"},$main_dir."-results","$main_dir.headfile");
+	my $rhf=new Headfile ('ro', $r_hfp );
+	$rhf->check() or push(@input_errors,"Unable to open $r_hfp\n");
+	$rhf->read_headfile or push(@input_errors,"Unable to read $r_hfp\n");
+	# Copy our results hf in, overwriting the inputs(as would have happend in pipeline)
+	$hf->copy_in($rhf); 
+	($v_ok,$main_results)=$hf->get_value_check("results_dir");
+    }
+
+
+    if ( scalar(@input_errors)>0 ){
+	die join('',@input_errors);
     }
     ($v_ok,my $o_s)=$hf->get_value_check("optional_suffix");
     if (!$v_ok) { $o_s=''; }
@@ -259,7 +294,7 @@ sub main {
     # diffeo_transform_parameters -> parameters_diffeo -> p_d
     # mdt_iterations -> iterations_mdt -> i_mdt
     # template_predictor -> ..? ->mdt_p 
-    my $l;
+    #my $l;
     # With samba input headfiles project_name is synonamouse with project_code 
     ($v_ok,my $n_p)=$hf->get_value_check("project_name");
     if (!$v_ok) {
@@ -324,21 +359,38 @@ sub main {
     # parms-diffeo
     $p_d=~s/,/_/g;
     $p_d=~s/[.]/p/g;
-    my @vbmname_parts=("VBM");
-    push(@vbmname_parts,$n_p,$n_a_r);
-    if ($o_s ne ''){
-        push(@vbmname_parts,$o_s);  }
+    
+    ###
     # name of vbm folder, there will be three sibling direcrories with this prefix, that is -inputs, -work, and -results.
-    #my $n_vbm=sprintf("VBM_%s_%s%s",$n_p,$n_a_r,$o_s);
-    my $n_vbm=join("_",@vbmname_parts);
+
     # if given a results headfile, the vbm name is explicitly specified, under a strange key "project_id"
     # That is more reliable than making it up in place, so if its available we'll use it.
     # alternate names might make sense, like 
     # analysis_name, analysis_id, process_name, VBM_name, working_name, SAMBA_process, SAMBA_data, local_name, local_storage etc. 
     # The thing wrong with project_id, is that sounds like project_code, and thats confusing.
+    my $n_vbm;
     ($v_ok,my $n_vbm_r)=$hf->get_value_check("project_id");
-    if($v_ok ){
-        $n_vbm=$n_vbm_r;
+    if( $v_ok ){
+        $n_vbm=$n_vbm_r; 
+    } else {
+	printd(5,"Main work dir not found in input headfile.\n");
+	# Second best try is our new "main_dir" function
+	#$n_vbm=SAMBA_structure::main_dir($n_p,scalar(@individuals),$n_a_r,$o_s);
+	# main_dir set much earlier now
+	$n_vbm=$main_dir;
+	###
+	# Custom vbm folder naming code, now deprecated in favor of SAMBA_global_vars::main_dir(code,count,atlas,
+	my $main_work=File::Spec->catdir($BIGGUS_DISKUS,$n_vbm.'-work');
+	if ( ! -e $main_work ) {
+	    printd(5,"Main work dir not found with $n_vbm");
+	    my @vbmname_parts=("VBM");
+	    push(@vbmname_parts,$n_p,$n_a_r);
+	    if ($o_s ne ''){
+		push(@vbmname_parts,$o_s);  }
+	    #my $n_vbm=sprintf("VBM_%s_%s%s",$n_p,$n_a_r,$o_s);
+	    $n_vbm=join("_",@vbmname_parts);
+	}
+	###
     }
     # get affine path which is sitting outside("above") the mdt folder.
     # Its a constant up two, so we're gonna switch to just that now.
@@ -353,6 +405,9 @@ sub main {
 				     $c_r,
 				     sprintf("SyN_%s_%s",$p_d,$c_mdt),
 				     sprintf("%sMDT_%s_n%i_i%i",$c_mdt,$mdt_p,$MDT_n,$i_mdt)  );
+    }
+    if(! -e $mdtpath ) {
+	die("MDTPATH SET failed! Got $mdtpath");
     }
     # the anoyingly named "inputs_dir" which is NOT the -inputs dir!
     ( $v_ok,my $base_images) = $hf->get_value_check("inputs_dir");
@@ -550,6 +605,8 @@ sub main {
 	    my @headfiles=find_file_by_pattern($hf_dir,".*$Specimen.*[.]headfile\$",1);
 	    if( scalar(@headfiles) != 1 ){ 
 		croak "Input Headfile lookup found # ".scalar(@headfiles)." headfiles, not sure how to proceed."
+		    ."\t Maybe archive share disconnected ? \n"
+		    ."\t  use  \"cifscreds add -u $USER -d dhe\" to connect \n"
 		    ."\t (Searched $hf_dir for *$Specimen*.headfile)";
 	    } 
 	    my $hfname=basename($headfiles[0]);
@@ -1282,10 +1339,14 @@ sub prune_identity_transforms {
 	}
     }
     #Data::Dump::dump(\@i_list) ;die;
+    if( scalar(@i_list) ) { 
     my $rm_cmd=sprintf("rm %s",join(" ",@i_list) );
     #execute(1,"remove identity transforms",$rm_cmd);
     printd(45,"\t".$rm_cmd."\n");
     run_and_watch($rm_cmd);
+    } else {
+	printd(45," No identity transforms in $transform_dir\n");
+    }
 }
 
 sub is_ident_transform {
