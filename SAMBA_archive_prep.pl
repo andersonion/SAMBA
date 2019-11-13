@@ -163,18 +163,24 @@ sub main {
     #if( ${$opts->{"FLAG"}} ) { }
     
     if ( scalar(@input_errors)>0 ){
-	die join('',@input_errors);
+	die join('',@input_errors)."\n";
     }
     $paks=File::Spec->catdir($main_results,"paks");
     $archivable=File::Spec->catdir($main_results,"archivable");
     
+
+    my $cmd=sprintf("SAMBA_data_packager --mdtname=\"%s\" --hf_path=\"%s\" --output_base=\"%s\"",
+		    ${$opts->{"mdtname"}} ,
+		    ${$opts->{"hf_path"}} ,
+		    $paks
+	);
     
     if( ${$opts->{"instant_feedback"}} ){
 	Data::Dump::dump($opts) if can_dump();
-	$hf->print();
+	#$hf->print();
 	printf("will build packages into: $paks\n"
 	       ."archive data assebeled at: $archivable\n");
+	print($cmd."\n");
 	
     }
-
 }
