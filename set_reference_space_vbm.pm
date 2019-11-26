@@ -739,7 +739,7 @@ sub set_reference_path_vbm {
     if (! data_double_check($ref_option)) {
 	my ($r_path,$r_name,$r_extension) = fileparts($ref_option,2);
 #	print "r_name = ${r_name}\n\n\n\n";
-	if ($r_extension =~ m/^[.]{1}(hdr|img|nii|nii\.gz)$/) {
+	if ($r_extension =~ m/^[.]{1}(${valid_formats_string}$)$/) {
 	    $log_msg=$log_msg."\tThe selected ${which_space} reference space is an [acceptable] arbitrary file: ${ref_option}\n";
 	    $input_ref_path=$ref_option;
 	    if ($r_name =~ /^reference_file_([^\.]*)\.nii(\.gz)?$/) {
@@ -757,11 +757,9 @@ sub set_reference_path_vbm {
 	    $error_message="The arbitrary file selected for defining ${which_space} reference space exists but is NOT  in an acceptable format:\n${ref_option}\n";
 	}
     } elsif ($ref_option =~ /${valid_formats_string}$/ ) {
-	$error_message="The arbitrary file selected for defining ${which_space} either does not exist or you do not have permission to access it.:\n${ref_option}\n";
-	print "error_message = ${error_message}\n\n\n";	
+	$error_message="The arbitrary file selected for defining ${which_space} either does not exist or you do not have permission to access it:\n${ref_option}\n";
     }
 
-    print "valid_formats_string = ${valid_formats_string}\n\n\n";die;
 
     if ($ref_path ne '') {
 	if ($for_labels) {
@@ -791,7 +789,7 @@ sub set_reference_path_vbm {
 	$ref_path="${ref_folder}/reference_file_${ref_string}.nii.gz";
 	$log_msg=$log_msg."\tThe full ${which_space} input reference path is ${input_ref_path}\n";
     } else {
-  
+	
 	my $ref_runno;#=$Hf->get_value('ref_runno');
 	my $preprocess_dir = $Hf->get_value('preprocess_dir');
 	if ($runno_list =~ /[,]*${ref_option}[,]*/ ) {
@@ -805,19 +803,19 @@ sub set_reference_path_vbm {
 	#$ref_path = get_nii_from_inputs($preprocess_dir,"native_reference",$ref_runno);
 	#$ref_path = get_nii_from_inputs($preprocess_dir,"reference_image_native",$ref_runno);# Updated 1 September 2016
 
-    my $ch_runlist = $Hf->get_value('channel_comma_list');
-    my @channels=split(',',$ch_runlist);
-    my $c_channel=$channels[0];
-    if ($c_channel =~ /nii4D/) {$c_channel=$channels[1];}
+	my $ch_runlist = $Hf->get_value('channel_comma_list');
+	my @channels=split(',',$ch_runlist);
+	my $c_channel=$channels[0];
+	if ($c_channel =~ /nii4D/) {$c_channel=$channels[1];}
 	#No, not nii4D 26 October 2018
 	$input_ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,$c_channel);
 	#$input_ref_path = get_nii_from_inputs($preprocess_dir,$ref_runno,""); # Will stick with looking for ANY contrast from $ . 16 March 2017
 	
-	$error_message='';	
+	#$error_message=''; #Resetting this would reset any previous errors caught.	
 	if ($input_ref_path =~ /[\n]+/) {
 	    $rerun_init_flag = $Hf->get_value('rerun_init_check');
 	    if (($rerun_init_flag ne 'NO_KEY') && ($rerun_init_flag == 1)) {
-		$error_message =  "Unable to find any input image for ${ref_runno} in folder(s): ${preprocess_dir}\nnor in ${pristine_in_folder}.\n";
+		$error_message =  "${error_message}Unable to find any input image for ${ref_runno} in folder(s): ${preprocess_dir}\nnor in ${pristine_in_folder}.\n";
 	    } else {
 		$input_ref_path =  'rerun_init_check_later';
 		print "Will need to rerun the initialization protocol for ${PM} later...\n\n";
