@@ -760,6 +760,10 @@ sub set_reference_path_vbm {
 	$error_message="The arbitrary file selected for defining ${which_space} either does not exist or you do not have permission to access it:\n${ref_option}\n";
     }
 
+    if ($error_message ne ''){
+	return($input_ref_path,$ref_path,$ref_string,$error_message); #Updated 26 November 2019
+    }
+
 
     if ($ref_path ne '') {
 	if ($for_labels) {
