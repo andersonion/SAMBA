@@ -756,6 +756,8 @@ sub set_reference_path_vbm {
 	} else {
 	    $error_message="The arbitrary file selected for defining ${which_space} reference space exists but is NOT  in an acceptable format:\n${ref_option}\n";
 	}
+    } elsif ($ref_option =~ /${valid_formats_string}$/ ) {
+	$error_message="The arbitrary file selected for defining ${which_space} either does not exist or you do not have permission to access it.:\n${ref_option}\n";	
     }
 
 
