@@ -761,7 +761,7 @@ sub set_reference_path_vbm {
 	print "error_message = ${error_message}\n\n\n";	
     }
 
-    print "valid_formats_string = ${valid_formats_string}\n\n\n";die;
+    print "valid_formats_string = ${valid_formats_string}\n\n\n";#die;
 
     if ($ref_path ne '') {
 	if ($for_labels) {
