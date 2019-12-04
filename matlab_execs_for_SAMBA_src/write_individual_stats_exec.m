@@ -1,6 +1,6 @@
-function write_individual_stats_exec(runno,label_file,contrast_list,image_dir, ...
+function output_stats=write_individual_stats_exec(runno,label_file,contrast_list,image_dir, ...
     output_dir,space,atlas_id,varargin)
-% WRITE_INDIVIDUAL_STATS_EXEC(img_ident,ident_label_file,contrast_list,search_dir,output_dir,measurespace,atlas_id,lookup_table,optimize_mem_bool)
+% statfile_path=WRITE_INDIVIDUAL_STATS_EXEC(img_ident,ident_label_file,contrast_list,search_dir,output_dir,measurespace,atlas_id,lookup_table,optimize_mem_bool)
 % Loads up a label file and series of image files and does basic measures 
 % of each regions. 
 % Saves at tab csv file with one line per region measured, 
@@ -42,7 +42,8 @@ function write_individual_stats_exec(runno,label_file,contrast_list,image_dir, .
 %         contrast that is exactly 0 will not be part of your measurements.
 %         This is almost always a good idea, AND means you should specify
 %         dwi first.
-% 
+% -- Outputs --
+% statfile_path - the path to the stats file we saved.
 
 
 %% Blank line above to separate help from const warning of gotchas.
@@ -131,6 +132,7 @@ start_of_script=tic;
 expected_output_subfolder='individual_label_statistics';
 if numel(varargin)>0
     error_msg='';
+    % using the | instead of || so we can be sloppy with type checking
     if (str2num(varargin{1})==1 | str2num(varargin{1})==0)
         use_first_contrast_to_mask=str2num(varargin{1});
     elseif exist(varargin{1},'file')
@@ -573,7 +575,7 @@ if exist(gotcha_cache,'file') && ~exist(statsheet_gotchas,'file')
         warning(sout);
     end
 end
-fprintf('WORK COMPLETE! Results written to %s.\nTotal processing time: %f s.',output_stats,total_elapsed_time);
+fprintf('WORK COMPLETE! Results written to %s.\nTotal processing time: %f s.\n',output_stats,total_elapsed_time);
 end
 function the_file=sloppy_file_lookup(the_dir,varargin)
 % oh i dont like doing this type of tom foolery guessing filenames, 
