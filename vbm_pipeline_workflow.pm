@@ -354,7 +354,7 @@ $rigid_transform_suffix='rigid.mat';
 $affine_transform_suffix='affine.mat';
 $affine_identity_matrix="$WORKSTATION_DATA/identity_affine.mat";
 if (! -f $affine_identity_matrix) {
-    my $SAMBA_PATH=$dirname = dirname(__FILE__);
+    my $SAMBA_PATH = dirname(__FILE__);
     #$affine_identity_matrix="${HOME}/SAMBA/identity_affine.mat"; # Need better handling of SAMBA directory
     $affine_identity_matrix="${SAMBA_PATH}/identity_affine.mat; # Hopefully this is better handling of the SAMBA directory. 3 December 2019, BJA
 }
