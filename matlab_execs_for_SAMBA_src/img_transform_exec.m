@@ -207,6 +207,9 @@ if ~strcmp(desired_vorder,current_vorder)
     if strcmp(data_string(1:3),'rgb')
         is_RGB=1;
         is_vector=1;
+        if prod(dims) ~= numel(new)
+            dims=size(new);
+        end
         %todo: either here or in nifti1, pull out the intent_code that
         %matches to data_string and explicitly set in:
         % nii.hdr.dime.intent_code=verified_intent_code;
