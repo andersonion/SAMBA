@@ -349,6 +349,7 @@ if contrasts_to_process > 0
         end
         fprintf('Loading first contrast, and using it to infer a mask for the first ROI (usually 0): %s\n',filenii_i);
         imnii_i=load_niigz(filenii_i);
+        dims.img=size(imnii_i.img);
         %imnii_i.img=imnii_i.img(:);
     end
     
@@ -356,6 +357,10 @@ if contrasts_to_process > 0
     null_element_base = 0;
     
     label_orig=load_niigz(label_file);
+    dims.label=size(label_orig.img);
+    if isfield(dims,'img') && nnz(dims.img-dims.label)
+        error('Label to img dimension mis-match! THESE ARE NOT APPROPRIATE LABELS');
+    end
     voxel_vol=prod(label_orig.hdr.dime.pixdim(2:4));
     %labelim=label_orig.img(:);1
     %clear label_orig; % We got everything we needed so can remove from memory
@@ -452,6 +457,7 @@ if contrasts_to_process > 0
                 end
                 fprintf('load nii %s\n',filenii_i);
                 imnii_i=load_niigz(filenii_i);
+                dims.img=size(imnii_i.img);
                 if use_first_contrast_to_mask
                     % remove all unlabeled voxels from the data that were of zero value in the first contrast.
                     % This saves us memory.
@@ -460,6 +466,9 @@ if contrasts_to_process > 0
                     current_image=imnii_i.img(:);
                 end
                 clear imnii_i;
+            end
+            if nnz(dims.img-dims.label)
+                error('Label to img dimension mis-match! THESE ARE NOT APPROPRIATE LABELS');
             end
             for i_roi=1:numel(ROI)
                 %fprintf('For contrast "%s" (%i/%i), measuring region %i of %i (ROI %i)...\n',contrast,i_cont,length(contrasts),i_roi,numel(ROI),ROI(i_roi));
@@ -567,7 +576,17 @@ else
 end
 
 %% Write to file
-writetable(final_table,output_stats,'QuoteStrings',true,'Delimiter','\t','WriteVariableNames',true);
+try
+    writetable(final_table,output_stats,'QuoteStrings',true,'Delimiter','\t','WriteVariableNames',true);
+catch merr
+    warning(merr.message)
+    output_stats=strrep(output_stats,'txt','mat');
+    [~,n]=fileparts(output_stats);
+    eval(sprintf('%s=final_table;',n));
+    warning('Saving table to mat format due to above error. New ouptut: %s. Var will be named same as file.',output_stats);
+    save(output_stats,n);
+end
+
 total_elapsed_time=toc(start_of_script);
 if exist(gotcha_cache,'file') && ~exist(statsheet_gotchas,'file')
     [s,sout]=system(sprintf('cp -p %s %s',gotcha_cache,statsheet_gotchas));
