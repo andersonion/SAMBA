@@ -1,6 +1,7 @@
-function output_stats=write_individual_stats_exec(runno,label_file,contrast_list,image_dir, ...
+function [statfile_path,stat_table]=write_individual_stats_exec(runno,label_file,...
+    contrast_list,image_dir, ...
     output_dir,space,atlas_id,varargin)
-% statfile_path=WRITE_INDIVIDUAL_STATS_EXEC(img_ident,ident_label_file,contrast_list,search_dir,output_dir,measurespace,atlas_id,lookup_table,optimize_mem_bool)
+% [statfile_path,stat_table]=WRITE_INDIVIDUAL_STATS_EXEC(img_ident,ident_label_file,contrast_list,search_dir,output_dir,measurespace,atlas_id,lookup_table,optimize_mem_bool)
 % Loads up a label file and series of image files and does basic measures 
 % of each regions. 
 % Saves at tab csv file with one line per region measured, 
@@ -297,17 +298,17 @@ contrasts = strsplit(contrast_list,',');
 %output_name=[runno '_' atlas_id '_measured_in_' space '_space'];
 %output_stats = [output_dir output_name '_stats.txt'];
 output_name=sprintf('%s_%s_measured_in_%s_space_stats.txt',runno,atlas_id,space);
-output_stats = fullfile(output_dir,output_name);
+statfile_path = fullfile(output_dir,output_name);
 statsheet_gotchas=fullfile(output_dir,sprintf('%s_%s_measured_in_%s_space_stats.txt','gotchas',atlas_id,space));
 previous_work=zeros(size(contrasts));
-if exist(output_stats,'file')
-    working_table = readtable(output_stats,'Delimiter','\t');
-    if ~strcmp(working_table.Properties.VariableNames{1},'ROI')
+if exist(statfile_path,'file')
+    stat_table = readtable(statfile_path,'Delimiter','\t');
+    if ~strcmp(stat_table.Properties.VariableNames{1},'ROI')
         % We used to write several lines of header info, but that is replaced
         % with writetable, with no headers.
-        working_table = readtable(output_stats,'HeaderLines',4,'Delimiter','\t');
+        stat_table = readtable(statfile_path,'HeaderLines',4,'Delimiter','\t');
     end
-    contrast_list2=working_table.Properties.VariableNames;
+    contrast_list2=stat_table.Properties.VariableNames;
 else
     contrast_list2={'ROI' 'voxels' 'volume_mm3'};
 end
@@ -426,8 +427,8 @@ if contrasts_to_process > 0
     
     % Calculate volume in mm^3
     volume_mm3=voxels*voxel_vol;
-    if ~exist(output_stats,'file')
-        working_table = table(ROI,voxels,volume_mm3);
+    if ~exist(statfile_path,'file')
+        stat_table = table(ROI,voxels,volume_mm3);
     end
     
     %% measure all things foreach contrast
@@ -521,7 +522,7 @@ if contrasts_to_process > 0
             end
             stat_names=fieldnames(contrast_stats);
             for sn=1:numel(stat_names)
-                working_table.([contrast '_' stat_names{sn} ])=contrast_stats.(stat_names{sn})';
+                stat_table.([contrast '_' stat_names{sn} ])=contrast_stats.(stat_names{sn})';
             end
             %eval_cmd = ['working_table.' contrast '=contrast_stats;'];
             %eval(eval_cmd);
@@ -531,11 +532,13 @@ if contrasts_to_process > 0
 else
     fprintf('No extra work to be done; will add structure info if need be (and lookup table is available), and rewrite to original file.\n');
 end
-if ~strcmp(working_table.Properties.VariableNames{2},'structure')
+if ~strcmp(stat_table.Properties.VariableNames{2},'structure')
     lookup_used=0;
     %% Process lookup table, if available
     % Implementing lookup table support! 20 February 2019
     if exist('lookup_table_path','var') && exist(lookup_table_path,'file')
+        % replicate stat_table incase our try ruins it.
+        tmp_table=stat_table;
         try 
             % 20 March 2019:
             % Older lookups are space seperated; the first try will fail on
@@ -553,40 +556,40 @@ if ~strcmp(working_table.Properties.VariableNames{2},'structure')
             % format where first column is ROI number and second is
             % structure/name.  Any columns after this are ignored here.
             lookup_used=1;
-            final_table=outerjoin(working_table,lookup,'Type','Left','LeftKeys',{'ROI'},'RightKeys',1,...
+            stat_table=outerjoin(stat_table,lookup,'Type','Left','LeftKeys',{'ROI'},'RightKeys',1,...
                 'RightVariables',2);
-            final_table=[ final_table(:,1) final_table(:,end) final_table(:,2:(end-1))];
-            final_table.Properties.VariableNames{2}='structure';
+            stat_table=[ stat_table(:,1) stat_table(:,end) stat_table(:,2:(end-1))];
+            stat_table.Properties.VariableNames{2}='structure';
             label_msg=sprintf('Structure names successfully added from lookup table:\n\t%s',lookup_table_path);
         catch
         	label_msg=sprintf('Failure on processing lookup table, no structure names will be added. Offending file:\n\t%s',lookup_table_path);
-            final_table=working_table;
+            % little silly here because we may have destroyed the stat_table in our try block
+            stat_table=tmp_table;
         end
+        clear tmp_table;
     else
         label_msg=['No valid lookup table specified...only ROI number will be reported.'];
-        final_table=working_table;
     end
     if lookup_used
         disp(label_msg);
     else
         warning(label_msg);
     end
-else
-    final_table=working_table;
 end
 
 %% Write to file
-try
-    writetable(final_table,output_stats,'QuoteStrings',true,'Delimiter','\t','WriteVariableNames',true);
-catch merr
-    warning(merr.message)
-    output_stats=strrep(output_stats,'txt','mat');
-    [~,n]=fileparts(output_stats);
-    eval(sprintf('%s=final_table;',n));
-    warning('Saving table to mat format due to above error. New ouptut: %s. Var will be named same as file.',output_stats);
-    save(output_stats,n);
+if contrasts_to_process || exist('lookup_used','var')
+    try
+        writetable(stat_table,statfile_path,'QuoteStrings',true,'Delimiter','\t','WriteVariableNames',true);
+    catch merr
+        warning(merr.message)
+        statfile_path=strrep(statfile_path,'txt','mat');
+        [~,n]=fileparts(statfile_path);
+        eval(sprintf('%s=final_table;',n));
+        warning('Saving table to mat format due to above error. New ouptut: %s. Var will be named same as file.',statfile_path);
+        save(statfile_path,n);
+    end
 end
-
 total_elapsed_time=toc(start_of_script);
 if exist(gotcha_cache,'file') && ~exist(statsheet_gotchas,'file')
     [s,sout]=system(sprintf('cp -p %s %s',gotcha_cache,statsheet_gotchas));
@@ -594,7 +597,7 @@ if exist(gotcha_cache,'file') && ~exist(statsheet_gotchas,'file')
         warning(sout);
     end
 end
-fprintf('WORK COMPLETE! Results written to %s.\nTotal processing time: %f s.\n',output_stats,total_elapsed_time);
+fprintf('WORK COMPLETE! Results written to %s.\nTotal processing time: %f s.\n',statfile_path,total_elapsed_time);
 end
 function the_file=sloppy_file_lookup(the_dir,varargin)
 % oh i dont like doing this type of tom foolery guessing filenames, 
