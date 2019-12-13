@@ -1,4 +1,4 @@
-function CoV_array = calculate_coeffecient_of_variation( individual_stat_file,field, delta )
+function [CoV_array,stats_table] = calculate_coeffecient_of_variation( stats_table,field, delta )
 % CoV_triplets = CALCULATE_COEFFECIENT_OF_VARIATION( stat_file, field, delta )
 % Calculate CoV between L/R ROIs  (std/mean)
 %   Input:
@@ -8,25 +8,26 @@ function CoV_array = calculate_coeffecient_of_variation( individual_stat_file,fi
 %   delta -     the difference constant to map L-R pairs
 % CoV_triplets output are 3xN array of roi,cov,mean for each roi found
 
-isf=individual_stat_file;
-if exist(isf, 'file')
+isf=stats_table;
+if ~istable(stats_table) && exist(isf, 'file')
     % this line fails when we have header lines... like in the old days : (
-    master_T = readtable( isf,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t');
+    stats_table = readtable( isf,'ReadVariableNames',1,'HeaderLines',0,'Delimiter','\t');
     % so we'll read the table twice.... once the new way, and once the old
     % way, if the old way has more columns, we'll use that. 
     master_T_o = readtable( isf,'ReadVariableNames',1,'HeaderLines',4,'Delimiter','\t');
-    if size(master_T,2)<size(master_T_o,2)
+    if size(stats_table,2)<size(master_T_o,2)
         warning(sprintf('%s\n\t',...
             'OLD data detected!',...
             'This is probably fine,',...
             'just wanted to leave a mess in your console :D !'));
-        master_T=master_T_o;
+        stats_table=master_T_o;
     end
     clear master_T_o;
 else
     error('Missing file %s',isf);
 end
-existing_fields = master_T.Properties.VariableNames;
+
+existing_fields = stats_table.Properties.VariableNames;
 if exist('field','var')
     if ismember(field,existing_fields)
         c_field=field;
@@ -41,13 +42,13 @@ if exist('field','var')
 else
     c_field=existing_fields{2};
 end
-n_ROIs=size(master_T,1);
+n_ROIs=size(stats_table,1);
 if ~ismember('ROI',existing_fields)
     warning('ROI not part of table! YOU HOPE ORDERING WAS PRESERVED ON LOAD!');
     pause(3);
-    master_T.ROI=1:1:n_ROIs;
+    stats_table.ROI=1:1:n_ROIs;
 end
-roi_data=[master_T.ROI,master_T.(c_field)];
+roi_data=[stats_table.ROI,stats_table.(c_field)];
 
 %% trim the exterior out
 singular_exterior=mod(n_ROIs,2);
