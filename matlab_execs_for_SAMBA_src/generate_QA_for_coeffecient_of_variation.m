@@ -1,5 +1,7 @@
-function [out_file,out_table]=generate_QA_for_coeffecient_of_variation(runno_or_id,stat_files,string_of_contrasts,atlas_label_prefix,delta)
-% [out_file,out_table]=generate_QA_for_coeffecient_of_variation(img_ident,stat_file,contrast_list,atlas_label_prefix,delta)
+function [report_file,table_path]=generate_QA_for_coeffecient_of_variation(...
+    runno_or_id, stat_files, string_of_contrasts, atlas_label_prefix, delta)
+% [report_file,table_path]=generate_QA_for_coeffecient_of_variation( ...
+%               img_ident, stat_file, contrast_list, atlas_label_prefix, delta)
 % Generates L<->R CoV for each label and marks good,concerning,and bad values. 
 % 
 % Runs on a single stat file.
@@ -23,15 +25,15 @@ function [out_file,out_table]=generate_QA_for_coeffecient_of_variation(runno_or_
 %         A way to connect left and right. 
 %
 % -- Outputs --
-% out_file: path of saved pdf file
-% out_table: path to saved matlab table(as tab csv) with all our cov and
-%            other info in it.
+% report_file:  path of saved pdf file
+% table_path:   path to saved matlab table(as tab csv) with all our cov and
+%               other info in it.
 
 
 % do we delete our component pdfs when we're done.
 cleanup=1;
 % Max of how many red/yellow flags we want to annotate
-annotate_up_to = 12; 
+max_annotated_violations = 12; 
 
 % "quality" threholds
 % In the future, want to make thresholds dynamic, i.e. account for
@@ -65,6 +67,8 @@ atlas_lookup_table=[atlas_label_prefix '_lookup.txt'];
 
 if ~exist('delta','var')
     delta=1000;
+elseif ischar(delta)
+    delta=str2num(delta);
 end
 sort_col='ROI';
 if exist(volume_order_file,'file')
@@ -110,11 +114,11 @@ end
 if ~exist(out_qa_lookups,'dir')
     mkdir(out_qa_lookups);
 end
-out_file = fullfile(out_dir,sprintf('%s_%s_CoVs_%s.pdf',rep_prefix, runno_or_id, out_contrast_string));
-out_table= fullfile(out_dir,sprintf('%s_%s_CoVs_%s.txt',tab_prefix, runno_or_id, out_contrast_string));
+report_file = fullfile(out_dir,sprintf('%s_%s_CoVs_%s.pdf',rep_prefix, runno_or_id, out_contrast_string));
+table_path= fullfile(out_dir,sprintf('%s_%s_CoVs_%s.txt',tab_prefix, runno_or_id, out_contrast_string));
 out_data = fullfile(out_dir,sprintf('%s_%s_CoVs_%s.mat',dat_prefix, runno_or_id, out_contrast_string));
-if exist(out_file,'file') ...
-        && exist(out_table,'file') ...
+if exist(report_file,'file') ...
+        && exist(table_path,'file') ...
         && exist(out_data,'file')
     fprintf('Previously completed %s\n',runno_or_id);
     return;
@@ -150,28 +154,28 @@ atlas_lookup_T.Properties.VariableNames{6}='A';
 master_CoV_T=table;
 contrasts=strsplit(string_of_contrasts,','); 
 out_pdf=cell(size(contrasts));
+% for FF=1:numel(files)
+% stats=files{FF};
+FF=1;
+stats=files{FF};
+[out_dir,stat_file_name,s_ext]=fileparts(files{FF});
+stat_file_name=sprintf('%s%s',stat_file_name,s_ext);
+tempdir=fullfile(out_dir,'.qa_work');
+if ~exist(tempdir,'dir')
+    mkdir(tempdir);
+end 
 for CC=1:numel(contrasts)
     field=contrasts{CC};
     field_out_name=[lower(field) '_CoV'];
-
-    % for FF=1:numel(files)
-    % file=files{FF};
-    file=files{1};
-    [stat_dir,stat_file_name,s_ext]=fileparts(files{1});
-    stat_file_name=sprintf('%s%s',stat_file_name,s_ext);
-    tempdir=fullfile(stat_dir,'.qa_work');
-    if ~exist(tempdir,'dir')
-        mkdir(tempdir);
-    end
     out_pdf{CC}=[tempdir '/QA_' runno_or_id '_CoV_' field '.pdf'];
     if exist(out_pdf{CC},'file')
         fprintf('%s:%s - %s done\n',runno_or_id,field,out_pdf{CC});
         continue;
     end
-    [ CoV_array ] = calculate_coeffecient_of_variation( file,field,delta);
+    [ CoV_array,stats ] = calculate_coeffecient_of_variation( stats,field,delta);
     % due to the nature of this code its okay if we dont have some
     if numel(CoV_array)==0
-        [~,fn]=fileparts(file);
+        [~,fn]=fileparts(files{FF});
         warning('%s must be missing from file %s, no CoV returned',field,fn);
         continue;
     end
@@ -286,20 +290,30 @@ for CC=1:numel(contrasts)
             rng=round(max_range-min_range)+1;
             step=1;
     end
-       
-    red_flags=[];
-    %red_flags=find(full_T.([contrast '_CoV'])>=0.1);
-    %rf_vals=full_T.([contrast '_CoV'])(red_flags)';%CoV_array(2,red_flags);
-    red_flags=find(y_axis(:)>=0.1);
-    rf_vals=y_axis(red_flags)';%CoV_array(2,red_flags);
-    [sorted_flags,sf_ind]=sort(rf_vals,2,'descend');
-    new_ind=red_flags(sf_ind);
     
-    % Annotate top N offenders
-    if numel(new_ind)>annotate_up_to
-        new_ind((annotate_up_to+1):end)=[];
+    %% Find indicies of structures violating red_threshold
+    % and order them by magnitude(high->low)
+    red_flags=find(y_axis(:)>=red_thresh);
+    if ~exist('ILikeVerbosePrograming','var')
+        % mat suggested code
+        [sorted_flags,sf_ind]=sort(y_axis(red_flags),1,'descend');
+    else
+        % initial code
+        %red_flags=[];
+        %red_flags=find(full_T.([contrast '_CoV'])>=0.1);
+        %rf_vals=full_T.([contrast '_CoV'])(red_flags)';%CoV_array(2,red_flags);
+        rf_vals=y_axis(red_flags)';%CoV_array(2,red_flags);
+        [sorted_flags,sf_ind]=sort(rf_vals,2,'descend');
     end
-    space_for_legend = 0.1875*numel(new_ind)+1*(numel(new_ind)>0);
+    red_flags=red_flags(sf_ind);
+    
+    % reduce the reg_flags to the max limit
+    if numel(red_flags)>max_annotated_violations
+        red_flags((max_annotated_violations+1):end)=[];
+    end
+    %% setup figure bits
+    % issues in older matlab causes this to fail.
+    space_for_legend = 0.1875*numel(red_flags)+1*(numel(red_flags)>0);
     try
         close(CC);
     catch
@@ -307,13 +321,19 @@ for CC=1:numel(contrasts)
     c_fig(CC)=figure(CC);
     hold on;
     set(gca,'FontName','Ariel','FontSize',x_axis_fontpt,'FontWeight','Bold')
-    c_fig(CC).PaperPositionMode='auto';
-    c_fig(CC).Units='Inches';
-    % we might want to change this, and set pos_vec(2) to:
-    %    screen height - fig height.
-    pos_vec=[1 1 8 (2.5+space_for_legend)];
-    c_fig(CC).Position=pos_vec;
-    c_fig(CC).Color=[1 1 1];
+    try
+        % This fails on older matlabs, gonna see if we can just skip
+        % through
+        c_fig(CC).PaperPositionMode='auto';
+        c_fig(CC).Units='Inches';
+        % we might want to change this, and set pos_vec(2) to:
+        %    screen height - fig height.
+        pos_vec=[1 1 8 (2.5+space_for_legend)];
+        c_fig(CC).Position=pos_vec;
+        c_fig(CC).Color=[1 1 1];
+    catch merr
+        warning(merr.message);
+    end
     plot(x_axis,y_axis,'o','LineWidth',1);
     %% set axes labels
     switch plot_option
@@ -334,10 +354,14 @@ for CC=1:numel(contrasts)
     xlim([min_range max_range]);
     y_max=0.25;
     ylim(1*[0 y_max])
-    %% create legend text
+    %% plot threshold lines
+    plot(min_range:step:max_range,ones([rng 1])*0.05,'--','Color', [0.9290 0.6940 0.1250], 'LineWidth',2)
+    plot(min_range:step:max_range,ones([rng 1])*0.1,'--r','LineWidth',1.5)
+    %% create legend text lines
     legendary=struct; % structure or cell array?
-    for rr=1:numel(new_ind)
-        flag_ind=new_ind(rr);
+    % using an array of structures so that we stay sorted.
+    for rr=1:numel(red_flags)
+        flag_ind=red_flags(rr);
         letter=alphas{:}(rr);
         scalerv=2;
         if strcmp(plot_option,'log_volume')
@@ -363,13 +387,17 @@ for CC=1:numel(contrasts)
             legendary(rr).string=legendary(rr).string(1:85);
         end
     end
-    %% plot threshold lines
-    plot(min_range:step:max_range,ones([rng 1])*0.05,'--','Color', [0.9290 0.6940 0.1250], 'LineWidth',2)
-    plot(min_range:step:max_range,ones([rng 1])*0.1,'--r','LineWidth',1.5)
     %% set up legend
     if isfield(legendary,'string')
         for LL = 1: numel(legendary)
-            dummyh(LL) = line(nan, nan, 'Linestyle', 'none', 'Marker', 'none', 'Color', 'none');
+            try
+                % Modern matlab
+                dummyh(LL) = line(nan, nan, 'Linestyle', 'none', 'Marker', 'none', 'Color', 'none');
+            catch merr
+                % older matlab
+                warning(merr.message);
+                dummyh(LL) = line(nan, nan, 'Linestyle', 'none', 'Marker', 'none');
+            end
         end
         leg = legend(dummyh(:),legendary(:).string,'Location','SouthOutside');
         leg.Units='inches';
@@ -379,24 +407,30 @@ for CC=1:numel(contrasts)
     %export_fig(['/civmnas4/rja20/BJs_march_test_' contrast '_CoVs.pdf'],'-pdf','-nofontswap','-painters','-nocrop', c_fig(CC))
     export_fig(out_pdf{CC},'-pdf','-painters','-nocrop', c_fig(CC))
 end
-if exist(out_file,'file')
-    delete(out_file);
+if exist(report_file,'file')
+    delete(report_file);
 end
-append_pdfs(out_file ,out_pdf{:});
+append_pdfs(report_file ,out_pdf{:});
 % Selective save will be far better behavior.
 vars=strsplit('runno_or_id out_contrast_string master_CoV_T c_fig stat_files plot_option out_data out_file' );
+writetable(master_CoV_T,table_path,'Delimiter','\t','WriteVariableNames',1);
+try
 save(out_data,vars{:} );
-writetable(master_CoV_T,out_table,'Delimiter','\t','WriteVariableNames',1);
+catch merr
+    warning(merr.message);
+    warning('Couldn''t save figure source materials for update (see above)');
+end
 % Cleanup intermediary figures
-if cleanup && exist(out_file,'file')
+if cleanup && exist(report_file,'file')
     for cc=1:numel(contrasts)
-        cmd = ['rm ' out_pdf{cc}];
-        system(cmd);
+        %cmd = ['rm ' out_pdf{cc}];
+        %system(cmd);
+        delete(out_pdf{cc});
     end
     [s,sout]=system(sprintf('rmdir %s',tempdir));
 else
     if cleanup
-        warning('Error creating:%s\nNot cleaning up component pdfs. Directory of goodies to examin %s',out_file,out_dir);
+        warning('Error creating:%s\nNot cleaning up component pdfs. Directory of goodies to examin %s',report_file,out_dir);
     end
 end
 close all;
