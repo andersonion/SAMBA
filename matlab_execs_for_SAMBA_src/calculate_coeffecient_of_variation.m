@@ -23,7 +23,7 @@ if ~istable(stats_table) && exist(isf, 'file')
         stats_table=master_T_o;
     end
     clear master_T_o;
-else
+elseif ~istable(stats_table)
     error('Missing file %s',isf);
 end
 
