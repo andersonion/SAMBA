@@ -60,8 +60,13 @@ if length(varargin) > 0
     end
 end
 % image check
-if ~exist(img,'file')
-    error('Image cannot be found, please specify the full path as a string');
+if isstruct(img) && isfield(img,'img')
+    if ~exist('output_path','var')
+        error('pre-loaded mode requires output_path');
+    end
+    warning('pre-loaded data, this is experimental');
+elseif ~exists(img,'file')
+        error('Image cannot be found, please specify the full path as a string');
 elseif ~strcmp(img(end-3:end),'.nii') && ~strcmp(img(end-6:end),'.nii.gz')
     error('Input image must be in NIfTI format')
 end
@@ -106,7 +111,9 @@ end
 suff='';
 use_exact_output=0;
 % Start with the input name
-[out_dir, img_name, ext]=fileparts(img);
+if ~isstruct(img)
+    [out_dir, img_name, ext]=fileparts(img);
+end
 if ~exist('output_path','var')
     suff=['_' desired_vorder];
 else
@@ -159,24 +166,29 @@ flip_string='LRPAIS';
 % just incase we do some sloppy code later :D
 orig_current_vorder = current_vorder;
 %% Load and Analyze data
-try
-    n1t=tic;
-    if ~exist(output_path,'file')
-        nii=load_niigz(img);
-    else
-        nii.hdr=load_niigz_hdr(img);
+if ~isstruct(img)
+    try
+        n1t=tic;
+        if ~exist(output_path,'file')
+            nii=load_niigz(img);
+        else
+            nii.hdr=load_niigz_hdr(img);
+        end
+    catch
+        time_1=toc(n1t);
+        n2t=tic;
+        if ~exist(output_path,'file')
+            nii=load_nii(img);
+        else
+            nii.hdr=load_nii_hdr(img);
+        end
+        time_2=toc(n2t);
+        warning(['Function load_niigz (runtime: ' num2str(time_1) ') failed with datatype: ' num2str(nii.hdr.dime.datatype) ' (perhaps because it currently doesn''t support RGB?). Used load_nii instead (runtime: ' num2str(time_2) ').']);
     end
-catch
-    time_1=toc(n1t);
-    n2t=tic;
-    if ~exist(output_path,'file')
-        nii=load_nii(img);
-    else
-        nii.hdr=load_nii_hdr(img);
-    end
-    time_2=toc(n2t);
-    warning(['Function load_niigz (runtime: ' num2str(time_1) ') failed with datatype: ' num2str(nii.hdr.dime.datatype) ' (perhaps because it currently doesn''t support RGB?). Used load_nii instead (runtime: ' num2str(time_2) ').']);
+else
+    nii=img;img='NOPATH_DIRECT_IN_STRUCT_MODE';
 end
+
 % dims=size(nii.img);
 dims=nii.hdr.dime.dim(2: nii.hdr.dime.dim(1)+1);
 if length(dims)>6
