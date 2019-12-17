@@ -160,7 +160,7 @@ exit 0;
 sub load_SAMBA_parameters {
 # ------------------
     my ($param_file) = (@_);
-    my $tempHf = new Headfile ('rw', "${param_file}");
+    my $tempHf = new Headfile ('ro', "${param_file}");
     if (! $tempHf->check()) {
         error_out(" Unable to open SAMBA parameter file ${param_file}.");
         return(0);
