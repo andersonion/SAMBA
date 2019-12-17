@@ -753,7 +753,7 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
 			# intentionally skipping bvec if we just quietly insisted on making a bigger mess.
 			next;
 		    }
-                    if ($do_connectivity) { # 21 April 2017, BJA: Moved this code from external _start.pl code
+                    if ($do_connectivity ||$eddy_current_correction) { # 21 April 2017, BJA: Moved this code from external _start.pl code
                         apply_warps_to_bvecs($a_label_space);
                     }
 		    @current_channel_array=@prev_channel;

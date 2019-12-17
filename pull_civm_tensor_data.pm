@@ -634,7 +634,7 @@ sub pull_civm_tensor_data {
         ## With proper headfiles in hand, try to pull/copy data from appropriate sources
 
         # Look for more then two xform_$runno...mat files (ecc affine transforms)
-        if ($do_connectivity){
+        if ($do_connectivity||$eddy_current_correction){
             push(@array_of_channels,'b_table');
             @array_of_runnos = uniq(@array_of_runnos);
 
