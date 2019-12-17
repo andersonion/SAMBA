@@ -157,7 +157,7 @@ sub find_my_tensor_data {
     my @possible_tensor_recon_machines;
     if ($tensor_headfile_exists) {
         ## Pull out engine name, and to list of possible locations to look for data, after BIGGUS_DISKUS and dusom_civm;
-        my $temp_tensor_Hf = new Headfile ('rw', $tensor_headfile);
+        my $temp_tensor_Hf = new Headfile ('ro', $tensor_headfile);
         my $msg_1 = "tensor headfile = ${tensor_headfile}\n";
         printd(30,$msg_1); # At the threshold of still printing, but almost clucking.
         $temp_tensor_Hf->read_headfile;
@@ -438,7 +438,7 @@ sub pull_civm_tensor_data {
 
             my $gradient_file;
             if (($tensor_headfile) && ( -f $tensor_headfile)) {
-                my $tensor_Hf = new Headfile ('rw', $tensor_headfile);
+                my $tensor_Hf = new Headfile ('ro', $tensor_headfile);
                 $tensor_Hf->read_headfile;
                 # 10 April 2017, BJA: it's too much of a hassle to pull the bvecs file then try to figure out how to incorporate the bvals...
                 #     From now on we'll process these ourselves from the tensor headfile.

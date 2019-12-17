@@ -296,7 +296,7 @@ U_specid U_species_m00 U_code
 ##
     
     if ((defined $start_file) && ($start_file ne '')) {
-        my $tempHf = new Headfile ('rw', "${start_file}");
+        my $tempHf = new Headfile ('ro', "${start_file}");
         if (! $tempHf->check()) {
             error_out(" Unable to open SAMBA parameter file ${start_file}.");
             return(0);
@@ -319,10 +319,10 @@ U_specid U_species_m00 U_code
     my $c_input_headfile="${pristine_input_dir}/current_inputs.headfile";
     if ( -f ${c_input_headfile}) {
         # If exists, compare with current inputs
-        my $tempHf = new Headfile ('rw', "${start_file}");
+        my $tempHf = new Headfile ('ro', "${start_file}");
         $tempHf->read_headfile;
 
-        my $ci_Hf = new Headfile ('rw', "${c_input_headfile}");
+        my $ci_Hf = new Headfile ('ro', "${c_input_headfile}");
         if (! ${ci_Hf}->check()) {
             error_out(" Unable to open current inputs parameter file ${c_input_headfile}.");
             return(0);
@@ -552,8 +552,7 @@ U_specid U_species_m00 U_code
         
         # TODO? Conver to "while" loop that runs to a certain point of stability(isntead of always prescribed mdt_iterations).
         # We don't really count the 0th iteration because normally this is just the averaging of the affine-aligned images. 
-        my $temp_test=4;
-        for (my $ii = $starting_iteration; $ii <= $mdt_iterations; $ii++) {
+	for (my $ii = $starting_iteration; $ii <= $mdt_iterations; $ii++) {
             # In theory, iterative_pairwise_reg_vbm and apply_mdt_warps_vbm can be combined into a 
             # "packet": as soon as a registration is completed, those warps can be immediately applied to
             # that contrast's images, independent of other registration jobs.
