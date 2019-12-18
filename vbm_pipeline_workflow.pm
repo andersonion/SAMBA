@@ -931,7 +931,7 @@ sub image_preview_mail {
     my @output=glob $preview_dir."/*.n*";
     my $mat_args=join(", ",@__args);
     #count=civm_bulk_ortho(base_images,   out_dir,   {'nii4D','identity'})
-    my $mat_cmd=make_matlab_command("civm_bulk_ortho",$mat_args,"_reg_init_preview",$Hf,0);
+    my $mat_cmd=make_matlab_command("civm_bulk_ortho",$mat_args,"reg_init_preview_",$Hf,0);
     # the no_hf version if we think its worth switching.
     #push(@cmds,make_matlab_command_nohf("civm_bulk_ortho",$mat_args,"_reg_init_preview"),
     #				    $dir_work

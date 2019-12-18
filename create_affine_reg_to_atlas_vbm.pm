@@ -26,7 +26,7 @@ my $mem_request;
 my $log_msg="";
 my $swap_fixed_and_moving=0;
 
-my (%xform_paths,%pipeline_names,%alt_result_path_bases);
+my (%xform_paths,%runno_to_clean_named_transforms,%alt_result_path_bases);
 
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
@@ -67,14 +67,19 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
         }
         
         $go = $go_hash{$runno};
-        my  $pipeline_name = $result_path_base.$xform_suffix;
-        $pipeline_names{$runno}=$pipeline_name;
+	# Not sure I like these var names, runno_transform_clean, and runno_to_clean_named_trasforms.
+	# They are the singluar simple transform name and the collection of same.
+	# (As opposed to the ants named NGenericAffine.mat uglyness.) 
+        my  $runno_transform_clean = $result_path_base.$xform_suffix;
+        $runno_to_clean_named_transforms{$runno}=$runno_transform_clean;
         $alt_result_path_bases{$runno}=$alt_result_path_base;
         if ($go) {
-            if ((! $do_rigid) && ($runno eq $affine_target )) { # For the affine target, we want to use the identity matrix.
+            if ((! $do_rigid) && ($runno eq $affine_target )) {
+                # For the affine target ONLY, and ONLY when we are doing an affine(not rigid) transform,
+		# we want to use the identity matrix.
                 my $affine_identity = $Hf->get_value('affine_identity_matrix');
-                #`cp ${affine_identity} ${pipeline_name}`;
-		run_and_watch("cp ${affine_identity} ${pipeline_name}");
+                #`cp ${affine_identity} ${runno_transform_clean}`;
+		run_and_watch("cp ${affine_identity} ${runno_transform_clean}");
             } else {
                 ($xform_path,$job) = create_affine_transform_vbm($to_xform_path,  $alt_result_path_base, $runno);
 
@@ -86,10 +91,9 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                 if ($swap_fixed_and_moving) {
                     print "swap_fixed_and_moving is activated\n\n\n";
                 } else {
-                    #print "swap_fixed_and_moving is TURNED OFF (as it probably should be)\n\n\n";
-                    #`ln -s ${xform_path}  ${pipeline_name}`;
-		    run_and_watch("ln -s ${xform_path}  ${pipeline_name}");
-                }
+		    #MOVED LINK CODE TO LATER BECAUSE THE FILE WOULDN'T BE READY YET.
+		    # THATS BAD FORM AND THWARTED DEBUGGING.
+		}
                 if ($job) {
                     push(@jobs,$job);
                 }
@@ -103,24 +107,26 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
             }
         }
 
+
+	# COMICALLY REDUNDANT BLEH, TODO: clean up.
         if ($mdt_to_atlas) {
-            headfile_list_handler($Hf,"forward_label_xforms","${pipeline_name}",0);
-            headfile_list_handler($Hf,"inverse_label_xforms","-i ${pipeline_name}",1);
+            headfile_list_handler($Hf,"forward_label_xforms","${runno_transform_clean}",0);
+            headfile_list_handler($Hf,"inverse_label_xforms","-i ${runno_transform_clean}",1);
         } elsif (! ((! $do_rigid) && ($runno eq $affine_target))) {
             if ($mdt_flag) {
-                headfile_list_handler($Hf,"mdt_forward_xforms_${runno}","${pipeline_name}",0);
-                headfile_list_handler($Hf,"mdt_inverse_xforms_${runno}","-i ${pipeline_name}",1);
+                headfile_list_handler($Hf,"mdt_forward_xforms_${runno}","${runno_transform_clean}",0);
+                headfile_list_handler($Hf,"mdt_inverse_xforms_${runno}","-i ${runno_transform_clean}",1);
             } else {
-                headfile_list_handler($Hf,"forward_xforms_${runno}","${pipeline_name}",0);
-                headfile_list_handler($Hf,"inverse_xforms_${runno}","-i ${pipeline_name}",1);
+                headfile_list_handler($Hf,"forward_xforms_${runno}","${runno_transform_clean}",0);
+                headfile_list_handler($Hf,"inverse_xforms_${runno}","-i ${runno_transform_clean}",1);
             }
         } elsif ((! $do_rigid) && ($runno eq $affine_target)) {
             if ($mdt_flag) {
-                headfile_list_handler($Hf,"mdt_forward_xforms_${runno}","${pipeline_name}",0);
-                headfile_list_handler($Hf,"mdt_inverse_xforms_${runno}","-i ${pipeline_name}",1);
+                headfile_list_handler($Hf,"mdt_forward_xforms_${runno}","${runno_transform_clean}",0);
+                headfile_list_handler($Hf,"mdt_inverse_xforms_${runno}","-i ${runno_transform_clean}",1);
             } else {
-                headfile_list_handler($Hf,"forward_xforms_${runno}","${pipeline_name}",0);
-                headfile_list_handler($Hf,"inverse_xforms_${runno}","-i ${pipeline_name}",1);
+                headfile_list_handler($Hf,"forward_xforms_${runno}","${runno_transform_clean}",0);
+                headfile_list_handler($Hf,"inverse_xforms_${runno}","-i ${runno_transform_clean}",1);
             }
         }
     }
@@ -133,24 +139,59 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
             print STDOUT  "  All ${rigid_or_affine} registration jobs have completed; moving on to next step.\n";
         }
     }
+
+
     foreach my $runno (@array_of_runnos) {
-        if ($go) {
-            if (! ((! $do_rigid) && ($runno eq $affine_target ))) {
-                $xform_path = $xform_paths{$runno};
-                my $pipeline_name = $pipeline_names{$runno};
-                my $alt_pipeline_name = $alt_result_path_bases{$runno}.$xform_suffix;
-                if ($swap_fixed_and_moving) {
-                    #`if [ -f "${xform_path}" ]; then mv ${xform_path}  ${alt_pipeline_name}; fi`;
-		    run_and_watch("if [ -f \"${xform_path}\" ]; then mv ${xform_path}  ${alt_pipeline_name}; fi");
-                    create_explicit_inverse_of_ants_affine_transform($alt_pipeline_name,$pipeline_name); 
-                    #`if [ -f "${pipeline_name}" ]; then rm ${alt_pipeline_name}; fi`;
-                    run_and_watch("if [ -f \"${pipeline_name}\" ]; then rm ${alt_pipeline_name}; fi");
-                } else {
-                    #`if [ -f "${xform_path}" ]; then mv ${xform_path}  ${pipeline_name}; fi`;
-                    run_and_watch("if [ -f \"${xform_path}\" ]; then mv ${xform_path}  ${pipeline_name}; fi");
-                }
-            }
-        }
+        if (! $go) {
+	    continue;
+	}
+	# All these negatives makes it hard to understand when this would be run.
+	#do_rigid is 0 or 1, and would be better named, transform_is_rigid
+	# so this could be written as
+	# if  not     affine && we're the affine_Target
+	#if (! (  (!$do_rigid) && ($runno eq $affine_target)  )    ) {
+	# if   we're not the affine target, or transform_is_rigid
+	# Code should operate for all rigid, and most affine(exclude affine target)
+	if (  $do_rigid || $runno ne $affine_target ) {
+	    $xform_path = $xform_paths{$runno};
+	    my $runno_transform_clean = $runno_to_clean_named_transforms{$runno};
+	    if ($swap_fixed_and_moving) {
+		my $alt_pipeline_name = $alt_result_path_bases{$runno}.$xform_suffix;
+		# WHAT MADDNESS IS THIS :p
+		#`if [ -f "${xform_path}" ]; then mv ${xform_path}  ${alt_pipeline_name}; fi`;
+		#run_and_watch("if [ -f \"${xform_path}\" ]; then mv ${xform_path}  ${alt_pipeline_name}; fi");
+		if( -f ${xform_path} ) {
+		    rename($xform_path,$alt_pipeline_name)
+			|| error_out("trouble renaming $xform_path $alt_pipeline_name");
+		}
+		create_explicit_inverse_of_ants_affine_transform($alt_pipeline_name,$runno_transform_clean); 
+		#`if [ -f "${runno_transform_clean}" ]; then rm ${alt_pipeline_name}; fi`;
+		#run_and_watch("if [ -f \"${runno_transform_clean}\" ]; then rm ${alt_pipeline_name}; fi");
+		if( -f ${runno_transform_clean} ) {
+		    unlink($alt_pipeline_name)
+			|| error_out("trouble creating $runno_transform_clean from $alt_pipeline_name");
+		}
+	    } else {
+		# THIS WAS INITIALLY CREATING A LINK BEFORE THE FILE EXISTS!!!!
+		# After decoding the crazy conditionals, it looks like the code belongs in here.
+		# THATS FUNNY because here we overwrite the link with the file!
+		# 
+		# Now we're gonna skip the linking, and see what breaks.
+		#
+		#print "swap_fixed_and_moving is TURNED OFF (as it probably should be)\n\n\n";
+		#`ln -s ${xform_path}  ${runno_transform_clean}`;
+		# It looks like this link is created everytime 
+		# Except we're doing an affine transform, and are the affine target.
+		#run_and_watch("ln -s ${xform_path}  ${runno_transform_clean}");
+		# former move code before switching first to run_and watch, then to perl inline.
+		#`if [ -f "${xform_path}" ]; then mv ${xform_path}  ${runno_transform_clean}; fi`;
+		#run_and_watch("if [ -f \"${xform_path}\" ]; then mv ${xform_path}  ${runno_transform_clean}; fi");
+		if( -f ${xform_path} ) {
+		    rename($xform_path,$runno_transform_clean) 
+			|| error_out("trouble renaming $xform_path $runno_transform_clean");
+		}
+	    }
+	}
     }
     
     my $case = 2;
