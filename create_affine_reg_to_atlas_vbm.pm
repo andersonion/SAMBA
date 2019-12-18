@@ -143,7 +143,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 
     foreach my $runno (@array_of_runnos) {
         if (! $go) {
-	    continue;
+	    next;
 	}
 	# All these negatives makes it hard to understand when this would be run.
 	#do_rigid is 0 or 1, and would be better named, transform_is_rigid
