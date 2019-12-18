@@ -525,6 +525,13 @@ U_specid U_species_m00 U_code
     ###
     # PREPROCESS COMPLETE FEEDBACK
     ###
+    my $img_preview_src=File::Spec->catdir($preprocess_dir,'base_images');
+    my $img_preview_dir=File::Spec->catdir($dir_work,"reg_init_preview");
+    # use function, or run the inline version, temporary measure while function is finished.
+    my $img_mail_inline=0;
+    if(! $img_mail_inline) {
+	image_preview_mail($img_preview_src,$img_preview_dir,my $blank,$MAIL_USERS);
+    } else {
     # Will generate ortho slice previews using civm_bulk_ortho and then 
     # mail the folder of results to you.
     #
@@ -539,18 +546,28 @@ U_specid U_species_m00 U_code
     #my $nifti_args = "\'${inpath}\' , \'${outpath}\'";
     #my $nifti_command = make_matlab_command('civm_bulk_orth',  $nifti_args,  "${name}_",$Hf,0); # 'center_nii'
     #execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
-    my $preview_dir=File::Spec->catdir($dir_work,"reg_init_preview");
     my @__args;
-    push(@__args,"'".File::Spec->catdir($preprocess_dir,'base_images')."'");
-    push(@__args,"'$preview_dir'");
-    push(@__args,"{'nii4D','identity'}");
+    push(@__args,"'$img_preview_src'");
+    push(@__args,"'$img_preview_dir'");
+    #push(@__args,"{'nii4D','identity','reference_image','$rigid_atlas_name','$label_atlas_name'}");
+    # Exclusions from the bulk ortho preview, certain about nii4d, and things called identity...
+    # actually forgot why I thought identity needed excluding.
+    # think maybe reference_image as that is generally just a centerd mass, which should almost 
+    # never need previewing.
+    my @exclusions=qw(nii4D identity);
+    push(@exclusions,"reference_image");
+    # Excluding the atlass might be good, but since we're recentering things, 
+    # maybe its nice to have the "correct" reference?
+    #push(@exclusions,$rigid_atlas_name);
+    #push(@exclusions,$label_atlas_name);
+    push(@__args,"{'".join("', '",@exclusions)."'}");
     my @input=glob $__args[0]."/*.n*";
-    my @output=glob $preview_dir."/*.n*";
+    my @output=glob $img_preview_dir."/*.n*";
     my $mat_args=join(", ",@__args);
     #count=civm_bulk_ortho(base_images,   out_dir,   {'nii4D','identity'})
-    my $mat_cmd=make_matlab_command("civm_bulk_ortho",$mat_args,"_reg_init_preview",$Hf,0);
+    my $mat_cmd=make_matlab_command("civm_bulk_ortho",$mat_args,"reg_init_preview",$Hf,0);
     # the no_hf version if we think its worth switching.
-    #push(@cmds,make_matlab_command_nohf("civm_bulk_ortho",$mat_args,"_reg_init_preview"),
+    #push(@cmds,make_matlab_command_nohf("civm_bulk_ortho",$mat_args,"reg_init_preview"),
     #				    $dir_work
     #				    ,$ED->get_value("engine_app_matlab")
     #				    ,File::Spec->catfile($options->{"dir_work"},"${runno_base}_matlab.log")
@@ -558,9 +575,9 @@ U_specid U_species_m00 U_code
     run_on_update($mat_cmd,\@input,\@output);
     #my $pwuid = getpwuid( $< );
     #my $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
-    my $preview_mailer="mail_dir $preview_dir $MAIL_USERS";
+    my $preview_mailer="mail_dir $img_preview_dir $MAIL_USERS";
     run_on_update($preview_mailer,\@input,\@output);
-    
+    }
 ###
 # Register all to atlas
 # First as rigid, then not
@@ -627,8 +644,14 @@ U_specid U_species_m00 U_code
             
             calculate_mdt_images_vbm($ii,@op_cont); #$PM_code = 44
             sleep($interval);
-        }
-        
+	    #TODO: insert image preveiw here.
+	    # OOO, Maybe we should preview on the templates dir! Then we'd keep seeing the start-> now stack of templates!
+	    #    $master_template_dir = $Hf->get_value('master_template_folder');
+	    my $img_preview_src=$Hf->get_value('master_template_folder');
+	    my $img_preview_dir=File::Spec->catdir($Hf->get_value('mdt_work_dir'),'template_preview');
+	    # use function, or run the inline version, temporary measure while function is finished.
+	    image_preview_mail($img_preview_src,$img_preview_dir,my $blank,$MAIL_USERS);
+	}
 	if ($do_vba ) {
 	    # I think this is a Only need this if VBA
 	    # Let's omit
@@ -868,6 +891,59 @@ sub find_group_in_tsv {
 
 }
 
+#---------------------
+sub image_preview_mail {
+#---------------------
+#Before we figure out where to drop this luvverly crazy function, it's gonna live here.
+# Not sold on this name yet, but ... well :p (ortho prievew mail, ortho preview dir ? )
+    # RELIES ON SOME SAMBA GLOBALS($Hf)
+    my($source_dir,$preview_dir,$ex_ref,$MAIL_USERS)=@_;
+    # Will generate ortho slice previews using civm_bulk_ortho and then 
+    # mail the folder of results to you.
+    #
+    # We need to know when to send all, we only want to send all once, or when updated.
+    # We could use run_on_update to that end. 
+    #
+    # I guess the folder of output would be sufficient, it would be empty the first run(or missing)
+
+    # label_reference_path/vbm_reference_path have path to the ref file.
+    # might use that to deciede where the dir to process is.
+    #my $preview_dir=File::Spec->catdir($dir_work,"reg_init_preview");
+    my @__args;
+    #push(@__args,"'".File::Spec->catdir($preprocess_dir,'base_images')."'");
+    push(@__args,"'$source_dir'");
+    push(@__args,"'$preview_dir'");
+    #push(@__args,"{'nii4D','identity','reference_image','$rigid_atlas_name','$label_atlas_name'}");
+    # Exclusions from the bulk ortho preview, certain about nii4d, and things called identity...
+    # actually forgot why I thought identity needed excluding.
+    # think maybe reference_image as that is generally just a centerd mass, which should almost 
+    # never need previewing.
+    my @exclusions=qw(nii4D identity);
+    push(@exclusions,"reference_image");
+    # Excluding the atlass might be good, but since we're recentering things, 
+    # maybe its nice to have the "correct" reference?
+    #push(@exclusions,$rigid_atlas_name);
+    #push(@exclusions,$label_atlas_name);
+    if(defined $ex_ref) {
+	@exclusions=@$ex_ref; } 
+    push(@__args,"{'".join("', '",@exclusions)."'}");
+    my @input=glob $source_dir."/*.n*";
+    my @output=glob $preview_dir."/*.n*";
+    my $mat_args=join(", ",@__args);
+    #count=civm_bulk_ortho(base_images,   out_dir,   {'nii4D','identity'})
+    my $mat_cmd=make_matlab_command("civm_bulk_ortho",$mat_args,"_reg_init_preview",$Hf,0);
+    # the no_hf version if we think its worth switching.
+    #push(@cmds,make_matlab_command_nohf("civm_bulk_ortho",$mat_args,"_reg_init_preview"),
+    #				    $dir_work
+    #				    ,$ED->get_value("engine_app_matlab")
+    #				    ,File::Spec->catfile($options->{"dir_work"},"${runno_base}_matlab.log")
+    #				    ,$ED->get_value("engine_app_matlab_opts"), 0)
+    run_on_update($mat_cmd,\@input,\@output);
+    #my $pwuid = getpwuid( $< );
+    #my $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
+    my $preview_mailer="mail_dir $preview_dir $MAIL_USERS";
+    run_on_update($preview_mailer,\@input,\@output);
+}
 #---------------------
 #sub load_tsv {
 
