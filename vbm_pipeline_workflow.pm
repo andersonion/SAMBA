@@ -110,13 +110,19 @@ sub vbm_pipeline_workflow {
 # Concatanate and uniq comparison list to create reg_to_mdt(?) group list
 # Create a master list of all specimen that are to be pre-processed and rigid/affinely aligned
 
-    
     my $pipe_adm="";
     my $grp=getgrgid((getpwuid($<))[3]);
     if(! defined $CODE_DEV_GROUP
        || $CODE_DEV_GROUP ne $grp ) {
 	$pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
     } 
+    my $pwuid = getpwuid( $< );
+    my $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
+    if (exists $ENV{'SAMBA_MAIL_USERS'} && $ENV{'SAMBA_MAIL_USERS'} ne ''){
+	$MAIL_USERS=$ENV{'SAMBA_MAIL_USERS'};
+	printd(5,"Overrideing default mail recipients with env var SAMBA_MAIL_USERS\n");
+    }
+
     # the components could be made responsible for filling this in by passing the array reference to their init routines
     my @variables_to_headfile=qw(
 start_file project_id image_dimensions
@@ -515,6 +521,45 @@ U_specid U_species_m00 U_code
     @channel_array = grep {$_ ne 'nii4D' } @channel_array;
     $channel_comma_list = join(',', @channel_array);
     $Hf->set_value('channel_comma_list',$channel_comma_list);
+
+    ###
+    # PREPROCESS COMPLETE FEEDBACK
+    ###
+    # Will generate ortho slice previews using civm_bulk_ortho and then 
+    # mail the folder of results to you.
+    #
+    # We need to know when to send all, we only want to send all once, or when updated.
+    # We could use run_on_update to that end. 
+    #
+    # I guess the folder of output would be sufficient, it would be empty the first run(or missing)
+
+    # label_reference_path/vbm_reference_path have path to the ref file.
+    #EX mat calls
+    #my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
+    #my $nifti_args = "\'${inpath}\' , \'${outpath}\'";
+    #my $nifti_command = make_matlab_command('civm_bulk_orth',  $nifti_args,  "${name}_",$Hf,0); # 'center_nii'
+    #execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
+    my $preview_dir=File::Spec->catdir($dir_work,"reg_init_preview");
+    my @__args;
+    push(@__args,"'".File::Spec->catdir($preprocess_dir,'base_images')."'");
+    push(@__args,"'$preview_dir'");
+    push(@__args,"{'nii4D','identity'}");
+    my @input=glob $__args[0]."/*.n*";
+    my @output=glob $preview_dir."/*.n*";
+    my $mat_args=join(", ",@__args);
+    #count=civm_bulk_ortho(base_images,   out_dir,   {'nii4D','identity'})
+    my $mat_cmd=make_matlab_command("civm_bulk_ortho",$mat_args,"_reg_init_preview",$Hf,0);
+    # the no_hf version if we think its worth switching.
+    #push(@cmds,make_matlab_command_nohf("civm_bulk_ortho",$mat_args,"_reg_init_preview"),
+    #				    $dir_work
+    #				    ,$ED->get_value("engine_app_matlab")
+    #				    ,File::Spec->catfile($options->{"dir_work"},"${runno_base}_matlab.log")
+    #				    ,$ED->get_value("engine_app_matlab_opts"), 0)
+    run_on_update($mat_cmd,\@input,\@output);
+    #my $pwuid = getpwuid( $< );
+    #my $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
+    my $preview_mailer="mail_dir $preview_dir $MAIL_USERS";
+    run_on_update($preview_mailer,\@input,\@output);
     
 ###
 # Register all to atlas
@@ -796,9 +841,7 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
     
     my $email_content = $subject_line.$completion_message.$results_message.$local_time_stamp.$time_stamp;
     `echo "${email_content}" > ${email_file}`;
-    my $pwuid = getpwuid( $< );
-    my $USER_LIST="$pwuid\@duke.edu$pipe_adm";
-    `sendmail -f $process.civmcluster1\@dhe.duke.edu $USER_LIST < ${email_file}`;
+    `sendmail -f $process.civmcluster1\@dhe.duke.edu $MAIL_USERS < ${email_file}`;
     
 } #end main
 
