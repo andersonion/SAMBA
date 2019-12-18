@@ -15,6 +15,8 @@ sub vbm_write_stats_for_pm {
     } elsif ($PM =~ s/\.pm$//) {
 	$PM = $PM;
     }
+    # pm_code 74
+    #my $real_time = vbm_write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
     switch ($PM) { # switch doesnt behave right when switch moduld begin block doesnt get to run
 	case ("load_study_data_vbm") {$PM_code = 11;}
 	case ("convert_all_to_nifti_vbm") {$PM_code = 12;} #testo
@@ -62,7 +64,7 @@ sub vbm_write_stats_for_pm {
     my $pm_string = "${PM_code},0,0,${start_time},${real_time},0";
     my $stats_file = $Hf->get_value("stats_file");
     if ($stats_file ne "NO_KEY") {
-	`echo "${pm_string}" >> ${stats_file}`;
+	run_and_watch("echo \"${pm_string}\" >> ${stats_file}");
     }
 
     if  ($#jobs != -1) {
