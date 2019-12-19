@@ -65,7 +65,7 @@ if isstruct(img) && isfield(img,'img')
         error('pre-loaded mode requires output_path');
     end
     warning('pre-loaded data, this is experimental');
-elseif ~exists(img,'file')
+elseif ~exist(img,'file')
         error('Image cannot be found, please specify the full path as a string');
 elseif ~strcmp(img(end-3:end),'.nii') && ~strcmp(img(end-6:end),'.nii.gz')
     error('Input image must be in NIfTI format')
