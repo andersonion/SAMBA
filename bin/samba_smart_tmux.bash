@@ -35,14 +35,17 @@ do
 	# Now that I look at things, might be able to do our ls check, 
 	# and capture status with $?, and test status
 	# (instead of running ls twice).
-	hfp=$(ls $rp >/dev/null); 
+	hfp=$(ls $rp 2> /dev/null);
 	#if [ ! -f "$hfp" ];then
-	if ! ls $rp >/dev/null ; then
+	if ! ls $rp >& /dev/null ; then
+	    echo "Launching in 2 seconds ... ";
 	    echo tmux new-session -d -s $vbmsuffix -- "\" source ~/.bashrc && SAMBA_startup $PWD/$shf 2>&1 | tee -a samba_logs/$vbmsuffix.log\"";
 	    sleep 2;
 	    tmux new-session -d -s $vbmsuffix -- " source ~/.bashrc && SAMBA_startup $PWD/$shf 2>&1 | tee -a samba_logs/$vbmsuffix.log";
 	else 
-	    echo "ST:$vbmsuffix complete $hfp";
+	    echo "Dat:$vbmsuffix complete $hfp";
 	fi;
+    else
+	echo "Dat:$vbmsuffix in progress";
     fi;
 done
