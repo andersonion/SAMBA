@@ -32,6 +32,8 @@ use lib split(':',$RADISH_PERL_LIB);
 # use ...
 # CIVM standard req
 use Headfile;
+# Save SIGDIE for later.
+my $FORMER_SIGDIE_HANDLER=$SIG{DIE};
 use text_sheet_utils;
 
 # retrieve_archived_data is largely retired. 
@@ -94,8 +96,23 @@ if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
     printd(5,"WARNING: appears to be outside the full eco-system. Disabling overly specific bits\n");
     sleep_with_countdown(3);
 }
+# fun games with negation right here(dont mind the madness of abusing default 0 exit)
+my $UNSUCCESSFUL_RUN=$BADEXIT;
 
-
+# set pipe email users
+my $pipe_adm="";
+my $grp=getgrgid((getpwuid($<))[3]);
+if(! defined $CODE_DEV_GROUP
+   || $CODE_DEV_GROUP ne $grp ) {
+    $pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
+} 
+my $pwuid = getpwuid( $< );
+my $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
+my $cluster_user=$ENV{USER} || $ENV{USERNAME};
+if (exists $ENV{'SAMBA_MAIL_USERS'} && $ENV{'SAMBA_MAIL_USERS'} ne ''){
+    $MAIL_USERS=$ENV{'SAMBA_MAIL_USERS'};
+    printd(5,"Overrideing default mail recipients with env var SAMBA_MAIL_USERS\n");
+}
 
 # Temporary hardcoded variables
 # variables, set up by the study vars script(study_variables_vbm.pm)
@@ -110,19 +127,9 @@ sub vbm_pipeline_workflow {
 # Concatanate and uniq comparison list to create reg_to_mdt(?) group list
 # Create a master list of all specimen that are to be pre-processed and rigid/affinely aligned
 
-    my $pipe_adm="";
-    my $grp=getgrgid((getpwuid($<))[3]);
-    if(! defined $CODE_DEV_GROUP
-       || $CODE_DEV_GROUP ne $grp ) {
-	$pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
-    } 
-    my $pwuid = getpwuid( $< );
-    my $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
-    if (exists $ENV{'SAMBA_MAIL_USERS'} && $ENV{'SAMBA_MAIL_USERS'} ne ''){
-	$MAIL_USERS=$ENV{'SAMBA_MAIL_USERS'};
-	printd(5,"Overrideing default mail recipients with env var SAMBA_MAIL_USERS\n");
-    }
-
+    # Override sigdie once we get started.
+    #$SIG{__DIE__} = \&vbm_signal_DIE;
+    print "\n\nStart work\n\n";
     # the components could be made responsible for filling this in by passing the array reference to their init routines
     my @variables_to_headfile=qw(
 start_file project_id image_dimensions
@@ -500,6 +507,7 @@ U_specid U_species_m00 U_code
 # nifti_header_capitulator... or nifti_unifier ... 
 # perhaps nifti_capitulator is most unclearly clear.
     convert_all_to_nifti_vbm(); #$PM_code = 12
+
     sleep($interval);
     if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
         printd(5,"Tensor create data will invent rd from mean(e2+e3)\n");
@@ -573,8 +581,6 @@ U_specid U_species_m00 U_code
     #				    ,File::Spec->catfile($options->{"dir_work"},"${runno_base}_matlab.log")
     #				    ,$ED->get_value("engine_app_matlab_opts"), 0)
     run_on_update($mat_cmd,\@input,\@output);
-    #my $pwuid = getpwuid( $< );
-    #my $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
     my $preview_mailer="mail_dir $img_preview_dir $MAIL_USERS";
     run_on_update($preview_mailer,\@input,\@output);
     }
@@ -846,26 +852,20 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
     $Hf->write_headfile($result_headfile);
     print "\n\nVBM Pipeline has completed successfully.  Great job, you.\n\n";
     
-    
-    my $process = "vbm_pipeline";
+    my $time=time;
+    my $nice_timestamp=nice_timestamp($time);
+    my $local_time = localtime($time);
+
+    my $subj="Subject: $PIPELINE_NAME completed ($project_id)\n";
     my $completion_message ="Congratulations, master scientist. Your VBM pipeline process has completed.  Hope you find something interesting.\n";
     my $results_message = "Results are available for your perusal in: ${results_dir}.\n";
-    my $time = time;
-    my $email_folder = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/email/';                        
-    my $email_file="${email_folder}/VBM_pipeline_completion_email_for_${time}.txt";
-    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
-    my $nice_timestamp = sprintf ( "%04d-%02d-%02d_%02d:%02d:%02d",
-                                   $year+1900,$mon+1,$mday,$hour,$min,$sec);
-    my $local_time = localtime();
-    my $local_time_stamp = "This file was generated on ${local_time}, local time.\n";
-    my $time_stamp = "Completion time stamp = ${time} seconds since the Unix Epoc (or $nice_timestamp if you prefer).\n";
-#January 1, 1970 (or some equally asinine date).\n" <--- said the ignorant programmmer :p
-    my $subject_line = "Subject: VBM Pipeline has finished!!!\n";
-    
-    my $email_content = $subject_line.$completion_message.$results_message.$local_time_stamp.$time_stamp;
-    `echo "${email_content}" > ${email_file}`;
-    `sendmail -f $process.civmcluster1\@dhe.duke.edu $MAIL_USERS < ${email_file}`;
-    
+    my $local_time_info = "This file was generated on ${local_time}, local time.\n";
+    my $time_info = "Completion time stamp = ${time} seconds since the Unix Epoc (or $nice_timestamp if you prefer).\n";
+
+    mail_user($MAIL_USERS,$subj,$completion_message.$results_message.$local_time_info.$time_info);
+    # restore normal sigdie
+    $SIG{__DIE__}=$FORMER_SIGDIE_HANDLER;
+    $UNSUCCESSFUL_RUN=$GOODEXIT;
 } #end main
 
 #---------------------
@@ -891,6 +891,94 @@ sub find_group_in_tsv {
 
 }
 
+
+# we can defined die like so to capture our calls to die that are not specifically for CORE::die
+# This was decided sub-optimal.
+# Signal catches were also considered suboptimal.
+#
+#use subs 'die';
+#sub die { 
+#    vbm_signal_DIE(@_);
+#}
+
+#sub vbm_signal_DIE {
+sub END {
+    # END always runs as late as possible, a neat perl module thing.
+    # Like BEGIN blocks which run as early as possible. 
+    # The purpose of this end block is last chance notification of errors.
+    # Challenging to get the error message specifically in here, so we'll stay
+    # generic for now. 
+    #
+    # Considering most repairs require manual intervention, its not so bad that 
+    # the user is forced into looking around.
+    #
+    # Also challenging to know if we're a good or bad run, SO we use a module global
+    # UNSUCCESSFUL_RUN which is initially set to BADEXIT(eg true in the normal bad is 1 convention)
+    # this is then set to GOODEXIT(ie, false in the normal goodexit is 0 convention)
+    #my($msg)="";
+
+    #my($sgnl,$msg)=@_;
+    if(! $UNSUCCESSFUL_RUN) {
+	return;
+    }
+    my $msg;
+    my $time = time;
+    my $nice_timestamp = nice_timestamp($time);
+
+    my $papertrail_dir=File::Spec->catfile("${results_dir}","papertrail");
+    my $err_file=File::Spec->catfile($papertrail_dir,"SAMBA_err_${time}.txt");
+
+    #$project_id(the samba folder name).
+    my $subj="Subject: $PIPELINE_NAME failed ($project_id)\n";
+    $msg ="details may be available in log file (".log_file().")\n" if(! defined $msg || $msg eq "");
+
+    my $i = 1;
+    $msg=$msg."Stack Trace:\n";
+    while ( (my @call_details = (caller($i++))) ){
+	$msg=$msg.$call_details[1].":".$call_details[2]." in function ".$call_details[3]."\n";
+    }
+
+    my $time_info = "Failure time stamp = ${time} seconds since the Unix Epoc (or $nice_timestamp if you prefer).\n";
+
+    my $err_mail = $subj.$msg.$time_info;
+    write_array_to_file($err_file,[$err_mail]);
+    mail_user($MAIL_USERS,$err_file);
+
+    # restore normal sigdie
+    $SIG{__DIE__}=$FORMER_SIGDIE_HANDLER;
+    # let our "nice" error handler take it from there.
+    #die($msg);
+    #error_out($msg);
+}
+
+sub mail_user {
+    my ($users,@content)=@_;
+    my $subj;
+    my $msg;
+    if(scalar(@content)>1){
+	$subj=shift @content;
+	$msg=join("",@content);
+    } else {
+	$msg=$content[0];
+    }
+    
+    if ( $msg =~ m/[\n]/x || ! -f $msg ) {
+	my $papertrail_dir=File::Spec->catfile("${results_dir}","papertrail");
+	my $time = time;
+	my $mail_file=File::Spec->catfile($papertrail_dir,"SAMBA_mail_${time}.txt");
+	if(! defined $subj){
+	    $subj="$PIPELINE_NAME ";
+	}
+	write_array_to_file($mail_file,[$subj,$msg]);
+	$msg=$mail_file;
+    }
+    my $from="$PIPELINE_NAME.$cluster_user";
+    if (exists $ENV{'WORKSTATION_HOSTNAME'} ){
+	$from=$from.'@'.$ENV{'WORKSTATION_HOSTNAME'}
+    }
+    run_and_watch("sendmail -f $from $users < $msg");
+    return;
+}
 #---------------------
 sub image_preview_mail {
 #---------------------

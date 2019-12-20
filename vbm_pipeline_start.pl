@@ -40,7 +40,9 @@ BEGIN {
     use lib split(':',$RADISH_PERL_LIB);
 }
 
-use civm_simple_util qw(sleep_with_countdown activity_log printd uniq $debug_val );
+use civm_simple_util qw(sleep_with_countdown activity_log printd uniq $debug_val 
+write_array_to_file );
+
 activity_log();
 use pipeline_utilities;
 use Headfile;
@@ -53,6 +55,7 @@ use vars qw($start_file);
 my $PM = 'vbm_pipeline_start.pl'; 
 my $git_log=git_log_last(dirname(__FILE__));
 my $PIPELINE_VERSION = $git_log->{"date"}." ".$git_log->{"commit"};
+$PIPELINE_NAME="SAMBA";
 
 use vbm_pipeline_workflow;
 
@@ -148,7 +151,7 @@ if ($reservation) {
     ### DO ALL WORK in pipe workflow
     vbm_pipeline_workflow();
 } #end main
-exit 0;
+exit $GOODEXIT;
 
 #
 # Subroutine definintions below.

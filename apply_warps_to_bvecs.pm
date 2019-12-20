@@ -363,7 +363,7 @@ sub apply_affine_rotation {
                 $exes_from_zeros=sprintf "X" x length($nstr);
                 #confess "test stop, check X are right len and xform type matches               $exes_from_zeros, $xform_type, ($xform_1)";
             } else {
-                confess ("Failed to find transforms with $xform_pat in $pristine_inputs_dir, Is this diffusion_calc data? That needs its data manually added to the inputs a great deal of the time.");
+                confess("Failed to find transforms with $xform_pat in $pristine_inputs_dir, Is this diffusion_calc data? That needs its data manually added to the inputs a great deal of the time.");
             }
 	} else {
 =item Verbose bleh	    
