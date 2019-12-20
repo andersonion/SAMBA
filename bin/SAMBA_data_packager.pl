@@ -49,6 +49,7 @@ use Headfile;
 # use lib dirname(__FILE__) . "MyModule";
 
 use lib dirname(abs_path($0));
+use lib File::Spec->catdir(dirname(abs_path($0)),'..');
 #use SAMBA_global_variables;
 use SAMBA_structure;
 
