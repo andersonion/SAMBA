@@ -128,7 +128,7 @@ sub vbm_pipeline_workflow {
 # Create a master list of all specimen that are to be pre-processed and rigid/affinely aligned
 
     # Override sigdie once we get started.
-    #$SIG{__DIE__} = \&vbm_signal_DIE;
+    $SIG{__DIE__} = \&vbm_signal_DIE;
     print "\n\nStart work\n\n";
     # the components could be made responsible for filling this in by passing the array reference to their init routines
     my @variables_to_headfile=qw(
@@ -901,13 +901,18 @@ sub find_group_in_tsv {
 #    vbm_signal_DIE(@_);
 #}
 
-#sub vbm_signal_DIE {
-sub END {
+sub vbm_signal_DIE {
+#sub END {
+#sub DESTROY {
     # END always runs as late as possible, a neat perl module thing.
     # Like BEGIN blocks which run as early as possible. 
     # The purpose of this end block is last chance notification of errors.
     # Challenging to get the error message specifically in here, so we'll stay
     # generic for now. 
+    # BLERGH END failed to get errors! But sig__DIE__ does bad stuff regarding eval, 
+    # WHICH IS USED IN carp/confess/croak/cluck!!!
+    # 
+    # Maybe DESTROY, but it seems to have the same behavior
     #
     # Considering most repairs require manual intervention, its not so bad that 
     # the user is forced into looking around.
@@ -918,9 +923,14 @@ sub END {
     #my($msg)="";
 
     #my($sgnl,$msg)=@_;
-    if(! $UNSUCCESSFUL_RUN) {
-	return;
-    }
+# GOOD explaination of how to die correctly
+#https://www.effectiveperlprogramming.com/2011/05/override-die-with-end-or-coreglobaldie/
+    #die @_ if $^S;
+    die @_ if( $^S or not defined $^S );
+
+    #if(! $UNSUCCESSFUL_RUN) {
+    #return;
+    #}
     my $msg;
     my $time = time;
     my $nice_timestamp = nice_timestamp($time);
