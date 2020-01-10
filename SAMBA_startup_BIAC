@@ -43,8 +43,8 @@ if [[ $sge_test == 1 ]]; then
     echo "#\$ -N ${name}" >> ${sbatch_file};
     echo "#\$ -M ${USER}@duke.edu" >> ${sbatch_file};
     echo "#\$ -m ea" >> ${sbatch_file}; 
-    echo "#\$ -o ${sbatch_folder}/slurm-$JOB_ID.out" >> ${sbatch_file};
-    echo "#\$ -e ${sbatch_folder}/slurm-$JOB_ID.out" >> ${sbatch_file};
+    echo "#\$ -o ${sb_dir}/slurm-"'$JOB_ID.out' >> ${sbatch_file};
+    echo "#\$ -e ${sb_dir}/slurm-"'$JOB_ID.out' >> ${sbatch_file};
 
     echo "${SPath}/vbm_pipeline_start.pl $@" >> ${sbatch_file};
     
@@ -67,7 +67,7 @@ echo " ";
    echo "qdel ${job_id}";
    sleep 3;
 
-   sb_file="${HOME}/SAMBA_sbatch/slurm-${job_id}.out"; # This the behavior that I really want, but currently not getting! 
+   sb_file="${sb_dir}/slurm-${job_id}.out"; # This is the behavior that I really want, but currently not getting! 
    #sb_file="${HOME}/${name}.bash.o${job_id}"; # UPDATE! 9 January 2020 (Thurs): removing '-b y' from qsub command fixes the issue with the line above.
 
    touch ${sb_file}; #Make sure it exists so we can immediately call the tail command without risk of erroring out.
