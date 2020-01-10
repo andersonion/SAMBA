@@ -6,4 +6,3 @@
 #SBATCH  -s 
 #SBATCH  --output=${HOME}/SAMBA_sbatch/slurm-%j.out 
 #$ -l h_vmem=8000M,vf=8000M
-
