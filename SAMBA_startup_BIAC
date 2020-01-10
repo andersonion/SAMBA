@@ -41,9 +41,17 @@ if [[ $sge_test == 1 ]]; then
     source_sbatch="${SPath}/SAMBA_SGE_job.bash";
     cp ${source_sbatch} ${sbatch_file};
     echo "#\$ -N ${name}" >> ${sbatch_file};
-    echo "#\$ -o ${HOME}/testes_are_ballses";
+    echo "#\$ -M ${USER}@duke.edu" >> ${sbatch_file};
+    echo "#\$ -m ea" >> ${sbatch_file}; 
+    echo "#\$ -o ${sbatch_folder}/slurm-$JOB_ID.out" >> ${sbatch_file};
+    echo "#\$ -e ${sbatch_folder}/slurm-$JOB_ID.out" >> ${sbatch_file};
+
     echo "${SPath}/vbm_pipeline_start.pl $@" >> ${sbatch_file};
-    cmd="qsub -terse  -b y -V ${sbatch_file}";
+    
+    #9 January 2020 (Thurs): '-b y' was not the right thing to do here, and is why $JOB_ID, etc no workey
+    #cmd="qsub -terse  -b y -V ${sbatch_file}"; 
+    cmd="qsub -terse -V ${sbatch_file}";
+
 #cmd="qsub -terse  -N SAMBA_pipeline -M ${USER}@duke.edu -m ea -o ${HOME}/SAMBA_sbatch/slurm-"'$JOB_ID'".out -e ${HOME}/SAMBA_sbatch/slurm-"'$JOB_ID'".out -b y -V ${SPath}/vbm_pipeline_start.pl $@";
 
 echo $cmd;
@@ -59,8 +67,8 @@ echo " ";
    echo "qdel ${job_id}";
    sleep 3;
 
-   #sb_file="${HOME}/SAMBA_sbatch/slurm-$job_id.out"; # This the behavior that I really want, but currently not getting!
-   sb_file="${HOME}/${name}.bash.o${job_id}";
+   sb_file="${HOME}/SAMBA_sbatch/slurm-${job_id}.out"; # This the behavior that I really want, but currently not getting! 
+   #sb_file="${HOME}/${name}.bash.o${job_id}"; # UPDATE! 9 January 2020 (Thurs): removing '-b y' from qsub command fixes the issue with the line above.
 
    touch ${sb_file}; #Make sure it exists so we can immediately call the tail command without risk of erroring out.
    tail -f "${sb_file}";
