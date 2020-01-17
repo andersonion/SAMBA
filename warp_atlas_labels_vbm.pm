@@ -837,7 +837,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
             } else {
                 my ($atlas_label_dir, $dummy_1, $dummy_2) = fileparts($label_input_file,2);
                 if ( -d "$atlas_label_dir" ) {
-                    my $pattern = "^.*lookup[.].*\$";
+                    my $pattern = "^.*lookup[.][^.]*\$";
                     my ($source_lookup) = find_file_by_pattern($atlas_label_dir,$pattern,1);
 
                     if ((defined $source_lookup) && ( -e $source_lookup)) {
