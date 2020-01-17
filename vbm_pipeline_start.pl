@@ -53,7 +53,7 @@ use SAMBA_structure;
 use vars qw($start_file);
 
 my $PM = 'vbm_pipeline_start.pl'; 
-my $git_log=git_log_last(dirname(__FILE__));
+my $git_log=git_log_last( abs_path(__FILE__));
 my $PIPELINE_VERSION = $git_log->{"date"}." ".$git_log->{"commit"};
 $PIPELINE_NAME="SAMBA";
 
