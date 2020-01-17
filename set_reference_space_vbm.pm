@@ -738,7 +738,7 @@ sub set_reference_space_vbm_Init_check {
                             $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
                         } else {
 			    # WARNING CODER, THERE IS A REPLICATE OF THIS WHOLE BAG OF STUFF IN MASK_IMAGES_VBM
-                            my $cp_cmd="cp ${original_rigid_atlas_path} ${preprocess_dir})";
+                            my $cp_cmd="cp ${original_rigid_atlas_path} ${preprocess_dir}";
                             if ($original_rigid_atlas_path !~ /\.gz$/) {
 				carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
 				$cp_cmd=$cp_cmd." && "."gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";
