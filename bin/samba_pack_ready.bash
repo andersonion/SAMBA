@@ -32,8 +32,8 @@ do
     # if we want to check for tmux'd samba
     #if [ $(tmux list-session|grep -c $vbmsuffix: ) -le 0 ];then echo samba not running for $vbmsufix;fi
     # This uses stat hf instead of results because results will take longer, and this step is quasi parallel.
-    PACK_CMD="SAMBA_data_packager --hf_path=$hf --output_base=$BIGGUS_DISKUS/${pc}_pak/${vbmsuffix} --mdtname=${vbmsuffix} --rsync_location=delos.dhe.duke.edu:/Volumes/delosspace/${pc}_pak";#--no-instant_feedback ;
-    if [ ! -z "$hf" -a -f "$hf" ];
+    PACK_CMD="SAMBA_data_packager --hf_path=$hf --output_base=$BIGGUS_DISKUS/${pc}_pak/${vbmsuffix} --mdtname=${vbmsuffix} --rsync_location=delos.dhe.duke.edu:/Volumes/delosspace/${pc}_pak --no-instant_feedback ";
+    if [ ! -z "$hf" -a -f "$hf" -a "$hf" -nt "$shf" ];
     then 
 	$PACK_CMD
     else echo -n ''; 
