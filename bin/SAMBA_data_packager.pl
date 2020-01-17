@@ -1269,7 +1269,12 @@ sub package_labels_SPEC {
     # We're going in sloppy for now just intentionally removing RAS using a hash filter of the discovered files. 
     # Filtering is tough becuase of full paths etc... so to heck with it.
     my $label_folder=File::Spec->catfile($ThisPackageOutLocation,"labels");
-    my $nick_folder=File::Spec->catfile($label_folder,"WHS");
+    # Accidentially had whs in here all the time WIll patch that up to the correctly bit here.
+    my $WHS_nick_folder=File::Spec->catfile($label_folder,"WHS");
+    my $nick_folder=File::Spec->catfile($label_folder,$LabelNick);
+    if ( -d $WHS_nick_folder && ! -e $nick_folder ) {
+	rename($WHS_nick_folder,$nick_folder);
+    }
     if ( ! -d $nick_folder ) {
         make_path($nick_folder);
     }
