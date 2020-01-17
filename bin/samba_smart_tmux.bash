@@ -30,18 +30,20 @@ do
     fi;
     # result pattern
     rp="$BIGGUS_DISKUS/VBM*$vbmsuffix-results/*headfile";
-    if [ $(tmux list-session|grep -c $vbmsuffix: ) -le 0 ];then
+    if [ $(tmux list-session 2> /dev/null |grep -c $vbmsuffix: 2>/dev/null) -le 0 ];then
 	# headfile path or empty when the file doesnt exist.
 	# Now that I look at things, might be able to do our ls check, 
 	# and capture status with $?, and test status
 	# (instead of running ls twice).
 	hfp=$(ls $rp 2> /dev/null);
 	#if [ ! -f "$hfp" ];then
-	if ! ls $rp >& /dev/null ; then
+	# If we didn't find a file using above ls command 
+	# OR, the one found is Older, launch.
+	if [ -z "$hfp" -o \( "$hfp" -ot $shf \) ]; then
 	    echo "Launching in 2 seconds ... ";
 	    echo tmux new-session -d -s $vbmsuffix -- "\" source ~/.bashrc && SAMBA_startup $PWD/$shf 2>&1 | tee -a samba_logs/$vbmsuffix.log\"";
-	    sleep 2;
-	    tmux new-session -d -s $vbmsuffix -- " source ~/.bashrc && SAMBA_startup $PWD/$shf 2>&1 | tee -a samba_logs/$vbmsuffix.log";
+	    sleep 2; tmux new-session -d -s $vbmsuffix -- " source ~/.bashrc && SAMBA_startup $PWD/$shf 2>&1 | tee -a samba_logs/$vbmsuffix.log";
+	    
 	else 
 	    echo "Dat:$vbmsuffix complete $hfp";
 	fi;
