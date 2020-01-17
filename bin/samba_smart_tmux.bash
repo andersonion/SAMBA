@@ -35,7 +35,7 @@ do
 	# Now that I look at things, might be able to do our ls check, 
 	# and capture status with $?, and test status
 	# (instead of running ls twice).
-	hfp=$(ls $rp 2> /dev/null);
+	hfp=$(ls -t $rp 2> /dev/null |head -n1);
 	#if [ ! -f "$hfp" ];then
 	# If we didn't find a file using above ls command 
 	# OR, the one found is Older, launch.
