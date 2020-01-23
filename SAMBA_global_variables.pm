@@ -17,7 +17,9 @@ BEGIN {
     # (requires too much brainpower for the time being to implement correctly).
 
 our @EXPORT = qw(
-$project_name 
+$project_name
+$optional_external_inputs_dir
+
 @control_group
 $control_comma_list
 @compare_group

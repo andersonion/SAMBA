@@ -126,7 +126,7 @@ sub vbm_pipeline_workflow {
 
 
 my @variables_to_headfile=qw(
-start_file project_id image_dimensions
+start_file project_id optional_external_inputs_dir image_dimensions
 control_comma_list compare_comma_list complete_comma_list channel_comma_list
 pristine_input_dir preprocess_dir inputs_dir dir_work results_dir timestamped_inputs_file
 flip_x flip_z original_study_orientation working_image_orientation
@@ -220,6 +220,7 @@ if (! defined $do_vba) {
 
 ## The following are mostly ready-to-go variables (i.e. non hard-coded)
 
+
 if ($optional_suffix ne '') {
     $optional_suffix = "_${optional_suffix}";
 }
@@ -235,6 +236,24 @@ $project_id = $main_folder_prefix.$project_id.'_'.$rigid_atlas_name.$optional_su
 
 ($pristine_input_dir,$dir_work,$results_dir,$result_headfile) = make_process_dirs($project_id); #new_get_engine_dependencies($project_id);
 
+
+## 23 January 2020 (Thursday), BJA: This code is expected to point the -inputs directory as an arbitrarily defined folder, via a symbolic link.
+# Good luck, Chuck.
+
+if ( defined $optional_external_inputs_dir) {
+    if ( -d $optional_external_inputs_dir){
+	my $contents=`ls -1 ${pristine_input_dir} | wc -l`;
+	if (( $contents == '0' ) || ($contents == 0) ) {
+	    # We don't want to accidentally destroy a linked inputs dir.
+	    if (-l ${pristine_inputs_dir}) {
+		`rm -f ${pristine_inputs_dir}`;
+	    } else {
+		`rm -fr ${pristine_inputs_dir}`;
+	    }
+	    `ln -s ${optional_external_inputs_dir} ${pristine_inputs_dir}`;
+	}
+	    
+}
 ## Backwards compatability for rerunning work initially ran on glusterspace
 
 # search start headfile for references to '/glusterspace/'
