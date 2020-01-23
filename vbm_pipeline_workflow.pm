@@ -245,12 +245,12 @@ if ( defined $optional_external_inputs_dir) {
 	my $contents=`ls -1 ${pristine_input_dir} | wc -l`;
 	if (( $contents == '0' ) || ($contents == 0) ) {
 	    # We don't want to accidentally destroy a linked inputs dir.
-	    if (-l ${pristine_inputs_dir}) {
-		`rm -f ${pristine_inputs_dir}`;
+	    if (-l ${pristine_input_dir}) {
+		`rm -f ${pristine_input_dir}`;
 	    } else {
-		`rm -fr ${pristine_inputs_dir}`;
+		`rm -fr ${pristine_input_dir}`;
 	    }
-	    `ln -s ${optional_external_inputs_dir} ${pristine_inputs_dir}`;
+	    `ln -s ${optional_external_inputs_dir} ${pristine_input_dir}`;
 	}
 	    
 }
