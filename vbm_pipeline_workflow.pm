@@ -251,8 +251,8 @@ if ( defined $optional_external_inputs_dir) {
 		`rm -fr ${pristine_input_dir}`;
 	    }
 	    `ln -s ${optional_external_inputs_dir} ${pristine_input_dir}`;
-	}
-	    
+	}	    
+    }
 }
 ## Backwards compatability for rerunning work initially ran on glusterspace
 
