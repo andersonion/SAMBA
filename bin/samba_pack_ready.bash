@@ -26,7 +26,7 @@ do
 	continue;
     fi;
     echo "pc is $pc";
-    hf=$(ls $BIGGUS_DISKUS/VBM*${vbmsuffix}-work/dwi/SyN*/*i6/vox*/pre*/stats*headfile 2> /dev/null)
+    hf=$(ls -t $BIGGUS_DISKUS/VBM*${vbmsuffix}-work/dwi/SyN*/*i6/vox*/pre*/stats*headfile 2> /dev/null|head -n1)
     #hf=$(ls /home/jjc29/TMP_BIGGUS/VBM_18gaj42_chass_symmetric3_RAS_${vbmsuffix}_hybrid-work/dwi/SyN*fa/fa*i6/median_images/faMDT_all_n*_temp.headfile 2> /dev/null)
     #MDT_images/.faMDT_all_n8_amw_temp.headfile;
     # if we want to check for tmux'd samba
