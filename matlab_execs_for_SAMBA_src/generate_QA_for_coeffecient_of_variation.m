@@ -172,11 +172,20 @@ for CC=1:numel(contrasts)
         fprintf('%s:%s - %s done\n',runno_or_id,field,out_pdf{CC});
         continue;
     end
+    clear CoV_array;
+    try
     [ CoV_array,stats ] = calculate_coeffecient_of_variation( stats,field,delta);
+    catch
+    end
     % due to the nature of this code its okay if we dont have some
-    if numel(CoV_array)==0
+    if ~exist('CoV_array','var') || numel(CoV_array)==0
         [~,fn]=fileparts(files{FF});
         warning('%s must be missing from file %s, no CoV returned',field,fn);
+        contrasts{CC}=[];
+        if cleanup
+            warning('Forcing cleanup off due to missing a requested contrast');
+            cleanup=0;
+        end
         continue;
     end
     CoV_T=table(CoV_array(1,:)',CoV_array(2,:)',CoV_array(3,:)','VariableNames',{'ROI' field_out_name field});
@@ -410,12 +419,18 @@ end
 if exist(report_file,'file')
     delete(report_file);
 end
-append_pdfs(report_file ,out_pdf{:});
+% trim missing contrasts
+generated_pdf_bool=~cellfun(@isempty,contrasts);
+append_pdfs(report_file ,out_pdf{generated_pdf_bool});
 % Selective save will be far better behavior.
-vars=strsplit('runno_or_id out_contrast_string master_CoV_T c_fig stat_files plot_option out_data out_file' );
+vars=strsplit('runno_or_id out_contrast_string master_CoV_T c_fig stat_files plot_option out_data report_file table_path' );
 writetable(master_CoV_T,table_path,'Delimiter','\t','WriteVariableNames',1);
 try
-save(out_data,vars{:} );
+    if ~exist(out_data,'file')
+        save(out_data,vars{:});
+    else
+        save(out_data,vars{:},'-append');
+    end
 catch merr
     warning(merr.message);
     warning('Couldn''t save figure source materials for update (see above)');
