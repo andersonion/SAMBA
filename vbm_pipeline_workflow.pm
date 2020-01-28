@@ -447,6 +447,10 @@ $timestamped_inputs_file =~ s/\.txt$/\.headfile/;
     my ($p,$n,$e)=fileparts($start_file,3);
     my $u_name=(getpwuid $>)[0];
     my $cached_path=File::Spec->catfile($WORKSTATION_DATA,'samba_startup_cache',$u_name.'_'.$n.$e);
+    
+    print "You may be surprised to learn that \$cached_path = ${cached_path}.\nIt is suspected that James J. Cook is responsible for this working (or NOT working).\nThe original input headfile is being copied to this location whether you like it or not. EOM.\n\n";
+    print "Also of relevance is that \$WORKSTATION_DATA is being defined as ${WORKSTATION_DATA}.\nIs this what you expected?\n\n";
+    
     `cp -p $start_file $cached_path`;
 }
 
