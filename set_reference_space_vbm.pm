@@ -958,6 +958,11 @@ sub set_reference_space_vbm_Runtime_check {
         if (data_double_check($inpath)) {
             $inpath="${inpath}.gz"; # We're assuming that it exists, but isn't found because it has been gzipped. 16 March 2017
         }
+	# 2020-01-29
+	# New fail condition spotted here where we trie to operate on a 'plain' named file, 
+	# but only a _masked named file is available.
+	# Suspicion is that we dont wait for code the way we might mean to, 
+	# and this code is prepared/scheduled to run while another is busy renaming things.
         if (data_double_check($outpath)) {
             my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
             my $nifti_args = "\'${inpath}\' , \'${outpath}\'";
