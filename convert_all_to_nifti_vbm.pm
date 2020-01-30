@@ -293,12 +293,12 @@ sub convert_all_to_nifti_vbm_Init_check {
     my $CCL = $Hf->get_value('channel_comma_list');
     my @channel_array=split(',',$CCL);
 
-    if (defined $skull_strip_contrast) { push(@channel_array,$skull_strip_contrast);}
+    if (( defined $do_mask ) && ( $do_mask == 1) && (defined $skull_strip_contrast)) { push(@channel_array,$skull_strip_contrast);}
     if (defined $rigid_contrast) { push(@channel_array,$rigid_contrast);}
     if (defined $affine_contrast) { push(@channel_array,$affine_contrast);}
     if (defined $mdt_contrast) { push(@channel_array,$mdt_contrast);}
     if (defined $compare_contrast) { push(@channel_array,$compare_contrast);} # I can imagine a situation where this might break (same for mdt_contrast) in which not all subjects are being used for all processes, and may only need mdt OR compare contrasts available, but not both. No time to program for this scenerio now, though...
-    if (defined $vba_contrast_comma_list) {
+    if ((defined $do_vba) && ($do_vba == 1) && (defined $vba_contrast_comma_list)) {
 	my $VCCL=$Hf->get_value('vba_contrast_comma_list');
 	my @V_channel_array=split(',',$VCCL);
 	@V_channel_array = grep(!/jac/, @V_channel_array);
