@@ -290,6 +290,27 @@ sub convert_all_to_nifti_vbm_Init_check {
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
 
+    my $CCL = $Hf->get_value('channel_comma_list');
+    my @channel_array=split(',',$CCL);
+
+    if (defined $skull_strip_contrast) { push(@channel_array,$skull_strip_contrast);}
+    if (defined $rigid_contrast) { push(@channel_array,$rigid_contrast);}
+    if (defined $affine_contrast) { push(@channel_array,$affine_contrast);}
+    if (defined $mdt_contrast) { push(@channel_array,$mdt_contrast);}
+    if (defined $compare_contrast) { push(@channel_array,$compare_contrast);} # I can imagine a situation where this might break (same for mdt_contrast) in which not all subjects are being used for all processes, and may only need mdt OR compare contrasts available, but not both. No time to program for this scenerio now, though...
+    if (defined $vba_contrast_comma_list) {
+	my $VCCL=$Hf->get_value('vba_contrast_comma_list');
+	my @V_channel_array=split(',',$VCCL);
+	@V_channel_array = grep(!/jac/, @V_channel_array);
+	push(@channel_array,@V_channel_array);
+    }
+
+    @channel_array=uniq(@channel_array);
+
+    $CCL=join(',',@channel_array);
+    $Hf->set_value('channel_comma_list',$CCL);
+
+
     my $optional_runno_string=''; 
     # TODO: BJ, finish this thought, whatever it was. It seems like I had planned on looping over the outlier runnos, if any. 
     # OR this was anticipating a pm to autodetect coarse orientation.
