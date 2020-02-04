@@ -29,9 +29,23 @@ my (%go_hash);
 my $go = 1;
 my $job;
 
-my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
-#my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
-my $img_transform_executable_path ="/cm/shared/workstation_code_dev/matlab_execs/img_transform_executable/20170403_1100/run_img_transform_exe.sh";
+
+# 4 February 2020, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
+
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+if (! defined($MATLAB_EXEC_PATH)) {
+   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+
+
+my $matlab_path = "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
+my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exe.sh";
+
+
 
 my $current_label_space;
 
