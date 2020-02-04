@@ -94,35 +94,63 @@ sub pull_multi {
             #if ($swap_order){
                 #($runno,$contrast)=($contrast,$runno);
             #}
-            for my $machine (@machines) {
-                my $archive_prefix='';
-                my $machine_suffix='';
-                my $multi='';
-                my $r_e_flags='-re';    
-                if ($machine =~ /dusom_civm/ ){
-                    $archive_prefix = "${project_code}/research/";
-                } else {
-                    $machine_suffix = "-DTI-results";
-                }
-                
-                if ($file_prefix eq 'xform_') { $multi= '-M'; ${r_e_flags}='';}
-                my $psfs = "${archive_prefix}tensor${runno}*${machine_suffix}${file_search_string}";
-                my $puller_simple_options=" -f file ${multi} -o ${r_e_flags} ${machine} ${psfs} ${target_dir}";
-                my $c_cmd = "puller_simple -D0 ${puller_simple_options}";
-                
-                push(@c_cmds,$c_cmd);
-            }
-            my $inputs_file = File::Spec->catfile(${inputs_dir},"${runno}_${contrast}");
-            # Warning!!! shell and perl variable mixing generates odd looking escapes here, 
-            # ext_and_gz is shell variable so is in_f.
-            my $l_cmd = "in_f=\$(ls ${target_dir}${file_search_string}); if [ ! -z \"\$in_f\" ];then ext_and_gz=\$(basename \$in_f |sed 's:^.*\\([.]nii.*\\)\$:\\1:'); if [ ! -z \"\$ext_and_gz\" ];then ln -sf \$in_f $inputs_file\$ext_and_gz;else echo error getting ext from \$in_f;fi;fi;";
 
-            if ($contrast =~ /(tensor|diffusion)\*headfile|m\*GenericAffine/ ){
-                $l_cmd="in_f=\$(ls ${target_dir}${file_search_string}); if [ ! -z \"\$in_f\" ];then ln -sf \$in_f $inputs_dir;fi;";
-            }
-            push(@master_cmd_list,' '.join(' || ',@c_cmds).' ; '.$l_cmd);
-            #push(@master_cmd_list,$l_cmd);
-        }
+	    # 4 February 2020 (Tues): BJA Adding hack to see if a nii4D_$runno.nii* is in the inputs folder already, and creating a symlink to $runno_nii4D.nii*
+	    my $search_machines=1;
+	    if ($contrast =~ /nii4D/ ){
+		my $local_nii4D=`ls -1 ${inputs_dir}/${file_search_string} 2>/dev/null | head`;
+		chomp($local_nii4D);
+		my $target_nii4D=`ls -1 ${inputs_dir}/${file_prefix}${runno}_${contrast}.nii* 2>/dev/null | head`;
+		chomp($target_nii4D);
+
+		if (${target_nii4D} eq '') { 
+		    if ( -e  $local_nii4D ) {
+			my $gz_test = `gzip -t ${local_nii4D} 2<&1 | wc -l`;
+			my $gz='.gz';
+			if ($gz_test > 0) {$gz='';}
+			$target_nii4D="${inputs_dir}/${file_prefix}${runno}_${contrast}.nii${gz}";
+			` ln -s ${local_nii4D} ${target_nii4D}`;
+			if ( -e $target_nii4D){
+			    $search_machines=0;
+			}
+
+		    }
+		}
+	    }  # End most of BJ's Hack
+
+
+	    if ($search_machines){ # BJ's Hack is turn off this block of code after properly linking nii4D inputs, which would otherwise always run by default.
+		for my $machine (@machines) {
+		    my $archive_prefix='';
+		    my $machine_suffix='';
+		    my $multi='';
+		    my $r_e_flags='-re';    
+		    if ($machine =~ /dusom_civm/ ){
+			$archive_prefix = "${project_code}/research/";
+		    } else {
+			$machine_suffix = "-DTI-results";
+		    }
+		    
+		    if ($file_prefix eq 'xform_') { $multi= '-M'; ${r_e_flags}='';}
+		    my $psfs = "${archive_prefix}tensor${runno}*${machine_suffix}${file_search_string}";
+		    my $puller_simple_options=" -f file ${multi} -o ${r_e_flags} ${machine} ${psfs} ${target_dir}";
+		    my $c_cmd = "puller_simple -D0 ${puller_simple_options}";
+		    
+		    push(@c_cmds,$c_cmd);
+		}
+		
+		my $inputs_file = File::Spec->catfile(${inputs_dir},"${runno}_${contrast}");
+		# Warning!!! shell and perl variable mixing generates odd looking escapes here, 
+		# ext_and_gz is shell variable so is in_f.
+		my $l_cmd = "in_f=\$(ls ${target_dir}${file_search_string}); if [ ! -z \"\$in_f\" ];then ext_and_gz=\$(basename \$in_f |sed 's:^.*\\([.]nii.*\\)\$:\\1:'); if [ ! -z \"\$ext_and_gz\" ];then ln -sf \$in_f $inputs_file\$ext_and_gz;else echo error getting ext from \$in_f;fi;fi;";
+
+		if ($contrast =~ /(tensor|diffusion)\*headfile|m\*GenericAffine/ ){
+		    $l_cmd="in_f=\$(ls ${target_dir}${file_search_string}); if [ ! -z \"\$in_f\" ];then ln -sf \$in_f $inputs_dir;fi;";
+		}
+		push(@master_cmd_list,' '.join(' || ',@c_cmds).' ; '.$l_cmd);
+		#push(@master_cmd_list,$l_cmd);
+	    }
+	}
     }
     #$debug_val=50;
     Data::Dump::dump(@master_cmd_list) if $debug_val > 35; 
