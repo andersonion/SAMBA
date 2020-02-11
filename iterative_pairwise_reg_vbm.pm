@@ -40,13 +40,13 @@ my($warp_suffix,$inverse_suffix,$affine_suffix);
 
 my $cheating = 0;
 if ($cheating) {
-$warp_suffix = "2Warp.nii.gz";
-$inverse_suffix = "2InverseWarp.nii.gz";
-$affine_suffix = "0GenericAffine.mat";
+    $warp_suffix = "2Warp.nii.gz";
+    $inverse_suffix = "2InverseWarp.nii.gz";
+    $affine_suffix = "0GenericAffine.mat";
 } else {
-$warp_suffix = "1Warp.nii.gz";
-$inverse_suffix = "1InverseWarp.nii.gz";
-$affine_suffix = "0GenericAffine.mat";
+    $warp_suffix = "1Warp.nii.gz";
+    $inverse_suffix = "1InverseWarp.nii.gz";
+    $affine_suffix = "0GenericAffine.mat";
 }
 
 my $affine = 0;
