@@ -238,6 +238,25 @@ sub calculate_label_statistics {
 	@test =(0,$reservation);
     }
     my $mem_request = '10000';
+
+    my ($exec_folder,$dummy_1,$dummy_2) = fileparts(${write_individual_stats_executable_path},2);
+    my $jo_test="${exec_folder}/java.opts";
+    #print "\n\nexecutable_path = ${executable_path}\n\n\n";
+    print "\n\njo_test = ${jo_test}\n\n\n";
+    my $jo_exists = `ls ${jo_test} 2> /dev/null | wc -l`;
+
+    if ( $jo_exists ) {
+	my $jo = `more $jo_test`;
+	print "\njo=$jo\n\n";
+	if ($jo =~ /-Xmx([0-9]*)([A-Za-z]?)/ ) {
+	    my $new_mem = 2 * $1; # Hope for the best here! # For label stat calc, it appears to be around 6GB over jo mem (6GB + 24 GB = 30 GB) before our test case succeeded.
+	    $mem_request="${new_mem}$2";
+	}
+
+    }
+    print "Mem_request = ${mem_request}\n\n\n\n";
+
+
     my $jid = 0;
     if (cluster_check) {
 	my $go =1;	    
