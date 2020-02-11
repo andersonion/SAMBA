@@ -761,63 +761,64 @@ sub pull_civm_tensor_data {
             my $orig_nii4D;
 
             if ($nii4D =~ /[\n]+/) {
-            $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
-            if ($orig_nii4D =~ /[\n]+/) {
-                my $pull_nii4D_cmd;#(see below) Removed * after .nii so we don't accidentally pull fiber tracking results.  Let's just hope what we want is uncompressed. 11 April 2017, BJA
-                if ($look_in_local_folder) {
-                my $test_file =  get_nii_from_inputs($local_folder,'nii4D',$runno);
-                if ($test_file =~ /[\n]+/) {
-                    my ($dummy_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) = query_data_home(\%where_to_find_tensor_data,$runno);
-                    $log_msg=$log_msg.$find_log_msg;
-                    $error_msg=$error_msg.$find_error_msg;
+		$orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
+		if ($orig_nii4D =~ /[\n]+/) {
+		    my $pull_nii4D_cmd;#(see below) Removed * after .nii so we don't accidentally pull fiber tracking results.  Let's just hope what we want is uncompressed. 11 April 2017, BJA
+		    if ($look_in_local_folder) {
+			my $test_file =  get_nii_from_inputs($local_folder,'nii4D',$runno);
+			if ($test_file =~ /[\n]+/) {
+			    my ($dummy_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) = query_data_home(\%where_to_find_tensor_data,$runno);
+			    $log_msg=$log_msg.$find_log_msg;
+			    $error_msg=$error_msg.$find_error_msg;
 
-                    if ($data_home eq 'gluster') {
-                    $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;                     
-                    } else {
-                    $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
-                    }
-                    `${pull_nii4D_cmd} 2>&1`;
-                } else {
-                    my $mv_cmd = "mv ${test_file} ${inputs_dir}";
-                    `${mv_cmd} 2>&1`;
-                }
-                } else {
-                my ($dummy_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) = query_data_home(\%where_to_find_tensor_data,$runno);
-                $log_msg=$log_msg.$find_log_msg;
-                $error_msg=$error_msg.$find_error_msg;
-                if ($data_home eq 'gluster') {
-                    $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;                     
-                } else {
-                    $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
-                }
-                `${pull_nii4D_cmd} 2>&1`;
-                # if ($data_home eq 'gluster') {
-                #     $tmp_log_msg = `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;
-                # } else {
-                #     $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
-                #     $tmp_log_msg = `${pull_nii4D_cmd}`;
-                # }
-                # $log_msg = $log_msg.$tmp_log_msg;
-                }
-            }
-            $orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
-            #print "third nii4D = ${orig_nii4D}\n\n";
-            if ($orig_nii4D !~ /[\n]+/) {
-                my $new_nii4D = "${inputs_dir}/${runno}_nii4D.nii";
-                if ($orig_nii4D =~ /'.gz'/) {
-                $new_nii4D = $new_nii4D.'.gz';
-                }
-                $tmp_log_msg = `mv ${orig_nii4D} ${new_nii4D}`;
-                $log_msg = $log_msg.$tmp_log_msg;
-            } else {
-                $error_msg = $error_msg."Despite best efforts, unable to produce a nii4D for runno \"${runno}\"\n";
-            }
+			    if ($data_home eq 'gluster') {
+				$pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;                     
+			    } else {
+				$pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
+			    }
+			    `${pull_nii4D_cmd} 2>&1`;
+			} else {
+			    my $mv_cmd = "mv ${test_file} ${inputs_dir}";
+			    `${mv_cmd} 2>&1`;
+			}
+		    } else {
+			my ($dummy_headfile,$data_home,$find_log_msg,$find_error_msg,$archive_prefix,$machine_suffix) = query_data_home(\%where_to_find_tensor_data,$runno);
+			$log_msg=$log_msg.$find_log_msg;
+			$error_msg=$error_msg.$find_error_msg;
+			if ($data_home eq 'gluster') {
+			    $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;                     
+			} else {
+			    $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
+			}
+			`${pull_nii4D_cmd} 2>&1`;
+			# if ($data_home eq 'gluster') {
+			#     $tmp_log_msg = `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;
+			# } else {
+			#     $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
+			#     $tmp_log_msg = `${pull_nii4D_cmd}`;
+			# }
+			# $log_msg = $log_msg.$tmp_log_msg;
+		    }
+		}
+		$orig_nii4D =  get_nii_from_inputs($inputs_dir,'nii4D',$runno); # tensor_create outputs nii4D_$runno.nii.gz
+		print "third nii4D = ${orig_nii4D}\n\n";
+		die;
+		if ($orig_nii4D !~ /[\n]+/) {
+		    my $new_nii4D = "${inputs_dir}/${runno}_nii4D.nii";
+		    if ($orig_nii4D =~ /'.gz'/) {
+			$new_nii4D = $new_nii4D.'.gz';
+		    }
+		    $tmp_log_msg = `mv ${orig_nii4D} ${new_nii4D}`;
+		    $log_msg = $log_msg.$tmp_log_msg;
+		} else {
+		    $error_msg = $error_msg."Despite best efforts, unable to produce a nii4D for runno \"${runno}\"\n";
+		}
             }
         }
         # Clean up temporary results folder
         if ($look_in_local_folder) {
             if ( -d $local_folder) {
-            `rm -r ${local_folder}`;
+		`rm -r ${local_folder}`;
             }
         }
 
