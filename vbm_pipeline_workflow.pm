@@ -241,7 +241,16 @@ $project_id = $main_folder_prefix.$project_id.'_'.$rigid_atlas_name.$optional_su
 # Good luck, Chuck.
 
 if ( defined $optional_external_inputs_dir) {
-    if ( -d $optional_external_inputs_dir){
+    print "Testing ${optional_external_inputs_dir}\n\n";
+    #`ls -artlh  ${optional_external_inputs_dir}`;
+    #print "dangling link at ${optional_external_inputs_dir}" if (lstat ${optional_external_inputs_dir});
+    #my $OEID =  ${optional_external_inputs_dir} =~ s/[\\]+//g;
+    #print "fuck this shit at ${optional_external_inputs_dir}" if (lstat ${optional_external_inputs_dir});
+    #die;
+    if (( -l ${optional_external_inputs_dir}) || ( -d ${optional_external_inputs_dir}) ){
+    #if ( -e "${optional_external_inputs_dir}") {
+    #print "OEID = ${optional_external_inputs_dir}\n\n\n";
+    #die;
 	my $contents=`ls -1 ${pristine_input_dir} | wc -l`;
 	if (( $contents == '0' ) || ($contents == 0) ) {
 	    # We don't want to accidentally destroy a linked inputs dir.
@@ -250,7 +259,8 @@ if ( defined $optional_external_inputs_dir) {
 	    } else {
 		`rm -fr ${pristine_input_dir}`;
 	    }
-	    `ln -s ${optional_external_inputs_dir} ${pristine_input_dir}`;
+	    symlink(${optional_external_inputs_dir}, ${pristine_input_dir});
+	   # `ln -s ${optional_external_inputs_dir} ${pristine_input_dir}`;
 	}	    
     }
 }

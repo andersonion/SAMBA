@@ -211,6 +211,8 @@ sub assign_parameters {
 
             if ($kevin_spacey =~ /$_/) {
                 if (defined $val) {
+		    $val =~ s/(?<!\\)([\s]+)//g; # 20 February 2020, BJA: First kill any unprotected spaces.
+		    $val =~ s/(\\([\s]){1})/$2/g; # 20 February 2020, BJA: Now make protected spaces literal and hope things don't blow up elsewhere.
                     eval("\$$_=\'$val\'");
                     print $_." = $val\n";
    
