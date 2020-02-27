@@ -63,7 +63,13 @@ echo " ";
 #qsub  ${SPath}/vbm_pipeline_start.pl $@;
    echo "JOB ID = ${job_id}";
    echo "";
-   echo "To stop this instance of SAMBA pipeline please use the following command:";
+   pb_test=$(which pbcopy 2>&1 | grep 'no pbcopy in' | wc -l);
+   if ( [[ "x${pb_test}x" == 'x0x' ]] );then
+	   echo "To stop this instance of SAMBA pipeline please use the following command, and will be automatically copied to your clipboard :";
+	   pbcopy < "qdel ${job_id}";
+       else 
+	   echo "To stop this instance of SAMBA pipeline please use the following command:";
+       fi
    echo "qdel ${job_id}";
    sleep 3;
 
