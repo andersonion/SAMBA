@@ -50,7 +50,8 @@ if [[ $sge_test == 1 ]]; then
     
     #9 January 2020 (Thurs): '-b y' was not the right thing to do here, and is why $JOB_ID, etc no workey
     #cmd="qsub -terse  -b y -V ${sbatch_file}"; 
-    cmd="qsub -terse -V ${sbatch_file}";
+    #cmd="qsub -terse -V ${sbatch_file}";
+    cmd="qsub -q long.q -terse -V ${sbatch_file}"; # 27 February 2020 BJA: For BIAC cluster, want to run on long queue to avoid premature job deletion.
 
 #cmd="qsub -terse  -N SAMBA_pipeline -M ${USER}@duke.edu -m ea -o ${HOME}/SAMBA_sbatch/slurm-"'$JOB_ID'".out -e ${HOME}/SAMBA_sbatch/slurm-"'$JOB_ID'".out -b y -V ${SPath}/vbm_pipeline_start.pl $@";
 
