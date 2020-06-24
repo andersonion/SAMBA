@@ -76,8 +76,12 @@ sub mask_images_vbm {
                 $mask_threshold=$default_mask_threshold;
             }
 
-            my $mask_path = get_nii_from_inputs($current_path,$runno,'mask');
+            my $mask_path =  "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
             if (data_double_check($mask_path,0))  {
+		$mask_path = get_nii_from_inputs($current_path,$runno,'mask');
+	    }
+
+	    if (data_double_check($mask_path,0))  {
                 $mask_path = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
             }
 
@@ -143,7 +147,9 @@ sub mask_images_vbm {
         foreach my $ch (@channel_array) {
             my $go = $go_hash{$runno}{$ch};
             if ($go) {
-                if ($do_mask) {
+		# 24 June 2020, BJA: Will not apply a mask to itself. It will still look silly: "mask_masked.nii.gz"...
+		# And I'm sure we'll find a way to break this soon enough.
+                if (($do_mask) && ( $ch ne 'mask' ) ) {
                     ($job) = mask_one_image($runno,$ch);
                 } else {
                     ($job) = rename_one_image($runno,$ch);
