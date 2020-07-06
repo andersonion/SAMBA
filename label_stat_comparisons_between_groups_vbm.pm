@@ -46,8 +46,12 @@ if (! defined($MATLAB_2015b_PATH)) {
 
 my $matlab_path = ${MATLAB_2015b_PATH};
 #my $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec_v2.sh"; # James renamed on 9 August 2019, removing '_v2'
-my $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec.sh"; 
+my $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec.sh";
 
+# However, the git version of matlab_executables are still compiled with _v2, so this safety check is included here: (6 July 2020, BJA)
+if ( ! -e $compare_group_stats_executable_path){
+    $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec_v2.sh";
+}
 
 #if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
