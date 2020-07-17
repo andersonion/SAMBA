@@ -120,9 +120,9 @@ sub label_stat_comparisons_between_groups_Output_check {
 
     
     if ($case == 1) {
-	$message_prefix = "  Study-wide label statistics have been found for the following contrasts and will not be re-tabulated:\n";
+	$message_prefix = "  Label statistical comparisons between groups have been found for the following contrasts and will not be re-tabulated:\n";
     } elsif ($case == 2) {
-	 $message_prefix = "  Unable to properly tabulate study-wide label statistics for the following contrasts:\n";
+	 $message_prefix = "  Unable to properly calculate label statistic comparisons between groups for the following contrasts:\n";
     }   # For Init_check, we could just add the appropriate cases.
 
     foreach my $contrast (@channel_array) {
