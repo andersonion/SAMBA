@@ -21,6 +21,8 @@ use File::Basename;
 use List::Util qw(min max reduce);
 use List::MoreUtils qw(uniq);
 
+use Env qw(HOSTNAME);
+
 use Env qw(RADISH_PERL_LIB);
 if (! defined($RADISH_PERL_LIB)) {
     print STDERR "Cannot find good perl directories, quitting\n";
