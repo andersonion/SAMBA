@@ -815,32 +815,35 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
 
     $Hf->write_headfile($result_headfile);
 
-    print "\n\nVBM Pipeline has completed successfully.  Great job, you.\n\n";
+    print "\n\nSAMBA Pipeline has completed successfully.  Great job, you.\n\n";
 
 
-    my $process = "vbm_pipeline";
+    my $process = "SAMBA_pipeline";
 
-    my $completion_message ="Congratulations, master scientist. Your VBM pipeline process has completed.  Hope you find something interesting.\n";
+    my $completion_message ="Congratulations, master scientist. Your SAMBA pipeline process has completed.  Hope you find something interesting.\n";
     my $results_message = "Results are available for your perusal in: ${results_dir}.\n";
     my $time = time;
-    my $email_folder = '/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/email/';			
-    my $email_file="${email_folder}/VBM_pipeline_completion_email_for_${time}.txt";
+    my $email_folder = '~/SAMBA_email/';
+    if ( ! -f $email_folder ) {
+	mkdir($email_folder,0777);
+    }
+    my $email_file="${email_folder}/SAMBA_completion_email_for_${time}.txt";
 
     my $local_time = localtime();
     my $local_time_stamp = "This file was generated on ${local_time}, local time.\n";
     my $time_stamp = "Completion time stamp = ${time} seconds since January 1, 1970 (or some equally asinine date).\n";
 
 
-    my $subject_line = "Subject: VBM Pipeline has finished!!!\n";
+    my $subject_line = "Subject: SAMBA Pipeline has finished!!!\n";
 
 
     my $email_content = $subject_line.$completion_message.$results_message.$local_time_stamp.$time_stamp;
     `echo "${email_content}" > ${email_file}`;
     my $pwuid = getpwuid( $< );
     my $pipe_adm="";
-    $pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
+    $pipe_adm=",rja20\@duke.edu";
     my $USER_LIST="$pwuid\@duke.edu$pipe_adm";
-    `sendmail -f $process.civmcluster1\@dhe.duke.edu $USER_LIST < ${email_file}`;
+    `sendmail -f $process.${HOSTNAME}\@dhe.duke.edu $USER_LIST < ${email_file}`;
 
 } #end main
 
