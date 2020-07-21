@@ -301,7 +301,12 @@ sub convert_all_to_nifti_vbm_Init_check {
     if ((defined $do_vba) && ($do_vba == 1) && (defined $vba_contrast_comma_list)) {
 	my $VCCL=$Hf->get_value('vba_contrast_comma_list');
 	my @V_channel_array=split(',',$VCCL);
-	@V_channel_array = grep(!/jac/, @V_channel_array);
+
+	# 21 July 2020, BJA: manual hack for longitudinal data to be integrated later...
+	# for now, need to ignore ${contrast}_delta "contrasts" in the master channel_array. 
+	# Adding '|delta' to regex to exclude these from the standard processing stream.
+	@V_channel_array = grep(!/jac|delta/, @V_channel_array);
+
 	push(@channel_array,@V_channel_array);
     }
 
