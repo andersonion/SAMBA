@@ -525,6 +525,7 @@ sub apply_mdt_warps_vbm_Init_check {
 
     my $init_error_msg='';
     my $message_prefix="$PM:\n";
+
     if ($init_error_msg ne '') {
 	$init_error_msg = $message_prefix.$init_error_msg;
     }
@@ -623,6 +624,7 @@ sub apply_mdt_warps_vbm_Runtime_check {
 	$results_dir = $Hf->get_value('results_dir');
 
 	$convert_images_to_RAS=$Hf->get_value('convert_labels_to_RAS');
+	if ( $convert_images_to_RAS eq 'NO_KEY') {$convert_images_to_RAS = 0;}
 
 	if (($convert_images_to_RAS ne 'NO_KEY') && ($convert_images_to_RAS == 1)) {
 
