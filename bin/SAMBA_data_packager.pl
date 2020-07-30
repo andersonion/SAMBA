@@ -607,7 +607,7 @@ sub main {
 	    if( scalar(@headfiles) != 1 ){ 
 		croak "Input Headfile lookup found # ".scalar(@headfiles)." headfiles, not sure how to proceed."
 		    ."\t Maybe archive share disconnected ? \n"
-		    ."\t  use  \"cifscreds add -u $USER -d dhe\" to connect \n"
+		    ."\t  use  \"cifscreds add -u $USER -d DHE\" to connect \n"
 		    ."\t (Searched $hf_dir for *$Specimen*.headfile)";
 	    } 
 	    my $hfname=basename($headfiles[0]);
