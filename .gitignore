@@ -1,2 +1,15 @@
 *#*#
 *~
+*.nii
+*.hdr
+*.img
+*.raw
+*.raw.gz
+*orig
+*original
+*bak
+*tmp
+*temp*
+*.obj
+*.o
+*.sphere
