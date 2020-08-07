@@ -90,7 +90,7 @@ sub convert_all_to_nifti_vbm {
 				carp("flip options are depricated and dangerous! ".
 				     "Please use \"original_study_orientation\", with \"original_orientation_RUNNO\"\n".
 				     "for non-matching data.\n");
-				sleep_with_countdown(3);
+				sleep_with_countdown(30);
                                 if (($flip_x) && ($flip_z)) {
                                     $current_orientation = 'PLI';
                                 } elsif ($flip_x) {
@@ -101,6 +101,11 @@ sub convert_all_to_nifti_vbm {
                                     $current_orientation = 'ALS';
                                 }
                             } else {
+				croak "ORIENTATION NOT SET IN startup headfile, ".
+				    "previously this was allowed, ".
+				    "THAT WASTES TOO MUCH TIME. ".
+				    "Figure out your original_study_orientation ".
+				    "and add it!";
                                 $current_orientation = 'ALS';
                             }
 			    $Hf->set_value($I_key,$current_orientation);
@@ -242,33 +247,25 @@ sub set_center_and_orientation_vbm {
     # Hope to have a function that easily and quickly diddles with the header to recenter it...may incorporate into matlab exec instead, though.
 #    } else {
     $matlab_exec_args="${input_file} ${current_orientation} ${desired_orientation} ${output_folder}";
-    # our matlab execs dont like symbolic links, so we try to resolve that here for this one. 
-    # May try to hunt down the matlab code which fails in the future.
-    # This portion of code has trouble with network shares which are not common to nodes.
-    if ( -l $input_file ) {
-#	carp("$input_file is a link, historically this was a problem for img_transform_exec, however it should be better now");
-=item  patched exec supersceeds this
-        my $true_file=readlink ${input_file};
-        die "Trouble resolving link with " if -l $true_file;
-        # there are a bunch of issues with renaming inputs here, so we resolve those 
-        # in line checking for the expected input and the expected output.
-        my ($ip,$in,$ie)=fileparts($input_file,2);
-        $in=$in."_${desired_orientation}".$ie;
-        my ($tp,$tn,$te)=fileparts($true_file,2);
-        $tn=$tn."_${desired_orientation}".$te;
-        my $correct_output="$output_folder/$in";
-        my $incorrect_output="$output_folder/$tn";
-        if ( -e $incorrect_output ) {
-            rename $incorrect_output, $correct_output;
-            $go=0;
-            log_info("moved $incorrect_output to $correct_output. Let the programmer know you saw this!");
-        }
-        $matlab_exec_args="$true_file ${current_orientation} ${desired_orientation} ${output_folder} && mv $incorrect_output $correct_output";
-=cut
-        
-    }
-    
     my $cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
+    #
+    # NEED TO GET SMARTER again, 
+    # If current_orientation == desired_orientation... 
+    # and nhdr ... 
+    # presume we have good center/and orientation.
+    # EX
+    my ($p,$n,$e)=fileparts($input_file,2);
+    
+    if($current_orientation eq $desired_orientation && $e eq '.nhdr') {
+	carp("experimental startup from nhdr engaged. INPUT HEADERS MUST BE CORRECT AND CENTERED.");
+	#sleep_with_countdown(3);
+	#WarpImageMultiTransform 3 N58204NLSAML_DH.nhdr N58204NLSAML_DH.nii --tightest-bounding-box --use-NN  /cm/shared/CIVMdata/identity_affine.mat
+	my ($v_ok,$affine_identity_matrix)=$Hf->get_value_check('affine_identity_matrix');
+	confess "ERROR getting ident matrix" if ! $v_ok;
+	$cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
+		    "--tightest-bounding-box --use-NN %s",
+		    $input_file, File::Spec->catfile($output_folder,$n.".nii"), $affine_identity_matrix);
+    }
 
     $go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;
     $stop_message = "$PM: Failed to properly reorientate to ${desired_orientation} and recenter file: ${input_file}\n" ;

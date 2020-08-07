@@ -482,7 +482,12 @@ sub mask_images_vbm_Init_check {
     my $message_prefix="$PM initialization check:\n";
     my $log_msg='';
 
-    $pre_masked = $Hf->get_value('pre_masked');
+    (my $v_ok,$pre_masked) = $Hf->get_value_check('pre_masked');
+    if(! $v_ok) {
+	carp("Pre-masked unspecified assuming mask required");
+	$pre_masked=0;
+	sleep_with_countdown(3);
+    }
     $do_mask = $Hf->get_value('do_mask');
 
     if ($do_mask !~ /^(1|0)$/) {
@@ -556,6 +561,7 @@ sub mask_images_vbm_Init_check {
         } else {
             my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
             if (! -d $rigid_atlas_dir) {
+		# CUSTOM KLUDGERY
                 if ($rigid_atlas_dir =~ s/\/data/\/CIVMdata/) {}
             }
             my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
@@ -584,7 +590,16 @@ sub mask_images_vbm_Init_check {
                             $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
                         } else {
                             my $cp_cmd="cp ${original_rigid_atlas_path} ${preprocess_dir}";
-                            if ($original_rigid_atlas_path !~ /\.gz$/) {
+			    my ($p,$n,$e)=fileparts($original_rigid_atlas_path,2);
+			    # THIS WHOLE CONSTRUCT IS BAD... GONNA MAKE IT WORSE BY ADDING nhdr support via WarpImageMultiTransform. 
+			    if( $e eq ".nhdr") {
+				my ($v_ok,$affine_identity_matrix)=$Hf->get_value_check('affine_identity_matrix');
+				confess "ERROR getting ident matrix" if ! $v_ok;
+				$cp_cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
+					       "--tightest-bounding-box --use-NN %s",
+					       $original_rigid_atlas_path, File::Spec->catfile($preprocess_dir,$n.".nii"), $affine_identity_matrix);
+			    } elsif ($original_rigid_atlas_path !~ /\.gz$/) {
+				# WHY DO WE WANT TO GZIP SO BADLY!
 				carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
 				$cp_cmd=$cp_cmd." && "."gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";
                             }
