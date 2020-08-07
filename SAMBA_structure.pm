@@ -29,8 +29,10 @@ main_dir
 
 sub main_dir {
     my ($project_name,$count,$rigid_target,$optional_suffix)=@_;
-    if ($optional_suffix ne '') {
+    if (defined $optional_suffix && $optional_suffix ne '') {
         $optional_suffix = "_${optional_suffix}";
+    } else {
+	$optional_suffix = "";
     }
     my $main_folder_prefix;
     if ($count==1) {
