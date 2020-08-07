@@ -593,11 +593,11 @@ sub mask_images_vbm_Init_check {
 			    my ($p,$n,$e)=fileparts($original_rigid_atlas_path,2);
 			    # THIS WHOLE CONSTRUCT IS BAD... GONNA MAKE IT WORSE BY ADDING nhdr support via WarpImageMultiTransform. 
 			    if( $e eq ".nhdr") {
-				my ($v_ok,$affine_identity_matrix)=$Hf->get_value_check('affine_identity_matrix');
-				confess "ERROR getting ident matrix" if ! $v_ok;
 				$cp_cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
-					       "--tightest-bounding-box --use-NN %s",
-					       $original_rigid_atlas_path, File::Spec->catfile($preprocess_dir,$n.".nii"), $affine_identity_matrix);
+						" --use-NN ".
+						" --reslice-by-header --tightest-bounding-box ".
+						"",
+						$original_rigid_atlas_path, File::Spec->catfile($preprocess_dir,$n.".nii"));
 			    } elsif ($original_rigid_atlas_path !~ /\.gz$/) {
 				# WHY DO WE WANT TO GZIP SO BADLY!
 				carp("WARNING: Input atlas not gzipped, We're going to gzip it!");

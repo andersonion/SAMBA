@@ -253,18 +253,15 @@ sub set_center_and_orientation_vbm {
     # If current_orientation == desired_orientation... 
     # and nhdr ... 
     # presume we have good center/and orientation.
-    # EX
     my ($p,$n,$e)=fileparts($input_file,2);
     
     if($current_orientation eq $desired_orientation && $e eq '.nhdr') {
 	carp("experimental startup from nhdr engaged. INPUT HEADERS MUST BE CORRECT AND CENTERED.");
-	#sleep_with_countdown(3);
-	#WarpImageMultiTransform 3 N58204NLSAML_DH.nhdr N58204NLSAML_DH.nii --tightest-bounding-box --use-NN  /cm/shared/CIVMdata/identity_affine.mat
-	my ($v_ok,$affine_identity_matrix)=$Hf->get_value_check('affine_identity_matrix');
-	confess "ERROR getting ident matrix" if ! $v_ok;
 	$cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
-		    "--tightest-bounding-box --use-NN %s",
-		    $input_file, File::Spec->catfile($output_folder,$n.".nii"), $affine_identity_matrix);
+		     " --use-NN ".
+		     " --reslice-by-header --tightest-bounding-box ".
+		     "",
+		     $input_file, File::Spec->catfile($output_folder,$n.".nii"));
     }
 
     $go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;
