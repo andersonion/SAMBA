@@ -589,6 +589,7 @@ sub mask_images_vbm_Init_check {
                         if (data_double_check($original_rigid_atlas_path))  { # Updated 1 September 2016
                             $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
                         } else {
+			    # WARNING CODER, THERE IS A REPLICATE OF THIS WHOLE BAG OF STUFF IN mask_images_vbm AND set_reference_space_vbm
                             my $cp_cmd="cp ${original_rigid_atlas_path} ${preprocess_dir}";
 			    my ($p,$n,$e)=fileparts($original_rigid_atlas_path,2);
 			    # THIS WHOLE CONSTRUCT IS BAD... GONNA MAKE IT WORSE BY ADDING nhdr support via WarpImageMultiTransform. 
