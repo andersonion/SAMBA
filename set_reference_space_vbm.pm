@@ -76,12 +76,15 @@ sub set_reference_space_vbm {  # Main code
 		    push(@jobs,$job); 
 		    $ref_dep='afterany:'.$job;
 		}
+		my ($dumdum,$in_name,$in_ext) = fileparts($in_file,2);
 		# second, schedule the apply dependent on transformy being done.
 		my @runno_files=grep /$runno/,@$array_ref;
 		for my $out_file (@runno_files) {
-		    my ($dumdum,$in_name,$in_ext) = fileparts($out_file,2);
-		    my $in_file = "${preprocess_dir}/${in_name}${in_ext}";
-		    ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file,$ref_dep);
+		    my ($dumdum,$out_name,$out_ext) = fileparts($out_file,2);
+		    my $ain_file = "${preprocess_dir}/${out_name}${out_ext}";
+		    $ain_file = "${preprocess_dir}/${out_name}${in_ext}" if ! -e $ain_file;
+		    confess "ERROR NO INPUT FILE $ain_file" if ! -e $ain_file;
+		    ($job) = apply_new_reference_space_vbm($ain_file,$ref_file,$out_file,$ref_dep);
 		    if ($job) {
 			push(@jobs_2,$job);
 			push(@jobs,$job);
@@ -318,7 +321,7 @@ sub get_translation_xform_to_ref_space_vbm {
 sub apply_new_reference_space_vbm {
 # ------------------
     my ($in_file,$ref_file,$out_file,$dependency)=@_;
-    
+
     # Do reg is off for any output nifti's (including gzipped ones)...
     my $do_registration = 1; 
     my $test_dim = 3;
@@ -346,7 +349,7 @@ sub apply_new_reference_space_vbm {
     if ($in_file =~ /(mask|Mask|MASK)\./) {
         $interp="NearestNeighbor";
     }
-    
+
     # CMD appears to be run when cluster
     # @cmds appears to be run when not cluster.
     my $cmd='';
@@ -359,6 +362,7 @@ sub apply_new_reference_space_vbm {
     #print "Test output = ".compare_two_reference_spaces($in_file,$ref_file)."\n\n\n";
     #print "Do registration? ${do_registration}\n\n\n";
     if ($do_registration) {
+	# in, ref, check out. out_file is a ants prefix
         $translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
         if ( ! compare_two_reference_spaces($in_file,$ref_file)) {         
             my ($out_path,$dummy_1,$dummy_2) = fileparts($out_file,2);
@@ -389,7 +393,7 @@ sub apply_new_reference_space_vbm {
 	    push(@cmds,$cmd);
         }
     } else {
-        if (compare_two_reference_spaces($in_file,$ref_file)) {
+	if (compare_two_reference_spaces($in_file,$ref_file)) {
 	    # same_refspace
             $cmd = "ln -s ${in_file} ${out_file}";
             print "Linking $in_file to $out_file\n\n";
