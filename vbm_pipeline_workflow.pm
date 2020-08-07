@@ -321,11 +321,9 @@ U_specid U_species_m00 U_code
         
         foreach my $c_runno (@all_runnos) {
             my $c_key = "original_orientation_${c_runno}";
-            my $temp_orientation = $tempHf->get_value($c_key);
-            if (($temp_orientation ne 'NO_KEY')  &&  ($temp_orientation ne 'UNDEFINED_VALUE')) {
-                $Hf->set_value($c_key,$temp_orientation);
-            } 
-        }
+            my ($v_ok,$temp_orientation) = $tempHf->get_value_check($c_key);
+	    $Hf->set_value($c_key,$temp_orientation) if $v_ok;
+	}
     }
 
     # Check for previous run (startup headfile in inputs?)
@@ -730,9 +728,9 @@ U_specid U_species_m00 U_code
 
 # Remerge before ending pipeline
     if ($create_labels || $register_MDT_to_atlas ) {
-        my $MDT_to_atlas_JobID = $Hf->get_value('MDT_to_atlas_JobID');
+        my ($v_ok,$MDT_to_atlas_JobID) = $Hf->get_value_check('MDT_to_atlas_JobID');
         my $real_time;
-        if (cluster_check() && ($MDT_to_atlas_JobID ne 'NO_KEY') && ($MDT_to_atlas_JobID ne 'UNDEFINED_VALUE' )) {
+        if (cluster_check() && $v_ok ) {
             my $interval = 15;
             my $verbose = 1;
             my $label_xform_dir=$Hf->get_value('label_transform_dir');
@@ -750,7 +748,7 @@ U_specid U_species_m00 U_code
                 error_out("${error_message}",0);
             }
         }
-        if (($MDT_to_atlas_JobID eq 'NO_KEY') || ($MDT_to_atlas_JobID eq 'UNDEFINED_VALUE')) {
+        if (! $v_ok ) {
             $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time);
         }
         print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
