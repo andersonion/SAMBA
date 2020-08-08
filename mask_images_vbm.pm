@@ -391,7 +391,7 @@ sub mask_one_image {
     }
    # my $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};\n";
     my $copy_hd_cmd = '';#"CopyImageHeaderInformation ${centered_path} ${out_path} ${out_path} 1 1 1 ${im_a_real_tensor};\n"; # 24 Feb 2018, disabling, function seems to be broken and wreaking havoc
-    my $remove_cmd = "if [[ -f ${out_path} ]];then\n rm ${centered_path};\nfi\n";
+    my $remove_cmd = "if [[ -f ${out_path} ]];then\n fn=\$(basename $centered_path); d=\$(dirname $centered_path); if [[ ! -d \$d/unmasked ]];then mkdir \$d/unmasked;fi; mv ${centered_path} \$d/unmasked/ && gzip \$d/unmasked/\$fn &\nfi\n";
 
     my $cmd = $apply_cmd.$copy_hd_cmd.$remove_cmd;
     my @cmds = ($apply_cmd,$remove_cmd);
