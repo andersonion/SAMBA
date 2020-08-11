@@ -81,6 +81,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                 #`cp ${affine_identity} ${runno_transform_clean}`;
 		run_and_watch("cp ${affine_identity} ${runno_transform_clean}");
             } else {
+		#if( ! -e $to_xform_path ) { die "Missing $to_xform_path"; }
                 ($xform_path,$job) = create_affine_transform_vbm($to_xform_path,  $alt_result_path_base, $runno);
 
                 # We are setting atlas as fixed and current runno as moving...this is opposite of what happens in seg_pipe_mc, 
@@ -330,7 +331,9 @@ sub create_affine_transform_vbm {
         $fixed = $atlas_path;
         $moving = $B_path;
     }
-
+    confess "Err missing m:$moving" if ! -e $moving;
+    confess "Err missing f:$fixed" if ! -e $fixed;
+    
     my ($metric_1,$metric_2);
     $metric_1 = " -m ${affine_metric}[${fixed},${moving},1,${affine_radius},${affine_sampling_options}]";
     $metric_2 = '';
@@ -935,22 +938,28 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
         $current_path = $Hf->get_value('rigid_work_dir');
         if ($do_rigid) {
             my $rigid_target=$Hf->get_value('rigid_target');
-            $contrast = $Hf->get_value('rigid_contrast');
-            my $updated_rigid_target;
+	    $contrast = $Hf->get_value('rigid_contrast');
+	    my $updated_rigid_target;
             if ($rigid_target ne 'NO_KEY') {
+		# wtf... we update it if it's set? ... 
                 $updated_rigid_target=get_nii_from_inputs($inputs_dir,$rigid_target,$contrast);
                 if ($updated_rigid_target =~ /[\n]+/) {
+		    # get_nii_from_inputs was unsuccessful in finding a file.
                     log_info("$PM: Rigid target was specified but did not conform to runno format; assuming it is an arbitrary image specified by the user.");
                 } else {
                     $Hf->set_value('rigid_atlas_path',$updated_rigid_target);
                     print "Rigid atlas path = ${updated_rigid_target}\n";
                 }
             }
-
+	    # Extra debugging in status... 
+	    my @status=();
+	    #push(@status,"missing updated $updated_rigid_target") if ! -e $updated_rigid_target;
+	    #push(@status,"missing rigid_target $rigid_target") if ! -e $rigid_target;
             if ($current_path eq 'NO_KEY') {
                 $current_path = "${work_path}/${contrast}";
                 $Hf->set_value('rigid_work_dir',$current_path);
             }
+	    push(@status,"missing rigid_work_dir $current_path") if ! -e $current_path;
             if (! -e $current_path) {
                 mkdir ($current_path,$permissions);
             }
@@ -960,6 +969,8 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
             $xform_suffix = $Hf->get_value('rigid_transform_suffix');
             $q_string = '';
             $r_string = '';
+	    push(@status,"missing rigid_atlas_path $atlas_path") if ! -e $atlas_path;
+	    die join("\n",@status) if scalar(@status)
         } else {
             #  25 January 2019: Default behavior is changing in a data-dependent way:
             #  If we change the control group (mdt group) population, then a different affine target might be selected.
@@ -987,7 +998,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                     # this regex is (runnoA|runnoB).*$contrast.*[.]n.*
                     # note this finds any .n* images
                     # could/should set the "acceptable" images someplace and use that as part of the regex
-                    # some annoying conrtasts may collide... like fa./fa_color.... 
+                    # some annoying contrasts may collide... like fa./fa_color.... 
                     # BJ says: this makes it harder to control when all we want to return is runno to use, not the whole file name
                     #my @control_images=civm_simple_util::find_file_by_pattern($inputs_dir, '('.join("|",@controls).').*_'.$contrast.'_masked[.]n.{2,5}$');
                     

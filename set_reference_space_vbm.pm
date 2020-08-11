@@ -46,6 +46,7 @@ sub set_reference_space_vbm {  # Main code
 # ------------------
     my $start_time = time;
     set_reference_space_vbm_Runtime_check();
+    
     my $ref_file;
     my $job;
     my @jobs;
@@ -60,7 +61,7 @@ sub set_reference_space_vbm {  # Main code
             mkdir ($translation_dir,$permissions);
         }
         $ref_file = $reference_path_hash{$V_or_L};
-        my %runno_hash;
+	my %runno_hash;
 	%runno_hash=%{$ref_runno_hash{$V_or_L}};
 	if ( ! $lock_step ) {
 	    my $array_ref = $work_to_do_HoA->{$V_or_L};
@@ -197,9 +198,12 @@ sub set_reference_space_Output_check {
         }
 
         if ($case == 1) {
-            $message_prefix = "  The following images for ${space_string} analysis in folder ${work_folder} have already been properly referenced\n and will not be reprocessed :\n";
+            $message_prefix = "  The following images for ${space_string} analysis in folder ${work_folder} have already been properly referenced\n".
+		"and will not be reprocessed :\n";
         } elsif ($case == 2) {
-            $message_prefix = "  Unable to properly set the ${space_string} reference for the following images in folder ${work_folder}:\n";
+            $message_prefix = "  Unable to properly set the ${space_string} reference \n".
+		"\t($refspace)\n".
+		"\tfor images in folder ${work_folder}:\n";
         }   # For Init_check, we could just add the appropriate cases.
 
         my $existing_files_message = '';
@@ -260,14 +264,16 @@ sub set_reference_space_Output_check {
                         }
                     }
                 }
-                push(@file_array,$out_file);         
-                $missing_files_message = $missing_files_message."   $file \n";
+                push(@file_array,$out_file);
+		my ($tp,$tn,$te)=fileparts($file,2);
+                $missing_files_message = $missing_files_message."   Missing: $tn$te\n";
             } elsif (! compare_two_reference_spaces($out_file,$refspace)) {
                 print "\n${out_file} added to list of files to be re-referenced.\n";
-                push(@file_array,$out_file);         
-                $missing_files_message = $missing_files_message."   $file \n";
+                push(@file_array,$out_file);
+		my ($tp,$tn,$te)=fileparts($file,2);
+		$missing_files_message = $missing_files_message."   Inconsistent ref: $tn$te\n";
             } else {
-                $existing_files_message = $existing_files_message."   $file \n";
+                $existing_files_message = $existing_files_message."   $file\n";
             }
         }
 	print("\n");
@@ -557,10 +563,10 @@ sub set_reference_space_vbm_Init_check {
         if ($V_or_L eq "label") {
             $for_labels = 1;
         }
-
-        ($input_reference_path_hash{$V_or_L},$reference_path_hash{$V_or_L},$refname_hash{$V_or_L},$ref_error) = set_reference_path_vbm($reference_space_hash{$V_or_L},$for_labels);
-
-
+	
+	($input_reference_path_hash{$V_or_L},$reference_path_hash{$V_or_L},$refname_hash{$V_or_L},$ref_error) = set_reference_path_vbm($reference_space_hash{$V_or_L},$for_labels);
+        #Data::Dump::dump($input_reference_path_hash{$V_or_L},$reference_path_hash{$V_or_L},$refname_hash{$V_or_L},$ref_error);
+	#print "REF TESTING "; exit 1; 
 
         if ($input_reference_path_hash{$V_or_L} eq 'rerun_init_check_later') {
             my $log_msg = "Reference spaces not set yet. Will rerun upon start of set_reference_space module.";
@@ -636,14 +642,10 @@ sub set_reference_space_vbm_Init_check {
                 $refspace_folder_hash{'label'} = $current_folder;
                 $log_msg=$log_msg."\tCreating new base images folder for label space \"ref_$i\": ${refspace_folder_hash{'label'}}\n";
             } else {
-
                 ($refspace_hash{'existing_label'},$refname_hash{'existing_label'}) = read_refspace_txt($current_folder,$split_string);
-
                 if ($refspace_hash{'label'} eq $refspace_hash{'existing_label'}) {
-
                     $existence = 0;
                     $refspace_folder_hash{'label'} = $current_folder;
-
                     if ($refname_hash{'label'} ne $refname_hash{'existing_label'}) {
                         $log_msg=$log_msg."\tThe specified label reference space is identical to the existing label reference space.".
                             " Existing label reference string will be used.\n".
@@ -654,7 +656,6 @@ sub set_reference_space_vbm_Init_check {
                 } 
             }    
         }
-        
     }
 
     # Changed 1 September 2016: Implemented uniform processing for reference files. Feed source directly into function
@@ -691,6 +692,7 @@ sub set_reference_space_vbm_Init_check {
                 if ($this_path !~ /[\n]+/) {
                     my ($dumdum,$this_name,$this_ext)= fileparts($this_path,2);
                     my $that_path = "${inputs_dir}/${this_name}${this_ext}";
+		    die if ! -e $that_path;		            
                     #$Hf->set_value('rigid_atlas_path',$that_path);
                     $Hf->set_value('original_rigid_atlas_path',$that_path); #Updated 1 September 2016
                     $log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${that_path} as the expected rigid atlas path.\n";
@@ -702,6 +704,7 @@ sub set_reference_space_vbm_Init_check {
                 if (data_double_check($rigid_target)) {
                     $log_msg=$log_msg."\tNo valid rigid targets have been implied or specified (${rigid_target} could not be validated). Rigid registration will be skipped.\n";
                     $Hf->set_value('rigid_atlas_path','');
+		    die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
                     $Hf->set_value('original_rigid_atlas_path',''); # Added 1 September 2016
                 } else {
                     $log_msg=$log_msg."\tThe specified file to be used as the original rigid target exists: ${rigid_target}. (Note: it has not been verified to be a valid image.)\n";
@@ -716,17 +719,23 @@ sub set_reference_space_vbm_Init_check {
         } else {
             my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
             if (! -d $rigid_atlas_dir) {
-                if ($rigid_atlas_dir =~ s/\/data/\/CIVMdata/) {}
+		# BROKEN SETUP HACK!
+		$rigid_atlas_dir =~ s/\/data/\/CIVMdata/;
             }
+	    # Expected as in typical for previous curated data... 
+	    # Blergh, such pain in this.
             my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
-            #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
 	    ### try to deal with upper vs lower case abbreviations.
 	    #
-	    # That should not longer be necesary
-            my $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast); #Added 14 March 2017
-            if ($test_path =~ s/\.gz//) {} # Strip '.gz', 15 March 2017
+	    # That should not longer be necesary.
+            # In much of our effort we swippity swap extnsions, at least until I can clear that out, 
+	    # so, we'll do our initial search in our "output" location.
+	    my $test_path = get_nii_from_inputs($inputs_dir,$rigid_atlas_name,$rigid_contrast);
+	    # Formerly this was first, now it only happens if we havnt stuffed our rigid file into its diddle'd location.
+	    $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast) if !-e $test_path;
+	    $test_path =~ s/\.gz//; # Strip '.gz', 15 March 2017
             my ($dumdum,$rigid_atlas_filename,$rigid_atlas_ext)= fileparts($test_path,2);
-            #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
+	    #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
             $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_filename}${rigid_atlas_ext}"; #Updated 14 March 2017
 	    #
 	    ###
@@ -774,6 +783,7 @@ sub set_reference_space_vbm_Init_check {
             }
             
             $Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
+	    die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
             $Hf->set_value('original_rigid_atlas_path',$original_rigid_atlas_path); # Updated 1 September 2016
         }
     }
@@ -972,14 +982,21 @@ sub set_reference_space_vbm_Runtime_check {
             $inpath="${inpath}.gz"; # We're assuming that it exists, but isn't found because it has been gzipped. 16 March 2017
         }
 	# 2020-01-29
-	# New fail condition spotted here where we trie to operate on a 'plain' named file, 
+	# New fail condition spotted here where we try to operate on a 'plain' named file, 
 	# but only a _masked named file is available.
 	# Suspicion is that we dont wait for code the way we might mean to, 
 	# and this code is prepared/scheduled to run while another is busy renaming things.
+	# 2020-08-07 these failures are(seem) more repeatable with larger data
         if (data_double_check($outpath)) {
-            my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
+	    #centered_mass_for
+            my $name = "REF_${refname_hash{$V_or_L}}";
             my $nifti_args = "\'${inpath}\' , \'${outpath}\'";
             my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
+	    #print ($name."_create_centered_mass_from_image_array"."\n");exit 0 ;
+	    #make_matlab_command($function_m_name, $args, $short_unique_purpose, $Hf,$verbose);
+	    #my $cmd_to_execute = make_matlab_command_nohf($function_m_name,$args,$short_unique_purpose,
+	    #my $mfile_stub = "$work_dir/${short_unique_purpose}${function_m_name}".".m";
+            #                                    $work_dir,$matlab_app,$logpath,$matlab_opts);
             execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
         }
         

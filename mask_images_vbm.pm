@@ -391,7 +391,7 @@ sub mask_one_image {
     }
    # my $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};\n";
     my $copy_hd_cmd = '';#"CopyImageHeaderInformation ${centered_path} ${out_path} ${out_path} 1 1 1 ${im_a_real_tensor};\n"; # 24 Feb 2018, disabling, function seems to be broken and wreaking havoc
-    my $remove_cmd = "if [[ -f ${out_path} ]];then\n fn=\$(basename $centered_path); d=\$(dirname $centered_path); if [[ ! -d \$d/unmasked ]];then mkdir \$d/unmasked;fi; mv ${centered_path} \$d/unmasked/ && gzip \$d/unmasked/\$fn &\nfi\n";
+    my $remove_cmd = "\nif [[ -f ${out_path} ]];then\n fn=\$(basename $centered_path); d=\$(dirname $centered_path); if [[ ! -d \$d/unmasked ]];then mkdir \$d/unmasked;fi; mv ${centered_path} \$d/unmasked/\$fn && gzip \$d/unmasked/\$fn &\nfi\n";
 
     my $cmd = $apply_cmd.$copy_hd_cmd.$remove_cmd;
     my @cmds = ($apply_cmd,$remove_cmd);
@@ -488,25 +488,27 @@ sub mask_images_vbm_Init_check {
 	$pre_masked=0;
 	sleep_with_countdown(3);
     }
-    $do_mask = $Hf->get_value('do_mask');
+    
+    
+    ($v_ok,$do_mask) = $Hf->get_value_check('do_mask');
 
-    if ($do_mask !~ /^(1|0)$/) {
+    if ($do_mask !~ /^(1|0)$/ || ! $v_ok) {
         $init_error_msg=$init_error_msg."Variable 'do_mask' (${do_mask}) is not valid; please change to 1 or 0.";
     }
 
     $port_atlas_mask = $Hf->get_value('port_atlas_mask');
-
     if ($pre_masked  == 1) {
         $do_mask = 0;
         $Hf->set_value('do_mask',$do_mask);
         $port_atlas_mask = 0;
         $Hf->set_value('port_atlas_mask',$port_atlas_mask);
-        $log_msg=$log_msg."\tImages have been pre-masked. No skulls will be stripped today.\n";
+        $log_msg=$log_msg."\tImages have been pre-masked. No skull cracking today :(\n";
     }
     my $rigid_atlas_name = $Hf->get_value('rigid_atlas_name');
     $port_atlas_mask_path = $Hf->get_value('port_atlas_mask_path');
     $rigid_contrast = $Hf->get_value('rigid_contrast');
     my $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
+    die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
     my $original_rigid_atlas_path=$Hf->get_value('original_rigid_atlas_path'); # Added 1 September 2016
     my $rigid_atlas=$Hf->get_value('rigid_atlas_name');
 
@@ -520,6 +522,7 @@ sub mask_images_vbm_Init_check {
 #    $rigid_contrast = $Hf->get_value('rigid_contrast');
     my $rigid_target = $Hf->get_value('rigid_target');
     
+    if ( 0 ) {  # bork our rigid atlas settings, disabler. 
     my $this_path;
     if ($rigid_atlas_name eq 'NO_KEY') {
         if ($rigid_target eq 'NO_KEY') {
@@ -532,6 +535,7 @@ sub mask_images_vbm_Init_check {
                 if ($this_path !~ /[\n]+/) {
                    my ($dumdum,$this_name,$this_ext)= fileparts($this_path,2);
                    my $that_path = "${inputs_dir}/${this_name}${this_ext}";
+		   die if ! -e $that_path;
                    #$Hf->set_value('rigid_atlas_path',$that_path);
                    $Hf->set_value('original_rigid_atlas_path',$that_path); #Updated 1 September 2016
                    $log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${that_path} as the expected rigid atlas path.\n";
@@ -552,6 +556,8 @@ sub mask_images_vbm_Init_check {
             }
         }
     } else {
+	carp('EXCESSIVE OVER SETTING rigid atlas valuse IN COPIED CODE!');
+	sleep_with_countdown(5);
         if (($rigid_contrast eq 'NO_KEY') || ($rigid_contrast eq 'UNDEFINED_VALUE')){
             create_affine_reg_to_atlas_vbm::create_affine_reg_to_atlas_vbm_Init_check();
         }
@@ -559,10 +565,11 @@ sub mask_images_vbm_Init_check {
         if (($rigid_contrast eq 'NO_KEY') || ($rigid_contrast eq 'UNDEFINED_VALUE')){
             $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.\n";
         } else {
+	    die"RESTTTING VAR MADNESS";
             my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
             if (! -d $rigid_atlas_dir) {
-		# CUSTOM KLUDGERY
-                if ($rigid_atlas_dir =~ s/\/data/\/CIVMdata/) {}
+		# BROKEN SETUP HACK!
+                $rigid_atlas_dir =~ s/\/data/\/CIVMdata/;
             }
             my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
             #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
@@ -622,25 +629,35 @@ sub mask_images_vbm_Init_check {
             }
 
             $Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
+	    die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
             $Hf->set_value('original_rigid_atlas_path',$original_rigid_atlas_path); # Updated 1 September 2016
         }
     }
-
+    } # if ( 0 ) bork our rigid atlas settings.
+    # Validate the vars are set or die, these vars should be handled by set_reference_space
+    my @rigid_vars=qw(rigid_atlas_name rigid_contrast rigid_atlas_path original_rigid_atlas_path);
+    my @errors;
+    foreach (@rigid_vars) {
+	my($v_ok,$v)=$Hf->get_value_check($_);
+	push(@errors,"$_") if !$v_ok;
+    }
+    confess("Error with hf keys for rigid\n\t".join("\n\t",@errors)) if scalar(@errors);
 ########
 
     if ($do_mask eq 'NO_KEY') { $do_mask=0;}
-        if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
-        my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii.gz"; ## Set default mask for porting here!
-        if (! -e $default_mask) {
-            if ($default_mask =~ s/\/data/\/CIVMdata/) {
-                if (! -e $default_mask) {
-                    $default_mask = "${default_mask}.gz";
-                if (! -e $default_mask) {
-                    if ($default_mask =~ s/\/CIVMdata/\/data/) {}
-                }
-            }
-        }
-    }
+    if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
+    my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii.gz"; ## Set default mask for porting here!
+    
+    #if (! -e $default_mask) {
+    #if ($default_mask =~ s/\/data/\/CIVMdata/) {
+    #if (! -e $default_mask) {
+    #$default_mask = "${default_mask}.gz";
+    #if (! -e $default_mask) {
+    #if ($default_mask =~ s/\/CIVMdata/\/data/) {}
+    #}
+    #}
+    #}
+    #}
 
 
     if (($do_mask == 1) && ($port_atlas_mask == 1)) {
@@ -649,32 +666,34 @@ sub mask_images_vbm_Init_check {
             #print "source_rigid_atlas_path = ${source_rigid_atlas_path}\n\n\n\n";
             my ($dummy1,$rigid_dir,$dummy2);
             if (! data_double_check($source_rigid_atlas_path)){
-            ($rigid_dir,$dummy1,$dummy2) = fileparts($source_rigid_atlas_path,2);
-            $port_atlas_mask_path = get_nii_from_inputs($rigid_dir,$rigid_atlas_name,'mask');
-            #print "Port atlas mask path = ${port_atlas_mask_path}\n\n"; #####
-            #pause(15);
-            if ($port_atlas_mask_path =~ /[\n]+/) {
-                my ($dummy1,$original_rigid_dir,$dummy2);
-                ($original_rigid_dir,$dummy1,$dummy2) = fileparts($source_rigid_atlas_path,2);
-                $port_atlas_mask_path = get_nii_from_inputs($original_rigid_dir,$rigid_atlas_name,'mask');      
-                if ($port_atlas_mask_path =~ /[\n]+/) {
-                    $port_atlas_mask_path=$default_mask;  # Use default mask
-                    $log_msg=$log_msg."\tNo atlas mask specified; porting default atlas mask: ${port_atlas_mask_path}\n";
-                } else {
-		    run_and_watch("cp ${port_atlas_mask} ${rigid_dir}");
-                }
-            } else {
-                $log_msg=$log_msg."\tNo atlas mask specified; porting rigid ${rigid_atlas} atlas mask: ${port_atlas_mask_path}\n";
-            }
+		($rigid_dir,$dummy1,$dummy2) = fileparts($source_rigid_atlas_path,2);
+		$port_atlas_mask_path = get_nii_from_inputs($rigid_dir,$rigid_atlas_name,'mask');
+		#print "Port atlas mask path = ${port_atlas_mask_path}\n\n"; #####
+		#pause(15);
+		if ($port_atlas_mask_path =~ /[\n]+/) {
+		    my ($dummy1,$original_rigid_dir,$dummy2);
+		    ($original_rigid_dir,$dummy1,$dummy2) = fileparts($source_rigid_atlas_path,2);
+		    $port_atlas_mask_path = get_nii_from_inputs($original_rigid_dir,$rigid_atlas_name,'mask');      
+		    if ($port_atlas_mask_path =~ /[\n]+/) {
+			$port_atlas_mask_path=$default_mask;  # Use default mask
+			die "default_mask $default_mask not found " if ! -e $default_mask;
+			$log_msg=$log_msg."\tNo atlas mask specified; porting default atlas mask: ${port_atlas_mask_path}\n";
+		    } else {
+			run_and_watch("cp ${port_atlas_mask} ${rigid_dir}");
+		    }
+		} else {
+		    $log_msg=$log_msg."\tNo atlas mask specified; porting rigid ${rigid_atlas} atlas mask: ${port_atlas_mask_path}\n";
+		}
 	    } else {
-            $port_atlas_mask_path=$default_mask;  # Use default mask
-            $log_msg=$log_msg."\nNo atlas mask specified and rigid atlas being used; porting default atlas mask: ${port_atlas_mask_path}\n";
+		$port_atlas_mask_path=$default_mask;  # Use default mask
+		die "default_mask $default_mask not found " if ! -e $default_mask;
+		$log_msg=$log_msg."\nNo atlas mask specified and rigid atlas being used; porting default atlas mask: ${port_atlas_mask_path}\n";
 	    }
 	}  
 	
 	if (data_double_check($port_atlas_mask_path)) {
 	    $init_error_msg=$init_error_msg."Unable to port atlas mask (i.e. file does not exist): ${port_atlas_mask_path}\n";
-	} else {	    
+	} else {
 	    $Hf->set_value('port_atlas_mask_path',$port_atlas_mask_path);
 	}
     }
