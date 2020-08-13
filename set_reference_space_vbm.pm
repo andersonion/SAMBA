@@ -5,7 +5,7 @@
 #  2015/03/04  BJ Anderson, CIVM
 
 my $PM = "set_reference_space_vbm.pm";
-my $VERSION = "2015/03/04";
+my $VERSION = "2020/08/12";
 my $NAME = "Set the reference spaces to be used for VBM and label analysis.";
 my $DESC = "ants";
 
@@ -20,10 +20,10 @@ use convert_all_to_nifti_vbm;
 my ($inputs_dir,$pristine_in_folder,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$original_rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
 my (%reference_space_hash,%reference_path_hash,%input_reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
 my ($rigid_name,$rigid_dir,$rigid_ext,$new_rigid_path,$future_rigid_path,$native_ref_name,$translation_dir);
-my ($process_dir_for_labels);
+my ($base_images_for_labels);# synonymous with create_labels
 my ($log_msg);
 my $split_string = ",,,";
-my (%file_array_ref,@spaces);
+my (%file_array_ref,@ref_spaces);
 my ($work_to_do_HoA);
 my @jobs_1=();
 my @jobs_2=();
@@ -46,56 +46,59 @@ sub set_reference_space_vbm {  # Main code
 # ------------------
     my $start_time = time;
     set_reference_space_vbm_Runtime_check();
-    
+
     my $ref_file;
     my $job;
     my @jobs;
     # lock_step, do all reference creation first, then do all apply, (the old way)
     #    off, set apply dependent on creation, (the new way)
     my $lock_step=0;
-    foreach my $V_or_L (@spaces) {
-        my $work_folder = $refspace_folder_hash{$V_or_L};
+    foreach my $space (@ref_spaces) {
+        my $work_folder = $refspace_folder_hash{$space};
         my $translation_dir = "${work_folder}/translation_xforms/";
-
-        if (! -e $translation_dir ) {
-            mkdir ($translation_dir,$permissions);
+	mkdir ($translation_dir,$permissions) if ! -e $translation_dir;
+        $ref_file = $reference_path_hash{$space};
+        
+        # Hmm, turns out refspace implies this.... 
+        my ($v_ok,$data_size)=$Hf->get_value_check("${space}_refsize");
+        if(! $v_ok && -e $ref_file ) { 
+	    confess "Missing important variable ${space}_refsize";
         }
-        $ref_file = $reference_path_hash{$V_or_L};
-	my %runno_hash;
-	%runno_hash=%{$ref_runno_hash{$V_or_L}};
-	if ( ! $lock_step ) {
-	    my $array_ref = $work_to_do_HoA->{$V_or_L};
-	    # for all runnos
-	    for my $runno (keys %runno_hash) {
-		# First, create the refspacy transform
-		my $in_file = $runno_hash{$runno};
-		my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
-		($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
-		my $ref_dep;
-		if ($job) {
-		    push(@jobs_1,$job);
-		    push(@jobs,$job); 
-		    $ref_dep='afterany:'.$job;
-		}
-		my ($dumdum,$in_name,$in_ext) = fileparts($in_file,2);
-		# second, schedule the apply dependent on transformy being done.
-		my @runno_files=grep /$runno/,@$array_ref;
-		for my $out_file (@runno_files) {
-		    my ($dumdum,$out_name,$out_ext) = fileparts($out_file,2);
-		    my $ain_file = "${preprocess_dir}/${out_name}${out_ext}";
-		    $ain_file = "${preprocess_dir}/${out_name}${in_ext}" if ! -e $ain_file;
-		    confess "ERROR NO INPUT FILE $ain_file" if ! -e $ain_file;
-		    ($job) = apply_new_reference_space_vbm($ain_file,$ref_file,$out_file,$ref_dep);
-		    if ($job) {
-			push(@jobs_2,$job);
-			push(@jobs,$job);
-		    }
-		}
+        my %runno_hash;
+        %runno_hash=%{$ref_runno_hash{$space}};
+        if ( ! $lock_step ) {
+            my $array_ref = $work_to_do_HoA->{$space};
+            # for all runnos
+            for my $runno (keys %runno_hash) {
+                # First, create the refspacy transform
+                my $in_file = $runno_hash{$runno};
+                my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
+                ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
+                my $ref_dep;
+                if ($job) {
+                    push(@jobs_1,$job);
+                    push(@jobs,$job); 
+                    $ref_dep='afterany:'.$job;
+                }
+                my ($dumdum,$in_name,$in_ext) = fileparts($in_file,2);
+                # second, schedule the apply dependent on transformy being done.
+                my @runno_files=grep /$runno/,@$array_ref;
+                for my $out_file (@runno_files) {
+                    my ($dumdum,$out_name,$out_ext) = fileparts($out_file,2);
+                    my $ain_file = "${preprocess_dir}/${out_name}${out_ext}";
+                    $ain_file = "${preprocess_dir}/${out_name}${in_ext}" if ! -e $ain_file;
+                    confess "ERROR NO INPUT FILE $ain_file" if ! -e $ain_file;
+                    ($job) = apply_new_reference_space_vbm($ain_file,$ref_file,$out_file,$ref_dep);
+                    if ($job) {
+                        push(@jobs_2,$job);
+                        push(@jobs,$job);
+                    }
+                }
 
-	    }
-	} else {
+            }
+        } else {
         # First for all runnos, create the refspacy transform
-	foreach my $runno (keys %runno_hash) {
+        foreach my $runno (keys %runno_hash) {
             my $in_file = $runno_hash{$runno};
             my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
             ($job) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
@@ -103,17 +106,17 @@ sub set_reference_space_vbm {  # Main code
                 push(@jobs_1,$job);
             }   
         }
-	# wait for refspacy completion
+        # wait for refspacy completion
         if (cluster_check() && (scalar @jobs_1)) {
             my $interval = 1;
             my $verbose = 1;
             my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs_1);
-	    if ($done_waiting) {
+            if ($done_waiting) {
                 print STDOUT  "  All translation alignment referencing jobs have completed; moving on to next step.\n";
             }
         }
-	# Apply all refspaces
-	my $array_ref = $work_to_do_HoA->{$V_or_L};
+        # Apply all refspaces
+        my $array_ref = $work_to_do_HoA->{$space};
         foreach my $out_file (@$array_ref) {
             my ($dumdum,$in_name,$in_ext) = fileparts($out_file,2);
             my $in_file = "${preprocess_dir}/${in_name}${in_ext}";
@@ -122,15 +125,15 @@ sub set_reference_space_vbm {  # Main code
                 push(@jobs_2,$job);
             }
         }
-	} # END lock_step conditional for the old way.
+        } # END lock_step conditional for the old way.
     }
     # All scheduling done.
     # these lock_step lines are to avoid changing code before it's tested. 
     # In the future, we'll wait on jobs here, instad of jobs_2.
     my @tmp_array;
     if (! $lock_step) {
-	@tmp_array=@jobs_2;
-	@jobs_2=@jobs;
+        @tmp_array=@jobs_2;
+        @jobs_2=@jobs;
     }
     if (cluster_check() && (scalar @jobs_2)) {
         my $interval = 2;
@@ -139,30 +142,30 @@ sub set_reference_space_vbm {  # Main code
         if ($done_waiting) {
             print STDOUT  "  All referencing jobs have completed; moving on to next step.\n";
         } else {
-	    printd(5,"ERROR on job wait!");
-	    sleep_with_countdown(3);
-	}
+            printd(5,"ERROR on job wait!");
+            sleep_with_countdown(3);
+        }
     }
     
-    foreach my $space (@spaces) {
+    foreach my $space (@ref_spaces) {
         # Why is this written to "tmp" first before being moved?
         run_and_watch("mv ${refspace_folder_hash{$space}}/refspace.txt.tmp ${refspace_folder_hash{$space}}/refspace.txt");
-	# This was a clever Bash syntax chain using ls && gzip but that has proven ugly when debugging
-	# Adjusted to be in perl with same idea. 
-	# if "ls" command is successful (finds existing items), then executes "gzip" command.
+        # This was a clever Bash syntax chain using ls && gzip but that has proven ugly when debugging
+        # Adjusted to be in perl with same idea. 
+        # if "ls" command is successful (finds existing items), then executes "gzip" command.
         # "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
-	# While the first inclination is to use run_and_watch, we dont care at all if we succeed or fail here.
-	# We only care if there is work found to do, so we'll simply capture output to let this fail quietly.
+        # While the first inclination is to use run_and_watch, we dont care at all if we succeed or fail here.
+        # We only care if there is work found to do, so we'll simply capture output to let this fail quietly.
         #my @gzippable_file=run_and_watch("ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null","\t",0);
-	my @gzippable_file=`ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null`;
-	chomp(@gzippable_file);
-	# tests each thing found in gzippable file, but we really only ever run one time
-	foreach (@gzippable_file){ 
-	    if ( $_ ne '' ) {
-		run_and_watch("gzip -v ${refspace_folder_hash{$space}}/*.nii");
-		last;
-	    }
-	}
+        my @gzippable_file=`ls ${refspace_folder_hash{$space}}/*.nii  2> /dev/null`;
+        chomp(@gzippable_file);
+        # tests each thing found in gzippable file, but we really only ever run one time
+        foreach (@gzippable_file){ 
+            if ( $_ ne '' ) {
+                run_and_watch("gzip -v ${refspace_folder_hash{$space}}/*.nii");
+                last;
+            }
+        }
     }
     
     my $case = 2;
@@ -184,26 +187,26 @@ sub set_reference_space_Output_check {
     my ($case) = @_;
     my $full_error_msg;
     
-    foreach my $V_or_L (@spaces) {
+    foreach my $space (@ref_spaces) {
         my @file_array;
         my $message_prefix ='';  
         @file_array=();
-        my $work_folder = $refspace_folder_hash{$V_or_L};
-        my $ref_file = $reference_path_hash{$V_or_L};
-        my $refspace = $refspace_hash{$V_or_L};
+        my $work_folder = $refspace_folder_hash{$space};
+        my $ref_file = $reference_path_hash{$space};
+        my $refspace = $refspace_hash{$space};
         print "refspace = $refspace\n";
-        my $space_string = $V_or_L;
-        if ((! $process_dir_for_labels) && ($create_labels==1) && ($V_or_L eq 'vbm')) {
+        my $space_string = $space;
+        if ((! $base_images_for_labels) && ($create_labels) && ($space eq 'vbm')) {
             $space_string = "vbm and label";
         }
 
         if ($case == 1) {
             $message_prefix = "  The following images for ${space_string} analysis in folder ${work_folder} have already been properly referenced\n".
-		"and will not be reprocessed :\n";
+                "and will not be reprocessed :\n";
         } elsif ($case == 2) {
             $message_prefix = "  Unable to properly set the ${space_string} reference \n".
-		"\t($refspace)\n".
-		"\tfor images in folder ${work_folder}:\n";
+                "\t($refspace)\n".
+                "\tfor images in folder ${work_folder}:\n";
         }   # For Init_check, we could just add the appropriate cases.
 
         my $existing_files_message = '';
@@ -212,27 +215,27 @@ sub set_reference_space_Output_check {
         my @files_to_check;
         my %runno_hash;
         if ($case == 1) {
-            print "$PM: Checking ${V_or_L} and preprocess folders...";
+            print "$PM: Checking ${space} and preprocess folders...";
             opendir(DIR, $preprocess_dir);
             @files_to_check = grep(/(\.nii)+(\.gz)*$/ ,readdir(DIR));# @input_files;
             @files_to_check=sort(@files_to_check);
         } else {
-            print "$PM: Checking ${V_or_L} folder...";
-            my $array_ref = $work_to_do_HoA->{$V_or_L};
+            print "$PM: Checking ${space} folder...";
+            my $array_ref = $work_to_do_HoA->{$space};
             @files_to_check = @$array_ref;
         }
 
-	foreach my $file (@files_to_check) {
-	    # it appears like if we're in input mode $file doesnt have a path, 
-	    # but if we're in output mode it does.
-	    # That is a special level of unnecessary confusion
-	    # out_file always has a path to compensate.
+        foreach my $file (@files_to_check) {
+            # it appears like if we're in input mode $file doesnt have a path, 
+            # but if we're in output mode it does.
+            # That is a special level of unnecessary confusion
+            # out_file always has a path to compensate.
             my $out_file;
             if ($case == 1) {
                 # $in_file = $preprocess_dir.'/'.$file;
                 $out_file = $work_folder.'/'.$file;
                 # The snippet of regex below will find 0 or 1 instances of '.gz' 
-		# at the end of the filename, and 'replace' it with '.gz.
+                # at the end of the filename, and 'replace' it with '.gz.
                 # Functionally, this will just add '.gz.' to any un-gzipped files
                 # In this case, the we are looking for an output file (which will ALWAYS be gzipped)
                 # that corresponds to an input file that may or may not be gzipped.
@@ -243,20 +246,20 @@ sub set_reference_space_Output_check {
             printd(1,".");
             
             if (data_double_check($out_file,$case-1)) { 
-		# Outfile not found.
-		if ($case == 1) {
-		    # Input mode because we didnt try to do this yet.
-		    # Add first file found to runno_hash.
+                # Outfile not found.
+                if ($case == 1) {
+                    # Input mode because we didnt try to do this yet.
+                    # Add first file found to runno_hash.
                     # print "\n${out_file} added to list of files to be re-referenced.\n";
                     my $temp_var = $file;
                     if ($temp_var =~ s/(_masked)//i){}
                     if ($temp_var =~ /^([^\.]+)_([^_\.])+\..+/) { 
-			# Split file into RUNNO_contrast, 
-			# (Only takes last _ -> end for contrast. 
-			# We could improve that by forcing runnos to not have underscores in them.
-			# This is made harder by virtue of tacking a gz on everything
-			# We dont use contrast so commenting that out.
-			# This is part of the general trouble of runno as specid this pipeline has.
+                        # Split file into RUNNO_contrast, 
+                        # (Only takes last _ -> end for contrast. 
+                        # We could improve that by forcing runnos to not have underscores in them.
+                        # This is made harder by virtue of tacking a gz on everything
+                        # We dont use contrast so commenting that out.
+                        # This is part of the general trouble of runno as specid this pipeline has.
                         my $runno = $1;
                         #my $contrast = $2;
                         if (! defined $runno_hash{$runno}) {
@@ -265,51 +268,51 @@ sub set_reference_space_Output_check {
                     }
                 }
                 push(@file_array,$out_file);
-		my ($tp,$tn,$te)=fileparts($file,2);
+                my ($tp,$tn,$te)=fileparts($file,2);
                 $missing_files_message = $missing_files_message."   Missing: $tn$te\n";
             } elsif (! compare_two_reference_spaces($out_file,$refspace)) {
                 print "\n${out_file} added to list of files to be re-referenced.\n";
                 push(@file_array,$out_file);
-		my ($tp,$tn,$te)=fileparts($file,2);
-		$missing_files_message = $missing_files_message."   Inconsistent ref: $tn$te\n";
+                my ($tp,$tn,$te)=fileparts($file,2);
+                $missing_files_message = $missing_files_message."   Inconsistent ref: $tn$te\n";
             } else {
                 $existing_files_message = $existing_files_message."   $file\n";
             }
         }
-	print("\n");
+        print("\n");
         if (($existing_files_message ne '') && ($case == 1)) {
             $existing_files_message = $existing_files_message."\n";
         } elsif (($missing_files_message ne '') && ($case == 2)) {
             $missing_files_message = $missing_files_message."\n";
         }
-	
-	my $error_msg='';
-	if (($existing_files_message ne '') && ($case == 1)) {
+        
+        my $error_msg='';
+        if (($existing_files_message ne '') && ($case == 1)) {
             $error_msg =  $error_msg."$PM:\n${message_prefix}${existing_files_message}";
         } elsif (($missing_files_message ne '') && ($case == 2)) {
             $error_msg =  $error_msg."$PM:\n${message_prefix}${missing_files_message}";
         }
         $full_error_msg = $full_error_msg.$error_msg;    
-        $file_array_ref{$V_or_L} = \@file_array;
+        $file_array_ref{$space} = \@file_array;
         
         if ($case == 1) {
-            #if ($V_or_L eq 'vbm') {
+            #if ($space eq 'vbm') {
             #    %runno_hash_vba = %runno_hash;
-	    #} else {
+            #} else {
             #    %runno_hash_label = %runno_hash;
             #}
-	    $ref_runno_hash{$V_or_L}=\%runno_hash;
+            $ref_runno_hash{$space}=\%runno_hash;
         }
 
-	# THIS IS DOING WORK IN A CHECK FUNCTION THAT IS VERY NAUGHTY.
+        # THIS IS DOING WORK IN A CHECK FUNCTION THAT IS VERY NAUGHTY.
         if ($case == 2) {
-	    # James's highly suspecs that we didnt do slow disk checking for the results 
-	    # of this we were at the mercy of slow disk problems due to this cleanup.
-	    # So, all the better to throw this out, many parts have been made more
-	    # symbolic link friendly, and as such this is less and less useful. 
-	    # (not that he'll ever admit it was useful :p ) 
-	    carp("Symbolic link cleanup skipped on $refspace_folder_hash{$V_or_L}");
-            #symbolic_link_cleanup($refspace_folder_hash{$V_or_L},$PM);
+            # James's highly suspecs that we didnt do slow disk checking for the results 
+            # of this we were at the mercy of slow disk problems due to this cleanup.
+            # So, all the better to throw this out, many parts have been made more
+            # symbolic link friendly, and as such this is less and less useful. 
+            # (not that he'll ever admit it was useful :p ) 
+            carp("Symbolic link cleanup skipped on $refspace_folder_hash{$space}");
+            #symbolic_link_cleanup($refspace_folder_hash{$space},$PM);
         }
     }
     return(\%file_array_ref,$full_error_msg);
@@ -330,15 +333,18 @@ sub apply_new_reference_space_vbm {
 
     # Do reg is off for any output nifti's (including gzipped ones)...
     my $do_registration = 1; 
+    
+    
     my $test_dim = 3;
     my $opt_e_string='';
     if ($out_file =~ /\.nii(\.gz)?/) {
+	die "DEBUGGING";
         $test_dim =  `fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2` 
-	    || croak("ERROR Reading $in_file for header bits");
-	if (! looks_like_number($test_dim) ) {
-	    error_out("Problem gathering dim infro from $in_file"); 
-	}
-	if ($in_file =~ /tensor/) {
+            || croak("ERROR Reading $in_file for header bits");
+        if (! looks_like_number($test_dim) ) {
+            error_out("Problem gathering dim infro from $in_file"); 
+        }
+        if ($in_file =~ /tensor/) {
             # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
             $opt_e_string = ' -e 2 -f 0.00007'; 
         } elsif ($test_dim > 1) {
@@ -368,56 +374,68 @@ sub apply_new_reference_space_vbm {
     #print "Test output = ".compare_two_reference_spaces($in_file,$ref_file)."\n\n\n";
     #print "Do registration? ${do_registration}\n\n\n";
     if ($do_registration) {
-	# in, ref, check out. out_file is a ants prefix
+        # in, ref, check out. out_file is a ants prefix
         $translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
         if ( ! compare_two_reference_spaces($in_file,$ref_file)) {         
-            my ($out_path,$dummy_1,$dummy_2) = fileparts($out_file,2);
-            if (! -d $out_path ) {
-                mkdir ($out_path,$permissions);
-            }
-
-            #$translation_transform = "${out_file}0DerivedInitialMovingTranslation.mat" ;
-            my $excess_transform =  "${out_file}1Translation.mat" ;
+            # FORMERLY HAD mkdir for path dir of out_file
+	    # Also had oe option resolution into opt_e_string. 
+	    # but antreg doesnt take opt_e_string!
+	    my $excess_transform =  "${out_file}1Translation.mat" ;
+            my $translation_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file}";
+            my $remove_cmd = "rm ${excess_transform}";
             if (data_double_check($translation_transform)) {
-                my $test_dim =  `PrintHeader ${in_file} 2` || croak("ERROR Reading $in_file for header bits");
-                my @dim_array = split('x',$test_dim);
-                my $real_dim = $#dim_array +1;
-                my $opt_e_string='';
-                if ($real_dim == 4) {
-                    $opt_e_string = ' -e 3 ';
-                }
-                my $translation_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ${opt_e_string} -t Translation[1] -r [${ref_file},${in_file},1] -m Mattes[${ref_file},${in_file},1,32,None] -c [0,1e-8,20] -f 8 -s 4 -z 0 -o ${out_file}";
-                my $remove_cmd = "rm ${excess_transform}";
-		push(@cmds,$translation_cmd);
-		push(@cmds,$remove_cmd);
-	    } else {
-		printd(45,"$translation_transform ready, not regnerating\n");
-	    }
+                push(@cmds,$translation_cmd);
+                push(@cmds,$remove_cmd);
+            } else {
+                printd(45,"$translation_transform ready, not regnerating\n");
+                log_msg("Skipped $translation_cmd && $remove_cmd");
+            }
         } else {
             my $affine_identity = $Hf->get_value('affine_identity_matrix');
-            $cmd = "cp ${affine_identity} ${translation_transform}";
-	    push(@cmds,$cmd);
+            $cmd = "ln -s ${affine_identity} ${translation_transform}";
+	    if( ! -e ${translation_transform}){
+            push(@cmds,$cmd);
+	    } else {
+		log_msg("Skipped affine_identity replication $cmd");
+	    }
         }
     } else {
-	if (compare_two_reference_spaces($in_file,$ref_file)) {
-	    # same_refspace
+        if (compare_two_reference_spaces($in_file,$ref_file)) {
+            # same_refspace
             $cmd = "ln -s ${in_file} ${out_file}";
             print "Linking $in_file to $out_file\n\n";
-	    push(@cmds,$cmd);
+            push(@cmds,$cmd);
         } else {
+            # I suspect this code never runs!
+            confess("UNTESTED codepath");
             my $runno;
             my $gz = '';
             if ($out_file =~ s/(\.gz)$//) {$gz = '.gz';}
             my ($out_path,$out_name,$dummy_2) = fileparts($out_file,2);
             $out_file = $out_file.'.gz';
-            if ($out_name =~ s/(_masked)//i) {}
-            if ($out_name =~ /([^\.]+)_[^_\.]+/) { # We are assuming that underscores are not allowed in contrast names! 14 June 2016
+            $out_name =~ s/(_masked)//i;
+	    # We are assuming that underscores are not allowed in contrast names! 14 June 2016
+            if ($out_name =~ /([^\.]+)_[^_\.]+/) {
                 $runno = $1;
             }
+            
+            # Copied from earlier location, may enable in the future when its found this is actually in use.
+            #$test_dim =  `fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2` 
+            #    || croak("ERROR Reading $in_file for header bits");
+            #if (! looks_like_number($test_dim) ) {
+            #    error_out("Problem gathering dim infro from $in_file"); 
+            #}
+            #if ($in_file =~ /tensor/) {
+            #    # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
+            #    $opt_e_string = ' -e 2 -f 0.00007'; 
+            #} elsif ($test_dim > 1) {
+            #    $opt_e_string = ' -e 3 ';
+            #}
+            
 
             $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
             $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform}"; 
-	    push(@cmds,$cmd);
+            push(@cmds,$cmd);
         }  
     }
     
@@ -464,21 +482,20 @@ sub set_reference_space_vbm_Init_check {
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
 
-    $preprocess_dir = $Hf->get_value('preprocess_dir');
+    $pristine_in_folder = $Hf->get_value('pristine_input_dir');    
     $inputs_dir = $Hf->get_value('inputs_dir');
-    $pristine_in_folder = $Hf->get_value('pristine_input_dir');
+    $preprocess_dir = $Hf->get_value('preprocess_dir');
 
-    if (! -e $preprocess_dir ) {
-        mkdir ($preprocess_dir,$permissions);
-    }
+    #mkdir ($preprocess_dir,$permissions) if ! -e $preprocess_dir;
+    #mkdir ($inputs_dir,$permissions) if ! -e $inputs_dir;
 
-    if (! -e $inputs_dir ) {
-        mkdir ($inputs_dir,$permissions);
-    }
-
-    my $resample_images = $Hf->get_value('resample_images');
-    my $resample_factor = $Hf->get_value('resample_factor');
-    if (($resample_factor ne 'NO_KEY') ||($resample_images ne 'NO_KEY') ) { ## Need to finish fleshing out this logic!
+    my ($v_ok,$v_ok2);
+    ($v_ok, my $resample_images) = $Hf->get_value_check('resample_images');
+    ($v_ok2, my $resample_factor) = $Hf->get_value_check('resample_factor');
+    #if (($resample_factor ne 'NO_KEY') ||($resample_images ne 'NO_KEY') ) { ## Need to finish fleshing out this logic!
+    if ($v_ok || $v_ok2) {
+        carp("Resampling on");
+        sleep_with_countdown(5);
         if (($resample_images == 0) || ($resample_images =~ /^(no|off)$/i) ) {
             $resample_images=0;
             $resample_factor=1;
@@ -491,16 +508,12 @@ sub set_reference_space_vbm_Init_check {
                 # We're going to cross our fingers and hope that by excluding letters and negative signs
                 # that we're left with valid positive numbers by which we can multiply the voxelsize
                 # Also note that "resample factor" is more accurately "downsample factor"
-                
-                
             } else {
                 # Throw dying error.
                 my $resample_error="Bad resample_images field specified ${resample_images}. Only positive real numbers allowed.\n";
                 $init_error_msg=$init_error_msg.$resample_error;
-                
             }
         }
-        
     } elsif (($resample_images eq 'NO_KEY' ) && ($resample_factor ne 'NO_KEY') ) {
         # We assume that the resample factor has already been checked & will automatically be passed on
         $resample_images=1;
@@ -511,64 +524,54 @@ sub set_reference_space_vbm_Init_check {
 
 
     my $create_labels= $Hf->get_value('create_labels');
-
     my $do_mask= $Hf->get_value('do_mask');
-    
     my $rigid_work_dir = $Hf->get_value('rigid_work_dir');
     my $label_image_inputs_dir;
-
     $inputs_dir = $Hf->get_value('inputs_dir');
     $rigid_contrast = $Hf->get_value('rigid_contrast'); 
-
     $runno_list= $Hf->get_value('complete_comma_list');
-
     $refspace_folder_hash{'vbm'} = $inputs_dir;
-
     ($refspace_hash{'existing_vbm'},$refname_hash{'existing_vbm'})=read_refspace_txt($inputs_dir,$split_string);
     
-    $reference_space_hash{'vbm'}=$Hf->get_value('vbm_reference_space');
-    $reference_space_hash{'label'}=$Hf->get_value('label_reference_space');     
-
-    if ((! defined $reference_space_hash{'vbm'}) || ($reference_space_hash{'vbm'} eq ('NO_KEY' || '' || 'UNDEFINED_VALUE'))) {
+    ($v_ok, $reference_space_hash{'vbm'})=$Hf->get_value_check('vbm_reference_space');
+    #if ((! defined $reference_space_hash{'vbm'}) || ($reference_space_hash{'vbm'} eq ('NO_KEY' || '' || 'UNDEFINED_VALUE'))) {
+    if(! $v_ok){
         $log_msg=$log_msg."\tNo VBM reference space specified.  Will use native image space.\n";
         $reference_space_hash{'vbm'} = 'native';
     }
-    
-    
-    $process_dir_for_labels =0;
-    if ($create_labels == 1) {
-        $process_dir_for_labels = 1;
-
-        if ((! defined $reference_space_hash{'label'}) || ($reference_space_hash{'label'} eq (('NO_KEY') || ('') || ($reference_space_hash{'vbm'})))) {
-
+    ($v_ok, $reference_space_hash{'label'})=$Hf->get_value_check('label_reference_space');         
+    $base_images_for_labels = 0;
+    if ($create_labels) {
+        #if ((! defined $reference_space_hash{'label'}) || ($reference_space_hash{'label'} eq (('NO_KEY') || ('') || ($reference_space_hash{'vbm'})))) {
+        if (! $v_ok) {
             $log_msg=$log_msg."\tNo label reference space specified.  Will inherit from VBM reference space.\n";
             $reference_space_hash{'label'}=$reference_space_hash{'vbm'};
             $Hf->set_value('label_reference_space',$reference_space_hash{'label'});
-            $process_dir_for_labels = 0;
             $refspace_folder_hash{'label'} = $inputs_dir;          
-        } 
+        } else {
+            $base_images_for_labels = 1; 
+        }
     }
     
-    $Hf->set_value('base_images_for_labels',$process_dir_for_labels);    
+    $Hf->set_value('base_images_for_labels',$base_images_for_labels);    
     
-    my @spaces;
-    if ($create_labels) {#($process_dir_for_labels) {
-        @spaces = ("vbm","label");
-    } else {
-        @spaces = ("vbm");
+    my @ref_spaces;
+    @ref_spaces = ("vbm");
+    if ($create_labels) {#($base_images_for_labels) {
+        push(@ref_spaces,"label");
     }
     
-    foreach my $V_or_L (@spaces) {    
+    foreach my $space (@ref_spaces) {    
         my ($ref_error,$for_labels)=('',0);
-        if ($V_or_L eq "label") {
+        if ($space eq "label") {
             $for_labels = 1;
         }
-	
-	($input_reference_path_hash{$V_or_L},$reference_path_hash{$V_or_L},$refname_hash{$V_or_L},$ref_error) = set_reference_path_vbm($reference_space_hash{$V_or_L},$for_labels);
-        #Data::Dump::dump($input_reference_path_hash{$V_or_L},$reference_path_hash{$V_or_L},$refname_hash{$V_or_L},$ref_error);
-	#print "REF TESTING "; exit 1; 
+        
+        ($input_reference_path_hash{$space},$reference_path_hash{$space},$refname_hash{$space},$ref_error) = set_reference_path_vbm($reference_space_hash{$space},$for_labels);
+        #Data::Dump::dump($input_reference_path_hash{$space},$reference_path_hash{$space},$refname_hash{$space},$ref_error);
+        #print "REF TESTING "; exit 1; 
 
-        if ($input_reference_path_hash{$V_or_L} eq 'rerun_init_check_later') {
+        if ($input_reference_path_hash{$space} eq 'rerun_init_check_later') {
             my $log_msg = "Reference spaces not set yet. Will rerun upon start of set_reference_space module.";
             log_info("${message_prefix}${log_msg}");
             $Hf->set_value('rerun_init_check',1);
@@ -578,28 +581,53 @@ sub set_reference_space_vbm_Init_check {
             return($init_error_msg);
         } else {
 
-            $Hf->set_value("${V_or_L}_reference_path",$reference_path_hash{$V_or_L});
-            $Hf->set_value("${V_or_L}_input_reference_path",$input_reference_path_hash{$V_or_L});
-            $Hf->set_value("${V_or_L}_reference_space",$reference_space_hash{$V_or_L});
-            #my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($reference_path_hash{$V_or_L});
-            my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($input_reference_path_hash{$V_or_L});
+            $Hf->set_value("${space}_reference_path",$reference_path_hash{$space});
+            $Hf->set_value("${space}_input_reference_path",$input_reference_path_hash{$space});
+            $Hf->set_value("${space}_reference_space",$reference_space_hash{$space});
+            #my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($reference_path_hash{$space});
+            my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($input_reference_path_hash{$space});
 
-            $refspace_hash{$V_or_L} = $bounding_box_and_spacing;
-            $Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
-
-            if ((defined $ref_error) && ($ref_error ne '')) {
+            $refspace_hash{$space} = $bounding_box_and_spacing;
+            $Hf->set_value("${space}_refspace",$refspace_hash{$space});
+	    #EX refspace, {[0.015 0.015 0.015], [12.21 19.77 9.21]} 0.015x0.015x0.015
+	    # ... {[first vox], [last vox]}, spacing. 
+	    # In theory directionality is also hiding in this.... but we probably don't maintain negative signs correctly.
+	    # Thought I could be clever and use PrintHeader one time, but it turns out we dont save the hf in time.
+	    # Switched to fslhd
+	    #
+	    # vox first, last, size
+	    my ($vx_f,$vx_l,$vx_s) = $bounding_box_and_spacing =~ m/{([^,]+),[ ]([^}]+)}[ ](.+)/;
+	    $vx_f=~s/[\[\]]//g; $vx_l=~s/[\[\]]//g;
+	    my @vf=split(" ",$vx_f); my @vl=split(" ",$vx_l); my @vs=split("x",$vx_s);
+	    my @fov;
+	    my @dx;
+	    for(my $vi=0;$vi<scalar(@vl);$vi++) {
+		$fov[$vi]=$vl[$vi]-$vf[$vi] || die "fov calc err d $vi";
+		$dx[$vi]=$fov[$vi]/$vs[$vi] || die "dim calc err d $vi";;
+	    }
+	    my ($v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
+	    #if(! defined $refsize) {
+	    #cluck "Hf Err fetching refsize"; $v_ok=0; }
+	    if(! $v_ok && -e $input_reference_path_hash{$space} ) { 
+		# Oh ants PrintHeader, why you always slow :( 
+		#(my $T_data_size)=run_and_watch("PrintHeader $input_reference_path_hash{$space} 2"); chomp($T_data_size); $T_data_size=~s/x/ /g;
+		(my $T_data_size)=run_and_watch("fslhd $input_reference_path_hash{$space}|grep '^dim[1-3]'|cut -d ' ' -f2-|xargs");
+		chomp($T_data_size); $T_data_size=trim($T_data_size);
+		if($T_data_size ne join(" ",@dx) ) {
+		    confess "Error getting refsize from bounding box for space:$space";
+		}
+		$Hf->set_value("${space}_refsize",$T_data_size);
+	    }
+	    if ((defined $ref_error) && ($ref_error ne '')) {
                 $init_error_msg=$init_error_msg.$ref_error;
             }
-
-            $log_msg=$log_msg."\tReference path for ${V_or_L} analysis is ${reference_path_hash{${V_or_L}}}\n";
+            $log_msg=$log_msg."\tReference path for ${space} analysis is ${reference_path_hash{${space}}}\n";
 
         }
     }    
 
     my $dir_work = $Hf->get_value('dir_work');
-    
     my $rigid_work_path = "${dir_work}/${rigid_contrast}";
-    
     $Hf->set_value('rigid_work_dir',$rigid_work_path);
     
     if ($refspace_hash{'existing_vbm'}) {
@@ -622,16 +650,16 @@ sub set_reference_space_vbm_Init_check {
             }
         }
     }
-    if (($process_dir_for_labels == 1) && ($refspace_hash{'vbm'} eq $refspace_hash{'label'})) {
-        $process_dir_for_labels = 0;
+    if (($base_images_for_labels) && ($refspace_hash{'vbm'} eq $refspace_hash{'label'})) {
+        $base_images_for_labels = 0;
         $Hf->set_value('label_reference_path',$reference_path_hash{'vbm'});     
         $Hf->set_value('label_refname',$refname_hash{'vbm'});
         $Hf->set_value('label_refspace',$refspace_hash{'vbm'});
         $Hf->set_value('label_refspace_path',$inputs_dir);
     }
-    $Hf->set_value('base_images_for_labels',$process_dir_for_labels);
+    $Hf->set_value('base_images_for_labels',$base_images_for_labels);
         
-    if ($process_dir_for_labels == 1) {
+    if ($base_images_for_labels) {
         my $intermediary_path = "${inputs_dir}/reffed_for_labels";
         my $current_folder;
         my $existence = 1;
@@ -665,10 +693,9 @@ sub set_reference_space_vbm_Init_check {
     $Hf->set_value('vbm_refspace_folder',$refspace_folder_hash{'vbm'});
     $Hf->set_value("vbm_reference_path",$reference_path_hash{'vbm'});
 
-
-    if ($create_labels==1){ 
+    if ($create_labels){ 
         $Hf->set_value('label_refspace_folder',$refspace_folder_hash{'label'});
-        if ($process_dir_for_labels) {
+        if ($base_images_for_labels) {
             $Hf->set_value('label_reference_path',$reference_path_hash{'label'});
         } else {
             $Hf->set_value("label_reference_path",$reference_path_hash{'vbm'});
@@ -692,7 +719,7 @@ sub set_reference_space_vbm_Init_check {
                 if ($this_path !~ /[\n]+/) {
                     my ($dumdum,$this_name,$this_ext)= fileparts($this_path,2);
                     my $that_path = "${inputs_dir}/${this_name}${this_ext}";
-		    die if ! -e $that_path;		            
+                    die if ! -e $that_path;                         
                     #$Hf->set_value('rigid_atlas_path',$that_path);
                     $Hf->set_value('original_rigid_atlas_path',$that_path); #Updated 1 September 2016
                     $log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${that_path} as the expected rigid atlas path.\n";
@@ -704,7 +731,7 @@ sub set_reference_space_vbm_Init_check {
                 if (data_double_check($rigid_target)) {
                     $log_msg=$log_msg."\tNo valid rigid targets have been implied or specified (${rigid_target} could not be validated). Rigid registration will be skipped.\n";
                     $Hf->set_value('rigid_atlas_path','');
-		    die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
+                    die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
                     $Hf->set_value('original_rigid_atlas_path',''); # Added 1 September 2016
                 } else {
                     $log_msg=$log_msg."\tThe specified file to be used as the original rigid target exists: ${rigid_target}. (Note: it has not been verified to be a valid image.)\n";
@@ -719,29 +746,29 @@ sub set_reference_space_vbm_Init_check {
         } else {
             my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
             if (! -d $rigid_atlas_dir) {
-		# BROKEN SETUP HACK!
-		$rigid_atlas_dir =~ s/\/data/\/CIVMdata/;
+                # BROKEN SETUP HACK!
+                $rigid_atlas_dir =~ s/\/data/\/CIVMdata/;
             }
-	    # Expected as in typical for previous curated data... 
-	    # Blergh, such pain in this.
+            # Expected as in typical for previous curated data... 
+            # Blergh, such pain in this.
             my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
-	    ### try to deal with upper vs lower case abbreviations.
-	    #
-	    # That should not longer be necesary.
+            ### try to deal with upper vs lower case abbreviations.
+            #
+            # That should not longer be necesary.
             # In much of our effort we swippity swap extnsions, at least until I can clear that out, 
-	    # so, we'll do our initial search in our "output" location.
-	    my $test_path = get_nii_from_inputs($inputs_dir,$rigid_atlas_name,$rigid_contrast);
-	    # Formerly this was first, now it only happens if we havnt stuffed our rigid file into its diddle'd location.
-	    $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast) if !-e $test_path;
-	    $test_path =~ s/\.gz//; # Strip '.gz', 15 March 2017
+            # so, we'll do our initial search in our "output" location.
+            my $test_path = get_nii_from_inputs($inputs_dir,$rigid_atlas_name,$rigid_contrast);
+            # Formerly this was first, now it only happens if we havnt stuffed our rigid file into its diddle'd location.
+            $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast) if !-e $test_path;
+            $test_path =~ s/\.gz//; # Strip '.gz', 15 March 2017
             my ($dumdum,$rigid_atlas_filename,$rigid_atlas_ext)= fileparts($test_path,2);
-	    #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
+            #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
             $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_filename}${rigid_atlas_ext}"; #Updated 14 March 2017
-	    #
-	    ###
+            #
+            ###
 
             if (data_double_check($rigid_atlas_path))  {
-		Data::Dump::dump(["not found, so trying gz",$rigid_atlas_path]);
+                Data::Dump::dump(["not found, so trying gz",$rigid_atlas_path]);
                 $rigid_atlas_path=$rigid_atlas_path.'.gz';
                 if (data_double_check($rigid_atlas_path))  {
                     $original_rigid_atlas_path  = get_nii_from_inputs($preprocess_dir,$rigid_atlas_name,$rigid_contrast);
@@ -750,29 +777,29 @@ sub set_reference_space_vbm_Init_check {
                         if (data_double_check($original_rigid_atlas_path))  { # Updated 1 September 2016
                             $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
                         } else {
-			    # WARNING CODER, THERE IS A REPLICATE OF THIS WHOLE BAG OF STUFF IN mask_images_vbm AND set_reference_space_vbm
+                            # WARNING CODER, THERE IS A REPLICATE OF THIS WHOLE BAG OF STUFF IN mask_images_vbm AND set_reference_space_vbm
                             my $cp_cmd="cp ${original_rigid_atlas_path} ${preprocess_dir}";
-			    my ($p,$n,$e)=fileparts($original_rigid_atlas_path,2);
-			    # THIS WHOLE CONSTRUCT IS BAD... GONNA MAKE IT WORSE BY ADDING nhdr support via WarpImageMultiTransform. 
-			    if( $e eq ".nhdr") {
-				$cp_cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
-						" --use-NN ".
-						" --reslice-by-header --tightest-bounding-box ".
-						"",
-						$original_rigid_atlas_path, File::Spec->catfile($preprocess_dir,$n.".nii"));
-			    } elsif ($original_rigid_atlas_path !~ /\.gz$/) {
-				# WHY DO WE WANT TO GZIP SO BADLY!
-				carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
-				$cp_cmd=$cp_cmd." && "."gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";
+                            my ($p,$n,$e)=fileparts($original_rigid_atlas_path,2);
+                            # THIS WHOLE CONSTRUCT IS BAD... GONNA MAKE IT WORSE BY ADDING nhdr support via WarpImageMultiTransform. 
+                            if( $e eq ".nhdr") {
+                                $cp_cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
+                                                " --use-NN ".
+                                                " --reslice-by-header --tightest-bounding-box ".
+                                                "",
+                                                $original_rigid_atlas_path, File::Spec->catfile($preprocess_dir,$n.".nii"));
+                            } elsif ($original_rigid_atlas_path !~ /\.gz$/) {
+                                # WHY DO WE WANT TO GZIP SO BADLY!
+                                carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
+                                $cp_cmd=$cp_cmd." && "."gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";
                             }
-			    run_and_watch($cp_cmd);
+                            run_and_watch($cp_cmd);
                         }
                     }
                 } else {
-		    #### WARNING: Disabling this due to broken logic of lets gzip a gzipped file. 
-		    # It may have 
+                    #### WARNING: Disabling this due to broken logic of lets gzip a gzipped file. 
+                    # It may have 
 =item erroneous gzipping?
-		    Data::Dump::dump(["found,... but trying gz? wtf mate",$rigid_atlas_path,$expected_rigid_atlas_path]);
+                    Data::Dump::dump(["found,... but trying gz? wtf mate",$rigid_atlas_path,$expected_rigid_atlas_path]);
                     run_and_watch("gzip ${rigid_atlas_path}");
 =cut
                     #$rigid_atlas_path=$rigid_atlas_path.'.gz'; #If things break, look here! 27 Sept 2016
@@ -783,7 +810,7 @@ sub set_reference_space_vbm_Init_check {
             }
             
             $Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
-	    die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
+            die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
             $Hf->set_value('original_rigid_atlas_path',$original_rigid_atlas_path); # Updated 1 September 2016
         }
     }
@@ -926,76 +953,68 @@ sub set_reference_path_vbm {
 # ------------------
 sub set_reference_space_vbm_Runtime_check {
 # ------------------
-    $preprocess_dir = $Hf->get_value('preprocess_dir');
-    $inputs_dir = $Hf->get_value('inputs_dir');
     $pristine_in_folder = $Hf->get_value('pristine_input_dir');
-
-    $dims=$Hf->get_value('image_dimensions');
-
-    if (! -e $preprocess_dir ) {
-        mkdir ($preprocess_dir,$permissions);
-    }
-
-    if (! -e $inputs_dir ) {
-        mkdir ($inputs_dir,$permissions);
-    }
-
-    $rerun_init_flag = $Hf->get_value('rerun_init_check');
+    $inputs_dir = $Hf->get_value('inputs_dir');
+    $preprocess_dir = $Hf->get_value('preprocess_dir');
     
+    $dims=$Hf->get_value('image_dimensions');
+    $rerun_init_flag = $Hf->get_value('rerun_init_check');
+
+    mkdir ($inputs_dir,$permissions)if ! -e $inputs_dir;
+    mkdir ($preprocess_dir,$permissions)if ! -e $preprocess_dir;
+
     if (($rerun_init_flag ne 'NO_KEY') && ($rerun_init_flag == 1)) {
+        # This looks like its a rare condition, but it may be part and parcel to the init troubles of this module.
+        # our template ref file may not exist when we run init, and that is probably supposed to set this flag... 
+        carp('Exceptional condition rerun_init set_reference_space_vbm_runtime');
+        sleep_with_countdown(15);
         my $init_error_message_2 = set_reference_space_vbm_Init_check();
     }
 
-
-    $process_dir_for_labels = $Hf->get_value('base_images_for_labels');
+    $base_images_for_labels = $Hf->get_value('base_images_for_labels');
     $refspace_folder_hash{'vbm'} = $Hf->get_value('vbm_refspace_folder');
     $refspace_folder_hash{'label'} = $Hf->get_value('label_refspace_folder');
     
     my $intermediary_path = "${inputs_dir}/reffed_for_labels";
-    if ($process_dir_for_labels == 1) {
+    if ($base_images_for_labels) {
         $intermediary_path = "${inputs_dir}/reffed_for_labels";
-        if (! -e $intermediary_path) {
-            mkdir ($intermediary_path,$permissions);
-        }
-        
-        if (! -e $refspace_folder_hash{'label'} ) {
-            mkdir ($refspace_folder_hash{'label'},$permissions);
-        }
+	mkdir ($intermediary_path,$permissions) if ! -e $intermediary_path;
+	mkdir ($refspace_folder_hash{'label'},$permissions) if ! -e $refspace_folder_hash{'label'};
     }
     
 
 
 ## TRYING TO MOVE THIS CODE TO INIT_CHECK, 16 March 2017 --> Just kidding, keep this here, rerun init check if native ref file not found. 20 March 2017
-    if ($process_dir_for_labels) {
-        @spaces = ("vbm","label");
-    } else {
-        @spaces = ("vbm");
+    # Not clear when these wouldn't have the same values. 
+    @ref_spaces = ("vbm");
+    if ($base_images_for_labels) {
+	push(@ref_spaces,"label");
     }
-    foreach my $V_or_L (@spaces) {
-        $reference_space_hash{$V_or_L} = $Hf->get_value("${V_or_L}_reference_space");
-        my $inpath = $Hf->get_value("${V_or_L}_input_reference_path");
-        my $outpath = $Hf->get_value("${V_or_L}_reference_path");
-        $refspace_hash{$V_or_L} = $Hf->get_value("${V_or_L}_refspace");
-        $refname_hash{$V_or_L} =  $Hf->get_value("${V_or_L}_refname");
+    foreach my $space (@ref_spaces) {
+        $reference_space_hash{$space} = $Hf->get_value("${space}_reference_space");
+        my $inpath = $Hf->get_value("${space}_input_reference_path");
+        my $outpath = $Hf->get_value("${space}_reference_path");
+        $refspace_hash{$space} = $Hf->get_value("${space}_refspace");
+        $refname_hash{$space} =  $Hf->get_value("${space}_refname");
 
         if (data_double_check($inpath)) {
             $inpath="${inpath}.gz"; # We're assuming that it exists, but isn't found because it has been gzipped. 16 March 2017
         }
-	# 2020-01-29
-	# New fail condition spotted here where we try to operate on a 'plain' named file, 
-	# but only a _masked named file is available.
-	# Suspicion is that we dont wait for code the way we might mean to, 
-	# and this code is prepared/scheduled to run while another is busy renaming things.
-	# 2020-08-07 these failures are(seem) more repeatable with larger data
+        # 2020-01-29
+        # New fail condition spotted here where we try to operate on a 'plain' named file, 
+        # but only a _masked named file is available.
+        # Suspicion is that we dont wait for code the way we might mean to, 
+        # and this code is prepared/scheduled to run while another is busy renaming things.
+        # 2020-08-07 these failures are(seem) more repeatable with larger data
         if (data_double_check($outpath)) {
-	    #centered_mass_for
-            my $name = "REF_${refname_hash{$V_or_L}}";
+            #centered_mass_for
+            my $name = "REF_${refname_hash{$space}}";
             my $nifti_args = "\'${inpath}\' , \'${outpath}\'";
             my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
-	    #print ($name."_create_centered_mass_from_image_array"."\n");exit 0 ;
-	    #make_matlab_command($function_m_name, $args, $short_unique_purpose, $Hf,$verbose);
-	    #my $cmd_to_execute = make_matlab_command_nohf($function_m_name,$args,$short_unique_purpose,
-	    #my $mfile_stub = "$work_dir/${short_unique_purpose}${function_m_name}".".m";
+            #print ($name."_create_centered_mass_from_image_array"."\n");exit 0 ;
+            #make_matlab_command($function_m_name, $args, $short_unique_purpose, $Hf,$verbose);
+            #my $cmd_to_execute = make_matlab_command_nohf($function_m_name,$args,$short_unique_purpose,
+            #my $mfile_stub = "$work_dir/${short_unique_purpose}${function_m_name}".".m";
             #                                    $work_dir,$matlab_app,$logpath,$matlab_opts);
             execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
         }
@@ -1005,16 +1024,16 @@ sub set_reference_space_vbm_Runtime_check {
         #ResampleImageBySpacing 3 $in_ref $out_ref 0.18 0.18 0.18 0 0 1
         #my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header(${out_ref});
         
-        #$refspace_hash{$V_or_L} = $bounding_box_and_spacing;
-        #$Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
+        #$refspace_hash{$space} = $bounding_box_and_spacing;
+        #$Hf->set_value("${space}_refspace",$refspace_hash{$space});
         
         # write refspace_temp.txt (for human purposes, in case this module fails)
-	my $ref_tmp=File::Spec->catfile($refspace_folder_hash{$V_or_L},"refspace.txt.tmp");
-	if ( ! -e $ref_tmp ) {
-	    write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp");
-	} else {
-	    printd(5,"WARNING, $ref_tmp exists, not overwriting.\n");
-	}
+        my $ref_tmp=File::Spec->catfile($refspace_folder_hash{$space},"refspace.txt.tmp");
+        if ( ! -e $ref_tmp ) {
+            write_refspace_txt($refspace_hash{$space},$refname_hash{$space},$refspace_folder_hash{$space},$split_string,"refspace.txt.tmp");
+        } else {
+            printd(5,"WARNING, $ref_tmp exists, not overwriting.\n");
+        }
     }
 
 
@@ -1024,9 +1043,9 @@ sub set_reference_space_vbm_Runtime_check {
 ##  unknown behavior.  An example would be that all of our images get "shoved" to the top of their bounding box and the top of the brain gets lightly
 ##  trimmed off.  Also, we will assume that this file will be in .gz format.  If not, then it will be gzipped.
 
-    if ($process_dir_for_labels == 1) {
+    if ($base_images_for_labels) {
         #`cp ${refspace_folder_hash{"vbm"}}/*\.nii* ${refspace_folder_hash{"label"}}`;
-	run_and_watch("cp ".${refspace_folder_hash{"vbm"}}."/*\.nii* ".${refspace_folder_hash{"label"}});
+        run_and_watch("cp ".${refspace_folder_hash{"vbm"}}."/*\.nii* ".${refspace_folder_hash{"label"}});
     }   
     my $case = 1;
     my $skip_message;
@@ -1038,3 +1057,4 @@ sub set_reference_space_vbm_Runtime_check {
     }
 }
 1;
+

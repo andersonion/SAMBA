@@ -356,7 +356,7 @@ sub apply_mdt_warp {
     if (! looks_like_number($test_dim) ) {
 	error_out("Problem gathering dim info from $image_to_warp"); 
     }
-    
+
     #my @dim_array = split('x',$test_dim);
     #my $real_dim = $#dim_array +1;
     my $opt_e_string='';
@@ -404,31 +404,35 @@ sub apply_mdt_warp {
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} MDT warp(s) to ${current_contrast} image for  ${runno}:\n${cmd}\n";
 
-    my $mem_request = 75000;  # Added 23 November 2016,  Will need to make this smarter later.
-    #my $input_size = 1024*(stat $image_to_warp)[7];
-
-    my $input_size=1;
-    for (my $ii=1; $ii<6; $ii++){
-	my $c_string = `fslhd ${image_to_warp} | grep dim${ii} | grep -v pix`;
-	chomp($c_string);
-	my $c_dim_size = 1;
-	if ($c_string =~ /\s([0-9]+)$/) {
-	    $c_dim_size = $1;
-	}
-	if (! looks_like_number($c_dim_size) ) {
-	    error_out("Problem gathering dim info from $image_to_warp"); 
-	}
-	$input_size = $input_size*$c_dim_size;
+    my $mem_request = 75000;#defacto mem request-o
+    my $space="vbm";
+    my ($v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
+    # a defacto okay enough guess at vox count... when this was first created. 
+    my $vx_count = 512 * 256 * 256;
+    if( $v_ok) { 
+	my @d=split(" ",$refsize);
+	$vx_count=1;
+	foreach(@d){
+	    $vx_count*=$_; }
+    } else {
+	carp("Cannot set appropriate memory size, using defacto ${mem_request}M");
+	sleep_with_countdown(3);
     }
-    my $bytes_per_point = 8; # Going to go with 64-bit depth by default, though float is the usual case;   
-    $input_size = $input_size*($bytes_per_point/1024/1024); 
-    my $expected_max_mem = int(6.2*$input_size);
+
+    my $wrp_bytes = 64/8;
+    # its either 32 or 64... We specify --float, so it should be 32.
+    my $img_bytes = 32/8;
+    # validated, warps are 64! imgs may or may not be 32!... 
+    my $warp_train_length=grep /[.]nii([.]gz)?/, split(" ",$warp_train);
+    # Hopefully this'll pull out only the diffeo warps, in theory affines are trivial in memory. 
+    # 3x to account for in, out ref, 3x wrp to account for vector
+    my $expected_max_mem = ceil( ( $img_bytes * 3 + $wrp_bytes * 3 * $warp_train_length  ) * $vx_count/1000/1000 );
     printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
     if ($expected_max_mem > $mem_request) {
 	$mem_request = $expected_max_mem;
     }
-    my @cmds = ($cmd);
 
+    my @cmds = ($cmd);
     my $jid = 0;
     if (cluster_check) {
 	my @test=(0);

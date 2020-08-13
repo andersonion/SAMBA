@@ -203,21 +203,21 @@ U_specid U_species_m00 U_code
             carp("OLD FASHIONED DATA DETECTED! WARNING THIS IS NOT WELL TESTED");
             sleep_with_countdown(5);
             my $old_pristine_input_dir=$pristine_input_dir;
-            if ($pristine_input_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
+            $pristine_input_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/;
             if (! -l $pristine_input_dir) {
                 `ln -s $old_pristine_input_dir $pristine_input_dir`;
             }
             my $old_work_dir=$dir_work;
-            if ($dir_work =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
+            $dir_work =~ s/^${BIGGUS_DISKUS}/\/glusterspace/;
             if (! -l $dir_work) {
                 `ln -s $old_work_dir $dir_work`;
             }
             my $old_results_dir=$results_dir;
-            if ($results_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
+	    $results_dir =~ s/^${BIGGUS_DISKUS}/\/glusterspace/;
             if (! -l $results_dir) {
                 `ln -s $old_results_dir $results_dir`;
             }
-            if ($result_headfile =~ s/^${BIGGUS_DISKUS}/\/glusterspace/){}
+	    $result_headfile =~ s/^${BIGGUS_DISKUS}/\/glusterspace/;
         }
     }
 
@@ -520,6 +520,7 @@ U_specid U_species_m00 U_code
     sleep($interval);
 
     set_reference_space_vbm(); #$PM_code = 15
+    # set_ref also sets our best guess memory requirements by adding ref_size key to Hf
     sleep($interval);
     
     # Force mask and nii4D out of channel array becuase they require special handling.
@@ -618,19 +619,19 @@ U_specid U_species_m00 U_code
         
         # TODO? Conver to "while" loop that runs to a certain point of stability(isntead of always prescribed mdt_iterations).
         # We don't really count the 0th iteration because normally this is just the averaging of the affine-aligned images. 
-	for (my $ii = $starting_iteration; $ii <= $mdt_iterations; $ii++) {
+	for (my $T_iter = $starting_iteration; $T_iter <= $mdt_iterations; $T_iter++) {
             # In theory, iterative_pairwise_reg_vbm and apply_mdt_warps_vbm can be combined into a 
             # "packet": as soon as a registration is completed, those warps can be immediately applied to
             # that contrast's images, independent of other registration jobs.
             
-            # This set's $ii in case it is determined that some iteration levels can/should be skipped.
-            $ii = iterative_pairwise_reg_vbm("d",$ii); #$PM_code = 41
+            # This set's $T_iter in case it is determined that some iteration levels can/should be skipped.
+            $T_iter = iterative_pairwise_reg_vbm("d",$T_iter); #$PM_code = 41
             sleep($interval);
             ####
             # slick nonsense here where we skip all contrasts except the operational one 
             # (until the final iteration)
             my @op_cont;
-            if($ii<$mdt_iterations) {
+            if($T_iter<$mdt_iterations) {
                 @op_cont=($mdt_contrast);
             } else {
                 @op_cont=@channel_array;
@@ -646,7 +647,7 @@ U_specid U_species_m00 U_code
             iterative_calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
             sleep($interval);
             
-            calculate_mdt_images_vbm($ii,@op_cont); #$PM_code = 44
+            calculate_mdt_images_vbm($T_iter,@op_cont); #$PM_code = 44
             sleep($interval);
 	    #TODO: insert image preveiw here.
 	    # OOO, Maybe we should preview on the templates dir! Then we'd keep seeing the start-> now stack of templates!

@@ -11,6 +11,7 @@ use warnings;
 
 use Cwd qw(abs_path);
 use File::Basename;
+use POSIX;
 # List::MoreUtils is not part of CORE modules,
 #  and is a heavy weight requirement for just
 #  getting unique scalar values from an array.

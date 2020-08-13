@@ -183,6 +183,22 @@ sub calculate_average_mdt_image {
     my ($out_file, $intermediate_file);
     $out_file = "${current_path}/MDT_${contrast}.nii.gz";
 
+    my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
+    # not sure if we should be label or vbm refsize... it appearsa vbm will always be available, so that is our best choice for now.
+    my $space="vbm";
+    my ($v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
+    # a defacto okay enough guess at vox count... when this was first created. 
+    my $vx_count = 512 * 256 * 256;
+    if( $v_ok) { 
+	my @d=split(" ",$refsize);
+	$vx_count=1;
+	foreach(@d){
+	    $vx_count*=$_; }
+    } else {
+	carp("Cannot set appropriate memory size by volume size, using defacto vox count $vx_count");
+	sleep_with_countdown(3);
+    }
+
     if ($mdt_creation_strategy eq 'iterative') {
         my $warp_train_car = " -t ${last_update_warp} ";
         my $warp_train = $warp_train_car.$warp_train_car.$warp_train_car.$warp_train_car;
@@ -191,7 +207,6 @@ sub calculate_average_mdt_image {
 
         # For "-e " option, test to see if we have a tensor or time-series, otherwise default to scalar.
         # See nifti standard documentation for explanation of dim0 (this code may not cover certain 2D data situations, etc.
-
         my $dim_test_file = "${mdt_images_path}/${array_of_runnos[0]}_${contrast}_to_MDT.nii.gz";
         my $test_dim_0 =  `fslhd ${dim_test_file} | grep dim0 | grep -v pix | xargs | cut -d ' ' -f2`;
 	if (! looks_like_number($test_dim_0) ) {
@@ -202,8 +217,21 @@ sub calculate_average_mdt_image {
             $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
         } elsif (${test_dim_0} != 3) {
             $opt_e_string = ' -e 3 ';
-        } 
+        }
+	my $wrp_bytes = 64/8;
+	# its either 32 or 64... We specify --float, so it should be 32.
+	my $img_bytes = 32/8;
+	# validated, warps are 64! imgs may or may not be 32!... 
+	my $warp_train_length=grep /[.]nii([.]gz)?/, split(" ",$warp_train);
+	# Hopefully this'll pull out only the diffeo warps, in theory affines are trivial in memory. 
+	# 3x to account for in, out ref, 3x wrp to account for vector
+	my $expected_max_mem = ceil( ( $img_bytes * 3 + $wrp_bytes * 3 * $warp_train_length  ) * $vx_count/1000/1000 );
+	printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
+	if ($expected_max_mem > $mem_request) {
+	    $mem_request = $expected_max_mem;
+	}
         $update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";
+	
         $cleanup_cmd = "if [[ -f ${out_file} ]]; then rm ${intermediate_file}; fi\n";
         if ($contrast eq $mdt_contrast) { # This needs to be adapted to support multiple mdt contrasts!
             my $backup_file = "${master_template_dir}/${template_name}_i${current_iteration}.nii.gz";
@@ -234,7 +262,6 @@ sub calculate_average_mdt_image {
         my $home_path = $current_path;
         my $Id= "${contrast}_calculate_average_MDT_image";
         my $verbose = 1;
-	my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
         $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
         if (not $jid) {
             error_out($stop_message);
