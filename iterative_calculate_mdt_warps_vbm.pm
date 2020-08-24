@@ -188,6 +188,8 @@ sub iterative_calculate_average_mdt_warp {
 	my $Id= "create_update_warp";
 	my $verbose = 1; # Will print log only for work done.
 	my $mem_request = 60000;  # Added 23 November 2016,  Will need to make this smarter later.
+	# magic val, use whole node :p
+	$mem_request = 0;
 	$jid = cluster_exec($go, "$PM: create update warp", $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out("$PM: could not create update warp:\n${cmd}\n");

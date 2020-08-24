@@ -11,7 +11,8 @@ use warnings;
 
 use Cwd qw(abs_path);
 use File::Basename;
-use POSIX;
+use POSIX qw(ceil);
+
 # List::MoreUtils is not part of CORE modules,
 #  and is a heavy weight requirement for just
 #  getting unique scalar values from an array.
@@ -47,6 +48,7 @@ write_array_to_file );
 activity_log();
 use pipeline_utilities;
 use Headfile;
+use ants;
 
 use lib dirname(abs_path($0));
 use SAMBA_global_variables;
@@ -81,7 +83,8 @@ $debug_val=45;
 # a do it again variable, will allow you to pull data from another vbm_run
 $test_mode = 0;
 
-$schedule_backup_jobs=1;
+# Used to always schedul backup jobs, but right now wanna shut it off for more rapid failure
+$schedule_backup_jobs=0;
 ### 
 # simple input handling, 
 # we accept a startup headfile, and/or a (number of nodes|reservation name)

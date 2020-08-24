@@ -179,7 +179,6 @@ sub iterative_pairwise_reg_Output_check {
      }
      
      my $error_msg='';
-
      if (($existing_files_message ne '') && ($case == 1)) {
 	 $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
@@ -245,8 +244,11 @@ sub create_iterative_pairwise_warps {
     }
     
     $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d $dims -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
-	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n" ;
+	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u" ;
     
+    # 
+    my $CMD_SEP=";\n";
+    $CMD_SEP=" && ";
     
     if (-e $new_warp) { unlink($new_warp);}
     if (-e $new_inverse) { unlink($new_inverse);}
@@ -255,9 +257,9 @@ sub create_iterative_pairwise_warps {
     
     my $rename_cmd;
     $rename_cmd = "".  #### Need to add a check to make sure the out files were created before linking!
-	"ln -s ${out_warp} ${new_warp};\n".
-	"ln -s ${out_inverse} ${new_inverse};\n".#.
-	"rm ${out_affine};\n";
+	"ln -s ${out_warp} ${new_warp}".
+	"$CMD_SEP ln -s ${out_inverse} ${new_inverse}".#.
+	"$CMD_SEP rm ${out_affine}";
 
     if (! data_double_check($out_warp,$out_inverse)) {
 	$pairwise_cmd = '';
@@ -272,12 +274,13 @@ sub create_iterative_pairwise_warps {
 
     if (! data_double_check($reusable_warp,$reusable_inverse_warp)){
 	$pairwise_cmd = '';
-	$rename_cmd = "ln ${reusable_warp} ${new_warp}; ln ${reusable_inverse_warp} ${new_inverse};";
+	$rename_cmd = "ln ${reusable_warp} ${new_warp}".$CMD_SEP."ln ${reusable_inverse_warp} ${new_inverse}";
     }
 ##
     my $tester =0;
 
     if ($pairwise_cmd ne '') {
+	$pairwise_cmd=$pairwise_cmd.$CMD_SEP;
 	$job_count++;
 	if ($job_count > $jobs_in_first_batch){
 	    $mem_request = $mem_request_2;
@@ -286,7 +289,17 @@ sub create_iterative_pairwise_warps {
 
     my $cmd = $pairwise_cmd.$rename_cmd;
     my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
+    
 
+    # THIS Didn't give an estimnate which made sense in light of our evidence. 
+    #printd(45,"Preparing to run $pairwise_cmd");
+    #my ($vx_sc,$est_bytes)=ants::estimate_memory($pairwise_cmd);
+    # Havnt tested this pilot process.
+    #my $out=antsRegistration_memory_estimator($pairwise_cmd);
+    
+    # Checking how slurm mem works, we can request 0 for all mem of a node...
+    # For now gonna try maximize mem.
+    $mem_request=0 if $pairwise_cmd ne '';
     my $jid = 0;
     if (cluster_check) {
 	my @test = (0);    
@@ -324,16 +337,19 @@ sub iterative_pairwise_reg_vbm_Init_check {
     if ($mdt_creation_strategy eq 'iterative') {
 	my $message_prefix="$PM initialization check:\n";
 
-	$template_predictor = $Hf->get_value('template_predictor');
+	(my $v_ok,$template_predictor) = $Hf->get_value_check('template_predictor');
 	
 	my $default_switch=0;
-	if (($template_predictor eq 'NO_KEY') ||($template_predictor eq 'UNDEFINED_VALUE'))  {
-	    my $predictor_id = $Hf->get_value('predictor_id');
-	    if (($predictor_id ne 'NO_KEY') && ($predictor_id ne 'UNDEFINED_VALUE')) {
+	#if (($template_predictor eq 'NO_KEY') ||($template_predictor eq 'UNDEFINED_VALUE'))  {
+	if (! $v_ok) {
+	    ($v_ok,my $predictor_id) = $Hf->get_value_check('predictor_id');
+	    #if (($predictor_id ne 'NO_KEY') && ($predictor_id ne 'UNDEFINED_VALUE')) {
+	    if($v_ok) {
 		# print "Predictor id = ${predictor_id}\n";
 		if ($predictor_id =~ s/([_]+.*)//) {
 		    $template_predictor = $predictor_id;
 		} else {
+		    confess("ERROR on predictor_id: $predictor_id");
 		    $template_predictor = "NoNameYet";
 		    $default_switch = 1;
 		}
@@ -352,9 +368,10 @@ sub iterative_pairwise_reg_vbm_Init_check {
 	# WARNING: Initial template is never(ever) set! why is that?
 	#
 	# this causes odd intermittent failures for this code, so swapped to check code.
-	my ($v_ok,$initial_template) = $Hf->get_value_check('initial_template');
+	($v_ok,$initial_template) = $Hf->get_value_check('initial_template');
 	if ($v_ok && ! data_double_check($initial_template))  {
 	   cluck "Unexpected code path, If you notice this let the programmer know";
+	   sleep_with_countdown(15);
 	   my($path,$name,$suffix)= fileparts($initial_template,2);
 	   if ($name =~ s/(_i)([0-9]+)$//) {
 	       my $starting_iteration = (1+$2);
@@ -362,32 +379,30 @@ sub iterative_pairwise_reg_vbm_Init_check {
 	       $Hf->set_value('template_name',$name);
 	       $log_msg = $log_msg."\tAn initialization template has been specified with the name: $name\n";
 	       $log_msg = $log_msg."\tIt appears to be from iteration ${2}; template creation will resume at ${starting_iteration}.\n";
-	   }
-	   else {
+	   } else {
 	       $Hf->set_value('template_name',$name);
 	       $log_msg = $log_msg."\tAn initialization template has been specified with the name: $name\n";
 	       $log_msg = $log_msg."\tTemplate creation will attempt to pick up where any previous work may have left off.\n";
 	   }
 	} 
 
-	$match_registration_levels_to_iteration = $Hf->get_value('match_registration_levels_to_iteration');
-	if (($match_registration_levels_to_iteration eq 'NO_KEY') 
-	    ||($match_registration_levels_to_iteration eq 'UNDEFINED_VALUE'))  {
+	($v_ok,$match_registration_levels_to_iteration) = $Hf->get_value_check('match_registration_levels_to_iteration');
+	#if (($match_registration_levels_to_iteration eq 'NO_KEY') 
+	#   ||($match_registration_levels_to_iteration eq 'UNDEFINED_VALUE'))  {
+	if(! $v_ok) {
 	    $match_registration_levels_to_iteration=1;
 	    $Hf->set_value('match_registration_levels_to_iteration',$match_registration_levels_to_iteration);
 	}
-	$mdt_iterations = $Hf->get_value('mdt_iterations');
-	if (($mdt_iterations eq 'NO_KEY') ||($mdt_iterations eq 'UNDEFINED_VALUE'))  {
+	($v_ok, $mdt_iterations) = $Hf->get_value_check('mdt_iterations');
+	#if (($mdt_iterations eq 'NO_KEY') ||($mdt_iterations eq 'UNDEFINED_VALUE'))  {
+	if($v_ok ) {
 	    $mdt_iterations=6; # Default level not set before 23 October 2018 (would default to 0 iterations);
 	    $Hf->set_value('mdt_iterations',$mdt_iterations);
-        $log_msg = $log_msg."\tNumber of iterations for template creation not specified; defaulting to ${mdt_iterations}.\n";
+	    $log_msg = $log_msg."\tNumber of iterations for template creation not specified; defaulting to ${mdt_iterations}.\n";
 	}
 
-
 	$diffeo_metric = $Hf->get_value('diffeo_metric');
-	
 	my @valid_metrics = ('CC','MI','Mattes','MeanSquares','Demons','GC');
-	my $valid_metrics = join(', ',@valid_metrics);
 	my $metric_flag = 0;
 	if ($diffeo_metric eq ('' || 'NO_KEY')) {
 	    $diffeo_metric = 'CC';
@@ -402,14 +417,12 @@ sub iterative_pairwise_reg_vbm_Init_check {
 		}
 	    }
 	}
-	
 	if (! $metric_flag) {
 	    $init_error_msg=$init_error_msg."Invalid ants metric requested for diffeomorphic pairwise registration of control group \"${diffeo_metric}\" is invalid.\n".
-		"\tValid metrics are: ${valid_metrics}\n";
+		"\tValid metrics are: ".join(', ',@valid_metrics)."\n";
 	} else {
 	    $Hf->set_value('diffeo_metric',$diffeo_metric);
 	}
-	
 	
 	$diffeo_radius=$Hf->get_value('diffeo_radius');
 	if ($diffeo_radius eq ('' || 'NO_KEY')) {
