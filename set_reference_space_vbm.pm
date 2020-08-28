@@ -162,6 +162,7 @@ sub set_reference_space_vbm {  # Main code
         # tests each thing found in gzippable file, but we really only ever run one time
         foreach (@gzippable_file){ 
             if ( $_ ne '' ) {
+		log_info("Inline compression of nii extension files in folder ${refspace_folder_hash{$space}}");
                 run_and_watch("gzip -v ${refspace_folder_hash{$space}}/*.nii");
                 last;
             }
