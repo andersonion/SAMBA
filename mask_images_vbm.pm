@@ -29,7 +29,7 @@ if (! defined($MATLAB_2015b_PATH)) {
 my $matlab_path = "${MATLAB_2015b_PATH}";
 
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$do_mask,$mask_dir,$template_contrast);
-my ($thresh_ref,$mask_threshold,$default_mask_threshold,$num_morphs,$morph_radius,$dim_divisor, $status_display_level);
+my ($thresh_ref,$default_mask_threshold,$num_morphs,$morph_radius,$dim_divisor, $status_display_level);
 my (@array_of_runnos,@channel_array);
 my @jobs=();
 my (%go_hash,%make_hash,%mask_hash);
@@ -52,32 +52,33 @@ sub mask_images_vbm {
     my @nii_files;
 
 
-## Make masks for each runno using the template contrast (usually dwi).
+## Make/find masks for each runno using the template contrast (usually dwi).
     foreach my $runno (@array_of_runnos) {
         my $go = $make_hash{$runno};
         if ($go) {
             my $current_file=get_nii_from_inputs($current_path,$runno,$template_contrast);
+	    my $mask_threshold=$default_mask_threshold;
             if (($thresh_ref ne "NO_KEY") && ($$thresh_ref{$runno})){
                 $mask_threshold = $$thresh_ref{$runno};
-            } else {
-                $mask_threshold=$default_mask_threshold;
             }
-
+ 
+	    # "current" here is probably preprocess
             my $mask_path = get_nii_from_inputs($current_path,$runno,'mask');
+	    if (data_double_check($mask_path,0))  {
+		# try again with segregated masks folder
+		$mask_path = get_nii_from_inputs($mask_dir,$runno,'mask');
+	    }
             if (data_double_check($mask_path,0))  {
+		# no mask available. set specificly mask file
                 $mask_path = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
             }
 
             my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
-
             $mask_hash{$runno} = $mask_path;
-
-            if ((! -e $mask_path) && (! -e $mask_path.".gz") ){
-                if ( ( (! $port_atlas_mask)) || (($port_atlas_mask) && (! -e $ported_mask) && (! -e $ported_mask.'.gz')) ) {
-                    #my $nifti_args ="\'$current_file\', $dim_divisor, $mask_threshold, \'$mask_path\',$num_morphs , $morph_radius,$status_display_level";
-                    #my $nifti_command = make_matlab_command('strip_mask',$nifti_args,"${runno}_${template_contrast}_",$Hf,0); # 'center_nii'
-                    #execute(1, "Creating mask for $runno using ${template_contrast} channel", $nifti_command);
-                    ($job) =  strip_mask_vbm($current_file,$mask_path);
+            if ( (! -e $mask_path) && (! -e $mask_path.".gz")  ){
+                if ( (! $port_atlas_mask) 
+		     || $port_atlas_mask && (! -e $ported_mask) && (! -e $ported_mask.'.gz') ) {
+                    ($job) =  strip_mask_vbm($current_file,$mask_path,$mask_threshold);
                     if ($job) {
                         push(@jobs,$job);
                     }
@@ -148,7 +149,7 @@ sub mask_images_vbm {
         my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
 
         if ($done_waiting) {
-            print STDOUT  "  All input images have been masked; moving on to next step.\n";
+            print STDOUT  "  mask image jobs complete; will moving on to next step. Verifying masked data...\n";
         }
     }
 
@@ -191,7 +192,6 @@ sub mask_images_Output_check {
 
     my ($case) = @_;
     my $message_prefix ='';
-    my ($file_1);
     my @file_array=();
 
     my $existing_files_message = '';
@@ -215,18 +215,32 @@ sub mask_images_Output_check {
 	my $sub_existing_files_message='';
 	my $sub_missing_files_message='';
 	foreach my $ch (@channel_array) {
+	    my ($file_1);
+	    # oh this is hard, there are 4 potential files when we factor in optional... gzipping... 
+	    # only one should ever be found .... 
+	    my @infiles;
+	    my @outfiles;
+	    # input files
+	    $file_1 = "${current_path}/${runno}_${ch}.nii";
+	    push(@infiles,$file_1);
+	    push(@infiles,$file_1.'.gz');
 	    if ($do_mask) {
-		$file_1 = "${current_path}/${runno}_${ch}_masked.nii";
-	    } else {
-		$file_1 = "${current_path}/${runno}_${ch}.nii";
+		#$file_1 = "${current_path}/${runno}_${ch}_masked.nii";
+		#push(@outfiles,$file_1);
+		#push(@outfiles,$file_1.'.gz');
+		$file_1 = "${current_path}/${runno}_${ch}_masked.nii.gz";
+		push(@outfiles,$file_1);
 	    }
-	    if (data_double_check($file_1,0) ) {
-		$file_1 = $file_1.'.gz'; # 8 Feb 2016: added .gz    
-	    }
-	    # Would like to not do slow disk mode when do_mask is 0.
-	    # I think just combining case-1 and do_maks will work.
-	    if (data_double_check($file_1,  ( $case-1 && $do_mask )   ) ) { 
-		$go_hash{$runno}{$ch}=1;#*$do_mask; Moving the $do_mask logic elsewhere because we want action either way.
+	    
+	    # immediate check for input.
+	    my $in_count=data_double_check(@infiles,0);
+	    if (scalar(@outfiles) 
+		&& scalar(@outfiles) == data_double_check(@outfiles,  ( $case-1 && $do_mask ) ) 
+		|| $in_count != scalar(@infiles) ) {
+		# Would like to not do slow disk mode when do_mask is 0.
+		# I think just combining case-1 and do_maks will work.
+		$go_hash{$runno}{$ch}=1;
+		# NOTE file_array doesnt appear to be used, and is generally not returning correctly. :p
 		push(@file_array,$file_1);
 		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
 	    } else {
@@ -264,7 +278,7 @@ sub mask_images_Output_check {
 # ------------------
 sub strip_mask_vbm {
 # ------------------
-    my ($input_file,$mask_path) = @_;
+    my ($input_file,$mask_path,$mask_threshold) = @_;
 
     my $jid = 0;
     my ($go_message, $stop_message);
@@ -384,21 +398,58 @@ sub mask_one_image {
 #    }
     my $out_path = "${current_path}/${runno}_${ch}_masked.nii.gz"; # 12 Feb 2016: Added .gz
     my $centered_path = get_nii_from_inputs($current_path,$runno,$ch);
-    my $apply_cmd = "fslmaths ${centered_path} -mas ${runno_mask} ${out_path} -odt \"input\";"; # 7 March 2016, Switched from ants ImageMath command to fslmaths, as fslmaths should be able to automatically handle color_fa images. (dim =4 instead of 3).
+    if($out_path eq $centered_path) {
+	$centered_path=~ s/_masked//;
+	if(! -e $centered_path) {
+	    $centered_path=~ s/([.]?gz)$//;
+	}
+	cluck("mask_one_image defficient! out and in paths identical!, adjust input in hopes to perform a missed cleanup operation.\n\tnew input=$centered_path\n\toutput=   $out_path");
+    }
+    my $cmd_vars="i='$centered_path';\n".
+	"m='$runno_mask';\n".
+	"o='$out_path';\n";
+
+    #my $apply_cmd = "fslmaths ${centered_path} -mas ${runno_mask} ${out_path} -odt \"input\";"; # 7 March 2016, Switched from ants ImageMath command to fslmaths, as fslmaths should be able to automatically handle color_fa images. (dim =4 instead of 3).
+    my $apply_cmd = "fslmaths \${i} -mas \${m} \${o} -odt \"input\";";
     my $im_a_real_tensor = '';
     if ($centered_path =~ /tensor/){
 	$im_a_real_tensor = '1';
     }
-   # my $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};\n";
-    my $copy_hd_cmd = '';#"CopyImageHeaderInformation ${centered_path} ${out_path} ${out_path} 1 1 1 ${im_a_real_tensor};\n"; # 24 Feb 2018, disabling, function seems to be broken and wreaking havoc
-    my $remove_cmd = "\nif [[ -f ${out_path} ]];then\n fn=\$(basename $centered_path); d=\$(dirname $centered_path); if [[ ! -d \$d/unmasked ]];then mkdir \$d/unmasked;fi; mv ${centered_path} \$d/unmasked/\$fn && gzip \$d/unmasked/\$fn &\nfi\n";
+    #my $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};\n";
+    #my $copy_hd_cmd = '';#"CopyImageHeaderInformation ${centered_path} ${out_path} ${out_path} 1 1 1 ${im_a_real_tensor};\n"; # 24 Feb 2018, disabling, function seems to be broken and wreaking havoc
+    #my $cleanup_cmd = "if [[ -f ${out_path} ]];then\n".
+    #"\tfn=\$(basename $centered_path);\n".
+    #"\td=\$(dirname $centered_path);\n".
+    #"\tif [[ ! -d \$d/unmasked ]];then mkdir \$d/unmasked;fi;\n".
+    #"\tif [[ -e $centered_path ]];then\n".
+    #"\t\tmv ${centered_path} \$d/unmasked/\$fn && ( gzip \$d/unmasked/\$fn & )\n".
+    #"\tfi\n".
+    #"fi\n";
 
-    my $cmd = $apply_cmd.$copy_hd_cmd.$remove_cmd;
-    my @cmds = ($apply_cmd,$remove_cmd);
+    # these gzip commands run in background dont work,
+    # Probably because slurm spots their creation and kills them on job end?
+    # So, we've set up to sbatch them in the background... :D 
+    my $cleanup_cmd = "if [[ -f \${o} ]];then\n".
+	"\tfn=\$(basename \${i});\n".
+	"\td=\$(dirname \${i});\n".
+	"\tif [[ ! -d \$d/unmasked ]];then mkdir \$d/unmasked;fi;\n".
+	"\tif [[ -e \${i} ]];then\n".
+	"\tcbatch=\"\$d/unmasked/compresss_\${fn}.bash\";\n".
+	"\techo '#!/usr/bin/env bash' > \${cbatch};\n".
+	"\techo \"gzip -v \$d/unmasked/\$fn\" >> \${cbatch};\n".
+	"\t\tmv \${i} \$d/unmasked/\$fn && sbatch --out=\${d}/unmasked/slurm-%j.out \${cbatch}\n".
+	"\tfi\n".
+	"fi\n";
+
+    my @cmds;
+    push(@cmds,$cmd_vars);
+    push(@cmds,$apply_cmd) if ! -e $out_path;
+    push(@cmds,$cleanup_cmd);
     
     my $go_message = "$PM: Applying mask created by ${template_contrast} image of runno $runno" ;
     my $stop_message = "$PM: could not apply ${template_contrast} mask to ${centered_path}:\n${apply_cmd}\n" ;
-    
+
+    my $cmd = join("\n",@cmds);
     my $jid = 0;
     if (cluster_check) {
 	my @test = (0);
