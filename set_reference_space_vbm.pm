@@ -338,7 +338,6 @@ sub apply_new_reference_space_vbm {
     my $test_dim = 3;
     my $opt_e_string='';
     if ($out_file =~ /\.nii(\.gz)?/) {
-	die "DEBUGGING";
         $test_dim =  `fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2` 
             || croak("ERROR Reading $in_file for header bits");
         if (! looks_like_number($test_dim) ) {
@@ -388,7 +387,7 @@ sub apply_new_reference_space_vbm {
                 push(@cmds,$remove_cmd);
             } else {
                 printd(45,"$translation_transform ready, not regnerating\n");
-                log_msg("Skipped $translation_cmd && $remove_cmd");
+                $log_msg="Skipped $translation_cmd && $remove_cmd";
             }
         } else {
             my $affine_identity = $Hf->get_value('affine_identity_matrix');
@@ -396,7 +395,7 @@ sub apply_new_reference_space_vbm {
 	    if( ! -e ${translation_transform}){
             push(@cmds,$cmd);
 	    } else {
-		log_msg("Skipped affine_identity replication $cmd");
+		$log_msg="Skipped affine_identity replication $cmd";
 	    }
         }
     } else {
@@ -406,8 +405,9 @@ sub apply_new_reference_space_vbm {
             print "Linking $in_file to $out_file\n\n";
             push(@cmds,$cmd);
         } else {
-            # I suspect this code never runs!
-            confess("UNTESTED codepath");
+            # this code runs when we've already aligned one contrast of a set. 
+	    # it should apply that alignment to the next.
+	    
             my $runno;
             my $gz = '';
             if ($out_file =~ s/(\.gz)$//) {$gz = '.gz';}
