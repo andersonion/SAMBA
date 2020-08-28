@@ -34,7 +34,7 @@ BEGIN {
         }
     }
     $ENV{'PATH'}=$ANTSPATH.':'.$ENV{'PATH'};
-    use Env qw(RADISH_PERL_LIB);
+    use Env qw(RADISH_PERL_LIB CODE_DEV_GROUP);
     if (! defined($RADISH_PERL_LIB)) {
         print STDERR "Cannot find good perl directories, quitting\n";
         exit;
@@ -47,25 +47,22 @@ write_array_to_file );
 
 activity_log();
 use pipeline_utilities;
+
 use Headfile;
 use ants;
 
 use lib dirname(abs_path($0));
 use SAMBA_global_variables;
 use SAMBA_structure;
+# we share the start_file var... maybe it should be in global vars?
 use vars qw($start_file);
+use vbm_pipeline_workflow;
 
 my $PM = 'vbm_pipeline_start.pl'; 
 my $git_log=git_log_last( abs_path(__FILE__));
 my $PIPELINE_VERSION = $git_log->{"date"}." ".$git_log->{"commit"};
 $PIPELINE_NAME="SAMBA";
 
-use vbm_pipeline_workflow;
-
-# Set pipeline utilities code dev group
-if (exists $ENV{'CODE_DEV_GROUP'} && $ENV{'CODE_DEV_GROUP'} ne ''){
-    $CODE_DEV_GROUP=$ENV{'CODE_DEV_GROUP'};
-}
 # pipeline_utilities uses GOODEXIT and BADEXIT, but it doesnt choose for you which you want. 
 $GOODEXIT = 0;
 $BADEXIT  = 1;
@@ -85,6 +82,7 @@ $test_mode = 0;
 
 # Used to always schedul backup jobs, but right now wanna shut it off for more rapid failure
 $schedule_backup_jobs=0;
+
 ### 
 # simple input handling, 
 # we accept a startup headfile, and/or a (number of nodes|reservation name)

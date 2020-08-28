@@ -15,6 +15,7 @@ my $PM = 'vbm_pipeline_workflow.pm';
 
 use strict;
 use warnings;
+use POSIX qw(getgroups);
 
 use Cwd qw(abs_path);
 use File::Basename;
@@ -29,6 +30,7 @@ BEGIN {
     }
 }
 use lib split(':',$RADISH_PERL_LIB);
+
 # use ...
 # CIVM standard req
 use Headfile;
@@ -102,10 +104,20 @@ my $UNSUCCESSFUL_RUN=$BADEXIT;
 # set pipe email users
 my $pipe_adm="";
 my $grp=getgrgid((getpwuid($<))[3]);
+my @grps=($grp);
+
+my @gids=getgroups();
+# have to convert groupids to names...
+#foreach (@gids) {
+#  push(@grps,getgrgid($_));
+# }
 if(! defined $CODE_DEV_GROUP
    || $CODE_DEV_GROUP ne $grp ) {
+   # || ! scalar(grep /$CODE_DEV_GROUP/x, @grps) ) {
     $pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
 } 
+#die join("\n",@grps).$CODE_DEV_GROUP."$pipe_adm";
+
 my $pwuid = getpwuid( $< );
 my $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
 my $cluster_user=$ENV{USER} || $ENV{USERNAME};
@@ -627,6 +639,7 @@ U_specid U_species_m00 U_code
             # This set's $T_iter in case it is determined that some iteration levels can/should be skipped.
             $T_iter = iterative_pairwise_reg_vbm("d",$T_iter); #$PM_code = 41
             sleep($interval);
+
             ####
             # slick nonsense here where we skip all contrasts except the operational one 
             # (until the final iteration)
@@ -1028,7 +1041,8 @@ sub image_preview_mail {
     my @output=glob $preview_dir."/*.n*";
     my $mat_args=join(", ",@__args);
     #count=civm_bulk_ortho(base_images,   out_dir,   {'nii4D','identity'})
-    my $mat_cmd=make_matlab_command("civm_bulk_ortho",$mat_args,"reg_init_preview_",$Hf,0);
+    my $mat_cmd=make_matlab_command("civm_bulk_ortho",$mat_args,"image_preview_",$Hf,0);
+    # make_matlab_command($function_m_name, $args, $short_unique_purpose, $Hf,$verbose) = @_;
     # the no_hf version if we think its worth switching.
     #push(@cmds,make_matlab_command_nohf("civm_bulk_ortho",$mat_args,"_reg_init_preview"),
     #				    $dir_work
