@@ -17,7 +17,7 @@ use Scalar::Util qw(looks_like_number);
 #no warnings qw(bareword);
 
 #use vars used to be here
-$schedule_backup_jobs = 1; # Will probably want to make this universal eventually...
+#$schedule_backup_jobs = 1; # Will probably want to make this universal eventually...
 require Headfile;
 require pipeline_utilities;
 #require convert_to_nifti_util;
