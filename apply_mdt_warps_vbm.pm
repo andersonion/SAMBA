@@ -59,17 +59,16 @@ my %output_file_hash;
 sub apply_mdt_warps_vbm {  # Main code
 # ------------------
     my $direction;
-    ($current_contrast,$direction,$group,$current_label_space) = @_; # added optional current_label_space
+# added optional current_label_space
+    ($current_contrast,$direction,$group,$current_label_space) = @_; 
     my $start_time = time;
 
     $interp = "Linear"; # Hardcode this here for now...may need to make it a soft variable.
-
     if ($current_contrast eq '') { # Skip this step entirely in case pipeline accidentally supplies a null contrast.
 	return();
     }
 
     my $PM_code;
-
     if ($group =~ /(control|mdt|template)/i) {
 	$gid = 1;
 	$PM_code = 43;
@@ -82,8 +81,13 @@ sub apply_mdt_warps_vbm {  # Main code
     }else {
 	error_out("$PM: invalid group of runnos specified.  Please consult your local coder and have them fix their problem.");
     }
-    apply_mdt_warps_vbm_Runtime_check($direction);
 
+    # experimental, stuff all contrasts here.
+    #if( ref( $current_contast) =~ /ARRAY/ ) {
+    # 
+    #}
+    #foreach 
+    apply_mdt_warps_vbm_Runtime_check($direction);
     foreach my $runno (@array_of_runnos) {
 	$go = $go_hash{$runno};
 	if ($go) {
@@ -405,6 +409,7 @@ sub apply_mdt_warp {
     my $stop_message = "$PM: could not apply ${direction_string} MDT warp(s) to ${current_contrast} image for  ${runno}:\n${cmd}\n";
 
     my $mem_request = 75000;#defacto mem request-o
+
     my $space="vbm";
     my ($v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
     # a defacto okay enough guess at vox count... when this was first created. 
@@ -419,6 +424,7 @@ sub apply_mdt_warp {
 	sleep_with_countdown(3);
     }
 
+=item inline mem estimate
     my $wrp_bytes = 64/8;
     # its either 32 or 64... We specify --float, so it should be 32.
     my $img_bytes = 32/8;
@@ -427,6 +433,10 @@ sub apply_mdt_warp {
     # Hopefully this'll pull out only the diffeo warps, in theory affines are trivial in memory. 
     # 3x to account for in, out ref, 3x wrp to account for vector
     my $expected_max_mem = ceil( ( $img_bytes * 3 + $wrp_bytes * 3 * $warp_train_length  ) * $vx_count/1000/1000 );
+=cut
+    my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
+    # convert bytes to MB(not MiB).
+    my $expected_max_mem=ceil($est_bytes/1000/1000);
     printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
     if ($expected_max_mem > $mem_request) {
 	$mem_request = $expected_max_mem;

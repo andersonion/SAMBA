@@ -370,7 +370,7 @@ sub apply_new_reference_space_vbm {
     $CMD_SEP=" && ";
     my @cmds;
     my $translation_transform;
-
+    my $mem_request = '0'; # set to magic value 0 to request whole node.
     #print "Test output = ".compare_two_reference_spaces($in_file,$ref_file)."\n\n\n";
     #print "Do registration? ${do_registration}\n\n\n";
     if ($do_registration) {
@@ -435,7 +435,29 @@ sub apply_new_reference_space_vbm {
             
 
             $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
-            $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform}"; 
+            $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform}";
+	    
+	    my $space='vbm';# or label... could use get_value_like_check... to get both refsizes
+	    my ($v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
+	    # a defacto okay enough guess at vox count... when this was first created. 
+	    my $vx_count = 512 * 256 * 256;
+	    if( $v_ok) { 
+		my @d=split(" ",$refsize);
+		$vx_count=1;
+		foreach(@d){
+		    $vx_count*=$_; }
+	    } else {
+		carp("Cannot set appropriate memory size, using defacto ${mem_request}M");
+		sleep_with_countdown(3);
+	    }
+	    my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
+	    # convert bytes to MB(not MiB).
+	    my $expected_max_mem=ceil($est_bytes/1000/1000);
+	    printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
+	    if ($expected_max_mem > $mem_request) {
+		$mem_request = $expected_max_mem;
+	    }
+
             push(@cmds,$cmd);
         }  
     }
@@ -444,7 +466,7 @@ sub apply_new_reference_space_vbm {
     my $short_filename = pop(@list);
 
     my @test = (0);
-    my $mem_request = '';  # 12 December 2016: Will hope that this triggers the default, and hope that will be enough.
+
     #if (defined $reservation) { 
     # Undefs are fun, just pass it :)
     # Added dependency to let this properly chain off our other work.
@@ -480,6 +502,10 @@ sub apply_new_reference_space_vbm {
 sub set_reference_space_vbm_Init_check {
 # ------------------
 # WARNING NAUGHTY CHECK IS DOING WORK.
+    # no inputs at current, sneaking everything though the headfile.
+    #my @args=@_;
+    my @init_jobs;
+    my $vx_count=1;
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
 
@@ -522,7 +548,6 @@ sub set_reference_space_vbm_Init_check {
         $resample_images=0;
         $resample_factor=1;
     }
-
 
     my $create_labels= $Hf->get_value('create_labels');
     my $do_mask= $Hf->get_value('do_mask');
@@ -611,13 +636,16 @@ sub set_reference_space_vbm_Init_check {
 	    #cluck "Hf Err fetching refsize"; $v_ok=0; }
 	    if(! $v_ok && -e $input_reference_path_hash{$space} ) { 
 		# Oh ants PrintHeader, why you always slow :( 
-		#(my $T_data_size)=run_and_watch("PrintHeader $input_reference_path_hash{$space} 2"); chomp($T_data_size); $T_data_size=~s/x/ /g;
-		(my $T_data_size)=run_and_watch("fslhd $input_reference_path_hash{$space}|grep '^dim[1-3]'|cut -d ' ' -f2-|xargs");
-		chomp($T_data_size); $T_data_size=trim($T_data_size);
-		if($T_data_size ne join(" ",@dx) ) {
+		#(my $refsize)=run_and_watch("PrintHeader $input_reference_path_hash{$space} 2"); chomp($refsize); $refsize=~s/x/ /g;
+		(my $refsize)=run_and_watch("fslhd $input_reference_path_hash{$space}|grep '^dim[1-3]'|cut -d ' ' -f2-|xargs");
+		chomp($refsize); $refsize=trim($refsize);
+		if($refsize ne join(" ",@dx) ) {
 		    confess "Error getting refsize from bounding box for space:$space";
 		}
-		$Hf->set_value("${space}_refsize",$T_data_size);
+		$Hf->set_value("${space}_refsize",$refsize);
+		my @d=split(" ",$refsize);
+		foreach(@d){
+		    $vx_count*=$_; }
 	    }
 	    if ((defined $ref_error) && ($ref_error ne '')) {
                 $init_error_msg=$init_error_msg.$ref_error;
@@ -779,11 +807,11 @@ sub set_reference_space_vbm_Init_check {
                             $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
                         } else {
                             # WARNING CODER, THERE IS A REPLICATE OF THIS WHOLE BAG OF STUFF IN mask_images_vbm AND set_reference_space_vbm
-                            my $cp_cmd="cp ${original_rigid_atlas_path} ${preprocess_dir}";
+                            my $cmd="cp ${original_rigid_atlas_path} ${preprocess_dir}";
                             my ($p,$n,$e)=fileparts($original_rigid_atlas_path,2);
                             # THIS WHOLE CONSTRUCT IS BAD... GONNA MAKE IT WORSE BY ADDING nhdr support via WarpImageMultiTransform. 
                             if( $e eq ".nhdr") {
-                                $cp_cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
+                                $cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
                                                 " --use-NN ".
                                                 " --reslice-by-header --tightest-bounding-box ".
                                                 "",
@@ -791,10 +819,41 @@ sub set_reference_space_vbm_Init_check {
                             } elsif ($original_rigid_atlas_path !~ /\.gz$/) {
                                 # WHY DO WE WANT TO GZIP SO BADLY!
                                 carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
-                                $cp_cmd=$cp_cmd." && "."gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";
+                                #$cmd=$cmd." && "."gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";
+				my $at_file="${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii.gz";
+				$cmd="gzip -c ${original_rigid_atlas_path} > ${at_file} && touch -r ${original_rigid_atlas_path} $at_file";
                             }
-                            run_and_watch($cp_cmd);
-                        }
+                            #run_and_watch($cmd);
+			    # mem estimate of voxelcount@64-bit x2 volumes
+			    my $mem_request=ceil($vx_count*8*2/1000/1000);
+			    if( $e eq ".nhdr") {
+				my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
+				# convert bytes to MB(not MiB).
+				my $expected_max_mem=ceil($est_bytes/1000/1000);
+				printd(45,"Expected amount of memory required to re-header atlas: ${expected_max_mem} MB.\n");
+				$mem_request=$expected_max_mem;
+			    }
+			    #,$reservation,$dependency);
+			    my @test=(0);
+			    my $go_message =  "$PM: set reference space rep atlas to preprocess";
+			    my $stop_message = "$PM: could not fetch atlas file into preprocess:  $cmd\n";
+			    my $jid = 0;
+			    if ($cmd){
+				if (cluster_check) {
+				    my $Id= "rigid_reference_cache";
+				    my $verbose = 1; # Will print log only for work done.
+				    $jid = cluster_exec($go, $go_message, $cmd,$preprocess_dir,$Id,$verbose,$mem_request,@test);
+				    if (not $jid) {
+					error_out($stop_message);
+				    }
+				    push(@init_jobs,$jid);
+				} else {
+				    if (! execute($go, $go_message, $cmd) ) {
+					error_out($stop_message);
+				    }
+				}
+			    }
+			}
                     }
                 } else {
                     #### WARNING: Disabling this due to broken logic of lets gzip a gzipped file. 
@@ -811,7 +870,9 @@ sub set_reference_space_vbm_Init_check {
             }
             
             $Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
-            die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
+	    if( ! -e $rigid_atlas_path && ! scalar(@init_jobs) ){
+		error_out("MISSING:$rigid_atlas_path and not scheduled.");
+	    }
             $Hf->set_value('original_rigid_atlas_path',$original_rigid_atlas_path); # Updated 1 September 2016
         }
     }
@@ -825,7 +886,7 @@ sub set_reference_space_vbm_Init_check {
     if ((defined $init_error_msg) && ($init_error_msg ne '') ) {
         $init_error_msg = $message_prefix.$init_error_msg;
     }
-    return($init_error_msg);
+    return($init_error_msg,\@init_jobs);
     
 }
 

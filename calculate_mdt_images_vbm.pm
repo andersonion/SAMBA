@@ -218,6 +218,8 @@ sub calculate_average_mdt_image {
         } elsif (${test_dim_0} != 3) {
             $opt_e_string = ' -e 3 ';
         }
+	
+=item inline mem estimate
 	my $wrp_bytes = 64/8;
 	# its either 32 or 64... We specify --float, so it should be 32.
 	my $img_bytes = 32/8;
@@ -226,11 +228,17 @@ sub calculate_average_mdt_image {
 	# Hopefully this'll pull out only the diffeo warps, in theory affines are trivial in memory. 
 	# 3x to account for in, out ref, 3x wrp to account for vector
 	my $expected_max_mem = ceil( ( $img_bytes * 3 + $wrp_bytes * 3 * $warp_train_length  ) * $vx_count/1000/1000 );
+=cut
+        $update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";
+
+	my ($vx_sc,$est_bytes)=ants::estimate_memory($update_cmd,$vx_count);
+	# convert bytes to MB(not MiB).
+	my $expected_max_mem=ceil($est_bytes/1000/1000);
 	printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
 	if ($expected_max_mem > $mem_request) {
 	    $mem_request = $expected_max_mem;
 	}
-        $update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";
+
 	
         $cleanup_cmd = "if [[ -f ${out_file} ]]; then rm ${intermediate_file}; fi\n";
         if ($contrast eq $mdt_contrast) { # This needs to be adapted to support multiple mdt contrasts!

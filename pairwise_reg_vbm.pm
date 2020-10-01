@@ -50,6 +50,7 @@ sub pairwise_reg_vbm {  # Main code
     my ($type) = @_;
     if ($type eq "a") {
 	$affine = 1;
+	die "unimplemented";
     }
     my $start_time = time;
     pairwise_reg_vbm_Runtime_check();
