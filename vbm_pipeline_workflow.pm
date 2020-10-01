@@ -434,8 +434,16 @@ U_specid U_species_m00 U_code
 # So we're actually checking forwards.
 #   Forwards seems the correct direction to init, but we should then run 
 #   outputchecks starting at the back, ... and somehow only complete trailing work.
+#
+# BUT GUESS WHAT! We have yet to do that! We have a great deal of work to do in module flow.
+#   It would be good to have some kind of while loop starting at the last module, 
+#   like, while runtime check fail, step back, 
+#   On a success it runs that module, and then begins stepping forward from there. 
+#   Back to back for loops might be ideal, first in reverse for runtime, holding onto the pointer for
+#   "current module" then operate in forward from there.
     my $init_error_msg='';
     
+    #IMPORANT to specify order becuase we use a hash to hold the function references.
     my @modules_for_Init_check = qw(
      convert_all_to_nifti_vbm
      pull_civm_tensor_data
@@ -466,14 +474,26 @@ U_specid U_species_m00 U_code
     # character game when calling command with backticks, etc.
     my $checkCall; 
     my $Init_suffix = "_Init_check";
+    my @init_jobs;
     # for (my $mm = $#modules_for_Init_check; $mm >=0; $mm--)) { # This checks backwards
     for (my $mm = 0; $mm <= $#modules_for_Init_check; $mm++) { # This checks forwards
         my $module = $modules_for_Init_check[$mm];
 	$checkCall = "${module}${Init_suffix}";
+	# eval finds the function reference
         $init_dispatch_table{$checkCall}=eval('\&$checkCall'); # MUST USE SINGLE QUOTES on RHS!!!
 	print STDOUT "Check call is $checkCall\n";
         my $temp_error_msg = '';
-        $temp_error_msg=$init_dispatch_table{$checkCall}();
+	
+	# this runs the function reference and returns anything from the function.
+	# only rarely do we have init_jobs, that will leave this undefined if they dont exist.
+        ($temp_error_msg,my $init_job)=$init_dispatch_table{$checkCall}();
+	if(defined $init_job) {
+	    if(ref $init_job =~/ARRAY/ix) {
+		push(@init_jobs,@$init_job);
+	    } else {
+		push(@init_jobs,$init_job);
+	    }
+	}
 	if ((defined $temp_error_msg) && ($temp_error_msg ne '')  ) {
             if ($init_error_msg ne '') {
                 $init_error_msg = "${init_error_msg}\n------\n\n${temp_error_msg}"; # This prints the results forwards
@@ -485,12 +505,27 @@ U_specid U_species_m00 U_code
     }
     if ($init_error_msg ne '') {
         log_info($init_error_msg,0);
-        error_out("\n\nPrework errors found:\n${init_error_msg}\nNo work has been performed!\n");
+	my $init_job_addendum="No work has been performed!\n";
+	if(scalar(@init_jobs) ){
+	    $init_job_addendum="started some jobs in init, you may want to scancel ".join(",",@init_jobs)."\n";
+	}
+        error_out("\n\nPrework errors found:\n${init_error_msg}\n".$init_job_addendum);
     } else {
         log_info("No errors found during initialization check stage.\nLet the games begin!\n");
     }
+    if(scalar(@init_jobs) && cluster_check() ) {
+        my $interval = 2;
+        my $verbose = 1;
+        my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@init_jobs);
+        if ($done_waiting) {
+            print STDOUT  " Init jobs complete, Back to normal.\n";
+        }
+    }
+
 # Begin work:
     if (! -e $inputs_dir) {
+	# pretty sure we made process dirs earlier :p
+	confess("UNEXPECTED MKDIR");
         mkdir($inputs_dir);
     }
     
@@ -546,55 +581,8 @@ U_specid U_species_m00 U_code
     ###
     my $img_preview_src=File::Spec->catdir($preprocess_dir,'base_images');
     my $img_preview_dir=File::Spec->catdir($dir_work,"reg_init_preview");
-    # use function, or run the inline version, temporary measure while function is finished.
-    my $img_mail_inline=0;
-    if(! $img_mail_inline) {
-	image_preview_mail($img_preview_src,$img_preview_dir,my $blank,$MAIL_USERS);
-    } else {
-    # Will generate ortho slice previews using civm_bulk_ortho and then 
-    # mail the folder of results to you.
-    #
-    # We need to know when to send all, we only want to send all once, or when updated.
-    # We could use run_on_update to that end. 
-    #
-    # I guess the folder of output would be sufficient, it would be empty the first run(or missing)
+    image_preview_mail($img_preview_src,$img_preview_dir,my $blank,$MAIL_USERS);
 
-    # label_reference_path/vbm_reference_path have path to the ref file.
-    #EX mat calls
-    #my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
-    #my $nifti_args = "\'${inpath}\' , \'${outpath}\'";
-    #my $nifti_command = make_matlab_command('civm_bulk_orth',  $nifti_args,  "${name}_",$Hf,0); # 'center_nii'
-    #execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
-    my @__args;
-    push(@__args,"'$img_preview_src'");
-    push(@__args,"'$img_preview_dir'");
-    #push(@__args,"{'nii4D','identity','reference_image','$rigid_atlas_name','$label_atlas_name'}");
-    # Exclusions from the bulk ortho preview, certain about nii4d, and things called identity...
-    # actually forgot why I thought identity needed excluding.
-    # think maybe reference_image as that is generally just a centerd mass, which should almost 
-    # never need previewing.
-    my @exclusions=qw(nii4D identity);
-    push(@exclusions,"reference_image");
-    # Excluding the atlass might be good, but since we're recentering things, 
-    # maybe its nice to have the "correct" reference?
-    #push(@exclusions,$rigid_atlas_name);
-    #push(@exclusions,$label_atlas_name);
-    push(@__args,"{'".join("', '",@exclusions)."'}");
-    my @input=glob $__args[0]."/*.n*";
-    my @output=glob $img_preview_dir."/*.n*";
-    my $mat_args=join(", ",@__args);
-    #count=civm_bulk_ortho(base_images,   out_dir,   {'nii4D','identity'})
-    my $mat_cmd=make_matlab_command("civm_bulk_ortho",$mat_args,"reg_init_preview",$Hf,0);
-    # the no_hf version if we think its worth switching.
-    #push(@cmds,make_matlab_command_nohf("civm_bulk_ortho",$mat_args,"reg_init_preview"),
-    #				    $dir_work
-    #				    ,$ED->get_value("engine_app_matlab")
-    #				    ,File::Spec->catfile($options->{"dir_work"},"${runno_base}_matlab.log")
-    #				    ,$ED->get_value("engine_app_matlab_opts"), 0)
-    run_on_update($mat_cmd,\@input,\@output);
-    my $preview_mailer="mail_dir $img_preview_dir $MAIL_USERS";
-    run_on_update($preview_mailer,\@input,\@output);
-    }
 ###
 # Register all to atlas
 # First as rigid, then not
@@ -1038,7 +1026,7 @@ sub image_preview_mail {
 	@exclusions=@$ex_ref; } 
     push(@__args,"{'".join("', '",@exclusions)."'}");
     my @input=glob $source_dir."/*.n*";
-    my @output=glob $preview_dir."/*.n*";
+    my @output=glob $preview_dir."/*.png";
     my $mat_args=join(", ",@__args);
     #count=civm_bulk_ortho(base_images,   out_dir,   {'nii4D','identity'})
     my $mat_cmd=make_matlab_command("civm_bulk_ortho",$mat_args,"image_preview_",$Hf,0);
@@ -1049,11 +1037,19 @@ sub image_preview_mail {
     #				    ,$ED->get_value("engine_app_matlab")
     #				    ,File::Spec->catfile($options->{"dir_work"},"${runno_base}_matlab.log")
     #				    ,$ED->get_value("engine_app_matlab_opts"), 0)
-    run_on_update($mat_cmd,\@input,\@output);
+    
+    # found run_on_update wasnt working as expected, becuase samba runs out of 
+    # order off and on, it can happen that the standard skip condition of 
+    # run_on_update is not sophisticated enough.
+    # It lookes at oldest output, compared to newest input. This condition is routinely 
+    # not true due to samba stop/start faults, and also due to intentional expansion of 
+    # study.
+    # def_for and def_fai are allowing run on update default force and fail on error behavior
+    run_on_update($mat_cmd,\@input,\@output,my $def_for, my $def_fai,'paired_IO');
     #my $pwuid = getpwuid( $< );
     #my $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
     my $preview_mailer="mail_dir $preview_dir $MAIL_USERS";
-    run_on_update($preview_mailer,\@input,\@output);
+    run_on_update($preview_mailer, \@input, \@output, $def_for, $def_fai,'paired_IO');
 }
 #---------------------
 #sub load_tsv {
