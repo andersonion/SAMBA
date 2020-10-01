@@ -267,7 +267,8 @@ sub create_iterative_pairwise_warps {
 	
 ## It is possible that VBM processing was done after previous iteration.  If so, then the "reg_diffeo" warps will be the same work we want here, with the one caveat that the same diffeo parameters are used during template creation and registration to template (no doubt we will soon stray from this path).
     my $previous_template_path = $template_path;
-    if ($previous_template_path =~ s/_i([0-9]+[\/]*)?/_i${old_iteration}/) { }
+    # ... strip bits from iteration pathing?
+    $previous_template_path =~ s/_i([0-9]+[\/]*)?/_i${old_iteration}/;
     my $prev_reg_diffeo_path = "${previous_template_path}/reg_diffeo/";
     my $reusable_warp = "${prev_reg_diffeo_path}/${moving_runno}_to_MDT_warp.nii.gz"; # none 
     my $reusable_inverse_warp = "${prev_reg_diffeo_path}/MDT_to_${moving_runno}_warp.nii.gz"; 
@@ -297,7 +298,7 @@ sub create_iterative_pairwise_warps {
     # Havnt tested this pilot process.
     #my $out=antsRegistration_memory_estimator($pairwise_cmd);
     
-    # Checking how slurm mem works, we can request 0 for all mem of a node...
+    # After checking how slurm mem works, we can request 0 for all mem of a node...
     # For now gonna try maximize mem.
     $mem_request=0 if $pairwise_cmd ne '';
     my $jid = 0;
@@ -817,7 +818,9 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               label_refname
                               label_refspace
                               label_refspace_folder
+                              label_refsize
                               label_space
+                              label_type
                               template_checkpoint_completed
                               mdt_iterations
                               last_update_warp
@@ -842,6 +845,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               vba_contrast_comma_list
                               vbm_input_reference_path
                               vbm_software
+                              vbm_refsize
                               fixed_image_for_mdt_to_atlas_registratation
                               original_bvecs_ 
                               nonparametric_permutations
