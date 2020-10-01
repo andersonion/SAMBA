@@ -6,24 +6,27 @@ control_comma_list=N51211,N51221,N51231,N51383,N51386,N51136,N51201,N51234,N5124
 
 compare_comma_list=N51211,N51221,N51231,N51383,N51386,N51136,N51201,N51234,N51241,N51252
 ## Hint: compare_comma_list should include all runnos that should be independently re-registered to the final MDT once it has been created.
+##  eg. These are the labeled runnos. 
 
-group_1_runnos=N51211,N51221,N51231,N51383,N51386
-group_2_runnos=N51136,N51201,N51234,N51241,N51252
+#group_1_runnos=N51211,N51221,N51231,N51383,N51386
+#group_2_runnos=N51136,N51201,N51234,N51241,N51252
 ## Hint: group_1_runnos and group_2_runnos should be mutually exclusive, as they are used for VBA and label statistical comparisons
 
 #custom_predictor_string=nos2_vs_cvn
 ## Hint: This is optional, and is how you can "name" the groups; i.e. nos2 is the name of group_1 and cvn is the name of group_2 in the example above.
 ## Hint: This will default to control_vs_treated if not specified.
 
-channel_comma_list=dwi,fa
+channel_comma_list=dwi,fa,lc
 ## Hint: At a minimum, this must at least include any contrasts used to drive registration.
 
 # Rigid (coarse) alignment options
-rigid_atlas_name=chass_symmetric3_RAS
+rigid_atlas_name=chass_symmetric5
 rigid_contrast=dwi
 
 # Non-linear (diffeomorphic) registration options
-mdt_contrast=fa
+# Historically was fa, now using hybrid lc contrast(which has to be generated out of band).
+#mdt_contrast=fa
+mdt_contrast=lc
 mdt_creation_strategy=iterative
 ## Hint: options for mdt_creation_strategy include 'iterative' and 'pairwise'
 
@@ -71,7 +74,7 @@ working_image_orientation=RAS
 ## Hint: All work will be performed in working_image_orientation.
 # Best practics is RAS, alternatively you could specify the input orientation.
 
-#original_study_orientation=ARI
+original_study_orientation=ARI
 ## Hint: This describes the current orientation of all the incoming images, assuming they are uniformly oriented.
 ## Hint: Support for handling outliers specify them individually with  original_orientation_$runno=...
 ##  ex:
@@ -92,7 +95,7 @@ create_labels=1
 # Implied by create_labels=1, but lets you skip label application and measures if they're not your primary goal,
 # that is typically the case when you're a hybrid study as a waypoint.
 #register_MDT_to_atlas=1
-label_atlas_name=chass_symmetric3_RAS
+label_atlas_name=chass_symmetric5
 ## Hint: This is the name of the ANATOMY (i.e. images) upon which your source labels are overlaid
 ## Other approved choices, C57, BTBR These are both based on chass_symmetric3_RAS and are under final validation.
 ##   ( Some structures had updates done ) 
@@ -146,7 +149,7 @@ port_atlas_mask=0
 
 
 ## VBA Options
-vba_contrast_comma_list=dwi,fa,e1,jac
+#vba_contrast_comma_list=dwi,fa,e1,jac
 ## Hint: If not all contrasts should be analyzed with VBA, this comma-delimited 
 #  list of image contrasts will specify which ones will be used with VBA. 
 #  If this variable is not set, VBA will be performed on all available contrasts (except the nii4D).
