@@ -24,6 +24,7 @@ my ($current_path, $image_dir,$work_dir,$runlist,$ch_runlist,$in_folder,$out_fol
 my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$labels_dir,$label_atlas_name,$label_atlas_nickname);
 my (@array_of_runnos,@channel_array,@initial_channel_array);
 #my ($predictor_id); # SAVE FOR LAST ROUND OF LABEL STATS CODE
+my ($vx_count);# count of voxels in current space... 
 my @jobs=();
 my (%go_hash,%go_mask);
 my $log_msg='';
@@ -36,7 +37,7 @@ my $PM_code = 65;
 #my $compilation_date = "20180227_1439";#"20170616_2204"; Updated 27 Feb 2018, BJA--will now ignore any voxels with contrast values of zero (assumed to be masked)
 
 # New enhancements stabilized.
-my $compilation_date = "stable";
+my $compilation_date = "latest";
 my $write_individual_stats_executable_path = "$MATLAB_EXEC_PATH/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec.sh"; 
 my $write_rat_report_executable_path = "$MATLAB_EXEC_PATH/label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh";
 
@@ -227,7 +228,12 @@ sub calculate_label_statistics {
         my $home_path = $current_path;
         my $Id= "${runno}_calculate_individual_label_statistics";
         my $verbose = 1; # Will print log only for work done.
-	my $mem_request = '10000';
+	my $mem_request = '512';# min req for matlab exec.
+	# estimates here, lets pretend 32-bit int for labels, + 4 x 64-bit contrast images
+	# this mem usage doesn't quite make sense, Realistically, it should just be labels+1 or 2 contrasti mages.
+	my $est_bytes=$vx_count * ( 4 + 8 + 8 + 8 + 8 );
+	# convert bytes to MB(not MiB).
+	$mem_request=ceil($mem_request + $est_bytes/1000/1000);
         $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
         if (! $jid) {
             error_out($stop_message);
@@ -292,6 +298,21 @@ sub  calculate_individual_label_statistics_vbm_Init_check {
     if ($init_error_msg ne '') {
         $init_error_msg = $message_prefix.$init_error_msg;
     }
+
+    my $space="label";# dubious at best, could also be MDT, but really not clear when or which it should be.
+    my ( $v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
+    # a defacto okay enough guess at vox count... when this was first created. 
+    $vx_count = 512 * 256 * 256;
+    if( $v_ok) { 
+	my @d=split(" ",$refsize);
+	$vx_count=1;
+	foreach(@d){
+	    $vx_count*=$_; }
+    } else {
+	carp("Cannot set appropriate memory size by volume size, using defacto vox count $vx_count");
+	sleep_with_countdown(3);
+    }
+
     
     return($init_error_msg);
 }
