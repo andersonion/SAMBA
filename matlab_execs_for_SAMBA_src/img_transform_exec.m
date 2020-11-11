@@ -328,6 +328,10 @@ if ~strcmp(desired_vorder,current_vorder)
         end
         %save(affineout,'-struct','affine_mat');
     end
+else
+    xpos=strfind(current_vorder,desired_vorder(1));
+    ypos=strfind(current_vorder,desired_vorder(2));
+    zpos=strfind(current_vorder,desired_vorder(3));
 end
 %% early exit if done.
 if exist(output_path,'file')
