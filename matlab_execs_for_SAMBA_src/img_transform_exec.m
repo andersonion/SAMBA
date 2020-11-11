@@ -342,8 +342,15 @@ else
     % which is kinda silly all around :P
     origin=[];
 end
+
+% 25 October 2020, BJA:
+% Code would break on anisotropic data and dimension swaps...fixing now
+pixdim_order=[(xpos+1) (ypos+1) (zpos+1)]; 
+
+
 %% make_nii/save_nii
-newnii=make_nii(new,nii.hdr.dime.pixdim(2:4),origin,nii.hdr.dime.datatype);
+%newnii=make_nii(new,nii.hdr.dime.pixdim(2:4),origin,nii.hdr.dime.datatype);
+newnii=make_nii(new,nii.hdr.dime.pixdim(pixdim_order),origin,nii.hdr.dime.datatype);
 %newnii=make_nii(new,nii.hdr.dime.pixdim(2:4),[0 0 0],nii.hdr.dime.datatype);
 newnii.hdr.dime.intent_code=nii.hdr.dime.intent_code;
 save_nii(newnii,output_path);
