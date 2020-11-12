@@ -1,5 +1,5 @@
-function strip_mask_exec(ref_nii, dim_divisor, threshold_zero, varargin)
-%function STRIP_MASK(nii_path, dim_divisor, threshold_code,mask_result_nii,num_morph,radius,debug)
+function strip_mask_exec(img_path, dim_divisor, threshold_zero, varargin)
+%function STRIP_MASK(img_path, dim_divisor, threshold_code,mask_result_nii,num_morph,radius,debug)
 %
 % This function adapted for deployment by BJ Anderson, CIVM, 27 July 2017
 % This mainly consisted of testing the inputs to see if they were strings,
@@ -29,7 +29,7 @@ function strip_mask_exec(ref_nii, dim_divisor, threshold_zero, varargin)
 %                  * -2      histogram threshold via zeros of histogram
 %                  derivative for T2* images
 %                  appropriate for t1 and t2 images).
-% mask_result_nii, path to save nifti mask to, or an empty string, ''.
+% mask_out,         path to save output mask to, or an empty string, ''.
 % num_morph,       number of morpholical iterations to perform, default is 5
 %                  generally the less morphs the larger your radius should be.
 %                  recommended values lower than 20
@@ -86,15 +86,15 @@ end
 
 if( length(varargin)>=1)
     if(isempty(varargin{1}))
-        [result_path, filename, extension]=fileparts(ref_nii);
-        mask_result_nii=strcat(result_path,'/',filename, '_8bit_mask', extension);
+        [result_path, filename, extension]=fileparts(img_path);
+        mask_out=strcat(result_path,'/',filename, '_8bit_mask', extension);
     else
         [result_path, ~, ~]=fileparts(varargin{1});
-        mask_result_nii=varargin{1};
+        mask_out=varargin{1};
     end
 else
-    [result_path, filename, extension]=fileparts(ref_nii);
-    mask_result_nii=strcat(result_path,'/',filename, '_8bit_mask', extension);
+    [result_path, filename, extension]=fileparts(img_path);
+    mask_out=strcat(result_path,'/',filename, '_8bit_mask', extension);
 end
 
 
@@ -144,9 +144,9 @@ else
     debuglevel=2;
 end
 if (debuglevel >=2)
-    statusnii=1;
+    status_img=1;
 else
-    statusnii=0;
+    status_img=0;
 end
 if (debuglevel >=1 )
     status_largestconnecteddisplay=1; % comment this line to suppress status view_nii
@@ -161,7 +161,13 @@ end
 
 % -- Load nii
 tstart=tic;
-nii = load_nii(ref_nii);
+try
+    nii = load_nii(img_path);
+catch
+    [i,h]=read_civm_image(img_path,0);
+    nii=make_nii(i,nrrd_vox(h.nhdr),nrrd_orig(h.nhdr));
+    clear i;
+end
 niioriginal.hdr=nii.hdr;
 niioriginal.img=nii.img;
 %clear niioriginal.img
@@ -201,7 +207,7 @@ if ~exist('threshold_zero','var') || threshold_zero==-1;
     fprintf(fid,'%s \n','run("Quit");');
     fclose(fid);
     % --- run imageJ macro
-    system(horzcat('java -Xmx2000m -jar /Applications/ImageJ/ImageJ64.app/Contents/Resources/Java/ij.jar -ijpath /Applications/ImageJ ',ref_nii,' -macro ',fullfile(result_path,'auto_threshold.ijm')));
+    system(horzcat('java -Xmx2000m -jar /Applications/ImageJ/ImageJ64.app/Contents/Resources/Java/ij.jar -ijpath /Applications/ImageJ ',img_path,' -macro ',fullfile(result_path,'auto_threshold.ijm')));
     fid=fopen(fullfile(result_path,'threshold.txt'),'r');
     threshold_min=fscanf(fid,'%u');
     display(horzcat('Threshold from imageJ is ',num2str(threshold_min)));
@@ -241,17 +247,17 @@ end
 
 if threshold_zero>=0 && threshold_zero < 100
     [counts,ns]=hist(double(reshape(nii.img, prod(size(nii.img)),1)), 200);
-    if(statusnii>0);
+    if(status_img>0);
         figure(1);
         plot(ns,counts);
     end
     hsmooth=smooth(counts,5,'sgolay',3);
-    if(statusnii>0);
+    if(status_img>0);
         plot(ns,hsmooth,'b',ns,counts,'r.')
         set(gca(), 'YLim',[0 1.5*10^7]);
     end
     [ymax2,imax2,ymin2,imin2] = extrema(hsmooth);
-    if(statusnii>0);
+    if(status_img>0);
         hold
         plot(ns(imax2),ymax2,'r*',ns(imin2),ymin2,'g*');
         hold
@@ -349,7 +355,7 @@ for i=1:num_morph
 end
 toc
 
-if(statusnii==1);
+if(status_img==1);
     name=['eroded binary' '_z' num2str(threshold_zero) '_m' num2str(num_morph) '_r' num2str(radius)];
     status_e=view_nii(nii);
     set(status_e.fig,'Name',name);
@@ -393,7 +399,7 @@ if ( extradialations==1)
     toc
 end
 
-if(statusnii==1);
+if(status_img==1);
     name=[ 'Dialated Binary' 'erroded binary' '_z' num2str(threshold_zero) '_m' num2str(num_morph) '_r' num2str(radius)];
     status_d=view_nii(nii);
     set(status_d.fig,'Name',name);
@@ -411,7 +417,7 @@ disp('filling holes 2of2...');
 nii.img=imfill(nii.img, 'holes');
 disp('holes filled');
 toc
-if(statusnii==1);
+if(status_img==1);
     name=['Filled Holes' 'erroded binary' '_z' num2str(threshold_zero) '_m' num2str(num_morph) '_r' num2str(radius)];
     status_f=view_nii(nii);
     set(status_f.fig,'Name',name);
@@ -431,7 +437,7 @@ nii.img=imclose(nii.img, nhood0);
 toc
 
 
-if(statusnii==1);
+if(status_img==1);
     name=['Holes Closed' 'eroded binary' '_z' num2str(threshold_zero) '_m' num2str(num_morph) '_r' num2str(radius)];
     status_c=view_nii(nii);
     set(status_c.fig,'Name',name);
@@ -450,7 +456,7 @@ nii.img=imfill(nii.img, 'holes');
 
 toc
 
-if(statusnii==1);
+if(status_img==1);
     name=['Holes Filled' 'eroded binary' '_z' num2str(threshold_zero) '_m' num2str(num_morph) '_r' num2str(radius)];
     status_c=view_nii(nii);
     set(status_c.fig,'Name',name);
@@ -495,7 +501,7 @@ tic
 %mask_result8=strcat(filename, '_8bit_mask', extension);
 %mask_result8=mask_result_nii;
 
-save_nii(nii8bit, mask_result_nii);
+save_nii(nii8bit, mask_out);
 disp('wrote mask');
 
 %alex makes everything uint16
@@ -504,7 +510,7 @@ nii_greyscale.hdr=nii8bit.hdr;
 
 nii_greyscale.img=uint16(niioriginal.img).*uint16(nii8bit.img);
 
-if(statusnii>=1);
+if(status_img>=1);
     name=['Greyscale' 'erroded binary' '_z' num2str(threshold_zero) '_m' num2str(num_morph) '_r' num2str(radius)];
     status_g=view_nii(nii_greyscale);
     set(status_g.fig,'Name',name);
