@@ -63,7 +63,7 @@ sub convert_all_to_nifti_vbm {
     my $second_run=0;
     # bool to switch between set center on nodes through slurm or, swamp the master node.
     # This was added due to network tomfoolery where nodes may not have mounts.
-    my $schedule_set_center=0;
+    my $schedule_set_center=1;
     while ($run_again) {
         convert_all_to_nifti_vbm_Runtime_check();
 	
@@ -243,6 +243,22 @@ sub set_center_and_orientation_vbm {
     if (! defined $go) {$go = 1; }
     my ($go_message, $stop_message);
 
+    my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
+    my $space="label";
+    my ( $v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
+    # a defacto okay enough guess at vox count... when this was first created. 
+    my $vx_count = 512 * 256 * 256;
+    if( $v_ok) { 
+	my @d=split(" ",$refsize);
+	$vx_count=1;
+	foreach(@d){
+	    $vx_count*=$_; }
+	# vx @64bit @ 3x volumes.
+	$mem_request = $vx_count * 8 * 3;
+    } else {
+	carp("Cannot set appropriate memory size by volume size, using defacto limit $mem_request");
+	sleep_with_countdown(3);
+    }
 #    if ($current_orientation eq $desired_orientation) {
     # Hope to have a function that easily and quickly diddles with the header to recenter it...may incorporate into matlab exec instead, though.
 #    } else {
@@ -254,28 +270,39 @@ sub set_center_and_orientation_vbm {
     # and nhdr ... 
     # presume we have good center/and orientation.
     my ($p,$n,$e)=fileparts($input_file,2);
-    
     if($current_orientation eq $desired_orientation && $e eq '.nhdr') {
 	carp("experimental startup from nhdr engaged. INPUT HEADERS MUST BE CORRECT AND CENTERED.");
-	$cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
-		     " --use-NN ".
-		     " --reslice-by-header --tightest-bounding-box ".
-		     "",
-		     $input_file, File::Spec->catfile($output_folder,$n.".nii"));
+	my $reconditioned_dir=File::Spec->catdir($p,"conv_nhdr");
+	mkdir $reconditioned_dir if ! -e $reconditioned_dir;
+	my $nhdr_sg=File::Spec->catfile($reconditioned_dir,$n.".nii");
+	$matlab_exec_args="${nhdr_sg} ${current_orientation} ${desired_orientation} ${output_folder}";
+	$cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
+	# only run the nhdr adjust if we're missing or older.
+	if( ! -e $nhdr_sg || ( -M $nhdr_sg ) > ( -M $input_file) ){ 
+	    my $Wcmd=sprintf("WarpImageMultiTransform 3 %s %s ".
+			 " --use-NN ".
+			 " --reslice-by-header --tightest-bounding-box ".
+			 "",
+			 $input_file, $nhdr_sg);
+	    my ($vx_sc,$est_bytes)=ants::estimate_memory($Wcmd,$vx_count);
+	    # convert bytes to MB(not MiB).
+	    $mem_request=ceil($est_bytes/1000/1000);
+	    $cmd=$cmd." && $Wcmd";
+	}
     }
 
     $go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;
     $stop_message = "$PM: Failed to properly reorientate to ${desired_orientation} and recenter file: ${input_file}\n" ;
     
-    if (cluster_check) {
+    if (cluster_check()) {
 	my @test=(0);
 	if (defined $reservation) {
 	    @test =(0,$reservation);
 	}
         my $home_path = $current_path;
-        my $Id= "recentering_and_setting_image_orientation_to_${desired_orientation}";
+        my $Id= "set_${desired_orientation}_${n}_orientation_and_center";
         my $verbose = 1; # Will print log only for work done.
-	my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
+
         $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
         if ($go && ( not $jid ) ){
 	    error_out($stop_message);
