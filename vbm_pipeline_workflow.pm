@@ -552,15 +552,14 @@ U_specid U_species_m00 U_code
 # nifti_header_capitulator... or nifti_unifier ... 
 # perhaps nifti_capitulator is most unclearly clear.
     convert_all_to_nifti_vbm(); #$PM_code = 12
-
     sleep($interval);
     if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
         printd(5,"Tensor create data will invent rd from mean(e2+e3)\n");
 	push(@channel_array,'rd');
         $channel_comma_list = $channel_comma_list.',rd';
         $Hf->set_value('channel_comma_list',$channel_comma_list);
+	sleep($interval);
     }
-    sleep($interval);
 # Before 11 April 2017: nii4Ds were not masked; After 11 April 2017: nii4Ds are masked for processing/storage/reading/writing efficiency
 # mask is rather dirty it overwrites and removes its working images.
     mask_images_vbm(); #$PM_code = 14
@@ -664,7 +663,7 @@ U_specid U_species_m00 U_code
 	    mask_for_mdt_vbm(); #$PM_code = 45
 	    sleep($interval);
 	}
-    } else {
+    } elsif($mdt_creation_strategy eq 'pairwise') {
 	printd(5,"WARNING: This code has not been tested in quite some time!\n"
 	       ."If you test it sucessfully, let the sloppy programmer know he can remove this wait\n"
 	       ."Please enjoy the next 30 seconds ... " );
@@ -672,33 +671,35 @@ U_specid U_species_m00 U_code
     #
     # PAIRWISE VERSION
     #
-    pairwise_reg_vbm("d"); #$PM_code = 41
-    sleep($interval);
-    
-    calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
-    sleep($interval);
-
-    calculate_mdt_warps_vbm("i","diffeo"); #$PM_code = 42
-    sleep($interval);
-
-    $group_name = "control";
-    foreach my $a_contrast (@channel_array) {
-        apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 43
-    }
-    calculate_mdt_images_vbm(@channel_array); #$PM_code = 44
-    sleep($interval);
-
-    mask_for_mdt_vbm(); #$PM_code = 45
-    sleep($interval);
-    
-    if ($do_vba) {
-        calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46) ## BAD code! Don't use this unless you are trying to make a point! #Just kidding its the right thing to do after all--WTH?!?
-        sleep($interval);
-    }
+	pairwise_reg_vbm("d"); #$PM_code = 41
+	sleep($interval);
+	
+	calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
+	sleep($interval);
+	
+	calculate_mdt_warps_vbm("i","diffeo"); #$PM_code = 42
+	sleep($interval);
+	
+	$group_name = "control";
+	foreach my $a_contrast (@channel_array) {
+	    apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 43
+	}
+	calculate_mdt_images_vbm(@channel_array); #$PM_code = 44
+	sleep($interval);
+	
+	mask_for_mdt_vbm(); #$PM_code = 45
+	sleep($interval);
+	
+	if ($do_vba) {
+	    calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46) ## BAD code! Don't use this unless you are trying to make a point! #Just kidding its the right thing to do after all--WTH?!?
+	    sleep($interval);
+	}
+    } else {
+	die "Unrecognized $mdt_creation_strategy:".$mdt_creation_strategy;
     }
     
 # Things can get parallel right about here...
-   
+    
 # Branch one: 
 # create MDT to atlas "transforms"
 #   also sets our output structure formerly thte stats_by_region/labels/transforms
