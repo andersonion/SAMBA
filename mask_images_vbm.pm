@@ -98,7 +98,6 @@ sub mask_images_vbm {
     }
 
     @jobs=();
-
     if ($port_atlas_mask) {
         my $atlas_mask =$Hf->get_value('port_atlas_mask_path') ;
         foreach my $runno (@array_of_runnos) {
@@ -300,6 +299,23 @@ sub strip_mask_vbm {
 	my $Id= "creating_mask_from_contrast_${template_contrast}";
 	my $verbose = 2; # Will print log only for work done.
 	my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
+
+	my $space="label";
+	my ( $v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
+	# a defacto okay enough guess at vox count... when this was first created. 
+	my $vx_count = 512 * 256 * 256;
+	if( $v_ok) { 
+	    my @d=split(" ",$refsize);
+	    $vx_count=1;
+	    foreach(@d){
+		$vx_count*=$_; }
+	    # vx @64bit @ 4x volumes.
+	    $mem_request = $vx_count * 8 * 4;
+	} else {
+	    carp("Cannot set appropriate memory size by volume size, using defacto limit $mem_request");
+	    sleep_with_countdown(3);
+	}
+
 	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out($stop_message);
@@ -328,12 +344,32 @@ sub port_atlas_mask_vbm {
 
     $new_norm_command = "ImageMath 3 $port_mask Normalize $new_mask;\n";
     $cleanup_command=$cleanup_command."if [ -e \"${port_mask}\" ]\nthen\n\tif [ -e \"${new_mask}\" ]\n\tthen\n\t\trm ${new_mask};\n";
-    
+
+    my $mem_request = 60000;
+    my $space="label";
+    my ( $v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
+    # a defacto okay enough guess at vox count... when this was first created. 
+    my $vx_count = 512 * 256 * 256;
+    if( $v_ok) { 
+	my @d=split(" ",$refsize);
+	$vx_count=1;
+	foreach(@d){
+	    $vx_count*=$_; }
+	# vx @64bit @ 8x volumes.
+	$mem_request = $vx_count * 8 * 8;
+    } else {
+	carp("Cannot set appropriate memory size by volume size, using defacto limit $mem_request");
+	sleep_with_countdown(3);
+    }
+
     if (! -e $new_mask) {
 	$apply_xform_command = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} -i $atlas_mask -o $new_mask -t [${temp_out_file}, 1] -r $current_norm_mask -n NearestNeighbor".
 	    "\niMath 3 ${new_mask} MD ${new_mask} 2 1 ball 1;\nSmoothImage 3 ${new_mask} 1 ${new_mask} 0 1;\n"; #BJA, 19 Oct 2017: Added radius=2 dilation, and then smoothing of new mask.Added
 	$cleanup_command=$cleanup_command."\t\tif [ -e \"${temp_out_file}\" ]\n\t\tthen\n\t\t\trm ${temp_out_file};\n";
 	
+	my ($vx_sc,$est_bytes)=ants::estimate_memory($apply_xform_command,$vx_count);
+	# convert bytes to MB(not MiB).
+	$mem_request=ceil($est_bytes/1000/1000);
 	if (! -e $temp_out_file) {
 	    $atlas_mask_reg_command = "antsRegistration -v ${ants_verbosity} -d ${dims} -r [$atlas_mask,$current_norm_mask,1] ".
 #		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t translation[0.1] -c [3000x3000x0x0,1.e-8,20] ".
@@ -344,8 +380,12 @@ sub port_atlas_mask_vbm {
 	    $cleanup_command=$cleanup_command."\t\t\tif [ -e \"${current_norm_mask}\" ]\n\t\t\tthen\n\t\t\t\trm ${current_norm_mask};\n\t\t\tfi\n";
 	    if (! -e $current_norm_mask) {
 		$norm_command = "ImageMath 3 $current_norm_mask Normalize $input_mask;\n";
-	    }	    
 	    }
+	    
+	    ($vx_sc,$est_bytes)=ants::estimate_memory($atlas_mask_reg_command,$vx_count);
+	    # convert bytes to MB(not MiB).
+	    $mem_request=ceil($est_bytes/1000/1000);
+	}
 	$cleanup_command=$cleanup_command."\t\tfi\n";
     }
     $cleanup_command=$cleanup_command."\tfi\nfi\n";
@@ -364,7 +404,6 @@ sub port_atlas_mask_vbm {
 	my ($home_path,$dummy1,$dummy2) = fileparts($port_mask,2);
 	my $Id= "${runno}_create_port_atlas_mask";
 	my $verbose = 2; # Will print log only for work done.
-	my $mem_request = 60000;
 	$jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out($stop_message);
@@ -559,8 +598,9 @@ sub mask_images_vbm_Init_check {
     $port_atlas_mask_path = $Hf->get_value('port_atlas_mask_path');
     $rigid_contrast = $Hf->get_value('rigid_contrast');
     my $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
-    die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
+    #die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
     my $original_rigid_atlas_path=$Hf->get_value('original_rigid_atlas_path'); # Added 1 September 2016
+    die "MISSING:$original_rigid_atlas_path" if ! -e $original_rigid_atlas_path;
     my $rigid_atlas=$Hf->get_value('rigid_atlas_name');
 
 
@@ -573,6 +613,7 @@ sub mask_images_vbm_Init_check {
 #    $rigid_contrast = $Hf->get_value('rigid_contrast');
     my $rigid_target = $Hf->get_value('rigid_target');
     
+=item REMOVED REDUNDANT REF SPACE CODE
     if ( 0 ) {  # bork our rigid atlas settings, disabler. 
     my $this_path;
     if ($rigid_atlas_name eq 'NO_KEY') {
@@ -668,10 +709,8 @@ sub mask_images_vbm_Init_check {
                 } else {
 		    #### WARNING: Disabling this due to broken logic of lets gzip a gzipped file. 
 		    # It may have 
-=item erroneous gzipping?		    
-		    carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
-                    run_and_watch("gzip ${rigid_atlas_path}");
-=cut
+	            #carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
+                    #run_and_watch("gzip ${rigid_atlas_path}");
                     #$rigid_atlas_path=$rigid_atlas_path.'.gz'; #If things break, look here! 27 Sept 2016
                     $original_rigid_atlas_path = $expected_rigid_atlas_path;
                 }
@@ -685,6 +724,7 @@ sub mask_images_vbm_Init_check {
         }
     }
     } # if ( 0 ) bork our rigid atlas settings.
+=cut
     # Validate the vars are set or die, these vars should be handled by set_reference_space
     my @rigid_vars=qw(rigid_atlas_name rigid_contrast rigid_atlas_path original_rigid_atlas_path);
     my @errors;
