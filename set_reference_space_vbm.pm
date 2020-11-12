@@ -16,6 +16,15 @@ use Scalar::Util qw(looks_like_number);
 use civm_simple_util;
 use convert_all_to_nifti_vbm;
 
+# 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+if (! defined($MATLAB_EXEC_PATH)) {
+    $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+}
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+}
+my $matlab_path = "${MATLAB_2015b_PATH}";
 
 my ($inputs_dir,$pristine_in_folder,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$original_rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
 my (%reference_space_hash,%reference_path_hash,%input_reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
@@ -37,6 +46,8 @@ my %ref_runno_hash;
 my %preferred_contrast_hash;
 my $rerun_init_flag;
 
+my $img_exec_version='stable';
+my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/$img_exec_version/run_img_transform_exec.sh";
 
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
@@ -715,13 +726,13 @@ sub set_reference_space_vbm_Init_check {
         }
     }
 
-    # Changed 1 September 2016: Implemented uniform processing for reference files. Feed source directly into function
-    #    for creating a centered binary mass in the reference image.  This should automatically handle all centering 
-    #    issues, including re-centering the rigid atlas target.
+    # Changed 1 September 2016: Implemented uniform processing for reference
+    #    files. Feed source directly into function for creating a centered
+    #    binary mass in the reference image.  This should automatically handle
+    #    all centering issues, including re-centering the rigid atlas target.
     my $string=$refspace_folder_hash{'vbm'};
     $Hf->set_value('vbm_refspace_folder',$refspace_folder_hash{'vbm'});
     $Hf->set_value("vbm_reference_path",$reference_path_hash{'vbm'});
-
     if ($create_labels){ 
         $Hf->set_value('label_refspace_folder',$refspace_folder_hash{'label'});
         if ($base_images_for_labels) {
@@ -730,164 +741,127 @@ sub set_reference_space_vbm_Init_check {
             $Hf->set_value("label_reference_path",$reference_path_hash{'vbm'});
         } 
     }
-
-    
-    $rigid_atlas_name = $Hf->get_value('rigid_atlas_name');
-    $rigid_contrast = $Hf->get_value('rigid_contrast');
-    $rigid_target = $Hf->get_value('rigid_target');
-    
-    my $this_path;
-    if ($rigid_atlas_name eq 'NO_KEY') {
-        if ($rigid_target eq 'NO_KEY') {
+    (my $v_ok_ran,$rigid_atlas_name) = $Hf->get_value_check('rigid_atlas_name');
+    (my $v_ok_rc, $rigid_contrast) = $Hf->get_value_check('rigid_contrast');
+    (my $v_ok_rt, $rigid_target) = $Hf->get_value_check('rigid_target');
+    if (! $v_ok_ran) {
+	# Not atlas, check other possiblities
+	if (! $v_ok_rt) {
+	    # No rigid reg
             $Hf->set_value('rigid_atlas_path','null');
             $Hf->set_value('rigid_contrast','null');
             $log_msg=$log_msg."\tNo rigid target or atlas has been specified. No rigid registration will be performed. Rigid contrast is \"null\".\n";
-        } else {
-            if ($runno_list =~ /[,]*${rigid_target}[,]*}/) {
-                $this_path=get_nii_from_inputs($preprocess_dir,$rigid_target,$rigid_contrast);
-                if ($this_path !~ /[\n]+/) {
-                    my ($dumdum,$this_name,$this_ext)= fileparts($this_path,2);
-                    my $that_path = "${inputs_dir}/${this_name}${this_ext}";
-                    die if ! -e $that_path;                         
-                    #$Hf->set_value('rigid_atlas_path',$that_path);
-                    $Hf->set_value('original_rigid_atlas_path',$that_path); #Updated 1 September 2016
-                    $log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${that_path} as the expected rigid atlas path.\n";
-                } else {
-                    $init_error_msg=$init_error_msg."The desired target for rigid registration appears to be runno: ${rigid_target}, ".
-                        "but could not locate appropriate image.\nError message is: ${this_path}";          
-                }
-            } else {
-                if (data_double_check($rigid_target)) {
-                    $log_msg=$log_msg."\tNo valid rigid targets have been implied or specified (${rigid_target} could not be validated). Rigid registration will be skipped.\n";
-                    $Hf->set_value('rigid_atlas_path','');
-                    die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
-                    $Hf->set_value('original_rigid_atlas_path',''); # Added 1 September 2016
-                } else {
-                    $log_msg=$log_msg."\tThe specified file to be used as the original rigid target exists: ${rigid_target}. (Note: it has not been verified to be a valid image.)\n";
-                    # $Hf->set_value('rigid_atlas_path',$rigid_target);
-                    $Hf->set_value('original_rigid_atlas_path',$rigid_target);#Updated 1 September 2016
-                }
-            }
-        }
+        } elsif ($runno_list =~ /[,]*${rigid_target}[,]*}/) {
+	    # rigid_target is a member of the runno list. 
+	    # find it in the preprocess_dir... 
+	    $original_rigid_atlas_path=get_nii_from_inputs($inputs_dir,$rigid_target,$rigid_contrast);
+	    $rigid_atlas_path=get_nii_from_inputs($preprocess_dir,$rigid_target,$rigid_contrast);
+	    # This path doesnt have a new line, eg a file was found... 
+	    if ($original_rigid_atlas_path !~ /[\n]+/) {
+		$log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${original_rigid_atlas_path} as the expected rigid atlas path.\n";
+	    } else {
+		# ERROR condition, file not found.
+		$init_error_msg=$init_error_msg."The desired target for rigid registration appears to be runno: ${rigid_target}, ".
+		    "but could not locate appropriate image.\nError message is: ${rigid_atlas_path}";          
+	    }
+	} elsif ($v_ok_rt && data_double_check($rigid_target)) {
+	    # rigid target specified and missing
+	    $log_msg=$log_msg."\tNo valid rigid targets have been implied or specified (${rigid_target} could not be validated). Rigid registration will be skipped.\n";
+	    die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
+	} elsif($v_ok_rt) {
+	    $log_msg=$log_msg."\tThe specified file to be used as the original rigid target exists: ${rigid_target}. (Note: it has not been verified to be a valid image.)\n";
+	    $original_rigid_atlas_path=$rigid_target;
+	} else {
+	    die "UNEXPECTED CODE PATH";
+	}
     } else {
-        if ($rigid_contrast eq 'NO_KEY') {
+        if (! $v_ok_rc) {
             $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.\n";
         } else {
-            my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
-            if (! -d $rigid_atlas_dir) {
-                # BROKEN SETUP HACK!
-                $rigid_atlas_dir =~ s/\/data/\/CIVMdata/;
-            }
-            # Expected as in typical for previous curated data... 
-            # Blergh, such pain in this.
+            my $rigid_atlas_dir = File::Spec->catdir(${WORKSTATION_DATA},"atlas",${rigid_atlas_name});
+	    # BROKEN SETUP HACK!
+            $rigid_atlas_dir =~ s/\/data/\/CIVMdata/ if ! -d $rigid_atlas_dir;
             my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
-            ### try to deal with upper vs lower case abbreviations.
-            #
-            # That should not longer be necesary.
-            # In much of our effort we swippity swap extnsions, at least until I can clear that out, 
-            # so, we'll do our initial search in our "output" location.
-            my $test_path = get_nii_from_inputs($inputs_dir,$rigid_atlas_name,$rigid_contrast);
-            # Formerly this was first, now it only happens if we havnt stuffed our rigid file into its diddle'd location.
-            $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast) if !-e $test_path;
-            $test_path =~ s/\.gz//; # Strip '.gz', 15 March 2017
-            my ($dumdum,$rigid_atlas_filename,$rigid_atlas_ext)= fileparts($test_path,2);
-            #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
-            $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_filename}${rigid_atlas_ext}"; #Updated 14 March 2017
-            #
-            ###
-
-            if (data_double_check($rigid_atlas_path))  {
-                Data::Dump::dump(["not found, so trying gz",$rigid_atlas_path]);
-                $rigid_atlas_path=$rigid_atlas_path.'.gz';
-                if (data_double_check($rigid_atlas_path))  {
-                    $original_rigid_atlas_path  = get_nii_from_inputs($preprocess_dir,$rigid_atlas_name,$rigid_contrast);
-                    if ($original_rigid_atlas_path =~ /[\n]+/) {
-                        $original_rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);#Updated 1 September 2016
-                        if (data_double_check($original_rigid_atlas_path))  { # Updated 1 September 2016
-                            $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
-                        } else {
-                            # WARNING CODER, THERE IS A REPLICATE OF THIS WHOLE BAG OF STUFF IN mask_images_vbm AND set_reference_space_vbm
-                            my $cmd="cp ${original_rigid_atlas_path} ${preprocess_dir}";
-                            my ($p,$n,$e)=fileparts($original_rigid_atlas_path,2);
-                            # THIS WHOLE CONSTRUCT IS BAD... GONNA MAKE IT WORSE BY ADDING nhdr support via WarpImageMultiTransform. 
-                            if( $e eq ".nhdr") {
-                                $cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
-                                                " --use-NN ".
-                                                " --reslice-by-header --tightest-bounding-box ".
-                                                "",
-                                                $original_rigid_atlas_path, File::Spec->catfile($preprocess_dir,$n.".nii"));
-                            } elsif ($original_rigid_atlas_path !~ /\.gz$/) {
-                                # WHY DO WE WANT TO GZIP SO BADLY!
-                                carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
-                                #$cmd=$cmd." && "."gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";
-				my $at_file="${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii.gz";
-				$cmd="gzip -c ${original_rigid_atlas_path} > ${at_file} && touch -r ${original_rigid_atlas_path} $at_file";
-                            }
-                            #run_and_watch($cmd);
-			    # mem estimate of voxelcount@64-bit x2 volumes
-			    my $mem_request=ceil($vx_count*8*2/1000/1000);
-			    if( $e eq ".nhdr") {
-				my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
-				# convert bytes to MB(not MiB).
-				my $expected_max_mem=ceil($est_bytes/1000/1000);
-				printd(45,"Expected amount of memory required to re-header atlas: ${expected_max_mem} MB.\n");
-				$mem_request=$expected_max_mem;
-			    }
-			    #,$reservation,$dependency);
-			    my @test=(0);
-			    my $go_message =  "$PM: set reference space rep atlas to preprocess";
-			    my $stop_message = "$PM: could not fetch atlas file into preprocess:  $cmd\n";
-			    my $jid = 0;
-			    if ($cmd){
-				if (cluster_check) {
-				    my $Id= "rigid_reference_cache";
-				    my $verbose = 1; # Will print log only for work done.
-				    $jid = cluster_exec($go, $go_message, $cmd,$preprocess_dir,$Id,$verbose,$mem_request,@test);
-				    if (not $jid) {
-					error_out($stop_message);
-				    }
-				    push(@init_jobs,$jid);
-				} else {
-				    if (! execute($go, $go_message, $cmd) ) {
-					error_out($stop_message);
-				    }
-				}
-			    }
+	    $rigid_atlas_path = get_nii_from_inputs($preprocess_dir,$rigid_atlas_name,$rigid_contrast);
+	    $original_rigid_atlas_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
+	    if( $rigid_atlas_path =~ /[\n]+/ && $original_rigid_atlas_path =~ /[\n]+/) {
+		# NEITHER FOUND Error.
+		$init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n" 
+	    } elsif($rigid_atlas_path =~ /[\n]+/x) {
+		# One must be found, so if it was not the rigid... we need transcribe original 
+		# WARNING CODER, THIS WORK USED TO BE A REPLICATE IN mask_images_vbm AND set_reference_space_vbm.
+                # That code has finally been disabled and this code has been ravaged to clean out
+		# double speak and redundancy.
+		my ($p,$n,$e)=fileparts($original_rigid_atlas_path,2);
+		$rigid_atlas_path=File::Spec->catfile(${preprocess_dir},$n.$e);
+		my $cmd="cp ${original_rigid_atlas_path} $rigid_atlas_path";
+		# mem estimate of voxelcount@64-bit x2 volumes
+		my $mem_request=ceil($vx_count*8*2/1000/1000);
+		# BLARG THIS CONSTRUCT IS BAD... GONNA MAKE IT WORSE BY ADDING nhdr support via WarpImageMultiTransform.
+		if( $e eq ".nhdr") {
+		    my $input_file=$original_rigid_atlas_path;
+		    my $output_folder=$preprocess_dir;
+		    carp("experimental startup from nhdr engaged.");
+		    my $reconditioned_dir=File::Spec->catdir($preprocess_dir,"conv_nhdr");
+		    mkdir $reconditioned_dir if ! -e $reconditioned_dir;
+		    my $nhdr_sg=File::Spec->catfile($reconditioned_dir,$n.".nii");
+		    my $matlab_exec_args="${nhdr_sg} RAS RAS ${output_folder}";
+		    $cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
+		    # only run the nhdr adjust if we're missing or older.
+		    if( ! -e $nhdr_sg || ( -M $nhdr_sg ) > ( -M $input_file) ){ 
+			my $Wcmd=sprintf("WarpImageMultiTransform 3 %s %s ".
+					 " --use-NN ".
+					 " --reslice-by-header --tightest-bounding-box ".
+					 "",
+					 $input_file, $nhdr_sg);
+			my ($vx_sc,$est_bytes)=ants::estimate_memory($Wcmd,$vx_count);
+			# convert bytes to MB(not MiB).
+			$mem_request=ceil($est_bytes/1000/1000);
+			$cmd=$cmd." && $Wcmd";
+		    }
+		} elsif ($original_rigid_atlas_path !~ /\.gz$/) {
+		    # WHY DO WE WANT TO GZIP SO BADLY!
+		    carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
+		    $rigid_atlas_path=$rigid_atlas_path.".gz";
+		    $cmd="gzip -c ${original_rigid_atlas_path} > ${rigid_atlas_path} && touch -r ${original_rigid_atlas_path} ${rigid_atlas_path}";
+		}
+		my @test=(0);
+		my $go_message =  "$PM: set reference space rep atlas to preprocess";
+		my $stop_message = "$PM: could not fetch atlas file into preprocess:  $cmd\n";
+		my $jid = 0;
+		if ($cmd){
+		    mkdir ($preprocess_dir,$permissions) if ! -e $preprocess_dir;
+		    mkdir ($inputs_dir,$permissions) if ! -e $inputs_dir;
+		    if (cluster_check) {
+			my $Id= "rigid_reference_cache";
+			my $verbose = 1; # Will print log only for work done.
+			$jid = cluster_exec($go, $go_message, $cmd,$preprocess_dir,$Id,$verbose,$mem_request,@test);
+			if (not $jid) {
+			    error_out($stop_message);
 			}
-                    }
-                } else {
-                    #### WARNING: Disabling this due to broken logic of lets gzip a gzipped file. 
-                    # It may have 
-=item erroneous gzipping?
-                    Data::Dump::dump(["found,... but trying gz? wtf mate",$rigid_atlas_path,$expected_rigid_atlas_path]);
-                    run_and_watch("gzip ${rigid_atlas_path}");
-=cut
-                    #$rigid_atlas_path=$rigid_atlas_path.'.gz'; #If things break, look here! 27 Sept 2016
-                    $original_rigid_atlas_path = $expected_rigid_atlas_path;
-                }
-            } else {
-                $original_rigid_atlas_path = $expected_rigid_atlas_path;
-            }
-            
-            $Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
-	    if( ! -e $rigid_atlas_path && ! scalar(@init_jobs) ){
-		error_out("MISSING:$rigid_atlas_path and not scheduled.");
+			push(@init_jobs,$jid);
+		    } else {
+			if (! execute($go, $go_message, $cmd) ) {
+			    error_out($stop_message);
+			}
+		    }
+		}
+		if( ! -e $rigid_atlas_path && ! scalar(@init_jobs) ) {
+		    error_out("MISSING:$rigid_atlas_path and not scheduled.");
+		}
 	    }
-            $Hf->set_value('original_rigid_atlas_path',$original_rigid_atlas_path); # Updated 1 September 2016
+	    $Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
+            $Hf->set_value('original_rigid_atlas_path',$original_rigid_atlas_path);
+	    if(! -e $original_rigid_atlas_path ) {error_out("ERRONOUSDATA:$original_rigid_atlas_path");}   
         }
     }
-    
-    
-    
-    if ((defined $log_msg) && ($log_msg ne '') ) {
+    if (defined $log_msg && $log_msg ne '') {
         log_info("${message_prefix}${log_msg}");
     }
-    
-    if ((defined $init_error_msg) && ($init_error_msg ne '') ) {
+    if(defined $init_error_msg && $init_error_msg ne '') {
         $init_error_msg = $message_prefix.$init_error_msg;
     }
     return($init_error_msg,\@init_jobs);
-    
 }
 
 #---------------------
