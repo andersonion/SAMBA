@@ -78,13 +78,12 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                 # For the affine target ONLY, and ONLY when we are doing an affine(not rigid) transform,
 		# we want to use the identity matrix.
                 my $affine_identity = $Hf->get_value('affine_identity_matrix');
-                #`cp ${affine_identity} ${runno_transform_clean}`;
 		run_and_watch("cp ${affine_identity} ${runno_transform_clean}");
             } else {
-		#if( ! -e $to_xform_path ) { die "Missing $to_xform_path"; }
                 ($xform_path,$job) = create_affine_transform_vbm($to_xform_path,  $alt_result_path_base, $runno);
 
-                # We are setting atlas as fixed and current runno as moving...this is opposite of what happens in seg_pipe_mc, 
+                # We are setting atlas as fixed and current runno as moving...
+		# this is opposite of what happens in seg_pipe_mc, 
                 # when you are essential passing around the INVERSE of that registration to atlas step,
                 # but accounting for it by setting "-i 1" with $do_inverse_bool.
 
@@ -202,23 +201,12 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     $Hf->write_headfile($write_path_for_Hf);
 
     # Clean up derived transforms.
-    # This was a clever Bash syntax chain using ls && rm but that has proven ugly when debugging
-    # Adjusted to be in perl with same idea. 
-    # if "ls" command is successful (finds existing items), then executes "rm" command.
-    # "2>" will redirect STDERR to /dev/null (aka nowhere land) so it doesn't spam terminal.
-    # While the first inclination is to use run_and_watch, we dont care at all if we succeed or fail here.
-    # We only care if there is work found to do, so we'll simply capture output to let this fail quietly.
-    # Added -v to rm because wildcard rm is scary !
-    #`ls ${current_path}/*Derived*mat  2> /dev/null && rm ${current_path}/*Derived*mat`;
-    #run_and_watch("ls ${current_path}/*Derived*mat  2> /dev/null && rm -v ${current_path}/*Derived*mat","\t",0);
-    my @excess_mats=`ls ${current_path}/*Derived*mat  2> /dev/null`;
+    # Now in Pure Perl :D!
+    my @excess_mats=find_file_by_pattern(${current_path},'.*Derived.*mat$',1);
     chomp(@excess_mats);
     # tests each thing found in excess mats, but we really only ever run one time;
     foreach (@excess_mats) {
-	if ( $_ ne '') {
-	    run_and_watch("rm -v ${current_path}/*Derived*mat","\t",0);
-	    last;
-	}
+	unlink $_;
     }
 
     my $PM_code;
