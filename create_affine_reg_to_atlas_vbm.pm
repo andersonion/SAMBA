@@ -31,6 +31,8 @@ my (%xform_paths,%runno_to_clean_named_transforms,%alt_result_path_bases);
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
+my $out_ext=".nii.gz";
+$out_ext=".nhdr";
 # ------------------
 sub create_affine_reg_to_atlas_vbm {  # Main code
 # ------------------
@@ -53,7 +55,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
         my $alt_result_path_base;
         if ($mdt_to_atlas){
             $mdt_path = $Hf->get_value('median_images_path');
-            $to_xform_path = $mdt_path.'/'.$runno.'.nii.gz'; #added .gz 22 October 2015
+            $to_xform_path = $mdt_path.'/'.$runno.$out_ext; #added .gz 22 October 2015
             $result_path_base = "${current_path}/${runno}_to_${label_atlas}_";
             if ($swap_fixed_and_moving) {
                 $alt_result_path_base = "${current_path}/${label_atlas}_to_${runno}_";
@@ -327,7 +329,7 @@ sub create_affine_transform_vbm {
     $metric_2 = '';
     if (($mdt_to_atlas) && ($mdt_contrast_2 ne '')) {
         my $fixed_2 = $Hf->get_value ('label_atlas_path_2');
-        my $moving_2 =  $mdt_path."/MDT_${mdt_contrast_2}.nii.gz"; # added .gz 22 October 2015
+        my $moving_2 =  $mdt_path."/MDT_${mdt_contrast_2}".$out_ext; # added .gz 22 October 2015
         if ($swap_fixed_and_moving) {
             $metric_2 = " -m ${affine_metric}[ ${moving_2},${fixed_2},1,{$affine_radius},${affine_sampling_options}]"
         } else {
@@ -505,7 +507,7 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
         $Hf->set_value('label_atlas_name',$label_atlas_name);
         if ($#mdt_contrasts > 0) {
             $mdt_contrast_2 = $mdt_contrasts[1];            
-            $atlas_path  = "${label_atlas_dir}/${label_atlas}_${mdt_contrast_2}.nii.gz";   
+            $atlas_path  = "${label_atlas_dir}/${label_atlas}_${mdt_contrast_2}".$out_ext;
             if (data_double_check($atlas_path))  {
                 $init_error_msg = $init_error_msg."For secondary affine contrast ${mdt_contrast_2}: missing atlas nifti file ${atlas_path}\n";
             } else {
@@ -995,6 +997,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                         my $c_file = get_nii_from_inputs($inputs_dir, $c_runno, "${contrast}_masked");
 
                         if ($c_file !~ /[\n]+/) {
+			    confess("cannot fslstats on nhdr")if $c_file =~ /(nhdr|nrrd)$/x;
                             #my $volume = `fslstats ${c_file} -V | cut -d ' ' -f2`;
                             my ( $volume ) = run_and_watch("fslstats ${c_file} -V | cut -d ' ' -f2");
                             chomp($volume);
