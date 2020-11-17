@@ -36,7 +36,7 @@ my $log_msg="";
 # my @parents = qw(pairwise_reg_vbm);
 # my @children = qw (apply_mdt_warps_vbm);
 
-
+my $out_ext=".nii.gz";
 # ------------------
 sub calculate_mdt_warps_vbm {  # Main code
 # ------------------
@@ -55,9 +55,9 @@ sub calculate_mdt_warps_vbm {  # Main code
 	    }
 	} else {
 	    if ($direction eq 'f') {
-		$xform_path = "${current_path}/${runno}_to_MDT_warp.nii.gz"; #added '.gz' 2 September 2015
+		$xform_path = "${current_path}/${runno}_to_MDT_warp${out_ext}"; #added '.gz' 2 September 2015
 	    } else {
-		$xform_path = "${current_path}/MDT_to_${runno}_warp.nii.gz"; #added '.gz' 2 September 2015
+		$xform_path = "${current_path}/MDT_to_${runno}_warp${out_ext}"; #added '.gz' 2 September 2015
 	    }
 	}
 	if ($direction eq 'f') {
@@ -122,9 +122,9 @@ sub calculate_mdt_warps_Output_check {
      
      foreach my $runno (@sorted_runnos) {
 	 if ($direction eq 'f' ) {
-	     $out_file = "${current_path}/${runno}_to_MDT_warp.nii.gz"; #Added asterisk in hopes of catching .gz 
+	     $out_file = "${current_path}/${runno}_to_MDT_warp${out_ext}"; #Added asterisk in hopes of catching .gz 
 	 } elsif ($direction eq 'i') {
-	     $out_file = "${current_path}/MDT_to_${runno}_warp.nii.gz"; #Added asterisk in hopes of catching .gz 
+	     $out_file = "${current_path}/MDT_to_${runno}_warp${out_ext}"; #Added asterisk in hopes of catching .gz 
 	 }
 	 if (data_double_check($out_file)) {
 	     if ($out_file =~ s/\.gz$//) {
@@ -180,10 +180,10 @@ sub calculate_average_mdt_warp {
     my $out_file = '';
     my $dir_string = '';
     if ($direction eq 'f') {
-	$out_file = "${current_path}/${runno}_to_MDT_warp.nii.gz"; #Added ".gz" 2 September 2015
+	$out_file = "${current_path}/${runno}_to_MDT_warp${out_ext}"; #Added ".gz" 2 September 2015
 	$dir_string = 'forward';
     } else {
-	$out_file = "${current_path}/MDT_to_${runno}_warp.nii.gz";  #Added ".gz" 2 September 2015
+	$out_file = "${current_path}/MDT_to_${runno}_warp${out_ext}";  #Added ".gz" 2 September 2015
 	$dir_string = 'inverse';
     }
 
@@ -201,7 +201,7 @@ sub calculate_average_mdt_warp {
 	if ($broken && ($fixed eq $moving)) {
 	    $cmd=$cmd;
 	} else {
-	    $cmd = $cmd." ${pairwise_path}/${moving}_to_${fixed}_warp.nii.gz";
+	    $cmd = $cmd." ${pairwise_path}/${moving}_to_${fixed}_warp${out_ext}";
 	}
 
 #	}

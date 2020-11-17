@@ -420,16 +420,15 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
 
 
 # check for valid atlas
-    (my $rc_isbad,$rigid_contrast) = $Hf->get_value_check('rigid_contrast');
-    my $affine_contrast = $Hf->get_value('affine_contrast');
-    if ($rc_isbad ==0) {
-        if ($affine_contrast ne ('' && 'NO_KEY' && 'UNDEFINED_VALUE')) {
+    (my $rc_ok,$rigid_contrast) = $Hf->get_value_check('rigid_contrast');
+    (my $ac_ok, my $affine_contrast) = $Hf->get_value_check('affine_contrast');
+    if (! $rc_ok) {
+        if ($ac_ok) {
             $rigid_contrast = $affine_contrast;
             $log_msg=$log_msg."\tNo rigid contrast specified; inheriting contrast used for affine registration: \"${rigid_contrast}\" for rigid  registrations.\n";
         } else {
             my $channel_comma_list = $Hf->get_value('channel_comma_list');
-            
-            if ($channel_comma_list =~ /(dwi)/i) {
+	    if ($channel_comma_list =~ /(dwi)/i) {
                 $rigid_contrast = $1;
                 $log_msg=$log_msg."\tNo rigid contrast specified; using default contrast: \"${rigid_contrast}\" for rigid  registrations.\n";
             } else {
