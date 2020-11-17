@@ -345,7 +345,7 @@ sub apply_affine_rotation {
 		# if any are not in a path with ecc_xforms, try to move any.
 		my $ecc_dir=File::Spec->catdir($pristine_inputs_dir,"ecc_xforms");
 		if (! -d $ecc_dir ) {
-		    mkdir(File::Spec->catdir($pristine_inputs_dir,"ecc_xforms"),$permissions);
+		    mkdir($ecc_dir,$permissions);
 		}
 		my @t_xforms=grep(!/ecc_xforms/,@xforms);
 		if ( scalar(@t_xforms) ) {
