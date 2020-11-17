@@ -246,7 +246,8 @@ end
 % --- This section plots the histogram and highlights zeros with green dots
 
 if threshold_zero>=0 && threshold_zero < 100
-    [counts,ns]=hist(double(reshape(nii.img, prod(size(nii.img)),1)), 200);
+    %[counts,ns]=hist(double(reshape(nii.img, numel(nii.img),1)), 200);
+    [counts,ns]=hist(double(nii.img(:)), 200);
     if(status_img>0);
         figure(1);
         plot(ns,counts);
@@ -273,8 +274,14 @@ if threshold_zero>=0 && threshold_zero < 100
     
     for tt = 1:max_thresh_cycles
         if ~good_thresh_found
-            
-            
+            if numel(vals)<threshold_zero
+                warning('cannot mask with theshold zero %i, DATA FILE LIKELY CORRUPT',threshold_zero)
+                if isdeployed
+                    quit foce
+                else
+                    return
+                end
+            end
             threshold_min=vals(threshold_zero);
             threshold_min=reducethreshold*threshold_min; % relax threshold(can be disabled above)
             
