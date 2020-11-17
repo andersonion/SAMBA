@@ -486,23 +486,24 @@ U_specid U_species_m00 U_code
 	
 	# this runs the function reference and returns anything from the function.
 	# only rarely do we have init_jobs, that will leave this undefined if they dont exist.
-        ($temp_error_msg,my $init_job)=$init_dispatch_table{$checkCall}();
+        ($temp_error_msg,my $init_job )=$init_dispatch_table{$checkCall}();
 	if(defined $init_job) {
-	    if(ref $init_job =~/ARRAY/ix) {
-		push(@init_jobs,@$init_job);
-	    } else {
-		push(@init_jobs,$init_job);
-	    }
+	    #Data::Dump::dump("INIT JOBS:",$init_job);
+	    my @resolv_j=flatten_a_ref($init_job);
+	    push(@init_jobs,@resolv_j);
 	}
 	if ((defined $temp_error_msg) && ($temp_error_msg ne '')  ) {
             if ($init_error_msg ne '') {
-                $init_error_msg = "${init_error_msg}\n------\n\n${temp_error_msg}"; # This prints the results forwards
-                # $init_error_msg = "${temp_error_msg}\n------\n\n${init_error_msg}"; # This prints the results backwards
+                # This prints the results forwards
+                $init_error_msg = "${init_error_msg}\n------\n\n${temp_error_msg}";
+		# This prints the results backwards
+                # $init_error_msg = "${temp_error_msg}\n------\n\n${init_error_msg}";
             } else {
                 $init_error_msg = $temp_error_msg;
             }
         }
     }
+    #Data::Dump::dump(\@init_jobs);
     if ($init_error_msg ne '') {
         log_info($init_error_msg,0);
 	my $init_job_addendum="No work has been performed!\n";
@@ -521,12 +522,13 @@ U_specid U_species_m00 U_code
             print STDOUT  " Init jobs complete, Back to normal.\n";
         }
     }
-
 # Begin work:
     if (! -e $inputs_dir) {
 	# pretty sure we made process dirs earlier :p
-	confess("UNEXPECTED MKDIR");
-        mkdir($inputs_dir);
+	#confess("UNEXPECTED MKDIR: $inputs_dir");
+	cluck("UNEXPECTED MKDIR: $inputs_dir");sleep_with_countdown(4);
+        #mkdir($inputs_dir);
+	# OMFG, inputs here can be "base_images"
     }
     
 # nii4D to keep track of nii4d specific things separate from the larger 
@@ -566,6 +568,7 @@ U_specid U_species_m00 U_code
     sleep($interval);
 
     set_reference_space_vbm(); #$PM_code = 15
+    die "TESTING";
     # set_ref also sets our best guess memory requirements by adding ref_size key to Hf
     sleep($interval);
     
@@ -1052,6 +1055,24 @@ sub image_preview_mail {
     my $preview_mailer="mail_dir $preview_dir $MAIL_USERS";
     run_on_update($preview_mailer, \@input, \@output, $def_for, $def_fai,'paired_IO');
 }
+sub flatten_a_ref {
+    my ($input)=@_;
+    #print("FLATTR:$input\n");
+    my @output;
+    my $r=ref $input;
+    if($r=~/ARRAY/ix) {
+	#print("ARRAY flat\n");
+	foreach(@$input){
+	    my @el=flatten_a_ref($_);
+	    push(@output,@el);
+	}
+    } else {
+	#print("Scalar\n");
+	push(@output,$input);
+    }
+    return @output;
+}
+
 #---------------------
 #sub load_tsv {
 
