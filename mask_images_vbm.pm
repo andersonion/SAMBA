@@ -38,10 +38,15 @@ my ($port_atlas_mask_path,$port_atlas_mask);
 my ($job);
 
 my $strip_mask_executable_path = "${MATLAB_EXEC_PATH}/strip_mask_executable/20170727_1304/run_strip_mask_exec.sh";
+# New verion supports loading nhdr, it still saves nii, but we expect that, and will cheat with a
+# CopyImageHeader if we want nhdrs...
+$strip_mask_executable_path = "${MATLAB_EXEC_PATH}/strip_mask_executable/latest/run_strip_mask_exec.sh";
 
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
+my $out_ext=".nii.gz";
+$out_ext=".nhdr";
 # ------------------
 sub mask_images_vbm {
 # ------------------
@@ -50,7 +55,6 @@ sub mask_images_vbm {
 
     my @nii_cmds;
     my @nii_files;
-
 
 ## Make/find masks for each runno using the template contrast (usually dwi).
     foreach my $runno (@array_of_runnos) {
@@ -61,8 +65,7 @@ sub mask_images_vbm {
             if (($thresh_ref ne "NO_KEY") && ($$thresh_ref{$runno})){
                 $mask_threshold = $$thresh_ref{$runno};
             }
- 
-	    # "current" here is probably preprocess
+ 	    # "current" here is probably preprocess
             my $mask_path = get_nii_from_inputs($current_path,$runno,'mask');
 	    if (data_double_check($mask_path,0))  {
 		# try again with segregated masks folder
@@ -72,7 +75,6 @@ sub mask_images_vbm {
 		# no mask available. set specificly mask file
                 $mask_path = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
             }
-
             my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
             $mask_hash{$runno} = $mask_path;
             if ( (! -e $mask_path) && (! -e $mask_path.".gz")  ){
@@ -91,7 +93,6 @@ sub mask_images_vbm {
         my $interval = 2;
         my $verbose = 1;
         my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-        
         if ($done_waiting) {
             print STDOUT  " Automated skull-stripping/mask generation based on ; moving on to next step.\n";
         }
@@ -103,7 +104,7 @@ sub mask_images_vbm {
         foreach my $runno (@array_of_runnos) {
             my $go = $make_hash{$runno};
             if ($do_mask && $go){               
-                my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii.gz';
+                my $ported_mask = $mask_dir.'/'.$runno.'_port_mask'.${out_ext};
                 if (data_double_check($ported_mask)) {
                     ($job) = port_atlas_mask_vbm($runno,$atlas_mask,$ported_mask);
                     if ($job) {
@@ -153,13 +154,13 @@ sub mask_images_vbm {
     }
 
     my $case = 2;
-    my ($dummy,$error_message)=mask_images_Output_check($case);
+    my ($missing_files_ref,$error_message)=mask_images_Output_check($case);
 
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@jobs);
     print "$PM took ${real_time} seconds to complete.\n";
 
     if (($error_message ne '') && ($do_mask)) {
-        error_out("${error_message}",0);
+        error_out("${error_message}"."Not Found:\n\t".join("\n\t",@$missing_files_ref),0);
     } else {
         # Clean up matlab junk
 	#if (`ls ${work_dir} | grep -E /.m$/`) {
@@ -191,7 +192,7 @@ sub mask_images_Output_check {
 
     my ($case) = @_;
     my $message_prefix ='';
-    my @file_array=();
+    my @missing_files=();
 
     my $existing_files_message = '';
     my $missing_files_message = '';
@@ -209,26 +210,24 @@ sub mask_images_Output_check {
             $message_prefix = "  Unable to properly rename the unmasked images for the following runno(s) and channel(s):\n";
         }
     }   # For Init_check, we could just add the appropriate cases.
-    
+
     foreach my $runno (@array_of_runnos) {
 	my $sub_existing_files_message='';
 	my $sub_missing_files_message='';
 	foreach my $ch (@channel_array) {
-	    my ($file_1);
+	    my $file_path;
 	    # oh this is hard, there are 4 potential files when we factor in optional... gzipping... 
 	    # only one should ever be found .... 
 	    my @infiles;
 	    my @outfiles;
 	    # input files
-	    $file_1 = "${current_path}/${runno}_${ch}.nii";
-	    push(@infiles,$file_1);
-	    push(@infiles,$file_1.'.gz');
+	    $file_path = "${current_path}/${runno}_${ch}.${out_ext}";
+	    push(@infiles,$file_path);
+	    push(@infiles,$file_path.'.gz') if $out_ext =~ /[.]nii$/x;
 	    if ($do_mask) {
-		#$file_1 = "${current_path}/${runno}_${ch}_masked.nii";
-		#push(@outfiles,$file_1);
-		#push(@outfiles,$file_1.'.gz');
-		$file_1 = "${current_path}/${runno}_${ch}_masked.nii.gz";
-		push(@outfiles,$file_1);
+		$file_path = "${current_path}/${runno}_${ch}_masked${out_ext}";
+		push(@outfiles,$file_path.'.gz') if $out_ext =~ /[.]nii$/x;
+		push(@outfiles,$file_path);
 	    }
 	    
 	    # immediate check for input.
@@ -237,17 +236,15 @@ sub mask_images_Output_check {
 		&& scalar(@outfiles) == data_double_check(@outfiles,  ( $case-1 && $do_mask ) ) 
 		|| $in_count != scalar(@infiles) ) {
 		# Would like to not do slow disk mode when do_mask is 0.
-		# I think just combining case-1 and do_maks will work.
+		# I think just combining case-1 and do_mask will work.
 		$go_hash{$runno}{$ch}=1;
-		# NOTE file_array doesnt appear to be used, and is generally not returning correctly. :p
-		push(@file_array,$file_1);
+		push(@missing_files,$file_path);
 		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
 	    } else {
 		$go_hash{$runno}{$ch}=0;
 		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
 	    }
 	}
-
 	
 	if (($sub_existing_files_message ne '') && ($case == 1)) {
 	    $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
@@ -270,8 +267,8 @@ sub mask_images_Output_check {
 	$error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
     }
      
-    my $file_array_ref = \@file_array;
-    return($file_array_ref,$error_msg);
+    my $missing_files_ref = \@missing_files;
+    return($missing_files_ref,$error_msg);
 }
 
 # ------------------
@@ -286,40 +283,31 @@ sub strip_mask_vbm {
     $go_message = "$PM: Creating mask from file: ${input_file}\n" ;
     $stop_message = "$PM: Failed to properly create mask from file: ${input_file}\n" ;
 
+    my $cmd = "${strip_mask_executable_path} ${matlab_path} ${matlab_exec_args}";
+    if( $out_ext =~ /nhdr/){
+	(my $mout = $mask_path)=~s/(^.+)[.]nii(?:[.]gz)?$/$1.nhdr/;
+	$cmd=$cmd." && "."CopyImageHeaderInformation $input_file $mask_path $mout 1 1 1 0";
+    }
     if (cluster_check) {
 	my @test=(0);
 	if (defined $reservation) {
 	    @test =(0,$reservation);
 	}
 	my $go =1;	    
-#	my $cmd = $pairwise_cmd.$rename_cmd;
-	my $cmd = "${strip_mask_executable_path} ${matlab_path} ${matlab_exec_args}";
 	
 	my $home_path = $current_path;
 	my $Id= "creating_mask_from_contrast_${template_contrast}";
 	my $verbose = 2; # Will print log only for work done.
 	my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
-
 	my $space="label";
-	my ( $v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
-	# a defacto okay enough guess at vox count... when this was first created. 
-	my $vx_count = 512 * 256 * 256;
-	if( $v_ok) { 
-	    my @d=split(" ",$refsize);
-	    $vx_count=1;
-	    foreach(@d){
-		$vx_count*=$_; }
-	    # vx @64bit @ 4x volumes.
-	    $mem_request = $vx_count * 8 * 4;
-	} else {
-	    carp("Cannot set appropriate memory size by volume size, using defacto limit $mem_request");
-	    sleep_with_countdown(3);
-	}
+	($mem_request)=refspace_memory_est($mem_request,$space,$Hf);
 
 	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	if (not $jid) {
 	    error_out($stop_message);
 	}
+    } else {
+	execute(1,"strip_mask",$cmd);
     }
 
     return($jid);
@@ -334,9 +322,9 @@ sub port_atlas_mask_vbm {
     my ($runno,$atlas_mask,$port_mask) = @_;
 
     my $input_mask = $mask_hash{$runno};
-    my $new_mask = $mask_dir.'/'.$runno.'_atlas_mask.nii.gz'; # 2 Feb 2016: added '.gz'
+    my $new_mask = $mask_dir.'/'.$runno.'_atlas_mask'.${out_ext}; # 2 Feb 2016: added '.gz'
     
-     my $current_norm_mask = "${mask_dir}/${runno}_norm_mask.nii.gz";# 2 Feb 2016: added '.gz'
+     my $current_norm_mask = "${mask_dir}/${runno}_norm_mask${out_ext}";# 2 Feb 2016: added '.gz'
     my $out_prefix = $mask_dir.'/'.$runno."_mask_";
    # my $port_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
     my $temp_out_file = $out_prefix."0GenericAffine.mat";
@@ -347,21 +335,8 @@ sub port_atlas_mask_vbm {
 
     my $mem_request = 60000;
     my $space="label";
-    my ( $v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
-    # a defacto okay enough guess at vox count... when this was first created. 
-    my $vx_count = 512 * 256 * 256;
-    if( $v_ok) { 
-	my @d=split(" ",$refsize);
-	$vx_count=1;
-	foreach(@d){
-	    $vx_count*=$_; }
-	# vx @64bit @ 8x volumes.
-	$mem_request = $vx_count * 8 * 8;
-    } else {
-	carp("Cannot set appropriate memory size by volume size, using defacto limit $mem_request");
-	sleep_with_countdown(3);
-    }
-
+    ($mem_request,my $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
+    
     if (! -e $new_mask) {
 	$apply_xform_command = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} -i $atlas_mask -o $new_mask -t [${temp_out_file}, 1] -r $current_norm_mask -n NearestNeighbor".
 	    "\niMath 3 ${new_mask} MD ${new_mask} 2 1 ball 1;\nSmoothImage 3 ${new_mask} 1 ${new_mask} 0 1;\n"; #BJA, 19 Oct 2017: Added radius=2 dilation, and then smoothing of new mask.Added
@@ -435,7 +410,7 @@ sub mask_one_image {
 #    } else {
 	$runno_mask = $mask_hash{$runno};
 #    }
-    my $out_path = "${current_path}/${runno}_${ch}_masked.nii.gz"; # 12 Feb 2016: Added .gz
+    my $out_path = "${current_path}/${runno}_${ch}_masked${out_ext}"; # 12 Feb 2016: Added .gz
     my $centered_path = get_nii_from_inputs($current_path,$runno,$ch);
     if($out_path eq $centered_path) {
 	$centered_path=~ s/_masked//;
@@ -444,12 +419,15 @@ sub mask_one_image {
 	}
 	cluck("mask_one_image defficient! out and in paths identical!, adjust input in hopes to perform a missed cleanup operation.\n\tnew input=$centered_path\n\toutput=   $out_path");
     }
+
     my $cmd_vars="i='$centered_path';\n".
 	"m='$runno_mask';\n".
 	"o='$out_path';\n";
-
     #my $apply_cmd = "fslmaths ${centered_path} -mas ${runno_mask} ${out_path} -odt \"input\";"; # 7 March 2016, Switched from ants ImageMath command to fslmaths, as fslmaths should be able to automatically handle color_fa images. (dim =4 instead of 3).
     my $apply_cmd = "fslmaths \${i} -mas \${m} \${o} -odt \"input\";";
+    if( $out_ext =~ /nhdr/){
+	$apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};";
+    }
     my $im_a_real_tensor = '';
     if ($centered_path =~ /tensor/){
 	$im_a_real_tensor = '1';
@@ -523,7 +501,7 @@ sub rename_one_image {
 # ------------------
     my ($runno,$ch) = @_;
     my $centered_path = get_nii_from_inputs($current_path,$runno,$ch); ## THIS IS WHERE THINGS PROBABLY BROKE  24 October 2018 (Wed)
-    my $out_path = "${current_path}/${runno}_${ch}.nii.gz"; # 12 Feb 2016: Added .gz
+    my $out_path = "${current_path}/${runno}_${ch}${out_ext}"; # 12 Feb 2016: Added .gz
     
     my $rename_cmd = "mv ${centered_path} ${out_path}";
 
@@ -578,15 +556,14 @@ sub mask_images_vbm_Init_check {
 	$pre_masked=0;
 	sleep_with_countdown(3);
     }
-    
-    
-    ($v_ok,$do_mask) = $Hf->get_value_check('do_mask');
 
+    ($v_ok,$do_mask) = $Hf->get_value_check('do_mask');
     if ($do_mask !~ /^(1|0)$/ || ! $v_ok) {
         $init_error_msg=$init_error_msg."Variable 'do_mask' (${do_mask}) is not valid; please change to 1 or 0.";
     }
+    $do_mask=0 if ! $v_ok;
 
-    $port_atlas_mask = $Hf->get_value('port_atlas_mask');
+    ($v_ok,$port_atlas_mask) = $Hf->get_value_check('port_atlas_mask');
     if ($pre_masked  == 1) {
         $do_mask = 0;
         $Hf->set_value('do_mask',$do_mask);
@@ -594,139 +571,20 @@ sub mask_images_vbm_Init_check {
         $Hf->set_value('port_atlas_mask',$port_atlas_mask);
         $log_msg=$log_msg."\tImages have been pre-masked. No skull cracking today :(\n";
     }
+    $port_atlas_mask=0 if ! $v_ok;
+
     my $rigid_atlas_name = $Hf->get_value('rigid_atlas_name');
-    $port_atlas_mask_path = $Hf->get_value('port_atlas_mask_path');
     $rigid_contrast = $Hf->get_value('rigid_contrast');
-    my $rigid_atlas_path=$Hf->get_value('rigid_atlas_path');
-    #die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
-    my $original_rigid_atlas_path=$Hf->get_value('original_rigid_atlas_path'); # Added 1 September 2016
-    die "MISSING:$original_rigid_atlas_path" if ! -e $original_rigid_atlas_path;
-    my $rigid_atlas=$Hf->get_value('rigid_atlas_name');
-
-
 ########
     my $source_rigid_atlas_path;
     my $runno_list= $Hf->get_value('complete_comma_list');
     my $preprocess_dir = $Hf->get_value('preprocess_dir');
     my $inputs_dir = $Hf->get_value('inputs_dir');
-#    $rigid_atlas_name = $Hf->get_value('rigid_atlas_name');
-#    $rigid_contrast = $Hf->get_value('rigid_contrast');
     my $rigid_target = $Hf->get_value('rigid_target');
     
-=item REMOVED REDUNDANT REF SPACE CODE
-    if ( 0 ) {  # bork our rigid atlas settings, disabler. 
-    my $this_path;
-    if ($rigid_atlas_name eq 'NO_KEY') {
-        if ($rigid_target eq 'NO_KEY') {
-            $Hf->set_value('rigid_atlas_path','null');
-            $Hf->set_value('rigid_contrast','null');
-            $log_msg=$log_msg."\tNo rigid target or atlas has been specified. No rigid registration will be performed. Rigid contrast is \"null\".\n";
-        } else {
-            if ($runno_list =~ /[,]*${rigid_target}[,]*}/) {
-                $this_path=get_nii_from_inputs($preprocess_dir,$rigid_target,$rigid_contrast);
-                if ($this_path !~ /[\n]+/) {
-                   my ($dumdum,$this_name,$this_ext)= fileparts($this_path,2);
-                   my $that_path = "${inputs_dir}/${this_name}${this_ext}";
-		   die if ! -e $that_path;
-                   #$Hf->set_value('rigid_atlas_path',$that_path);
-                   $Hf->set_value('original_rigid_atlas_path',$that_path); #Updated 1 September 2016
-                   $log_msg=$log_msg."\tA runno has been specified as the rigid target; setting ${that_path} as the expected rigid atlas path.\n";
-                } else {
-                    $init_error_msg=$init_error_msg."The desired target for rigid registration appears to be runno: ${rigid_target}, ".
-                    "but could not locate appropriate image.\nError message is: ${this_path}";	    
-                }
-            } else {
-                if (data_double_check($rigid_target)) {
-                    $log_msg=$log_msg."\tNo valid rigid targets have been implied or specified (${rigid_target} could not be validated). Rigid registration will be skipped.\n";
-                    $Hf->set_value('rigid_atlas_path','');
-                    $Hf->set_value('original_rigid_atlas_path',''); # Added 1 September 2016
-                } else {
-                    $log_msg=$log_msg."\tThe specified file to be used as the original rigid target exists: ${rigid_target}. (Note: it has not been verified to be a valid image.)\n";
-                   # $Hf->set_value('rigid_atlas_path',$rigid_target);
-                    $Hf->set_value('original_rigid_atlas_path',$rigid_target);#Updated 1 September 2016
-                }
-            }
-        }
-    } else {
-	carp('EXCESSIVE OVER SETTING rigid atlas valuse IN COPIED CODE!');
-	sleep_with_countdown(5);
-        if (($rigid_contrast eq 'NO_KEY') || ($rigid_contrast eq 'UNDEFINED_VALUE')){
-            create_affine_reg_to_atlas_vbm::create_affine_reg_to_atlas_vbm_Init_check();
-        }
-
-        if (($rigid_contrast eq 'NO_KEY') || ($rigid_contrast eq 'UNDEFINED_VALUE')){
-            $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.\n";
-        } else {
-	    die"RESTTTING VAR MADNESS";
-            my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
-            if (! -d $rigid_atlas_dir) {
-		# BROKEN SETUP HACK!
-                $rigid_atlas_dir =~ s/\/data/\/CIVMdata/;
-            }
-            my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
-            #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
-            if (data_double_check($expected_rigid_atlas_path)) {
-                $expected_rigid_atlas_path = "${expected_rigid_atlas_path}.gz";
-            }
-            $source_rigid_atlas_path = $expected_rigid_atlas_path;
-	    ### try to deal with upper vs lower case abbreviations.
-	    #
-	    # That should not longer be necesary
-            my $test_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast); #Added 14 March 2017
-            if ($test_path =~ s/\.gz//) {} # Strip '.gz', 15 March 2017
-            my ($dumdum,$rigid_atlas_filename,$rigid_atlas_ext)= fileparts($test_path,2);
-            #$rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";#Added 1 September 2016
-            $rigid_atlas_path =  "${inputs_dir}/${rigid_atlas_filename}${rigid_atlas_ext}"; #Updated 14 March 2017
-	    #
-	    ###
-            if (data_double_check($rigid_atlas_path))  {
-                $rigid_atlas_path=$rigid_atlas_path.'.gz';
-                if (data_double_check($rigid_atlas_path))  {
-                    $original_rigid_atlas_path  = get_nii_from_inputs($preprocess_dir,$rigid_atlas_name,$rigid_contrast);
-                    if ($original_rigid_atlas_path =~ /[\n]+/) {
-                        $original_rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);#Updated 1 September 2016
-                        if (data_double_check($original_rigid_atlas_path))  { # Updated 1 September 2016
-                            $init_error_msg = $init_error_msg."For rigid contrast ${rigid_contrast}: missing atlas nifti file ${expected_rigid_atlas_path}  (note optional \'.gz\')\n";
-                        } else {
-			    # WARNING CODER, THERE IS A REPLICATE OF THIS WHOLE BAG OF STUFF IN mask_images_vbm AND set_reference_space_vbm
-                            my $cp_cmd="cp ${original_rigid_atlas_path} ${preprocess_dir}";
-			    my ($p,$n,$e)=fileparts($original_rigid_atlas_path,2);
-			    # THIS WHOLE CONSTRUCT IS BAD... GONNA MAKE IT WORSE BY ADDING nhdr support via WarpImageMultiTransform. 
-			    if( $e eq ".nhdr") {
-				$cp_cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
-						" --use-NN ".
-						" --reslice-by-header --tightest-bounding-box ".
-						"",
-						$original_rigid_atlas_path, File::Spec->catfile($preprocess_dir,$n.".nii"));
-			    } elsif ($original_rigid_atlas_path !~ /\.gz$/) {
-				# WHY DO WE WANT TO GZIP SO BADLY!
-				carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
-				$cp_cmd=$cp_cmd." && "."gzip ${preprocess_dir}/${rigid_atlas_name}_${rigid_contrast}.nii";
-                            }
-			    run_and_watch($cp_cmd);
-                        }
-                    }
-                } else {
-		    #### WARNING: Disabling this due to broken logic of lets gzip a gzipped file. 
-		    # It may have 
-	            #carp("WARNING: Input atlas not gzipped, We're going to gzip it!");
-                    #run_and_watch("gzip ${rigid_atlas_path}");
-                    #$rigid_atlas_path=$rigid_atlas_path.'.gz'; #If things break, look here! 27 Sept 2016
-                    $original_rigid_atlas_path = $expected_rigid_atlas_path;
-                }
-            } else {
-                $original_rigid_atlas_path = $expected_rigid_atlas_path;
-            }
-
-            $Hf->set_value('rigid_atlas_path',$rigid_atlas_path);
-	    die "MISSING:$rigid_atlas_path" if ! -e $rigid_atlas_path;
-            $Hf->set_value('original_rigid_atlas_path',$original_rigid_atlas_path); # Updated 1 September 2016
-        }
-    }
-    } # if ( 0 ) bork our rigid atlas settings.
-=cut
     # Validate the vars are set or die, these vars should be handled by set_reference_space
-    my @rigid_vars=qw(rigid_atlas_name rigid_contrast rigid_atlas_path original_rigid_atlas_path);
+    my @rigid_vars=qw(rigid_atlas_name rigid_contrast );
+    push(@rigid_vars,qw(rigid_atlas_path original_rigid_atlas_path)) if $do_mask && $port_atlas_mask;
     my @errors;
     foreach (@rigid_vars) {
 	my($v_ok,$v)=$Hf->get_value_check($_);
@@ -734,24 +592,21 @@ sub mask_images_vbm_Init_check {
     }
     confess("Error with hf keys for rigid\n\t".join("\n\t",@errors)) if scalar(@errors);
 ########
-
-    if ($do_mask eq 'NO_KEY') { $do_mask=0;}
-    if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
-    my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii.gz"; ## Set default mask for porting here!
-    
-    #if (! -e $default_mask) {
-    #if ($default_mask =~ s/\/data/\/CIVMdata/) {
-    #if (! -e $default_mask) {
-    #$default_mask = "${default_mask}.gz";
-    #if (! -e $default_mask) {
-    #if ($default_mask =~ s/\/CIVMdata/\/data/) {}
-    #}
-    #}
-    #}
-    #}
-
-
+    ## Set default mask for porting here!
+    my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask${out_ext}"; 
     if (($do_mask == 1) && ($port_atlas_mask == 1)) {
+	confess("PORT ATLAS MASK NOT TESTED RECENTLY"); 
+	###
+	#
+	#
+	# WARNING PROGRAMMER! This is a redundant pile of re-resolve atlas data! 
+	#   DO NOT FINISH THIS MESS!
+	# FIX THIS BY ensuring set_reference_space_init_check has occured.
+	# THEN pull those resolved values in here!
+	#
+	#
+	###
+	$port_atlas_mask_path = $Hf->get_value('port_atlas_mask_path');
         #print "Port atlas mask path = ${port_atlas_mask_path}\n\n";
         if ($port_atlas_mask_path eq 'NO_KEY') {
             #print "source_rigid_atlas_path = ${source_rigid_atlas_path}\n\n\n\n";
@@ -773,7 +628,7 @@ sub mask_images_vbm_Init_check {
 			run_and_watch("cp ${port_atlas_mask} ${rigid_dir}");
 		    }
 		} else {
-		    $log_msg=$log_msg."\tNo atlas mask specified; porting rigid ${rigid_atlas} atlas mask: ${port_atlas_mask_path}\n";
+		    $log_msg=$log_msg."\tNo atlas mask specified; porting rigid ${rigid_atlas_name} atlas mask: ${port_atlas_mask_path}\n";
 		}
 	    } else {
 		$port_atlas_mask_path=$default_mask;  # Use default mask

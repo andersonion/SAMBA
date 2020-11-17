@@ -51,6 +51,8 @@ my $img_exec_version='20170403_1100';
 $img_exec_version='stable';
 my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/$img_exec_version/run_img_transform_exec.sh";
 
+my $out_ext=".nii.gz";
+$out_ext=".nhdr";
 # ------------------
 sub convert_all_to_nifti_vbm {
 # ------------------
@@ -186,9 +188,9 @@ sub convert_all_to_nifti_Output_check {
 
     
     if ($case == 1) {
-        $message_prefix = "  Prepared niftis have been found for the following runnos and will not be re-prepared:\n";
+        $message_prefix = "  Prepared images have been found for the following runnos and will not be re-prepared:\n";
     } elsif ($case == 2) {
-        $message_prefix = "  Unable to properly prepare niftis for the following runnos and channels:\n";
+        $message_prefix = "  Unable to properly prepare images for the following runnos and channels:\n";
     }   # For Init_check, we could just add the appropriate cases.
     
     foreach my $runno (@array_of_runnos) {
@@ -245,20 +247,7 @@ sub set_center_and_orientation_vbm {
 
     my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
     my $space="label";
-    my ( $v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
-    # a defacto okay enough guess at vox count... when this was first created. 
-    my $vx_count = 512 * 256 * 256;
-    if( $v_ok) { 
-	my @d=split(" ",$refsize);
-	$vx_count=1;
-	foreach(@d){
-	    $vx_count*=$_; }
-	# vx @64bit @ 3x volumes.
-	$mem_request = $vx_count * 8 * 3;
-    } else {
-	carp("Cannot set appropriate memory size by volume size, using defacto limit $mem_request");
-	sleep_with_countdown(3);
-    }
+    ($mem_request,my $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
 #    if ($current_orientation eq $desired_orientation) {
     # Hope to have a function that easily and quickly diddles with the header to recenter it...may incorporate into matlab exec instead, though.
 #    } else {
@@ -269,12 +258,14 @@ sub set_center_and_orientation_vbm {
     # If current_orientation == desired_orientation... 
     # and nhdr ... 
     # presume we have good center/and orientation.
+    # BUT WE STILL process the file to transform by header.
     my ($p,$n,$e)=fileparts($input_file,2);
     if($current_orientation eq $desired_orientation && $e eq '.nhdr') {
 	carp("experimental startup from nhdr engaged. INPUT HEADERS MUST BE CORRECT AND CENTERED.");
-	my $reconditioned_dir=File::Spec->catdir($p,"conv_nhdr");
-	mkdir $reconditioned_dir if ! -e $reconditioned_dir;
-	my $nhdr_sg=File::Spec->catfile($reconditioned_dir,$n.".nii");
+	my $reconditioned_dir=$output_folder;
+	#my $reconditioned_dir=File::Spec->catdir($p,"conv_nhdr");
+	#mkdir $reconditioned_dir if ! -e $reconditioned_dir;
+	my $nhdr_sg=File::Spec->catfile($reconditioned_dir,$n.$out_ext);
 	$matlab_exec_args="${nhdr_sg} ${current_orientation} ${desired_orientation} ${output_folder}";
 	$cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
 	# only run the nhdr adjust if we're missing or older.
@@ -287,8 +278,11 @@ sub set_center_and_orientation_vbm {
 	    my ($vx_sc,$est_bytes)=ants::estimate_memory($Wcmd,$vx_count);
 	    # convert bytes to MB(not MiB).
 	    $mem_request=ceil($est_bytes/1000/1000);
-	    $cmd=$cmd." && $Wcmd";
+	    #$cmd=$cmd." && $Wcmd";
+	    $cmd=$Wcmd;
 	}
+    } elsif( $e eq '.nhdr') {
+	error_out("NHDR but not properly oriented! $input_file marked $current_orientation! (instead of $desired_orientation)");
     }
 
     $go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;

@@ -705,19 +705,8 @@ sub warp_atlas_labels_vbm_Init_check {
     ####
     
     my $space="label";
-    my ( $v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
-    # a defacto okay enough guess at vox count... when this was first created. 
-    $vx_count = 512 * 256 * 256;
-    if( $v_ok) { 
-	my @d=split(" ",$refsize);
-	$vx_count=1;
-	foreach(@d){
-	    $vx_count*=$_; }
-    } else {
-	carp("Cannot set appropriate memory size by volume size, using defacto vox count $vx_count");
-	sleep_with_countdown(3);
-    }
-
+    my $mem_request=0;
+    ($mem_request,my $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
 
     #### NHDR IN HURRY HACK
     # this should at some point be unnecessary, but while the pipe is nifti only we gotta do this.
@@ -725,7 +714,8 @@ sub warp_atlas_labels_vbm_Init_check {
     # in a condition that wont occur in the future... 
     my ($p,$n,$e)=fileparts($label_input_file,2);
     my $jid;
-    if( $e eq ".nhdr") {
+    carp("NHDR abandon disabled");
+    if(0 &&  $e eq ".nhdr") {
 	my $preprocess_dir = $Hf->get_value('preprocess_dir');
 	my $squashed_nii_label=File::Spec->catfile($preprocess_dir,$n.".nii.gz");
 	my $cmd=sprintf("WarpImageMultiTransform 3 %s %s ".

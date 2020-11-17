@@ -8,6 +8,7 @@
 
 use strict;
 use warnings;
+use warnings FATAL => qw(uninitialized);
 
 use Cwd qw(abs_path);
 use File::Basename;
@@ -49,6 +50,7 @@ activity_log();
 use pipeline_utilities;
 
 use Headfile;
+# New fangled ants pm from pipeline_utilities
 use ants;
 
 use lib dirname(abs_path($0));

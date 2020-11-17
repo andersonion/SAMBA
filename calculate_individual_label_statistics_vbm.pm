@@ -229,6 +229,10 @@ sub calculate_label_statistics {
         my $Id= "${runno}_calculate_individual_label_statistics";
         my $verbose = 1; # Will print log only for work done.
 	my $mem_request = '512';# min req for matlab exec.
+
+	my $space="label";
+	($mem_request, $vx_count)=refspace_memory_est($mem_request,$space,$Hf,5);
+
 	# estimates here, lets pretend 32-bit int for labels, + 4 x 64-bit contrast images
 	# this mem usage doesn't quite make sense, Realistically, it should just be labels+1 or 2 contrasti mages.
 	my $est_bytes=$vx_count * ( 4 + 8 + 8 + 8 + 8 );
@@ -299,21 +303,6 @@ sub  calculate_individual_label_statistics_vbm_Init_check {
         $init_error_msg = $message_prefix.$init_error_msg;
     }
 
-    my $space="label";# dubious at best, could also be MDT, but really not clear when or which it should be.
-    my ( $v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
-    # a defacto okay enough guess at vox count... when this was first created. 
-    $vx_count = 512 * 256 * 256;
-    if( $v_ok) { 
-	my @d=split(" ",$refsize);
-	$vx_count=1;
-	foreach(@d){
-	    $vx_count*=$_; }
-    } else {
-	carp("Cannot set appropriate memory size by volume size, using defacto vox count $vx_count");
-	sleep_with_countdown(3);
-    }
-
-    
     return($init_error_msg);
 }
 
