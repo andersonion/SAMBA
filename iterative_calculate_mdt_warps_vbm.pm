@@ -60,7 +60,7 @@ sub iterative_calculate_mdt_warps_vbm {  # Main code
 	    print STDOUT  "  Update Warp has been created; moving on to next step.\n";
 	}
     }
-    
+
     $Hf->set_value('last_update_warp',$last_update_warp);
 
     symbolic_link_cleanup($current_path,$PM);
@@ -102,27 +102,25 @@ sub iterative_calculate_mdt_warps_Output_check {
      $out_file_1 = "${current_path}/shape_update_warp_${update_string}.nii.gz"; 
      $out_file_2 = "${current_path}/average_of_to_template_warps.nii.gz";  
 
-     if (data_double_check($out_file_1,$case-1)) {
-	 if (data_double_check($out_file_1,$case-1)) {
-	     $go_hash{'shape_update_warp'}=1;
-	     push(@file_array,$out_file_1);
+     if (data_double_check($out_file_1,$case-1)) { 
+	 $go_hash{'shape_update_warp'}=1;
+	 push(@file_array,$out_file_1);
+	 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+	 $missing_files_message = $missing_files_message."\t${out_file_1}\n";
+	 if (data_double_check($out_file_2,$case-1)) {
+	     $go_hash{'average_warp'}=1;
+	     push(@file_array,$out_file_2);
 	     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-	     $missing_files_message = $missing_files_message."\t${out_file_1}\n";
-	     if (data_double_check($out_file_2,$case-1)) {
-		 $go_hash{'average_warp'}=1;
-		 push(@file_array,$out_file_2);
-		 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-		 $missing_files_message = $missing_files_message."\t${out_file_2}\n";
-	     } else {
-		 $go_hash{'average_warp'}=0;
-		 $existing_files_message = $existing_files_message."\t${out_file_2}\n";
-	     }
-	     
+	     $missing_files_message = $missing_files_message."\t${out_file_2}\n";
 	 } else {
-	     $go_hash{'shape_update_warp'}=0;
 	     $go_hash{'average_warp'}=0;
-	     $existing_files_message = $existing_files_message."\t${out_file_1}\n";
+	     $existing_files_message = $existing_files_message."\t${out_file_2}\n";
 	 }
+	 
+     } else {
+	 $go_hash{'shape_update_warp'}=0;
+	 $go_hash{'average_warp'}=0;
+	 $existing_files_message = $existing_files_message."\t${out_file_1}\n";
      }
 
      if (($existing_files_message ne '') && ($case == 1)) {
@@ -213,15 +211,14 @@ sub iterative_calculate_mdt_warps_vbm_Init_check {
 # ------------------
     my $init_error_msg='';
     my $message_prefix="$PM initialization check:\n";
-
-    $update_step_size = $Hf->get_value('update_step_size');
-    if (($update_step_size eq ('' || 'NO_KEY')) || ($update_step_size > 0.25)) {
+    
+    #|| ($update_step_size > 0.25)
+    (my $v_ok, $update_step_size) = $Hf->get_value_check('update_step_size');
+    if (! $v_ok || $update_step_size eq '' || $update_step_size > 0.25) {
 	$update_step_size =0.25;
 	$Hf->set_value('update_step_size',$update_step_size);
 	$log_msg = $log_msg."\tNo step size specified for shape update during iterative template construction; using default values of ${update_step_size}.\n";
     }
-
-
     if (defined $log_msg) {
         log_info("${message_prefix}${log_msg}");
     }
@@ -241,15 +238,14 @@ sub iterative_calculate_mdt_warps_vbm_Runtime_check {
 # # Set up work
     
     $update_step_size = $Hf->get_value('update_step_size');
-    $update_string = `echo ${update_step_size} | tr '.' 'p' `;
-    chomp($update_string);
+    $update_string = `echo ${update_step_size} | tr '.' 'p' `;chomp($update_string);
+    
+    #($update_string = $update_step_size) =~ s/[.]/p/gx;
+    
 
     $mdt_path = $Hf->get_value('mdt_work_dir');
-
     $template_path = $Hf->get_value('template_work_dir');
-   
     $template_name = $Hf->get_value('template_name');
-
     $runlist = $Hf->get_value('template_comma_list');
 
     if ($runlist eq 'NO_KEY') { # Backwards compatibility -- can remove in future
@@ -262,21 +258,17 @@ sub iterative_calculate_mdt_warps_vbm_Runtime_check {
 	@array_of_runnos = split(',',$runlist);
     }
 
-
     @sorted_runnos=sort(@array_of_runnos);
     #$number_of_template_runnos = $#sorted_runnos + 1;
 
     #$current_path = $Hf->get_value('mdt_diffeo_path');
-
     #if ($current_path eq 'NO_KEY') {
     $current_path = "${template_path}/MDT_diffeo";
     if (! -e $current_path) {
 	mkdir ($current_path,$permissions);
     }
     $Hf->set_value('mdt_diffeo_path',$current_path);
-    
     #}
-
     $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
 
     my $case = 1;

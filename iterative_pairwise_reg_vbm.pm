@@ -57,6 +57,9 @@ my $affine = 0;
 #$test_mode=0;
 my ($type,$current_iteration);
 
+# While we say out_ext, we're not trying to change the warp ext yet.
+my $out_ext=".nii.gz";
+$out_ext=".nhdr";
 # ------------------
 sub iterative_pairwise_reg_vbm {  # Main code
 # ------------------
@@ -932,7 +935,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
  
     print "current_path = ${current_path}\n\n";
     $old_iteration=($current_iteration - 1);
-    $current_target = "${master_template_dir}/${template_name}_i${old_iteration}.nii.gz";
+    $current_target = "${master_template_dir}/${template_name}_i${old_iteration}${out_ext}";
 
 # Adjust number of registration levels if need be.
     if ($match_registration_levels_to_iteration) {

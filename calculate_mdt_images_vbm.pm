@@ -49,8 +49,9 @@ sub calculate_mdt_images_vbm {  # Main code
     my $start_time = time;
     calculate_mdt_images_vbm_Runtime_check();
 
+
     foreach my $contrast (@contrast_list) {
-        $go = $go_hash{$contrast};
+	$go = $go_hash{$contrast};
         if ($go) {
             ($job) = calculate_average_mdt_image($contrast);
             if ($job) {
@@ -58,7 +59,6 @@ sub calculate_mdt_images_vbm {  # Main code
             }
         } 
     }
-    
     if (cluster_check()) {
         my $interval = 2;
         my $verbose = 1;
@@ -121,32 +121,33 @@ sub calculate_mdt_images_Output_check {
     $out_file = "${current_path}/MDT_${contrast}${out_ext}";
     $int_go_hash{$contrast}=0;
     if (data_double_check($out_file,$case-1)) {
-        if ($out_file =~ s/\.gz$//) {
-            if (data_double_check($out_file,$case-1)) {
-                $go_hash{$contrast}=1;
-                push(@file_array,$out_file);
-                #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-                $missing_files_message = $missing_files_message."\t$contrast\n";
-                if ($mdt_creation_strategy eq 'iterative'){
-                    my $int_file = "${current_path}/intermediate_MDT_${contrast}${out_ext}";
-                    if (data_double_check($int_file,$case-1)) {
-                        if ($int_file =~ s/\.gz$//) {
-                            if (data_double_check($int_file,$case-1)) {
-                                $int_go_hash{$contrast}=1;
-                                push(@file_array,$int_file);
-                                #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-                            }
-                        }
-                    }
-                } else {
-                    $int_go_hash{$contrast}=1;
-                }
-            } else {
-                run_and_watch("gzip -vf ${out_file}","\t"); #Is -f safe to use?
-                $go_hash{$contrast}=0;
-                $existing_files_message = $existing_files_message."\t$contrast\n";
-            }
-        }  
+	# file not found. So remove GZ and try again? 
+	# We've ALREADY waited plenty! so lets use simple check.
+	$out_file =~ s/\.gz$//;
+	if (! -e $out_file) {
+	    $go_hash{$contrast}=1;
+	    push(@file_array,$out_file);
+	    #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+	    $missing_files_message = $missing_files_message."\t$contrast\n";
+	    if ($mdt_creation_strategy eq 'iterative'){
+		my $int_file = "${current_path}/intermediate_MDT_${contrast}${out_ext}";
+		if (data_double_check($int_file,$case-1)) {
+		    $int_file =~ s/\.gz$//;
+		    if (! -e $int_file) {
+			    $int_go_hash{$contrast}=1;
+			    push(@file_array,$int_file);
+			    #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+		    }
+		}
+	    } else {
+		$int_go_hash{$contrast}=1;
+	    }
+	} elsif($out_file =~ /nii/x) {
+	    # Only safely compress nii outs
+	    run_and_watch("gzip -vf ${out_file}","\t"); #Is -f safe to use?
+	    $go_hash{$contrast}=0;
+	    $existing_files_message = $existing_files_message."\t$contrast\n";
+	}
     } else {
         $go_hash{$contrast}=0;
         $existing_files_message = $existing_files_message."\t$contrast\n";
@@ -188,19 +189,8 @@ sub calculate_average_mdt_image {
     my $mem_request = 30000;  # Added 23 November 2016,  Will need to make this smarter later.
     # not sure if we should be label or vbm refsize... it appearsa vbm will always be available, so that is our best choice for now.
     my $space="vbm";
-    my ($v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
-    # a defacto okay enough guess at vox count... when this was first created. 
-    my $vx_count = 512 * 256 * 256;
-    if( $v_ok) { 
-	my @d=split(" ",$refsize);
-	$vx_count=1;
-	foreach(@d){
-	    $vx_count*=$_; }
-    } else {
-	carp("Cannot set appropriate memory size by volume size, using defacto vox count $vx_count");
-	sleep_with_countdown(3);
-    }
-
+    ($mem_request,my $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
+    my @cmds;
     if ($mdt_creation_strategy eq 'iterative') {
         my $warp_train_car = " -t ${last_update_warp} ";
         my $warp_train = $warp_train_car.$warp_train_car.$warp_train_car.$warp_train_car;
@@ -210,7 +200,8 @@ sub calculate_average_mdt_image {
         my $opt_e_string='';
 	$opt_e_string=ants_opt_e($intermediate_file);
 
-        $update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";
+        $update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";
+	push(@cmds,$update_cmd);
 
 	my ($vx_sc,$est_bytes)=ants::estimate_memory($update_cmd,$vx_count);
 	# convert bytes to MB(not MiB).
@@ -220,23 +211,51 @@ sub calculate_average_mdt_image {
 	    $mem_request = $expected_max_mem;
 	}
 
-        $cleanup_cmd = "if [[ -f ${out_file} ]]; then rm ${intermediate_file}; fi\n";
-        if ($contrast eq $mdt_contrast) { # This needs to be adapted to support multiple mdt contrasts!
-            my $backup_file = "${master_template_dir}/${template_name}_i${current_iteration}${out_ext}";
-            $copy_cmd = "cp ${out_file} ${backup_file}\n";
-        }
+	$cleanup_cmd = "if [[ -f ${out_file} ]]; then rm ${intermediate_file}; fi";
+	push(@cmds,$cleanup_cmd) if $intermediate_file !~ /nhdr$/x;
+	my @cleanup_script;
+	@cleanup_script=("o=\"$out_file\";"
+			 ,"i=\"$intermediate_file\";"
+			 ,"ip=\$(dirname \$i);"
+			 ,"id=\$(grep -i 'Data File' \$i |cut -d ':' -f2-|xargs)"
+			 ,"id=\"\${ip}/\${id}\";"
+			 ,"if [[ -f \$o ]];then rm \$i \$id || exit 1; fi;") if $intermediate_file =~ /nhdr$/x;
+	if ($contrast eq $mdt_contrast) { # This needs to be adapted to support multiple mdt contrasts!
+	    my $template_n="${template_name}_i${current_iteration}";
+	    my $backup_file = "${master_template_dir}/$template_n${out_ext}";
+	    $copy_cmd = "cp -v ${out_file} ${backup_file}";
+	    push(@cmds,$copy_cmd) if $out_file !~ /nhdr$/x;
+	    push(@cleanup_script,("b=\"$backup_file\";"
+				  ,"bn=\"$template_n\";"
+				  ,"bp=\"$master_template_dir\";"
+				  ,"op=\$(dirname \$o);"
+				  ,"odn=\$(grep -i 'Data File' \$o |cut -d ':' -f2-|xargs)"
+				  ,"bdn=\"\$bn.\${odn#*.}\";"
+				  ,"od=\"\${op}/\${odn}\";"
+				  ,"cp -p \$o \$b && cp -p \$od \$bp/\$bdn"
+				  ,"sed -i'' \"s:\$odn:\$bdn:\" \$b"
+		 ) ) if $out_file =~ /nhdr$/x;
+	}
+	if(scalar(@cleanup_script)){
+	    unshift(@cleanup_script,'#!/usr/bin/env bash');
+	    my $c_s_p="$master_template_dir/cleanup_i$current_iteration.bash";
+	    write_array_to_file($c_s_p,[join("\n",@cleanup_script)."\n"]);
+	    push(@cmds,"bash ".$c_s_p);
+	}
     } else {
         $intermediate_file = $out_file;
     }
+    # WARNING: We stuff this command on the front!
     if ($int_go_hash{$contrast}) { 
         $avg_cmd =" AverageImages 3 ${intermediate_file} 0";
         foreach my $runno (@array_of_runnos) {
             $avg_cmd = $avg_cmd." ${mdt_images_path}/${runno}_${contrast}_to_MDT${out_ext}";
         }
-        $avg_cmd = $avg_cmd.";\n";
+	unshift(@cmds,$avg_cmd);
     }
-    $cmd = $avg_cmd.$update_cmd.$cleanup_cmd.$copy_cmd;
-    my @cmds = ($cmd);
+    my $CMD_SEP=";\n";
+    $CMD_SEP=" && ";
+    $cmd=join($CMD_SEP,@cmds);
 
     my $go_message =  "$PM: created average MDT image(s) for contrast:  ${contrast}";
     my $stop_message = "$PM: could not create an average MDT image for contrast: ${contrast}:\n${cmd}\n";
@@ -282,9 +301,9 @@ sub calculate_mdt_images_vbm_Runtime_check {
 # ------------------
 
 # # Set up work
-    $master_template_dir = $Hf->get_value('master_template_folder');
-    $mdt_contrast = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
     $inputs_dir = $Hf->get_value('inputs_dir');
+    $mdt_contrast = $Hf->get_value('mdt_contrast'); #  Will modify to pull in arbitrary contrast, since will reuse this code for all contrasts, not just mdt contrast.
+    $master_template_dir = $Hf->get_value('master_template_folder');
 
     $last_update_warp = $Hf->get_value('last_update_warp');
     $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
