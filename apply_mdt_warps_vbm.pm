@@ -54,7 +54,8 @@ if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 # but we record it here for output_check to catch.
 my %output_file_hash;
 
-
+my $out_ext=".nii.gz";
+$out_ext=".nhdr";
 # ------------------
 sub apply_mdt_warps_vbm {  # Main code
 # ------------------
@@ -200,12 +201,12 @@ sub apply_mdt_warps_Output_check {
      foreach my $runno (@array_of_runnos) {
 	 if ($direction eq 'f' ) {
 	     if ($gid == 2) {
-		 $out_file = "${current_path}/${runno}_${current_contrast}.nii.gz";  #Added '.gz', 2 September 2015
+		 $out_file = "${current_path}/${runno}_${current_contrast}${out_ext}";  #Added '.gz', 2 September 2015
 	     } else {
-		 $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii.gz";  #Added '.gz', 2 September 2015
+		 $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT${out_ext}";  #Added '.gz', 2 September 2015
 	     }
 	 } elsif ($direction eq 'i') {
-	     $out_file =  "${current_path}/MDT_to_${runno}_${current_contrast}.nii.gz";  #Added '.gz', 2 September 2015
+	     $out_file =  "${current_path}/MDT_to_${runno}_${current_contrast}${out_ext}";  #Added '.gz', 2 September 2015
 	 }
 	 ###
 	 # crazy patch testing the output file.
@@ -222,20 +223,11 @@ sub apply_mdt_warps_Output_check {
 	 ###
 	 printd($verbose_thresh,"\t$out_file ...\n");
 	 if (data_double_check($out_file,$case-1)) {
-	     #if ($out_file =~ s/\.gz$//) {
-	     #if (data_double_check($out_file)) {
 	     $go_hash{$runno}=1;
 	     push(@file_array,$out_file);
 	     # This code may be activated for use with Init_check and generating lists of work to be done.
-	     #push(@files_to_create,$full_file);
 	     my $p = $debug_val>0 ? "\t(".$out_file.")" : "";
 	     $missing_files_message = $missing_files_message."\t$runno$p\n";
-	     #} else {
-	     #   `gzip -f ${out_file}`; #Is -f safe to use?
-	     #   $go_hash{$runno}=0;
-	     #   $existing_files_message = $existing_files_message."\t$runno\n";
-	     #}
-	     #}
 	 } else {
 	     $go_hash{$runno}=0;
 	     $existing_files_message = $existing_files_message."\t$runno\n";
@@ -287,7 +279,7 @@ sub apply_mdt_warp {
         $gz='';
     }
     if ($gid == 2 ) {
-	$out_file = "${current_path}/${runno}_${current_contrast}.nii${gz}"; # Added '.gz', 2 September 2015
+	$out_file = "${current_path}/${runno}_${current_contrast}${out_ext}";
 	$reference_image = $label_reference_path;
     	if (! defined $current_label_space) {
 	    die "\$current_label_space error! It is not being defined when $PM is called with \$group_name = \"all\". See your local programmer.";}
@@ -315,12 +307,12 @@ sub apply_mdt_warp {
     } else {
 	$reference_image=$vbm_reference_path;
 	if ($direction eq 'f') {
-	    $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT.nii${gz}"; # Need to settle on exact file name format...  Added '.gz', 2 September 2015
+	    $out_file = "${current_path}/${runno}_${current_contrast}_to_MDT${out_ext}"; # Need to settle on exact file name format...  Added '.gz', 2 September 2015
 	    $direction_string = 'forward';
 	    $start=1;
 	    $stop=3;
 	} else {
-	    $out_file = "${current_path}/MDT_to_${runno}_${current_contrast}.nii${gz}"; # I don't think this will be the proper implementation of the "inverse" option.  Added '.gz', 2 September 2015
+	    $out_file = "${current_path}/MDT_to_${runno}_${current_contrast}${out_ext}"; # I don't think this will be the proper implementation of the "inverse" option.  Added '.gz', 2 September 2015
 	    $direction_string = 'inverse';
 	    $start=1;
 	    $stop=3;
@@ -354,31 +346,18 @@ sub apply_mdt_warp {
 	$reference_image=$reference_image.'.gz';
     }
 
-    
-    my $fsl_test_cmd="fslhd ${image_to_warp} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2";
-    my $test_dim =  `$fsl_test_cmd`;#`PrintHeader ${image_to_warp} 2`;
-    if (! looks_like_number($test_dim) ) {
-	error_out("Problem gathering dim info from $image_to_warp"); 
-    }
-
-    #my @dim_array = split('x',$test_dim);
-    #my $real_dim = $#dim_array +1;
     my $opt_e_string='';
-    # if ($real_dim == 4) {
-    if ($image_to_warp =~ /tensor/) {
-        $opt_e_string = ' -e 2 -f 0.0007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
-    } elsif ($test_dim > 1) {
-        $opt_e_string = ' -e 3 ';
-    } 
+    $opt_e_string=ants_opt_e($image_to_warp);
+
     $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} ${opt_e_string} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";  
     if ($current_contrast eq 'nii4D') {
 	cluck("NII4D HANDLING DEFFICIENT! It will be skipped, however the commands will be allowed to generate in case you want to be adventurous");
 	if (($convert_images_to_RAS == 1) && ($gid == 2)) {
 	    my $tmp_file;   
 	    if ($runno eq 'MDT') {
-		$tmp_file= "${median_images_path}/MDT_${current_contrast}_tmp.nii";
+		$tmp_file= "${median_images_path}/MDT_${current_contrast}_tmp${out_ext}";
 	    } else {
-		$tmp_file= "${current_path}/${runno}_${current_contrast}_tmp.nii";
+		$tmp_file= "${current_path}/${runno}_${current_contrast}_tmp${out_ext}";
             }
 	    $cmd=$cmd."cp ${out_file} ${tmp_file};\n";
 	}
@@ -423,17 +402,6 @@ sub apply_mdt_warp {
 	carp("Cannot set appropriate memory size, using defacto ${mem_request}M");
 	sleep_with_countdown(3);
     }
-
-=item inline mem estimate
-    my $wrp_bytes = 64/8;
-    # its either 32 or 64... We specify --float, so it should be 32.
-    my $img_bytes = 32/8;
-    # validated, warps are 64! imgs may or may not be 32!... 
-    my $warp_train_length=grep /[.]nii([.]gz)?/, split(" ",$warp_train);
-    # Hopefully this'll pull out only the diffeo warps, in theory affines are trivial in memory. 
-    # 3x to account for in, out ref, 3x wrp to account for vector
-    my $expected_max_mem = ceil( ( $img_bytes * 3 + $wrp_bytes * 3 * $warp_train_length  ) * $vx_count/1000/1000 );
-=cut
     my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
     # convert bytes to MB(not MiB).
     my $expected_max_mem=ceil($est_bytes/1000/1000);

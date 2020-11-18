@@ -76,11 +76,14 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
         $runno_to_clean_named_transforms{$runno}=$runno_transform_clean;
         $alt_result_path_bases{$runno}=$alt_result_path_base;
         if ($go) {
-            if ((! $do_rigid) && ($runno eq $affine_target )) {
+            if ( ! $do_rigid
+		&& ( $runno eq $affine_target || scalar(@array_of_runnos)<3 )
+		) {
                 # For the affine target ONLY, and ONLY when we are doing an affine(not rigid) transform,
 		# we want to use the identity matrix.
                 my $affine_identity = $Hf->get_value('affine_identity_matrix');
-		run_and_watch("cp ${affine_identity} ${runno_transform_clean}");
+		# Switching to a link from cp.
+		run_and_watch("ln -s ${affine_identity} ${runno_transform_clean}");
             } else {
                 ($xform_path,$job) = create_affine_transform_vbm($to_xform_path,  $alt_result_path_base, $runno);
 
@@ -154,7 +157,9 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 	#if (! (  (!$do_rigid) && ($runno eq $affine_target)  )    ) {
 	# if   we're not the affine target, or transform_is_rigid
 	# Code should operate for all rigid, and most affine(exclude affine target)
-	if (  $do_rigid || $runno ne $affine_target ) {
+	if (  $do_rigid 
+	      || ($runno ne $affine_target && scalar(@array_of_runnos)>2)
+	    ) {
 	    $xform_path = $xform_paths{$runno};
 	    my $runno_transform_clean = $runno_to_clean_named_transforms{$runno};
 	    if ($swap_fixed_and_moving) {
@@ -288,6 +293,7 @@ sub create_affine_reg_to_atlas_Output_check {
 # ------------------
 sub create_affine_transform_vbm {
 # ------------------
+    #($to_xform_path,  $alt_result_path_base, $runno);
     my ($B_path, $result_transform_path_base,$moving_runno) = @_;
     my $collapse = 0;
     my $transform_path="${result_transform_path_base}0GenericAffine.mat";
@@ -990,12 +996,9 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                     # some annoying contrasts may collide... like fa./fa_color.... 
                     # BJ says: this makes it harder to control when all we want to return is runno to use, not the whole file name
                     #my @control_images=civm_simple_util::find_file_by_pattern($inputs_dir, '('.join("|",@controls).').*_'.$contrast.'_masked[.]n.{2,5}$');
-                    
                     my %volume_hash;
                     for my $c_runno (uniq(@controls)) {
-
                         my $c_file = get_nii_from_inputs($inputs_dir, $c_runno, "${contrast}_masked");
-
                         if ($c_file !~ /[\n]+/) {
 			    confess("cannot fslstats on nhdr")if $c_file =~ /(nhdr|nrrd)$/x;
                             #my $volume = `fslstats ${c_file} -V | cut -d ' ' -f2`;
@@ -1003,8 +1006,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                             chomp($volume);
                             $volume_hash{$volume}=$c_runno;
                         }
-                        
-                    }
+		    }
                     use List::Util qw(sum);
                     use civm_simple_util qw(round);
                     

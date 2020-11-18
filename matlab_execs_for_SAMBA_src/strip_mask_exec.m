@@ -165,7 +165,7 @@ try
     nii = load_nii(img_path);
 catch
     [i,h]=read_civm_image(img_path,0);
-    nii=make_nii(i,nrrd_vox(h.nhdr),nrrd_orig(h.nhdr));
+    nii=make_nii(i,nrrd_vox(h.nhdr),nrrd_orig(h.nhdr)./nrrd_vox(h.nhdr));
     clear i;
 end
 niioriginal.hdr=nii.hdr;
