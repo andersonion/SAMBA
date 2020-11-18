@@ -7,7 +7,7 @@ my $NAME = "Adaptation of Nick and Brian's optimatal template construction (for 
 my $DESC = "ants";
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 #use PDL::Transform;
 
 my ($mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$rigid_path,$mdt_path,$current_path,$inputs_dir);

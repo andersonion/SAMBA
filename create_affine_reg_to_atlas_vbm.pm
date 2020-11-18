@@ -3,7 +3,7 @@
 #  2015/01/02  BJ - added capability to register to any image, not just atlas; for use with full-affine registration.
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 
 my $PM = "create_affine_reg_to_atlas_vbm.pm";
 my $VERSION = "2015/01/02";

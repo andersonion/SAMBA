@@ -8,7 +8,7 @@ my $NAME = "Application of warps derived from the calculation of the Minimum Def
 my $DESC = "ants";
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 use Scalar::Util qw(looks_like_number);
 
 use List::Util qw(max);

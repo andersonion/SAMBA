@@ -11,8 +11,7 @@ my $VERSION = "2014/12/23";
 my $NAME = "Creates an eroded mask from MDT image for use with VBM analysis. If input images for MDT were already skull-stripped, then the raw mask will be created from the non-zero elemnts of the MDT image.";
 
 use strict;
-use warnings;
-#no warnings qw(uninitialized bareword);
+use warnings FATAL => qw(uninitialized);
 
 #use vars used to be here
 require Headfile;

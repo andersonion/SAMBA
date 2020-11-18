@@ -7,7 +7,7 @@ my $NAME = "Pairwise registration for Minimum Deformation Template calculation."
 my $DESC = "ants";
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$rigid_path,$mdt_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix,$domain_dir,$domain_path,$inputs_dir);

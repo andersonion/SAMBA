@@ -11,8 +11,7 @@ my $NAME = "Calculate jacobians based on the warps to and/or from the MDT.";
 my $DESC = "ants";
 
 use strict;
-use warnings;
-#no warnings qw(uninitialized bareword);
+use warnings FATAL => qw(uninitialized);
 
 #use vars used to be here
 require Headfile;

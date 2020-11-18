@@ -7,7 +7,7 @@ my $NAME = "Calculation of the average Minimal Deformation Template for a given 
 my $DESC = "ants";
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 use Scalar::Util qw(looks_like_number);
 
 #use vars used to be here

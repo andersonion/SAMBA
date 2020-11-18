@@ -7,8 +7,7 @@ my $NAME = "Calculation of the warp to the Minimum Deformation Template.";
 my $DESC = "ants";
 
 use strict;
-use warnings;
-#no warnings qw(uninitialized bareword);
+use warnings FATAL => qw(uninitialized);
 
 #use vars used to be here
 require Headfile;
