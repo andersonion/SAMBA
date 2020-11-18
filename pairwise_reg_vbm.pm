@@ -60,9 +60,7 @@ sub pairwise_reg_vbm {  # Main code
     ($mem_request,$mem_request_2,$jobs_in_first_batch) = memory_estimator_2($expected_number_of_jobs,$nodes);
 
     my @remaining_runnos = @sorted_runnos;
-
     for ((my $moving_runno = $remaining_runnos[0]); (scalar @remaining_runnos > 0); (shift(@remaining_runnos)))  {
-
     	$moving_runno = $remaining_runnos[0];
         foreach my $fixed_runno (@remaining_runnos) {
             $go = $go_hash{$moving_runno}{$fixed_runno};
@@ -215,8 +213,8 @@ sub create_pairwise_warps {
 
     my $rename_cmd;
     $rename_cmd = "".  #### Need to add a check to make sure the out files were created before linking!
-	"ln -s ${out_warp} ${new_warp};\n".
-	"ln -s ${out_inverse} ${new_inverse};\n".#.
+	"ln -s ${out_warp} ${new_warp} && ".
+	"ln -s ${out_inverse} ${new_inverse} && ".
 	"rm ${out_affine};\n";
     my @test = (0);
     my $node = '';
@@ -238,10 +236,7 @@ sub create_pairwise_warps {
 
     my $jid = 0;
     if (cluster_check) {
-
-    
 	my $cmd = $pairwise_cmd.$rename_cmd;
-	
 	my $home_path = $current_path;
 	$batch_folder = $home_path.'/sbatch/';
 	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
