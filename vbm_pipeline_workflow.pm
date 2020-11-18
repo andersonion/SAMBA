@@ -647,7 +647,7 @@ U_specid U_species_m00 U_code
             foreach my $a_contrast (@op_cont) {
                 apply_mdt_warps_vbm($a_contrast,"f",$group_name); #$PM_code = 43
             }
-            
+
             iterative_calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
             sleep($interval);
 
@@ -1081,6 +1081,10 @@ sub ants_opt_e {
     my($in_file)=@_;
     my $opt_e_string="";
     my $test_dim = 3;
+    if(! -e $in_file){
+	carp("CANNOT SET antsApplyTransform  (-e)  file not available yet: $in_file");
+	return "";
+    }
     my @hdr=ants::PrintHeader($in_file);
     # nii only!!
     if($in_file =~ /[.]nii([.]gz)?/x) {
