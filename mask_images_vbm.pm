@@ -76,6 +76,9 @@ sub mask_images_vbm {
                 $mask_path = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
             }
             my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
+	    if( $out_ext =~ /nhdr/){
+		$mask_path =~ s/(^.+)[.]nii(?:[.]gz)?$/$1.nhdr/;
+	    }
             $mask_hash{$runno} = $mask_path;
             if ( (! -e $mask_path) && (! -e $mask_path.".gz")  ){
                 if ( (! $port_atlas_mask) 
