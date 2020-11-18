@@ -10,7 +10,7 @@ my $NAME = "Set the reference spaces to be used for VBM and label analysis.";
 my $DESC = "ants";
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 use Scalar::Util qw(looks_like_number);
 
 use civm_simple_util;
@@ -315,8 +315,14 @@ sub apply_new_reference_space_vbm {
     my $opt_e_string='';
     if ($out_file =~ m/.*[.]($valid_formats_string)$/x) {
 	my @hdr=ants::PrintHeader($in_file);
-	my @dim_lines=grep /[\s]+dim\[[0-7]\]/x, @hdr;
-	($test_dim = $dim_lines[0]) =~ /.*=[\s]*([0-9]+)[\s*]/x;
+
+	# nii only!!
+	if($out_file =~ /[.]nii([.]gz)?/x) {
+	    my @dim_lines=grep /[\s]+dim\[[0-7]\]/x, @hdr;
+	    Data::Dump::dump(\@hdr,\@dim_lines); 
+	    confess "NIFTI DIM EXTRACT NOT WELL TESTED";
+	    ($test_dim = $dim_lines[0]) =~ /.*=[\s]*([0-9]+)[\s*]/x;
+	}
 	my @dims=split(' ',get_image_dims($in_file));
 	if ($test_dim > 3 && scalar(@dims) > 3) {
 	    $opt_e_string = ' -e 3 ';
@@ -475,6 +481,7 @@ sub apply_new_reference_space_vbm {
 # ------------------
 sub set_reference_space_vbm_Init_check {
 # ------------------
+    ${WORKSTATION_DATA} =~ s/\/data/\/CIVMdata/ if ! -d ${WORKSTATION_DATA};
 # WARNING NAUGHTY CHECK IS DOING WORK.
     # no inputs at current, sneaking everything though the headfile.
     #my @args=@_;
@@ -774,8 +781,6 @@ sub set_reference_space_vbm_Init_check {
             $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.\n";
         } else {
             my $rigid_atlas_dir = File::Spec->catdir(${WORKSTATION_DATA},"atlas",${rigid_atlas_name});
-	    # BROKEN SETUP HACK!
-            $rigid_atlas_dir =~ s/\/data/\/CIVMdata/ if ! -d $rigid_atlas_dir;
             my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
 	    $rigid_atlas_path = get_nii_from_inputs($preprocess_dir,$rigid_atlas_name,$rigid_contrast);
 	    $original_rigid_atlas_path = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
@@ -914,10 +919,6 @@ sub set_reference_path_vbm {
     }
     
     my $atlas_dir_perhaps = "${WORKSTATION_DATA}/atlas/${ref_option}";
-    if (! -d $atlas_dir_perhaps) {
-        if ($atlas_dir_perhaps =~ s/\/data/\/CIVMdata/) {}
-    } 
-
 
     if (-d $atlas_dir_perhaps) {
         $log_msg=$log_msg."\tThe ${which_space} reference space will be inherited from the ${ref_option} atlas.\n";

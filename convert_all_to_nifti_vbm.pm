@@ -14,7 +14,7 @@ my $VERSION = "2014/12/16";
 my $NAME = "Convert input data into the proper format, flipping x and/or z if need be.";
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 
 use Env qw(RADISH_PERL_LIB);
 if (! defined($RADISH_PERL_LIB)) {
@@ -246,7 +246,7 @@ sub set_center_and_orientation_vbm {
     my ($go_message, $stop_message);
 
     my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
-    my $space="label";
+    my $space="vbm";
     ($mem_request,my $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
 #    if ($current_orientation eq $desired_orientation) {
     # Hope to have a function that easily and quickly diddles with the header to recenter it...may incorporate into matlab exec instead, though.
@@ -283,29 +283,11 @@ sub set_center_and_orientation_vbm {
 	    #$cmd=$cmd." && $Wcmd";
 	    $cmd=$Wcmd;
 	}
-	if(! -e $nhdr_out) {   
-	    my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($input_file,1);
-	    my ($vx_f,$vx_l,$vx_s) = $bounding_box_and_spacing =~ m/{([^,]+),[ ]([^}]+)}[ ](.+)/;
-	    $vx_f=~s/[\[\]]//g; $vx_l=~s/[\[\]]//g;
-	    my @vf=split(" ",$vx_f); my @vl=split(" ",$vx_l); my @vs=split("x",$vx_s);
-	    my @fov;
-	    my @dx;
-	    my @o;
-	    for(my $vi=0;$vi<scalar(@vl);$vi++) {
-		$fov[$vi]=$vl[$vi]-$vf[$vi] || die "fov calc err d $vi";
-		$fov[$vi]=round($fov[$vi],4);
-		$o[$vi] = -1 * $fov[$vi]/2;
-		$dx[$vi]=$fov[$vi]/$vs[$vi] || die "dim calc err d $vi";
-		$dx[$vi]=round($dx[$vi]);
-	    }
-	    #SetOrigin
-	    #Usage:   SetOrigin  Dimension infile.hdr outfile.nii  OriginX OriginY {OriginZ}
-	    my $o_cmd="SetOrigin 3 $nhdr_sg $nhdr_out $o[0] $o[1] $o[2]";
-	    if($cmd ne ""){
-		$cmd=$cmd." && ".$o_cmd	
-	    } else {
-		$cmd=$o_cmd;
-	    }
+	my $c_cmd="ants_center_image $nhdr_sg $nhdr_out";
+	if($cmd eq ''){
+	    $cmd=$c_cmd;
+	} else {
+	    $cmd=$cmd." && ".$c_cmd;
 	}
     } elsif( $e eq '.nhdr') {
 	error_out("NHDR but not properly oriented! $input_file marked $current_orientation! (instead of $desired_orientation)");

@@ -14,7 +14,7 @@ my $VERSION = "2014/12/23";
 my $NAME = "Convert input data into the proper format, flipping x and/or z if need be.";
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 
 use Headfile;
 use pipeline_utilities;
@@ -76,10 +76,6 @@ sub mask_images_vbm {
                 $mask_path = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
             }
             my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
-	    if( $out_ext =~ /nhdr/){
-		$mask_path =~ s/(^.+)[.]nii(?:[.]gz)?$/$1.nhdr/;
-	    }
-            $mask_hash{$runno} = $mask_path;
             if ( (! -e $mask_path) && (! -e $mask_path.".gz")  ){
                 if ( (! $port_atlas_mask) 
 		     || $port_atlas_mask && (! -e $ported_mask) && (! -e $ported_mask.'.gz') ) {
@@ -89,6 +85,10 @@ sub mask_images_vbm {
                     }
                 }
             }
+	    if( $out_ext =~ /nhdr/){
+		$mask_path =~ s/(^.+)[.]nii(?:[.]gz)?$/$1.nhdr/;
+	    }
+            $mask_hash{$runno} = $mask_path;
         }
     }
 
@@ -302,7 +302,7 @@ sub strip_mask_vbm {
 	my $Id= "creating_mask_from_contrast_${template_contrast}";
 	my $verbose = 2; # Will print log only for work done.
 	my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
-	my $space="label";
+	my $space="vbm";
 	($mem_request)=refspace_memory_est($mem_request,$space,$Hf);
 
 	$jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
@@ -337,7 +337,7 @@ sub port_atlas_mask_vbm {
     $cleanup_command=$cleanup_command."if [ -e \"${port_mask}\" ]\nthen\n\tif [ -e \"${new_mask}\" ]\n\tthen\n\t\trm ${new_mask};\n";
 
     my $mem_request = 60000;
-    my $space="label";
+    my $space="vbm";
     ($mem_request,my $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
     
     if (! -e $new_mask) {
