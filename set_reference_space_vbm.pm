@@ -315,7 +315,7 @@ sub apply_new_reference_space_vbm {
     my $opt_e_string='';
     if ($out_file =~ m/.*[.]($valid_formats_string)$/x) {
 	my @hdr=ants::PrintHeader($in_file);
-	my @dim_lines=grep /[ ]+dim\[[0-7]\]/x, @hdr;
+	my @dim_lines=grep /[\s]+dim\[[0-7]\]/x, @hdr;
 	($test_dim = $dim_lines[0]) =~ /.*=[\s]*([0-9]+)[\s*]/x;
 	my @dims=split(' ',get_image_dims($in_file));
 	if ($test_dim > 3 && scalar(@dims) > 3) {
@@ -378,6 +378,22 @@ sub apply_new_reference_space_vbm {
             $cmd = "ln -s ${in_file} ${out_file}";
             print "Linking $in_file to $out_file\n\n";
             push(@cmds,$cmd);
+	    if ($in_file =~ /[.]n?hdr/x){
+		my $data_file;
+		($data_file = $in_file)=~ s/[.]hdr$/.img/x;
+		if ($in_file =~ /[.]nhdr/x){
+		    my @hdr; load_file_to_array($in_file,\@hdr);
+		    chomp(@hdr);
+		    ($data_file)=grep /^[\s]*data[\s_]*file[\s]*:.*/x, @hdr;
+		    $data_file=~s/^([^:]+:)(.*)$/$2/x;
+		    $data_file=trim($data_file);
+		}
+		my $idat=File::Spec->catfile(dirname($in_file),$data_file);
+		my $odat=File::Spec->catfile(dirname($out_file),$data_file);
+		$cmd=sprintf("ln -s %s %s",$idat,$odat);
+		#die "link dat:$data_file $cmd\n$in_file,$out_file";
+		push(@cmds,$cmd);
+	    }
         } else {
             # this code runs when we've already aligned one contrast of a set. 
 	    # it should apply that alignment to the next.
@@ -417,7 +433,6 @@ sub apply_new_reference_space_vbm {
 	    if ($expected_max_mem > $mem_request) {
 		$mem_request = $expected_max_mem;
 	    }
-
             push(@cmds,$cmd);
         }  
     }
