@@ -44,7 +44,7 @@ my %ref_runno_hash;
 #my %runno_hash_vba;
 #my %runno_hash_label;
 my %preferred_contrast_hash;
-my $rerun_init_flag;
+my $rerun_init_check;
 
 my $img_exec_version='stable';
 my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/$img_exec_version/run_img_transform_exec.sh";
@@ -52,6 +52,8 @@ my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
+my $out_ext=".nii.gz";
+$out_ext=".nhdr";
 # ------------------
 sub set_reference_space_vbm {  # Main code
 # ------------------
@@ -611,10 +613,7 @@ sub set_reference_space_vbm_Init_check {
         if ($input_reference_path_hash{$space} eq 'rerun_init_check_later') {
             my $log_msg = "Reference spaces not set yet. Will rerun upon start of set_reference_space module.";
             log_info("${message_prefix}${log_msg}");
-            $Hf->set_value('rerun_init_check',1);
-            #if ($init_error_msg ne '') {
-            #    $init_error_msg = $message_prefix.$init_error_msg;
-            #}
+	    $rerun_init_check=1;
             return($init_error_msg);
         } else {
 
@@ -622,7 +621,7 @@ sub set_reference_space_vbm_Init_check {
             $Hf->set_value("${space}_input_reference_path",$input_reference_path_hash{$space});
             $Hf->set_value("${space}_reference_space",$reference_space_hash{$space});
             #my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($reference_path_hash{$space});
-            my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($input_reference_path_hash{$space});
+            my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($input_reference_path_hash{$space},1);
 
             $refspace_hash{$space} = $bounding_box_and_spacing;
             $Hf->set_value("${space}_refspace",$refspace_hash{$space});
@@ -640,7 +639,9 @@ sub set_reference_space_vbm_Init_check {
 	    my @dx;
 	    for(my $vi=0;$vi<scalar(@vl);$vi++) {
 		$fov[$vi]=$vl[$vi]-$vf[$vi] || die "fov calc err d $vi";
-		$dx[$vi]=$fov[$vi]/$vs[$vi] || die "dim calc err d $vi";;
+		$fov[$vi]=round($fov[$vi],4);
+		$dx[$vi]=$fov[$vi]/$vs[$vi] || die "dim calc err d $vi";
+		$dx[$vi]=round($dx[$vi]);
 	    }
 	    my ($v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
 	    #if(! defined $refsize) {
@@ -648,10 +649,11 @@ sub set_reference_space_vbm_Init_check {
 	    if(! $v_ok && -e $input_reference_path_hash{$space} ) { 
 		# Oh ants PrintHeader, why you always slow :( 
 		#(my $refsize)=run_and_watch("PrintHeader $input_reference_path_hash{$space} 2"); chomp($refsize); $refsize=~s/x/ /g;
-		(my $refsize)=run_and_watch("fslhd $input_reference_path_hash{$space}|grep '^dim[1-3]'|cut -d ' ' -f2-|xargs");
-		chomp($refsize); $refsize=trim($refsize);
+		#(my $refsize)=run_and_watch("fslhd $input_reference_path_hash{$space}|grep '^dim[1-3]'|cut -d ' ' -f2-|xargs");
+		#chomp($refsize); $refsize=trim($refsize);
+		my $refsize=get_image_dims($input_reference_path_hash{$space});
 		if($refsize ne join(" ",@dx) ) {
-		    confess "Error getting refsize from bounding box for space:$space";
+		    confess "Error getting refsize from bounding box for space:$space".$refsize.' ne '.join(" ",@dx);
 		}
 		$Hf->set_value("${space}_refsize",$refsize);
 		my @d=split(" ",$refsize);
@@ -955,8 +957,7 @@ sub set_reference_path_vbm {
         
         $error_message='';      
         if ($input_ref_path =~ /[\n]+/) {
-            $rerun_init_flag = $Hf->get_value('rerun_init_check');
-            if (($rerun_init_flag ne 'NO_KEY') && ($rerun_init_flag == 1)) {
+            if ( defined $rerun_init_check && $rerun_init_check) {
                 $error_message =  "Unable to find any input image for ${ref_runno} in folder(s): ${preprocess_dir}\nnor in ${pristine_in_folder}.\n";
             } else {
                 $input_ref_path =  'rerun_init_check_later';
@@ -966,10 +967,6 @@ sub set_reference_path_vbm {
         
         $ref_string="native";
         $ref_path="${ref_folder}/reference_image_native_${ref_runno}.nii.gz";
-        
-        #} else {
-#       $error_message = $error_message.$file;
-        #   }
         
         $log_msg=$log_msg."\tThe ${which_space} reference space will be inherited from the native base images.\n\tThe full reference path is ${ref_path}\n";
         
@@ -994,12 +991,11 @@ sub set_reference_space_vbm_Runtime_check {
     $preprocess_dir = $Hf->get_value('preprocess_dir');
     
     $dims=$Hf->get_value('image_dimensions');
-    $rerun_init_flag = $Hf->get_value('rerun_init_check');
 
     mkdir ($inputs_dir,$permissions)if ! -e $inputs_dir;
     mkdir ($preprocess_dir,$permissions)if ! -e $preprocess_dir;
 
-    if (($rerun_init_flag ne 'NO_KEY') && ($rerun_init_flag == 1)) {
+    if ( defined $rerun_init_check && $rerun_init_check) {
         # This looks like its a rare condition, but it may be part and parcel to the init troubles of this module.
         # our template ref file may not exist when we run init, and that is probably supposed to set this flag... 
         carp('Exceptional condition rerun_init set_reference_space_vbm_runtime');
@@ -1091,6 +1087,42 @@ sub set_reference_space_vbm_Runtime_check {
     if ($skip_message ne '') {
         print "${skip_message}";
     }
+}
+
+sub refspace_memory_est {
+    my($mem_request,$space,$Hf,$volume_count)=@_;
+    $volume_count=4 if ! defined $volume_count;
+    my ( $v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
+    # a defacto okay enough guess at vox count... when this was first created. 
+    my $vx_count = 512 * 256 * 256;
+    if( $v_ok) { 
+	my @d=split(" ",$refsize);
+	$vx_count=1;
+	foreach(@d){
+	    $vx_count*=$_; }
+	# 512 vx @64bit * volumes, in MB for slurm, (NOT MiB);
+	$mem_request = ceil(512 + $vx_count * 8 * $volume_count /1000/1000);
+    } else {
+	carp("Cannot set appropriate memory size by volume size (${space}_refsize not ready), using defacto limit $mem_request");
+	if ( defined $rerun_init_check) {
+	    sleep_with_countdown(3) if $rerun_init_check == 0; }
+    }
+    $mem_request=max($mem_request,512);
+    return ($mem_request,$vx_count);
+}
+
+sub get_refsize_from_file {
+    # Original poor name for this.
+    return get_image_dims(@_);
+}
+sub get_image_dims {
+    my($file)=@_;
+    # New Fangled PrintHeader with forced output caching(disabled)
+    my @hdr;ants::PrintHeader($file,\@hdr);
+    my ($dimline)=grep /.*Size\s+.*/x, @hdr;
+    my @dims= $dimline =~ /([0-9]+)/gx;
+    my $im_size=join(' ',@dims);
+    return $im_size;
 }
 1;
 
