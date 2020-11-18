@@ -15,6 +15,7 @@ my $PM = 'vbm_pipeline_workflow.pm';
 
 use strict;
 use warnings;
+use warnings FATAL => qw(uninitialized);
 use POSIX qw(getgroups);
 
 use Cwd qw(abs_path);
@@ -82,7 +83,8 @@ $test_mode = 0;
 
 # A forced wait time after starting each bit. (also used when we're doing check and wait operations.)
 my $interval = 0.1; ##Normally 1
-$valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
+# pulled img out of list, because hdr is supposed to take care of that.
+$valid_formats_string = 'hdr|nii|nii.gz|ngz|nhdr|nrrd';
 $samba_label_types='labels|quagmire|mess';
 
 # a flag to indicate we're in the civm eco system so all the parts should work
@@ -261,6 +263,7 @@ U_specid U_species_m00 U_code
     $inputs_dir = $preprocess_dir.'/base_images';
     
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
+    # WARNING IT SCRAMBLES THE ORDER!!!!!!
     $control_comma_list = join(',',uniq(@control_group));
     $compare_comma_list = join(',',uniq(@compare_group));
     $complete_comma_list =join(',',uniq(@all_runnos));
@@ -503,7 +506,6 @@ U_specid U_species_m00 U_code
             }
         }
     }
-    #Data::Dump::dump(\@init_jobs);
     if ($init_error_msg ne '') {
         log_info($init_error_msg,0);
 	my $init_job_addendum="No work has been performed!\n";
@@ -568,10 +570,8 @@ U_specid U_species_m00 U_code
     sleep($interval);
 
     set_reference_space_vbm(); #$PM_code = 15
-    die "TESTING";
     # set_ref also sets our best guess memory requirements by adding ref_size key to Hf
     sleep($interval);
-    
     # Force mask and nii4D out of channel array becuase they require special handling.
     @channel_array = grep {$_ ne 'mask' } @channel_array;
     @channel_array = grep {$_ ne 'nii4D' } @channel_array;
@@ -584,23 +584,24 @@ U_specid U_species_m00 U_code
     my $img_preview_src=File::Spec->catdir($preprocess_dir,'base_images');
     my $img_preview_dir=File::Spec->catdir($dir_work,"reg_init_preview");
     image_preview_mail($img_preview_src,$img_preview_dir,my $blank,$MAIL_USERS);
-
 ###
 # Register all to atlas
 # First as rigid, then not
+# LIES!!!! First as rigid, THEN AFFINE TO REFSPACE 
     my $do_rigid = 1;   
     create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 21
     sleep($interval);
-    
-    if (1) { #  Need to take out this hardcoded bit!
+    #if (1) { #  Need to take out this hardcoded bit!
+    #if($mdt_creation_strategy eq 'iterative') {
         $do_rigid = 0;
         create_affine_reg_to_atlas_vbm($do_rigid); #$PM_code = 39
         sleep($interval);
-    }
+    #} else {
+    #    pairwise_reg_vbm("a");
+    #}
 ###
-    
 
-# pairwise_reg_vbm("a");
+# 
 # sleep($interval);    
     
 # calculate_mdt_warps_vbm("f","affine");
@@ -619,7 +620,7 @@ U_specid U_species_m00 U_code
         }
         # print "starting_iteration = ${starting_iteration}";
         
-        # TODO? Conver to "while" loop that runs to a certain point of stability(isntead of always prescribed mdt_iterations).
+        # TODO? Convert to "while" loop that runs to a certain point of stability(isntead of always prescribed mdt_iterations).
         # We don't really count the 0th iteration because normally this is just the averaging of the affine-aligned images. 
 	for (my $T_iter = $starting_iteration; $T_iter <= $mdt_iterations; $T_iter++) {
             # In theory, iterative_pairwise_reg_vbm and apply_mdt_warps_vbm can be combined into a 
@@ -629,7 +630,7 @@ U_specid U_species_m00 U_code
             # This set's $T_iter in case it is determined that some iteration levels can/should be skipped.
             $T_iter = iterative_pairwise_reg_vbm("d",$T_iter); #$PM_code = 41
             sleep($interval);
-
+	    
             ####
             # slick nonsense here where we skip all contrasts except the operational one 
             # (until the final iteration)
@@ -649,7 +650,7 @@ U_specid U_species_m00 U_code
             
             iterative_calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
             sleep($interval);
-            
+
             calculate_mdt_images_vbm($T_iter,@op_cont); #$PM_code = 44
             sleep($interval);
 	    #TODO: insert image preveiw here.
@@ -670,13 +671,13 @@ U_specid U_species_m00 U_code
 	printd(5,"WARNING: This code has not been tested in quite some time!\n"
 	       ."If you test it sucessfully, let the sloppy programmer know he can remove this wait\n"
 	       ."Please enjoy the next 30 seconds ... " );
-	sleep_with_countdown(30);
+#	sleep_with_countdown(30);
     #
     # PAIRWISE VERSION
     #
 	pairwise_reg_vbm("d"); #$PM_code = 41
 	sleep($interval);
-	
+	die "TESTING"	;
 	calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
 	sleep($interval);
 	
@@ -700,7 +701,7 @@ U_specid U_species_m00 U_code
     } else {
 	die "Unrecognized $mdt_creation_strategy:".$mdt_creation_strategy;
     }
-    
+    die "TESTING";
 # Things can get parallel right about here...
     
 # Branch one: 
@@ -1072,6 +1073,34 @@ sub flatten_a_ref {
     }
     return @output;
 }
+
+sub ants_opt_e {
+    # antsApplyTransform
+    # For "-e " option, test to see if we have a tensor or time-series, otherwise default to scalar.
+    # See nifti standard documentation for explanation of dim0 (this code may not cover certain 2D data situations, etc.
+    my($in_file)=@_;
+    my $opt_e_string="";
+    my $test_dim = 3;
+    my @hdr=ants::PrintHeader($in_file);
+    # nii only!!
+    if($in_file =~ /[.]nii([.]gz)?/x) {
+	my @dim_lines=grep /[\s]+dim\[[0-7]\]/x, @hdr;
+	#Data::Dump::dump(\@hdr,\@dim_lines); 
+	cluck "NIFTI DIM EXTRACT NOT WELL TESTED";
+	sleep_with_countdown(2);
+	($test_dim = $dim_lines[0]) =~ /.*=[\s]*([0-9]+)[\s*]/x;
+    }
+    my @dims=split(' ',get_image_dims($in_file));
+    if ($test_dim > 3 && scalar(@dims) > 3) {
+	$opt_e_string = ' -e 3 ';
+    }
+    if ($in_file =~ /tensor/) {
+	# Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
+	$opt_e_string = ' -e 2 -f 0.00007'; 
+    }
+    return $opt_e_string;
+}
+
 
 #---------------------
 #sub load_tsv {
