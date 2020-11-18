@@ -268,7 +268,8 @@ sub set_center_and_orientation_vbm {
 	my $nhdr_sg=File::Spec->catfile($reconditioned_dir,$n.$out_ext);
 	my $nhdr_out=File::Spec->catfile($output_folder,$n.$out_ext);
 	$matlab_exec_args="${nhdr_sg} ${current_orientation} ${desired_orientation} ${output_folder}";
-	$cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
+	#$cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
+	$cmd = "";
 	# only run the nhdr adjust if we're missing or older.
 	if( ! -e $nhdr_sg || ( -M $nhdr_sg ) > ( -M $input_file) ){ 
 	    my $Wcmd=sprintf("WarpImageMultiTransform 3 %s %s ".
@@ -281,7 +282,8 @@ sub set_center_and_orientation_vbm {
 	    $mem_request=ceil($est_bytes/1000/1000);
 	    #$cmd=$cmd." && $Wcmd";
 	    $cmd=$Wcmd;
-	    
+	}
+	if(! -e $nhdr_out) {   
 	    my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header($input_file,1);
 	    my ($vx_f,$vx_l,$vx_s) = $bounding_box_and_spacing =~ m/{([^,]+),[ ]([^}]+)}[ ](.+)/;
 	    $vx_f=~s/[\[\]]//g; $vx_l=~s/[\[\]]//g;
@@ -296,9 +298,14 @@ sub set_center_and_orientation_vbm {
 		$dx[$vi]=$fov[$vi]/$vs[$vi] || die "dim calc err d $vi";
 		$dx[$vi]=round($dx[$vi]);
 	    }
-	    $cmd=$cmd." && "."SetOrigin 3 $nhdr_sg $nhdr_out $o[0] $o[1] $o[2]";
 	    #SetOrigin
 	    #Usage:   SetOrigin  Dimension infile.hdr outfile.nii  OriginX OriginY {OriginZ}
+	    my $o_cmd="SetOrigin 3 $nhdr_sg $nhdr_out $o[0] $o[1] $o[2]";
+	    if($cmd ne ""){
+		$cmd=$cmd." && ".$o_cmd	
+	    } else {
+		$cmd=$o_cmd;
+	    }
 	}
     } elsif( $e eq '.nhdr') {
 	error_out("NHDR but not properly oriented! $input_file marked $current_orientation! (instead of $desired_orientation)");

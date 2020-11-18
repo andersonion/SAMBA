@@ -786,7 +786,8 @@ sub set_reference_space_vbm_Init_check {
 		    mkdir $reconditioned_dir if ! -e $reconditioned_dir;
 		    my $nhdr_sg=File::Spec->catfile($reconditioned_dir,$n.".nii");
 		    my $matlab_exec_args="${nhdr_sg} RAS RAS ${output_folder}";
-		    $cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
+		    #$cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
+		    $cmd = "";
 		    # only run the nhdr adjust if we're missing or older.
 		    if( ! -e $nhdr_sg || ( -M $nhdr_sg ) > ( -M $input_file) ){ 
 			my $Wcmd=sprintf("WarpImageMultiTransform 3 %s %s ".
