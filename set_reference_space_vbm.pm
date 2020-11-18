@@ -224,9 +224,9 @@ sub set_reference_space_Output_check {
             }
             printd(1,".");
             
-	    carp("WARNING: double_check temporarily disabled");
-            #if (data_double_check($out_file,$case-1)) { 
-	    if (data_double_check($out_file,0)) { 
+	    #carp("WARNING: double_check temporarily disabled");
+            if (data_double_check($out_file,$case-1)) { 
+	    #if (data_double_check($out_file,0)) { 
                 # Outfile not found.
                 if ($case == 1) {
                     # Input mode because we didnt try to do this yet.
@@ -311,26 +311,9 @@ sub apply_new_reference_space_vbm {
     # HANDLED PER the out_file conditional below.
     my $do_registration = 1; 
     
-    my $test_dim = 3;
     my $opt_e_string='';
     if ($out_file =~ m/.*[.]($valid_formats_string)$/x) {
-	my @hdr=ants::PrintHeader($in_file);
-
-	# nii only!!
-	if($out_file =~ /[.]nii([.]gz)?/x) {
-	    my @dim_lines=grep /[\s]+dim\[[0-7]\]/x, @hdr;
-	    Data::Dump::dump(\@hdr,\@dim_lines); 
-	    confess "NIFTI DIM EXTRACT NOT WELL TESTED";
-	    ($test_dim = $dim_lines[0]) =~ /.*=[\s]*([0-9]+)[\s*]/x;
-	}
-	my @dims=split(' ',get_image_dims($in_file));
-	if ($test_dim > 3 && scalar(@dims) > 3) {
-	    $opt_e_string = ' -e 3 ';
-	}
-        if ($in_file =~ /tensor/) {
-            # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
-            $opt_e_string = ' -e 2 -f 0.00007'; 
-        }
+	$opt_e_string=ants_opt_e($in_file);
         $do_registration = 0;
     }
     my $interp = "Linear"; # Default    
@@ -606,7 +589,8 @@ sub set_reference_space_vbm_Init_check {
             my $log_msg = "Reference spaces not set yet. Will rerun upon start of set_reference_space module.";
             log_info("${message_prefix}${log_msg}");
 	    $rerun_init_check=1;
-            return($init_error_msg);
+	    last;
+            #return($init_error_msg);
         } else {
 	    $Hf->set_value("${space}_reference_path",$reference_path_hash{$space});
             $Hf->set_value("${space}_input_reference_path",$input_reference_path_hash{$space});
@@ -794,7 +778,12 @@ sub set_reference_space_vbm_Init_check {
 		# double speak and redundancy.
 		my ($p,$n,$e)=fileparts($original_rigid_atlas_path,2);
 		$rigid_atlas_path=File::Spec->catfile(${preprocess_dir},$n.$e);
-		my $cmd="cp ${original_rigid_atlas_path} $rigid_atlas_path";
+		#my $cmd="cp -p ".resolve_link(${original_rigid_atlas_path})." $rigid_atlas_path";
+		my $cmd="cp -p ${original_rigid_atlas_path} $rigid_atlas_path";
+		my @d=split(' ',get_image_dims($original_rigid_atlas_path));
+		$vx_count=1;
+		foreach(@d){
+		    $vx_count*=$_; }
 		# mem estimate of voxelcount@64-bit x2 volumes
 		my $mem_request=ceil($vx_count*8*2/1000/1000);
 		# BLARG THIS CONSTRUCT IS BAD... GONNA MAKE IT WORSE BY ADDING nhdr support via WarpImageMultiTransform.
@@ -990,8 +979,32 @@ sub set_reference_space_vbm_Runtime_check {
         # Initially thought htis was a rare case, its actually the norm when 
 	# native ref space.
         carp('rerun_init set_reference_space_vbm_runtime');
+	my @init_jobs;
 	$rerun_init_check = 0;
-        my ($init_error_message_2) = set_reference_space_vbm_Init_check();
+        my ($init_error_msg, $init_job ) = set_reference_space_vbm_Init_check();
+	if(defined $init_job) {
+	    #Data::Dump::dump("INIT JOBS:",$init_job);
+	    my @resolv_j=flatten_a_ref($init_job);
+	    push(@init_jobs,@resolv_j);
+	}
+	if ($init_error_msg ne '') {
+	    log_info($init_error_msg,0);
+	    my $init_job_addendum="No work has been performed!\n";
+	    if(scalar(@init_jobs) ){
+		$init_job_addendum="started some jobs in init, you may want to scancel ".join(",",@init_jobs)."\n";
+	    }
+	    error_out("\n\nPrework errors found:\n${init_error_msg}\n".$init_job_addendum);
+	}
+	if(scalar(@init_jobs) && cluster_check() ) {
+	    my $interval = 2;
+	    my $verbose = 1;
+	    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@init_jobs);
+	    if ($done_waiting) {
+		print STDOUT  " Init jobs complete, Back to normal.\n";
+	    }
+	}
+    } else {
+	undef $rerun_init_check;
     }
 
     mkdir ($inputs_dir,$permissions)if ! -e $inputs_dir;
