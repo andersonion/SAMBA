@@ -449,8 +449,9 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
         $Hf->set_value('rigid_contrast',$rigid_contrast);
     }
 
-    my $rigid_work_dir= $Hf->get_value('rigid_work_dir');
-    if ($rigid_work_dir eq 'NO_KEY') {
+    my ($v_ok, $rigid_work_dir) = $Hf->get_value_check('rigid_work_dir');
+    #if ($rigid_work_dir eq 'NO_KEY') {
+    if (! $v_ok) {
         my $w_path = $Hf->get_value('dir_work');
         $rigid_work_dir = "${w_path}/${rigid_contrast}";
         $Hf->set_value('rigid_work_dir',$rigid_work_dir);
@@ -930,7 +931,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 
     } else {
         $work_path = $Hf->get_value('dir_work');
-        $current_path = $Hf->get_value('rigid_work_dir');
+        (my $c_ok,$current_path) = $Hf->get_value_check('rigid_work_dir');
         if ($do_rigid) {
             my $rigid_target=$Hf->get_value('rigid_target');
 	    $contrast = $Hf->get_value('rigid_contrast');
@@ -950,9 +951,12 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 	    my @status=();
 	    #push(@status,"missing updated $updated_rigid_target") if ! -e $updated_rigid_target;
 	    #push(@status,"missing rigid_target $rigid_target") if ! -e $rigid_target;
-            if ($current_path eq 'NO_KEY') {
+            #if ($current_path eq 'NO_KEY') {
+	    if ( ! $c_ok) {
                 $current_path = "${work_path}/${contrast}";
                 $Hf->set_value('rigid_work_dir',$current_path);
+		carp("rigid_work_dir was not set when we got here, so we're setting it now");
+		sleep_with_countdown(1);
             }
 	    push(@status,"missing rigid_work_dir $current_path") if ! -e $current_path;
             if (! -e $current_path) {
