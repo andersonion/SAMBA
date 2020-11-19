@@ -335,34 +335,48 @@ if contrasts_to_process > 0
         % contrast_stats=zeros(size(volume_mm3));
         % Does not yet support '_RAS' suffix, etc yet.
         % BLEH Forced file name patterns, how disapointing.
-        filenii_i=fullfile(image_dir,[runno '_' contrast '.nii']); 
-        if ~exist(filenii_i,'file')
-            if exist([filenii_i '.gz'],'file')
-                filenii_i = [filenii_i '.gz'];
+        file_i=fullfile(image_dir,[runno '_' contrast '.nii']); 
+        if ~exist(file_i,'file')
+            if exist([file_i '.gz'],'file')
+                file_i = [file_i '.gz'];
             else
                 % didnt find the best cases, now we're going sloppy.
                 % Slipping some partial nrrd/nhdr support in there. 
                 % Really feels like a job for read_civm_image, except it
                 % expects you to know what you're asking for. 
                 %regexpdir(rootdir, expstr, recursive)
-                filenii_i=sloppy_file_lookup(image_dir,runno,contrast,ext_regex);
+                file_i=sloppy_file_lookup(image_dir,runno,contrast,ext_regex);
             end 
         end
-        fprintf('Loading first contrast, and using it to infer a mask for the first ROI (usually 0): %s\n',filenii_i);
-        imnii_i=load_niigz(filenii_i);
-        dims.img=size(imnii_i.img);
-        %imnii_i.img=imnii_i.img(:);
+        fprintf('Loading first contrast, and using it to infer a mask for the first ROI (usually 0): %s\n',file_i);
+        try
+            [img_struct.img,img_struct.hf]=read_civm_image(file_i,0);
+        catch
+            warning('load any image via helper unsucessful, falling back to load_niigz.');
+            img_struct=load_niigz(file_i);
+        end
+        dims.img=size(img_struct.img);
+        %img_struct.img=img_struct.img(:);
     end
     
     % This is the count of elements in label 0 that are ignored and thus by default assumed to be null for stat purposes.
     null_element_base = 0;
     
-    label_orig=load_niigz(label_file);
+    try
+        [label_orig.img,label_orig.hf]=read_civm_image(label_file,0);
+    catch
+        warning('load any image via helper unsucessful, falling back to load_niigz.');
+        label_orig=load_niigz(label_file);
+    end
+    if ~isfield(label_orig,'hdr')
+        voxel_vol=prod(nrrd_vox(label_orig.hf.nhdr));
+    else
+        voxel_vol=prod(label_orig.hdr.dime.pixdim(2:4));
+    end
     dims.label=size(label_orig.img);
     if isfield(dims,'img') && nnz(dims.img-dims.label)
         error('Label to img dimension mis-match! THESE ARE NOT APPROPRIATE LABELS');
     end
-    voxel_vol=prod(label_orig.hdr.dime.pixdim(2:4));
     %labelim=label_orig.img(:);1
     %clear label_orig; % We got everything we needed so can remove from memory
     %ROI=unique(labelim);
@@ -399,12 +413,12 @@ if contrasts_to_process > 0
             % --IF-- they are also 0 value in our fist image.
             % WARNING: This assumes the first label found(typically value
             % 0) is "the unlabeled" voxels.
-            null_indices=(label_orig.img(:)==ROI(i_roi)) & (imnii_i.img(:) == 0);
+            null_indices=(label_orig.img(:)==ROI(i_roi)) & (img_struct.img(:) == 0);
             null_element_base = nnz(null_indices);
             labelim=label_orig.img(~null_indices(:));
             clear label_orig;
-            current_image=imnii_i.img(~null_indices);
-            clear imnii_i;
+            current_image=img_struct.img(~null_indices);
+            clear img_struct;
             ROI_indices{i_roi} = find((labelim==ROI(i_roi)) & (current_image ~= 0));
         elseif ((i_roi==1) && ~use_first_contrast_to_mask)
             labelim=label_orig.img(:);
@@ -436,37 +450,42 @@ if contrasts_to_process > 0
         if ~previous_work(i_cont)
             contrast = contrasts{i_cont};
             if ((i_cont==1) && use_first_contrast_to_mask && exist('current_image','var'))
-                % imnii_i is already in memory, do not load again (do nothing)
+                % img_struct is already in memory, do not load again (do nothing)
             else
                 %% load image
                 % TODO: a background load of "the next" image here, 
                 % because measuring takes just a little bit of time 
                 % ( aproximately load time), sigh *future improvments*.
                 % contrast_stats=zeros(size(volume_mm3));
-                filenii_i=[image_dir runno '_' contrast '.nii'];
-                if ~exist(filenii_i,'file')
-                    if exist([filenii_i '.gz'],'file')
-                        filenii_i = [filenii_i '.gz'];
+                file_i=[image_dir runno '_' contrast '.nii'];
+                if ~exist(file_i,'file')
+                    if exist([file_i '.gz'],'file')
+                        file_i = [file_i '.gz'];
                     else
                         % didnt find the best cases, now we're going sloppy.
                         % Slipping some partial nrrd/nhdr support in there.
                         % Really feels like a job for read_civm_image, except it
                         % expects you to know what you're asking for.
                         %regexpdir(rootdir, expstr, recursive)
-                        filenii_i=sloppy_file_lookup(image_dir,runno,contrast,ext_regex);
+                        file_i=sloppy_file_lookup(image_dir,runno,contrast,ext_regex);
                     end
                 end
-                fprintf('load nii %s\n',filenii_i);
-                imnii_i=load_niigz(filenii_i);
-                dims.img=size(imnii_i.img);
+                fprintf('load image %s\n',file_i);
+                try
+                    [img_struct.img,img_struct.hf]=read_civm_image(file_i,0);
+                catch
+                    warning('load any image via helper unsucessful, falling back to load_niigz.');
+                    img_struct=load_niigz(file_i);
+                end
+                dims.img=size(img_struct.img);
                 if use_first_contrast_to_mask
                     % remove all unlabeled voxels from the data that were of zero value in the first contrast.
                     % This saves us memory.
-                    current_image=imnii_i.img(~null_indices);
+                    current_image=img_struct.img(~null_indices);
                 else
-                    current_image=imnii_i.img(:);
+                    current_image=img_struct.img(:);
                 end
-                clear imnii_i;
+                clear img_struct;
             end
             if nnz(dims.img-dims.label)
                 error('Label to img dimension mis-match! THESE ARE NOT APPROPRIATE LABELS');
@@ -480,7 +499,7 @@ if contrasts_to_process > 0
                         sprintf('%i ',ROI(i_roi:i_roi_f)));
                 end
                 %regionindex=find(labelim==val1(ind));
-                %contrast_stats(ind)=mean(imnii_i.img(labelim==ROI(ind)));
+                %contrast_stats(ind)=mean(img_struct.img(labelim==ROI(ind)));
                 %%Switched to the code below on 27 Feb 2018, to ignore masked
                 %%voxels in the ROI
                 data_vector=current_image(ROI_indices{i_roi});
