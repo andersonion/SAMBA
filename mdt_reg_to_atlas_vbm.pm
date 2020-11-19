@@ -213,8 +213,6 @@ sub mdt_reg_to_atlas {
     }
     
     ## swap moving and fixed here if so desired --> fixed: atlas, moving: mdt is the default.
-    
-    
     if ($swap_fixed_and_moving) {
 	my $temp_string = $moving;
 	$moving = $fixed;
@@ -222,10 +220,15 @@ sub mdt_reg_to_atlas {
     }
 
     $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
-	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${r_string} -u;\n";
+	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${r_string} -u";
 
     my @cmds;
-    push(@cmds,$pairwise_cmd);
+    # only need pairwise if out_warps missing
+    if( ( ! -e $out_warp || ! -e $out_inverse )
+	&& ( ! -e $new_inverse || ! -e $new_warp ) )
+    {
+	push(@cmds,$pairwise_cmd);
+    }
     
     my $CMD_SEP=";\n";
     $CMD_SEP=" && ";
