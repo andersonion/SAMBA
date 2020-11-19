@@ -56,7 +56,8 @@ sub mask_images_vbm {
     my @nii_cmds;
     my @nii_files;
 
-## Make/find masks for each runno using the template contrast (usually dwi).
+## Make/find masks for each runno using the dwi, and only if it doesnt exist, switch to the template_contrast.
+# That switch handling is in the Runtime_check.
     foreach my $runno (@array_of_runnos) {
         my $go = $make_hash{$runno};
         if ($go) {
