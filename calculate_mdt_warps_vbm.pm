@@ -121,9 +121,9 @@ sub calculate_mdt_warps_Output_check {
      
      foreach my $runno (@sorted_runnos) {
 	 if ($direction eq 'f' ) {
-	     $out_file = "${current_path}/${runno}_to_MDT_warp${out_ext}"; #Added asterisk in hopes of catching .gz 
+	     $out_file = "${current_path}/${runno}_to_MDT_warp${out_ext}";
 	 } elsif ($direction eq 'i') {
-	     $out_file = "${current_path}/MDT_to_${runno}_warp${out_ext}"; #Added asterisk in hopes of catching .gz 
+	     $out_file = "${current_path}/MDT_to_${runno}_warp${out_ext}";
 	 }
 	 if (data_double_check($out_file)) {
 	     if ($out_file =~ s/\.gz$//) {
@@ -134,6 +134,8 @@ sub calculate_mdt_warps_Output_check {
 		     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
 		     $missing_files_message = $missing_files_message."\t$runno\n";
 		 } else {
+		     cluck("FILTHY COMPRESSION IN OUTPUT CHECK");
+		     sleep_with_countdown(8);
 		     `gzip ${out_file}`;
 		     $go_hash{$runno}=0;
 		     #$convert_hash{$runno}=1;
