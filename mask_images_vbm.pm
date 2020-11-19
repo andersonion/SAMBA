@@ -680,65 +680,58 @@ sub mask_images_vbm_Runtime_check {
     #$current_path = $Hf->get_value('inputs_dir');  # Dammit, "input" or "inputs"???
     $current_path = $Hf->get_value('preprocess_dir');
     $do_mask = $Hf->get_value('do_mask');
-    $mask_dir = $Hf->get_value('mask_dir');
+    (my $v_ok,$mask_dir) = $Hf->get_value_check('mask_dir');
+    if (!$v_ok ) {
+        $mask_dir = "${current_path}/masks";
+        $Hf->set_value('mask_dir',$mask_dir); # Dammit, "input" or "inputs"??? 	
+    }
+    
     (my $tc_isbad,$template_contrast) = $Hf->get_value_check('skull_strip_contrast');
 
+    my $ch_runlist=$Hf->get_value('channel_comma_list');
+    @channel_array = split(',',$ch_runlist);
     if ($tc_isbad ==0) {
-        
-    #if ($template_contrast eq ('' || 'NO_KEY' || 'UNDEFINED_VALUE')) {
-        my $ch_runlist=$Hf->get_value('channel_comma_list');
+	#if ($template_contrast eq ('' || 'NO_KEY' || 'UNDEFINED_VALUE')) {
         if ($ch_runlist =~ /(dwi)/i) {
-                $template_contrast = $1;
+	    $template_contrast = $1;
             } else {
                 my @channels = split(',',$ch_runlist);
                 $template_contrast = shift(@channels);    
-        }
+	    }
         $Hf->set_value('skull_strip_contrast',${template_contrast});
     }
     $thresh_ref = $Hf->get_value('threshold_hash_reference');
     $default_mask_threshold=$Hf->get_value('threshold_code'); # Do this on an the basis of individual runnos
-                        # -1 use imagej (like evan and his dti pipe)
-                        # 0-100 use threshold_zero 0-100, 
-                        # 100-inf is set threshold.
-
-
+    # -1 use imagej (like evan and his dti pipe)
+    # 0-100 use threshold_zero 0-100, 
+    # 100-inf is set threshold.
+    
+    
     $num_morphs = 5; # Need to make these user-specifiable for mask tuning
     $morph_radius = 2; # Need to make these user-specifiable for mask tuning
     #$dim_divisor = 2; #Changed to 1, BJA 14 March 2017
     $dim_divisor = 1;
-
+    
     $status_display_level=0;
-
-    if ($mask_dir eq 'NO_KEY') {
-        $mask_dir = "${current_path}/masks";
-        $Hf->set_value('mask_dir',$mask_dir); # Dammit, "input" or "inputs"??? 	
-    }
 
     if ((! -e $mask_dir) && ($do_mask)) {
         mkdir ($mask_dir,$permissions);
     }
-
+    
     $runlist = $Hf->get_value('complete_comma_list');
- 
     if ($runlist eq 'EMPTY_VALUE') {
 	@array_of_runnos = ();
     } else {
 	@array_of_runnos = split(',',$runlist);
     }
-
-
- 
-    $ch_runlist = $Hf->get_value('channel_comma_list');
-    @channel_array = split(',',$ch_runlist);
-
+    
+    
     my $case = 1;
     my ($dummy,$skip_message)=mask_images_Output_check($case);
-
+    
     if ($skip_message ne '') {
 	print "${skip_message}";
     }
-
-
 }
 
 
