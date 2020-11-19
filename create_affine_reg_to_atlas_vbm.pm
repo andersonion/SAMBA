@@ -958,9 +958,9 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 		carp("rigid_work_dir was not set when we got here, so we're setting it now");
 		sleep_with_countdown(1);
             }
-	    push(@status,"missing rigid_work_dir $current_path") if ! -e $current_path;
-            if (! -e $current_path) {
+	    if (! -e $current_path) {
                 mkdir ($current_path,$permissions);
+		push(@status,"missing rigid_work_dir $current_path") if ! -e $current_path;
             }
             
             $atlas_path   = $Hf->get_value ('rigid_atlas_path');
