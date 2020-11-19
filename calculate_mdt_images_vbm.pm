@@ -219,13 +219,14 @@ sub calculate_average_mdt_image {
 			 ,"ip=\$(dirname \$i);"
 			 ,"id=\$(grep -i 'Data File' \$i |cut -d ':' -f2-|xargs)"
 			 ,"id=\"\${ip}/\${id}\";"
-			 ,"if [[ -f \$o ]];then rm \$i \$id || exit 1; fi;") if $intermediate_file =~ /nhdr$/x;
+			 ,"if [[ -f \$o ]] && [[ -e \$i ]] && [[ -e \$id ]];then rm \$i \$id || exit 1; fi;") if $intermediate_file =~ /nhdr$/x;
 	if ($contrast eq $mdt_contrast) { # This needs to be adapted to support multiple mdt contrasts!
 	    my $template_n="${template_name}_i${current_iteration}";
 	    my $backup_file = "${master_template_dir}/$template_n${out_ext}";
 	    $copy_cmd = "cp -v ${out_file} ${backup_file}";
 	    push(@cmds,$copy_cmd) if $out_file !~ /nhdr$/x;
 	    push(@cleanup_script,("b=\"$backup_file\";"
+				  ,"if [[ -e \$b ]]; then exit 0; fi;"
 				  ,"bn=\"$template_n\";"
 				  ,"bp=\"$master_template_dir\";"
 				  ,"op=\$(dirname \$o);"

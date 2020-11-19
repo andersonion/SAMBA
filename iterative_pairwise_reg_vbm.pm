@@ -399,7 +399,7 @@ sub iterative_pairwise_reg_vbm_Init_check {
 	}
 	($v_ok, $mdt_iterations) = $Hf->get_value_check('mdt_iterations');
 	#if (($mdt_iterations eq 'NO_KEY') ||($mdt_iterations eq 'UNDEFINED_VALUE'))  {
-	if($v_ok ) {
+	if(! $v_ok ) {
 	    $mdt_iterations=6; # Default level not set before 23 October 2018 (would default to 0 iterations);
 	    $Hf->set_value('mdt_iterations',$mdt_iterations);
 	    $log_msg = $log_msg."\tNumber of iterations for template creation not specified; defaulting to ${mdt_iterations}.\n";

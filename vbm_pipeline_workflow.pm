@@ -619,7 +619,6 @@ U_specid U_species_m00 U_code
             $starting_iteration = 0;
         }
         # print "starting_iteration = ${starting_iteration}";
-        
         # TODO? Convert to "while" loop that runs to a certain point of stability(isntead of always prescribed mdt_iterations).
         # We don't really count the 0th iteration because normally this is just the averaging of the affine-aligned images. 
 	for (my $T_iter = $starting_iteration; $T_iter <= $mdt_iterations; $T_iter++) {
@@ -701,7 +700,7 @@ U_specid U_species_m00 U_code
     } else {
 	die "Unrecognized $mdt_creation_strategy:".$mdt_creation_strategy;
     }
-    die "TESTING";
+
 # Things can get parallel right about here...
     
 # Branch one: 
