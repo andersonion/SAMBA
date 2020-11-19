@@ -132,7 +132,7 @@ sub calculate_mdt_warps_Output_check {
 		     #$convert_hash{$runno}=0;
 		     push(@file_array,$out_file);
 		     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-		     $missing_files_message = $missing_files_message."\t$runno\n";
+		     $missing_files_message = $missing_files_message."\t$runno\t\t$out_file\n";
 		 } else {
 		     cluck("FILTHY COMPRESSION IN OUTPUT CHECK");
 		     sleep_with_countdown(8);
