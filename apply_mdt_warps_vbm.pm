@@ -348,8 +348,13 @@ sub apply_mdt_warp {
 
     my $opt_e_string='';
     $opt_e_string=ants_opt_e($image_to_warp);
-
+    my @cmds;
     $cmd = "antsApplyTransforms -v ${ants_verbosity} --float -d ${dims} ${opt_e_string} -i ${image_to_warp} -o ${out_file} -r ${reference_image} -n $interp ${warp_train};\n";  
+    push(@cmds,$cmd);
+    my $mem_request = 75000;#defacto mem request-o
+    my $space="vbm";
+    ($mem_request,$vx_count)=refspace_memory_est($mem_request,$space,$Hf);
+    my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
     if ($current_contrast eq 'nii4D') {
 	cluck("NII4D HANDLING DEFFICIENT! It will be skipped, however the commands will be allowed to generate in case you want to be adventurous");
 	if (($convert_images_to_RAS == 1) && ($gid == 2)) {
@@ -359,14 +364,17 @@ sub apply_mdt_warp {
 	    } else {
 		$tmp_file= "${current_path}/${runno}_${current_contrast}_tmp${out_ext}";
             }
-	    $cmd=$cmd."cp ${out_file} ${tmp_file};\n";
+	    $cmd="cp ${out_file} ${tmp_file};\n";
+	    push(@cmds,$cmd);
 	}
-	$cmd=$cmd."gzip ${out_file};\n";
+	$cmd="gzip ${out_file};\n";
+	push(@cmds,$cmd);
 	### defficient nii4d handling skip lines
 	$go = 0;
 	$out_file="/usr/bin/false";
 	###
     }
+    
     if (trim($warp_train) eq '' ) {
 	# If we're not applying any warps, then we simply link to output.
 	# Because this is incompletly tested, we're gonna fail whe not pre_rigid measureing space
@@ -387,22 +395,6 @@ sub apply_mdt_warp {
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} MDT warp(s) to ${current_contrast} image for  ${runno}:\n${cmd}\n";
 
-    my $mem_request = 75000;#defacto mem request-o
-
-    my $space="vbm";
-    my ($v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
-    # a defacto okay enough guess at vox count... when this was first created. 
-    my $vx_count = 512 * 256 * 256;
-    if( $v_ok) { 
-	my @d=split(" ",$refsize);
-	$vx_count=1;
-	foreach(@d){
-	    $vx_count*=$_; }
-    } else {
-	carp("Cannot set appropriate memory size, using defacto ${mem_request}M");
-	sleep_with_countdown(3);
-    }
-    my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
     # convert bytes to MB(not MiB).
     my $expected_max_mem=ceil($est_bytes/1000/1000);
     printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
@@ -410,7 +402,10 @@ sub apply_mdt_warp {
 	$mem_request = $expected_max_mem;
     }
 
-    my @cmds = ($cmd);
+    my $CMD_SEP=";\n";
+    $CMD_SEP=" && ";
+
+    my $cmd=join($CMD_SEP,@cmds);
     my $jid = 0;
     if (cluster_check) {
 	my @test=(0);

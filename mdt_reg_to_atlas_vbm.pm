@@ -10,7 +10,7 @@ my $NAME = ".";
 my $DESC = "ants";
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 
 my ($atlas,$rigid_contrast,$mdt_contrast,$mdt_contrast_string,$mdt_contrast_2, $runlist,$work_path,$mdt_path,$median_images_path,$current_path);
 my ($xform_code,$xform_path,$xform_suffix);
@@ -38,7 +38,8 @@ my $affine = 0;
 
 #$test_mode=0;
 
-
+my $out_ext=".nii.gz";
+$out_ext=".nhdr";
 # ------------------
 sub mdt_reg_to_atlas_vbm {  # Main code
 # ------------------
@@ -186,11 +187,11 @@ sub mdt_reg_to_atlas {
     my $second_contrast_string='';
 
     $fixed = $Hf->get_value ('label_atlas_path');  
-    $moving = $median_images_path."/MDT_${mdt_contrast}.nii.gz"; #added .gz 22 October 2015
+    $moving = $median_images_path."/MDT_${mdt_contrast}${out_ext}"; #added .gz 22 October 2015
 
     if ($mdt_contrast_2 ne '') {
 	$fixed_2 = $Hf->get_value('label_atlas_path_2'); 
-	$moving_2 =  $median_images_path."/MDT_${mdt_contrast_2}.nii.gz";
+	$moving_2 =  $median_images_path."/MDT_${mdt_contrast_2}${out_ext}";
 	$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
     }
     my ($r_string);
@@ -220,34 +221,33 @@ sub mdt_reg_to_atlas {
 	$fixed = $temp_string;	
     }
 
-
     $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
 	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${r_string} -u;\n";
 
+    my @cmds;
+    push(@cmds,$pairwise_cmd);
     
-    my $go_message = "$PM: create diffeomorphic warp from MDT to label atlas ${label_atlas}" ;
-    my $stop_message = "$PM: could not create diffeomorphic warp from MDT for label atlas ${label_atlas}:\n${pairwise_cmd}\n" ;
+    my $CMD_SEP=";\n";
+    $CMD_SEP=" && ";
+    if (!$swap_fixed_and_moving) { 
+	push(@cmds,"ln -s ${out_warp} ${new_warp}");
+	push(@cmds,"ln -s ${out_inverse} ${new_inverse}");
+    } else {
+	push(@cmds,"ln -s ${out_warp} ${new_inverse}");
+	push(@cmds,"ln -s ${out_inverse} ${new_warp}");
+    }
+    push(@cmds,"(if [ -f ${out_affine} ]; then rm ${out_affine};fi)");
 
+    my $jid = 0;
     my @test=(0);
     if (defined $reservation) {
 	@test =(0,$reservation);
     }
-
-    my $jid = 0;
+    my $go_message = "$PM: create diffeomorphic warp from MDT to label atlas ${label_atlas}" ;
+    my $stop_message = "$PM: could not create diffeomorphic warp from MDT for label atlas ${label_atlas}:\n${pairwise_cmd}\n" ;
     if (cluster_check) {
-	my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s;\n"; # random sleep of 5-15 seconds
-	my $rename_cmd ="".  #### Need to add a check to make sure the out files were created before linking!
-	    "ln -s ${out_warp} ${new_warp};\n".
-	    "ln -s ${out_inverse} ${new_inverse};\n".
-	    "if [ -f ${out_affine} ]; then\n\trm ${out_affine};\nfi\n";
-	if ($swap_fixed_and_moving) {
-	    $rename_cmd ="". 
-	    "ln -s ${out_warp} ${new_inverse};\n".
-	    "ln -s ${out_inverse} ${new_warp};\n".
-	    "if [ -f ${out_affine} ]; then\n\trm ${out_affine};\nfi\n";
-	}
-    
-	my $cmd = $pairwise_cmd.$rename_cmd;
+	#my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s"; # random sleep of 5-15 seconds
+	my $cmd = join($CMD_SEP,@cmds);
 	
 	my $home_path = $current_path;
 	my $Id= "MDT_to_${label_atlas}_create_warp";
@@ -260,7 +260,7 @@ sub mdt_reg_to_atlas {
 	    error_out($stop_message);
 	}
     } else {
-	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","if [ -f ${out_affine} ]; then rm ${out_affine};fi  ");
+	
 	if (! execute($go, $go_message, @cmds) ) {
 	    error_out($stop_message);
 	}
