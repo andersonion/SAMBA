@@ -25,7 +25,8 @@ my $do_vba_mask;
 my ($incumbent_raw_mask, $incumbent_eroded_mask);
 my $go=1;
 
-
+my $out_ext=".nii.gz";
+$out_ext=".nhdr";
 # ------------------
 sub mask_for_mdt_vbm {
 # ------------------
@@ -44,8 +45,8 @@ sub mask_for_mdt_vbm {
     my $job=0;
     my $eroded_mask_path;
     if ($go) {
-        my $mask_source="${current_path}/MDT_${template_contrast}\.nii.gz";    #.gz added 22 October 2015   
-        my $raw_mask_path = "${current_path}/MDT_mask\.nii.gz";
+        my $mask_source="${current_path}/MDT_${template_contrast}${out_ext}";    #.gz added 22 October 2015   
+        my $raw_mask_path = "${current_path}/MDT_mask${out_ext}";
         
         if ($mdt_skull_strip) {         
             my $mask_threshold = $default_mask_threshold;
@@ -110,7 +111,7 @@ sub mask_for_mdt_Output_check {
     my $message_prefix ='';
     my @file_array=();
     my ($file_1);
-    my $mask_suf="_er${erode_radius}.nii";
+    my $mask_suf="_er${erode_radius}${out_ext}";
     # Thought about making the erroded mask optional based on do_vba 
     # but that significantly complicates things
     #if (! $do_vba_mask ) { 
@@ -123,7 +124,7 @@ sub mask_for_mdt_Output_check {
         $file_1 = "${current_path}/MDT_mask$mask_suf";
     }
     # hard sloppy update old path to new
-    my $former_path= "${current_path}/MDT_mask_e${erode_radius}.nii"; 
+    my $former_path= "${current_path}/MDT_mask_e${erode_radius}${out_ext}"; 
     if ( -e $former_path ) {
 	qx/mv $former_path $file_1/;
     }
@@ -139,11 +140,11 @@ sub mask_for_mdt_Output_check {
     undef $go;
     if (data_double_check($file_1,$case-1)) {
 	# Expected file not found, Lets try an accidentally gzipped file.
-	# A "rare" edge case where this is likely is: blanket gzipping all nifti's 
-        if ($file_1 !~ s/\.gz$//) {
+	# A "rare" edge case where this is likely is: blanket gzipping all nifti's
+	if ($file_1 !~ /\.gz$/) {
             if (! data_double_check($file_1.".gz")) {
-	    # Sloppy cleaning up behavior where we decompress the mask here,
-	    # if we dont want it compressed we should say so when we create it.
+		# Sloppy cleaning up behavior where we decompress the mask here,
+		# if we dont want it compressed we should say so when we create it.
 		# we dont check hard for output in this case, mostly because this case shouldn't happen.
 		# we'll rely on failing to gunzip to crash the pipe.
 		
@@ -183,7 +184,7 @@ sub extract_and_erode_mask {
     # ------------------
 
     my ($mask_source,$raw_mask) = @_;     
-    my $out_path =   "${current_path}/MDT_mask_er${erode_radius}.nii";
+    my $out_path =   "${current_path}/MDT_mask_er${erode_radius}${out_ext}";
     my ($mask_command_1,$mask_command_2);
 
     if (data_double_check($raw_mask)) {

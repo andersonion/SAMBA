@@ -7,7 +7,7 @@ my $VERSION = "2019/04/24";
 my $NAME = "Calculate label-wide statistics for all contrast, for an individual runno.";
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 require Headfile;
 require pipeline_utilities;
 
@@ -41,6 +41,8 @@ my $compilation_date = "latest";
 my $write_individual_stats_executable_path = "$MATLAB_EXEC_PATH/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec.sh"; 
 my $write_rat_report_executable_path = "$MATLAB_EXEC_PATH/label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh";
 
+my $out_ext=".nii.gz";
+$out_ext=".nhdr";
 # ------------------
 sub  calculate_individual_label_statistics_vbm {
 # ------------------
@@ -52,14 +54,14 @@ sub  calculate_individual_label_statistics_vbm {
     foreach my $runno (@array_of_runnos) {
         $go = $go_hash{$runno};
         if ($go) {
-            my $input_labels = "${work_dir}/${runno}_${label_atlas_nickname}_${label_type}.nii.gz";
+            my $input_labels = "${work_dir}/${runno}_${label_atlas_nickname}_${label_type}${out_ext}";
 	    my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
             if ($local_lookup eq 'NO_KEY') {
                 undef $local_lookup;
             }
 	    if($current_label_space =~ /MDT/ ) {
 		# in the tset case labelfile hf key was WHS_MDT_labels
-		#$input_labels=$Hf->get_value("${label_atlas_nickname}_${current_label_space}_${label_type}.nii.gz")
+		#$input_labels=$Hf->get_value("${label_atlas_nickname}_${current_label_space}_${label_type}${out_ext}")
 		$input_labels=$Hf->get_value("${label_atlas_nickname}_${current_label_space}_labels");
 	    }
             ($job) = calculate_label_statistics($runno,$input_labels,$local_lookup);
@@ -252,7 +254,7 @@ sub calculate_label_statistics {
 sub write_rat_report {
 # ------------------
     my ($runno) = @_;
-    my $input_labels = "${work_dir}/${runno}_${label_atlas_nickname}_labels.nii.gz";
+    my $input_labels = "${work_dir}/${runno}_${label_atlas_nickname}_labels${out_ext}";
     my $spec_id = $Hf->get_value('U_specid');
     my $project_id = $Hf->get_value('U_code');
 

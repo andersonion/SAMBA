@@ -11,7 +11,7 @@ my $NAME = "Application of warps derived from the calculation of the Minimum Def
 my $DESC = "ants";
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 
 require Headfile;
 require pipeline_utilities;
@@ -55,7 +55,7 @@ my $label_type;
 # label_atlas     
 # label_atlas_name 
 
-# This is an alternative for your outputs.(commonly WHS,coudl be CCF3)
+# This is an alternative for your outputs.(commonly WHS,could be RCCF(CCF3))
 # This is Convolved with the "label_type" and some code errroneously uses either.
 # label_atlas_nickname
 
@@ -116,6 +116,8 @@ if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
 my $current_label_space; # 21 April 2017 -- BJA: Previously this wasn't initialized, but was still imported from the calling .pl (or at least that's my theory).
 
+my $out_ext=".nii.gz";
+$out_ext=".nhdr";
 # ------------------
 sub warp_atlas_labels_vbm {  # Main code
 # ------------------
@@ -197,15 +199,15 @@ sub warp_atlas_labels_Output_check {
     }   # For Init_check, we could just add the appropriate cases.
     my $existing_files_message = '';
     my $missing_files_message = '';
-    #my $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}.nii.gz";
+    #my $out_file = "${current_path}/${mdt_contrast}_labels_warp_${runno}${out_ext}";
     foreach my $runno (@array_of_runnos) {
 	if ($group eq 'MDT' 
 	    || $current_label_space =~ /MDT/ 
 	    ) {
-            $out_file = "${current_path}/MDT_${label_atlas_nickname}_${label_type}.nii.gz";
+            $out_file = "${current_path}/MDT_${label_atlas_nickname}_${label_type}${out_ext}";
             $Hf->set_value("${label_atlas_nickname}_MDT_labels",$out_file);
         }else {
-            $out_file = "${current_path}/${runno}_${label_atlas_nickname}_${label_type}.nii.gz";
+            $out_file = "${current_path}/${runno}_${label_atlas_nickname}_${label_type}${out_ext}";
         }
         # my $out_file      = "$out_file_path_base\.nii";
         if  (data_double_check($out_file,$case-1)) {
@@ -335,9 +337,9 @@ sub apply_mdt_warp_to_labels {
     if ($group eq 'MDT' 
 	|| $current_label_space =~ /MDT/ 
 	) {
-	$out_file = "${current_path}/MDT_${label_atlas_nickname}_${label_type}.nii.gz";
+	$out_file = "${current_path}/MDT_${label_atlas_nickname}_${label_type}${out_ext}";
     } else {
-        $out_file = "${current_path}/${runno}_${label_atlas_nickname}_${label_type}.nii.gz";
+        $out_file = "${current_path}/${runno}_${label_atlas_nickname}_${label_type}${out_ext}";
     }
     # What are start and stop!!!
     my ($start,$stop);
@@ -442,9 +444,9 @@ sub apply_mdt_warp_to_labels {
     
 
     # do_byte and do_short should NEVER come up again :p ... 
-    if( defined $fsl_odt ){
+    if( defined $fsl_odt){
 	my $fsl_conv = "fslmaths ${out_file} -add 0 ${out_file} -odt $fsl_odt"; 
-	push(@cmds,$fsl_conv);
+	push(@cmds,$fsl_conv) if $out_ext !~ /(nhdr|nrrd)$/x;
 =item
     } elsif ($do_byte) { 
 	my $byte_cmd = "fslmaths ${out_file} -add 0 ${out_file} -odt char"; 
@@ -717,7 +719,7 @@ sub warp_atlas_labels_vbm_Init_check {
     carp("NHDR abandon disabled");
     if(0 &&  $e eq ".nhdr") {
 	my $preprocess_dir = $Hf->get_value('preprocess_dir');
-	my $squashed_nii_label=File::Spec->catfile($preprocess_dir,$n.".nii.gz");
+	my $squashed_nii_label=File::Spec->catfile($preprocess_dir,$n."${out_ext}");
 	my $cmd=sprintf("WarpImageMultiTransform 3 %s %s ".
 			  " --use-NN ".
 			  " --reslice-by-header --tightest-bounding-box ".
@@ -725,7 +727,7 @@ sub warp_atlas_labels_vbm_Init_check {
 			$label_input_file, $squashed_nii_label);
 	my $l_dir=$Hf->get_value('label_refspace_folder');
 	# set this evan though it wont exist until re-ref runs.
-	$label_input_file=File::Spec->catfile($preprocess_dir,$n.".nii.gz");
+	$label_input_file=File::Spec->catfile($preprocess_dir,$n."${out_ext}");
 
 	my $Igo= -e $squashed_nii_label ? 0 : 1;
 	my $go_message =  "$PM: nhdr to nii atlas file conversion of $n into $preprocess_dir";
@@ -1050,11 +1052,17 @@ sub warp_atlas_labels_vbm_Runtime_check {
 	#my $header_output = `PrintHeader ${label_input_file}`;
 	carp("atlas data is suspicous, it didnt have a lookup found.");
 	sleep_with_countdown(5);
-	my $header_output = join("\n",run_and_watch("PrintHeader ${label_input_file}") );
-	if ($header_output =~ /Range[\s]*\:[\s]*\[[^,]+,[\s]*([0-9\-\.e\+]+)/) {
-	    $max_label_number = $1;
-	    print "Max_label_number = ${max_label_number}\n"; 
-	}
+	#my $header_output = join("\n",run_and_watch("PrintHeader ${label_input_file}") );
+	#if ($header_output =~ /Range[\s]*\:[\s]*\[[^,]+,[\s]*([0-9\-\.e\+]+)/) {
+	#    $max_label_number = $1;
+	#    print "Max_label_number = ${max_label_number}\n"; 
+	#}
+	my @hdr=ants::PrintHeader($label_input_file);
+	my($range_line)=grep /.*Range\s*:/,@hdr;
+	$range_line =~ /Range[\s]*\:[\s]*\[[^,]+,[\s]*([0-9\-\.e\+]+)/;
+	$max_label_number=$1;
+	print "Max_label_number = ${max_label_number}\n"; 
+	
     }
     # Now will always be false because fsl_odt superceeds them
     $do_byte = 0;

@@ -84,7 +84,7 @@ $test_mode = 0;
 # A forced wait time after starting each bit. (also used when we're doing check and wait operations.)
 my $interval = 0.1; ##Normally 1
 # pulled img out of list, because hdr is supposed to take care of that.
-$valid_formats_string = 'hdr|nii|nii.gz|ngz|nhdr|nrrd';
+$valid_formats_string = 'nhdr|nrrd|nii|nii.gz|ngz|hdr';
 $samba_label_types='labels|quagmire|mess';
 
 # a flag to indicate we're in the civm eco system so all the parts should work
@@ -572,6 +572,7 @@ U_specid U_species_m00 U_code
     set_reference_space_vbm(); #$PM_code = 15
     # set_ref also sets our best guess memory requirements by adding ref_size key to Hf
     sleep($interval);
+
     # Force mask and nii4D out of channel array becuase they require special handling.
     @channel_array = grep {$_ ne 'mask' } @channel_array;
     @channel_array = grep {$_ ne 'nii4D' } @channel_array;
@@ -676,7 +677,7 @@ U_specid U_species_m00 U_code
     #
 	pairwise_reg_vbm("d"); #$PM_code = 41
 	sleep($interval);
-	die "TESTING"	;
+
 	calculate_mdt_warps_vbm("f","diffeo"); #$PM_code = 42
 	sleep($interval);
 	
@@ -1103,7 +1104,6 @@ sub ants_opt_e {
     }
     return $opt_e_string;
 }
-
 
 #---------------------
 #sub load_tsv {
