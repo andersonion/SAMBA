@@ -267,7 +267,7 @@ sub set_center_and_orientation_vbm {
 	mkdir $reconditioned_dir if ! -e $reconditioned_dir;
 	my $nhdr_sg=File::Spec->catfile($reconditioned_dir,$n.$out_ext);
 	my $nhdr_out=File::Spec->catfile($output_folder,$n.$out_ext);
-	$matlab_exec_args="${nhdr_sg} ${current_orientation} ${desired_orientation} ${output_folder}";
+	#$matlab_exec_args="${nhdr_sg} ${current_orientation} ${desired_orientation} ${output_folder}";
 	#$cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
 	$cmd = "";
 	# only run the nhdr adjust if we're missing or older.

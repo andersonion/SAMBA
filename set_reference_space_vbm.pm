@@ -820,7 +820,8 @@ sub set_reference_space_vbm_Init_check {
 		# mem estimate of voxelcount@64-bit x2 volumes
 		my $mem_request=ceil($vx_count*8*2/1000/1000);
 		# BLARG THIS CONSTRUCT IS BAD... GONNA MAKE IT WORSE BY ADDING nhdr support via WarpImageMultiTransform.
-		if( $out_ext =~ /nhdr|nrrd/ ) { #&& $e !~ /nhdr|nrrd/ 
+		if( $out_ext =~ /nhdr|nrrd/ ) {#&& $e !~ /nhdr|nrrd/ 
+		#if( $e !~ /nhdr|nrrd/ ) {
 		    my $input_file=$original_rigid_atlas_path;
 		    my $output_folder=$preprocess_dir;
 		    carp("experimental startup from nhdr engaged.");
