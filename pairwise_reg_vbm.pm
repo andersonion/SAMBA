@@ -179,8 +179,8 @@ sub create_pairwise_warps {
     
     my($out_prefix,$out_affine,$out_warp,$out_inverse,
        $new_warp,$new_inverse) = ants_output_name_gen($moving_runno,$fixed_runno,$current_path,
-						      $warp_suffix,$inverse_suffix,$affine_suffix,
-						      $swap_fixed_and_moving);
+						      $warp_suffix,$inverse_suffix,$affine_suffix);
+    #						      $swap_fixed_and_moving);
     my $second_contrast_string='';
 
     my ($q_string,$r_string);
@@ -232,7 +232,9 @@ sub create_pairwise_warps {
     if ($fixed_runno eq $moving_runno) {
 	carp('FORMERLY COPIED FILE, NOW LINK');
 	sleep_with_countdown(3);
-    	$pairwise_cmd = "ln -s ${id_warp} ${new_warp}";
+    	$pairwise_cmd='';
+	unshift(@cmds, "ln -s ${id_warp} ${new_warp}");
+	$mem_request=50;
         $node = "civmcluster1";
         @test=(1,$node);
     } else {
@@ -244,7 +246,17 @@ sub create_pairwise_warps {
             @test =(0,$reservation);
         }
     }
-    unshift(@cmds,$pairwise_cmd) if $pairwise_cmd ne '';
+    #Data::Dump::dump(["m:",$mem_request],["m2:",$mem_request_2],
+    #["jc:",$expected_number_of_jobs,"nodes:",$nodes]);
+    #die "TESTING";
+    if($pairwise_cmd ne ''){
+	unshift(@cmds,$pairwise_cmd);
+	($mem_request,my $vx_count) = refspace_memory_est($mem_request,"vbm",$Hf);
+	my ($vx_sc,$est_bytes)=ants::estimate_memory($pairwise_cmd,$vx_count);
+	# After checking how slurm mem works, we can request 0 for all mem of a node...
+	# For now gonna try maximize mem.
+	$mem_request=0;
+    }
     my $jid = 0;
     if (cluster_check) {
 	my $cmd = join($CMD_SEP,@cmds);

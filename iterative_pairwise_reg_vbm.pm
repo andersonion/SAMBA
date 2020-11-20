@@ -219,8 +219,8 @@ sub create_iterative_pairwise_warps {
     
     my($out_prefix,$out_affine,$out_warp,$out_inverse,
        $new_warp,$new_inverse) = ants_output_name_gen($moving_runno,$fixed_runno,$current_path,
-						      $warp_suffix,$inverse_suffix,$affine_suffix,
-						      $swap_fixed_and_moving);
+						      $warp_suffix,$inverse_suffix,$affine_suffix);
+    #						      $swap_fixed_and_moving);
     my $second_contrast_string='';
     
     my ($q_string,$r_string);
@@ -296,17 +296,17 @@ sub create_iterative_pairwise_warps {
 	if ($job_count > $jobs_in_first_batch){
 	    $mem_request = $mem_request_2;
 	}
+	# THIS Didn't give an estimnate which made sense in light of our evidence. 
+	#printd(45,"Preparing to run $pairwise_cmd");
+	($mem_request,my $vx_count) = refspace_memory_est($mem_request,"vbm",$Hf);
+	my ($vx_sc,$est_bytes)=ants::estimate_memory($pairwise_cmd,$vx_count);
+	# Havnt tested this pilot process.
+	#my $out=antsRegistration_memory_estimator($pairwise_cmd);
+	
+	# After checking how slurm mem works, we can request 0 for all mem of a node...
+	# For now gonna try maximize mem.
+	$mem_request=0;
     }
-   
-    # THIS Didn't give an estimnate which made sense in light of our evidence. 
-    #printd(45,"Preparing to run $pairwise_cmd");
-    #my ($vx_sc,$est_bytes)=ants::estimate_memory($pairwise_cmd);
-    # Havnt tested this pilot process.
-    #my $out=antsRegistration_memory_estimator($pairwise_cmd);
-    
-    # After checking how slurm mem works, we can request 0 for all mem of a node...
-    # For now gonna try maximize mem.
-    $mem_request=0 if $pairwise_cmd ne '';
     my $jid = 0;
     if (cluster_check) {
 	my $cmd = join($CMD_SEP,@cmds);

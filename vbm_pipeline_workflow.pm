@@ -653,11 +653,12 @@ U_specid U_species_m00 U_code
 
             calculate_mdt_images_vbm($T_iter,@op_cont); #$PM_code = 44
             sleep($interval);
-	    #TODO: insert image preveiw here.
-	    # OOO, Maybe we should preview on the templates dir! Then we'd keep seeing the start-> now stack of templates!
-	    #    $master_template_dir = $Hf->get_value('master_template_folder');
-	    my $img_preview_src=$Hf->get_value('master_template_folder');
-	    my $img_preview_dir=File::Spec->catdir($Hf->get_value('mdt_work_dir'),'template_preview');
+
+	    ###
+	    # Iteration COMPLETE FEEDBACK
+	    ###
+	    $img_preview_src=$Hf->get_value('master_template_folder');
+	    $img_preview_dir=File::Spec->catdir($Hf->get_value('mdt_work_dir'),'template_preview');
 	    # use function, or run the inline version, temporary measure while function is finished.
 	    image_preview_mail($img_preview_src,$img_preview_dir,my $blank,$MAIL_USERS);
 	}
@@ -672,6 +673,7 @@ U_specid U_species_m00 U_code
 	       ."If you test it sucessfully, let the sloppy programmer know he can remove this wait\n"
 	       ."Please enjoy the next 30 seconds ... " );
 #	sleep_with_countdown(30);
+	printf("\n");
     #
     # PAIRWISE VERSION
     #
@@ -732,6 +734,13 @@ U_specid U_species_m00 U_code
         }
     }
     sleep($interval);
+
+    ###
+    # MDT COMPLETE FEEDBACK
+    ###
+    $img_preview_src=$Hf->get_value('median_images_path');
+    $img_preview_dir=File::Spec->catdir($Hf->get_value('template_work_dir'),'median_preview');
+    image_preview_mail($img_preview_src,$img_preview_dir,["mask"],$MAIL_USERS);
 
 # Remerge before ending pipeline
     if ($create_labels || $register_MDT_to_atlas ) {
@@ -842,7 +851,11 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
 	}
     }
     if ($do_vba) {
-	carp "VBA has not been tested recently, and there have been MANY changes in structure! We apologize in advance if this doesnt work, AND we dont have time allocated to fix it. Please feel free to clone the code, repair it, and issue a pull request";
+	carp("VBA has not been tested recently, and there have been MANY changes in structure!"
+	     ."We apologize in advance if this doesnt work, AND we dont have time allocated to fix it. "
+	     ."Please feel free to clone the code, repair it, and issue a pull request"
+	     ."Please enjoy the next 30 seconds ... " );
+	sleep_with_countdown(30);
         my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53 
         push(@channel_array,$new_contrast);
         $channel_comma_list = $channel_comma_list.','.$new_contrast;
@@ -868,9 +881,14 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
     my $time_info = "Completion time stamp = ${time} seconds since the Unix Epoc (or $nice_timestamp if you prefer).\n";
 
     mail_user($MAIL_USERS,$subj,$completion_message.$results_message.$local_time_info.$time_info);
-    # restore normal sigdie
+    ####
+    # restore normal sigdie DO NOT insert any code below
+    ####
     $SIG{__DIE__}=$FORMER_SIGDIE_HANDLER;
     $UNSUCCESSFUL_RUN=$GOODEXIT;
+    ####
+    #### INSERT ALL CODE BEFORE SIGDIE RESTORE (probably before mailing status :D )
+    ####
 } #end main
 
 #---------------------
@@ -1136,8 +1154,6 @@ sub ants_output_name_gen {
     return($out_prefix,$out_affine,$out_warp,$out_inverse,
 	   $new_warp,$new_inverse);
 }
-
-
 #---------------------
 #sub load_tsv {
 

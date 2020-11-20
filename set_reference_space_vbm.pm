@@ -1205,6 +1205,8 @@ sub refspace_memory_est {
 	foreach(@d){
 	    $vx_count*=$_; }
 	# 512 vx @64bit * volumes, in MB for slurm, (NOT MiB);
+	# NOTE: on further investigation it appears slurm DOES use MiB, 
+	# Leaving this in MB for safety margine.
 	$mem_request = ceil(512 + $vx_count * 8 * $volume_count /1000/1000);
     } else {
 	carp("Cannot set appropriate memory size by volume size (${space}_refsize not ready), using defacto limit $mem_request");
