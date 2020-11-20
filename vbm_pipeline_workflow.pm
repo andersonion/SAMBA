@@ -1105,6 +1105,24 @@ sub ants_opt_e {
     return $opt_e_string;
 }
 
+# frequently used name convention adjustment.
+# WIP: expand to more uses :p
+sub ants_warp_name_swappity {
+    #my($cmd,$out_warp,$new_warp,$out_inverse,$new_inverse,$out_affine,$swap_fixed_and_moving)=@_;
+    my($out_warp,$new_warp,$out_inverse,$new_inverse,$out_affine,$swap_fixed_and_moving)=@_;
+    
+    # my $cmd = $pairwise_cmd.$rename_cmd;
+    #my @cmds = ($cmd,
+    #"ln -s ${out_warp} ${new_warp}",
+    #"ln -s ${out_inverse} ${new_inverse}",
+    #"rm ${out_affine} ");
+    my @cmds = ("ln -s ${out_warp} ${new_warp}",
+		"ln -s ${out_inverse} ${new_inverse}",
+		"rm ${out_affine} ");
+    return @cmds;
+
+}
+
 #---------------------
 #sub load_tsv {
 

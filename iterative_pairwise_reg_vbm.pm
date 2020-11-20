@@ -203,13 +203,16 @@ sub iterative_pairwise_reg_Input_check {
 # ------------------
 sub create_iterative_pairwise_warps {
 # ------------------
-    my ($moving_runno) = @_;
-    
+# CODER WARNING: This is intensly similar to pairwise_reg_vbm::create_pairwise_warps
+# When editing, think of ways you can extract functionality to share. 
+# Shared functionality can go into vbm_pipeline_workflow.pm initially.
+    my ($moving_runno,$fixed_runno) = @_;
+    $fixed_runno="MDT";
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
-    my $out_file =  "${current_path}/${moving_runno}_to_MDT_"; # Same
-    my $new_warp = "${current_path}/${moving_runno}_to_MDT_warp.nii.gz"; # none 
-    my $new_inverse = "${current_path}/MDT_to_${moving_runno}_warp.nii.gz";
-    my $new_affine = "${current_path}/${moving_runno}_to_MDT_affine.nii.gz";
+    my $out_file =  "${current_path}/${moving_runno}_to_${fixed_runno}_"; # Same
+    my $new_warp = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz"; # none 
+    my $new_inverse = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
+    my $new_affine = "${current_path}/${moving_runno}_to_${fixed_runno}_affine.nii.gz";
     my $out_warp = "${out_file}${warp_suffix}";
     my $out_inverse =  "${out_file}${inverse_suffix}";
     my $out_affine = "${out_file}${affine_suffix}";
@@ -246,28 +249,26 @@ sub create_iterative_pairwise_warps {
 	#$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
     }
     
-    $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d $dims -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
-	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u" ;
-    
+    $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} "
+	."-m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] "
+	."${second_contrast_string} -o ${out_file} "
+	."-c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window} ] "
+	."-f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} "
+	."${q_string} ${r_string} -u" ;
     # 
     my $CMD_SEP=";\n";
     $CMD_SEP=" && ";
     
     if (-e $new_warp) { unlink($new_warp);}
     if (-e $new_inverse) { unlink($new_inverse);}
-    my $go_message = "$PM: create warp for ${moving_runno} and MDT";
-    my $stop_message = "$PM: could not start warp calc for ${moving_runno} and MDT";
-    
-    my $rename_cmd;
-    $rename_cmd = "".  #### Need to add a check to make sure the out files were created before linking!
-	"ln -s ${out_warp} ${new_warp}".
-	"$CMD_SEP ln -s ${out_inverse} ${new_inverse}".#.
-	"$CMD_SEP rm ${out_affine}";
+    my $go_message = "$PM: create warp for ${moving_runno} and ${fixed_runno}";
+    my $stop_message = "$PM: could not start warp calc for ${moving_runno} and ${fixed_runno}:\n"
+	."\t${pairwise_cmd}\n";
 
-    if (! data_double_check($out_warp,$out_inverse)) {
-	$pairwise_cmd = '';
-    }
-	
+    my @cmds=ants_warp_name_swappity($out_warp,$new_warp,$out_inverse,$new_inverse,$out_affine);
+
+    $pairwise_cmd = '' if( -e $out_warp && -e $out_inverse);
+    
 ## It is possible that VBM processing was done after previous iteration.  If so, then the "reg_diffeo" warps will be the same work we want here, with the one caveat that the same diffeo parameters are used during template creation and registration to template (no doubt we will soon stray from this path).
     my $previous_template_path = $template_path;
     # ... strip bits from iteration pathing?
@@ -276,25 +277,23 @@ sub create_iterative_pairwise_warps {
     my $reusable_warp = "${prev_reg_diffeo_path}/${moving_runno}_to_MDT_warp.nii.gz"; # none 
     my $reusable_inverse_warp = "${prev_reg_diffeo_path}/MDT_to_${moving_runno}_warp.nii.gz"; 
 
-    if (! data_double_check($reusable_warp,$reusable_inverse_warp)){
+    #if (! data_double_check($reusable_warp,$reusable_inverse_warp)){
+    if( -e $reusable_warp && -e $reusable_inverse_warp) {
 	$pairwise_cmd = '';
-	$rename_cmd = "ln ${reusable_warp} ${new_warp}".$CMD_SEP."ln ${reusable_inverse_warp} ${new_inverse}";
+	#$rename_cmd = "ln ${reusable_warp} ${new_warp}".$CMD_SEP."ln ${reusable_inverse_warp} ${new_inverse}";
+	# NOTE: Hard link here! and its mostly desireable. 
+	@cmds = ("ln ${reusable_warp} ${new_warp}",
+		 "ln  ${reusable_inverse_warp} ${new_inverse}");
     }
 ##
-    my $tester =0;
-
     if ($pairwise_cmd ne '') {
-	$pairwise_cmd=$pairwise_cmd.$CMD_SEP;
+	unshift(@cmds,$pairwise_cmd);
 	$job_count++;
 	if ($job_count > $jobs_in_first_batch){
 	    $mem_request = $mem_request_2;
 	}
     }
-
-    my $cmd = $pairwise_cmd.$rename_cmd;
-    my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
-    
-
+   
     # THIS Didn't give an estimnate which made sense in light of our evidence. 
     #printd(45,"Preparing to run $pairwise_cmd");
     #my ($vx_sc,$est_bytes)=ants::estimate_memory($pairwise_cmd);
@@ -306,6 +305,7 @@ sub create_iterative_pairwise_warps {
     $mem_request=0 if $pairwise_cmd ne '';
     my $jid = 0;
     if (cluster_check) {
+	my $cmd = join($CMD_SEP,@cmds);
 	my @test = (0);    
 	if (defined $reservation) {
 	    @test =(0,$reservation);
@@ -314,16 +314,12 @@ sub create_iterative_pairwise_warps {
 	my $Id= "${moving_runno}_to_MDT_create_iterative_pairwise_warp";
 	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (not $jid) {
-	    error_out();
-	}
     } else {
-	if (! execute($go, $go_message, @cmds) ) {
-	    error_out($stop_message);
+	if (execute($go, $go_message, @cmds) ) {
+	    $jid=1;
 	}
     }
-
-    if ($go && (not $jid)) {
+    if ($go && ! $jid) {
 	error_out($stop_message);
     }
     print "** $PM expected output: ${new_warp} and ${new_inverse}\n";

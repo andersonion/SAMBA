@@ -163,6 +163,9 @@ sub pairwise_reg_Input_check {
 # ------------------
 sub create_pairwise_warps {
 # ------------------
+# CODER WARNING: This is intensly similar to iterative_pairwise_reg_vbm::create_iterative_pairwise_warps
+# When editing, think of ways you can extract functionality to share. 
+# Shared functionality can go into vbm_pipeline_workflow.pm initially.
     my ($moving_runno,$fixed_runno) = @_;
 
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
@@ -202,26 +205,30 @@ sub create_pairwise_warps {
 	$second_contrast_string = " -m ${diffeo_metric}[ ${fixed_2},${moving_2},1,${diffeo_radius},${diffeo_sampling_options}] ";
     }
     
-    $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} -m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] ${second_contrast_string} -o ${out_file} ".
-	"  -c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window}] -f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} ${q_string} ${r_string} -u;\n"; 
-    
+    $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} "
+	."-m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] "
+	."${second_contrast_string} -o ${out_file} "
+	."-c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window} ] "
+	."-f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} "
+	."${q_string} ${r_string} -u"; 
+    #
+    my $CMD_SEP=";\n";
+    $CMD_SEP=" && ";
 
     if (-e $new_warp) { unlink($new_warp);}
     if (-e $new_inverse) { unlink($new_inverse);}
-    my $go_message = "$PM: create pairwise warp for the pair ${moving_runno} and ${fixed_runno}" ;
-    my $stop_message = "$PM: could not create warp between ${moving_runno} and ${fixed_runno}:\n${pairwise_cmd}\n";
+    my $go_message = "$PM: create warp for ${moving_runno} and ${fixed_runno}" ;
+    my $stop_message = "$PM: could not start warp calc for ${moving_runno} and ${fixed_runno}:\n"
+	."\t${pairwise_cmd}\n";
 
-    my $rename_cmd;
-    $rename_cmd = "".  #### Need to add a check to make sure the out files were created before linking!
-	"ln -s ${out_warp} ${new_warp} && ".
-	"ln -s ${out_inverse} ${new_inverse} && ".
-	"rm ${out_affine};\n";
+    my @cmds=ants_warp_name_swappity($out_warp,$new_warp,$out_inverse,$new_inverse,$out_affine);
+
     my @test = (0);
     my $node = '';
-
     if ($fixed_runno eq $moving_runno) {
-    	$pairwise_cmd = "cp ${id_warp} ${new_warp}";
-        $rename_cmd = '';
+	carp('FORMERLY COPIED FILE, NOW LINK');
+	sleep_with_countdown(3);
+    	$pairwise_cmd = "ln -s ${id_warp} ${new_warp}";
         $node = "civmcluster1";
         @test=(1,$node);
     } else {
@@ -233,26 +240,21 @@ sub create_pairwise_warps {
             @test =(0,$reservation);
         }
     }
-
+    unshift(@cmds,$pairwise_cmd) if $pairwise_cmd ne '';
     my $jid = 0;
     if (cluster_check) {
-	my $cmd = $pairwise_cmd.$rename_cmd;
+	my $cmd = join($CMD_SEP,@cmds);
 	my $home_path = $current_path;
 	$batch_folder = $home_path.'/sbatch/';
 	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
 	my $verbose = 1; # Will print log only for work done.
 	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (not $jid) {
-	    error_out();
-	}
     } else {
-	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
-	if (! execute($go, $go_message, @cmds) ) {
-	    error_out($stop_message);
+	if (execute($go, $go_message, @cmds) ) {
+	    $jid=1;
 	}
     }
-
-    if (((!-e $new_warp) | (! -e $new_inverse)) && (not $jid)) {
+    if ($go && ! $jid) {
 	error_out($stop_message);
     }
     print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
@@ -554,10 +556,11 @@ sub pairwise_reg_vbm_Runtime_check {
     #$dims=$Hf->get_value('image_dimensions');
     $xform_suffix = $Hf->get_value('rigid_transform_suffix');
     $mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
-    @mdt_contrasts = split('_',$mdt_contrast_string); 
+    @mdt_contrasts = split(',-._',$mdt_contrast_string); 
     $mdt_contrast = $mdt_contrasts[0];
     if ($#mdt_contrasts > 0) {
 	$mdt_contrast_2 = $mdt_contrasts[1];
+	confess("INCOMPLETE MULTI-CONTRAST MODE");
     }  #The working assumption is that we will not expand beyond using two contrasts for registration...
 
 
