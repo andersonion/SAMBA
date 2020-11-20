@@ -1106,12 +1106,11 @@ sub ants_opt_e {
 }
 
 # frequently used name convention adjustment.
+# GOOD candidates for samba_data_structure ?
 # WIP: expand to more uses :p
 sub ants_warp_name_swappity {
     #my($cmd,$out_warp,$new_warp,$out_inverse,$new_inverse,$out_affine,$swap_fixed_and_moving)=@_;
-    my($out_warp,$new_warp,$out_inverse,$new_inverse,$out_affine,$swap_fixed_and_moving)=@_;
-    
-    # my $cmd = $pairwise_cmd.$rename_cmd;
+    my($out_warp,$new_warp,$out_inverse,$new_inverse,$out_affine)=@_;
     #my @cmds = ($cmd,
     #"ln -s ${out_warp} ${new_warp}",
     #"ln -s ${out_inverse} ${new_inverse}",
@@ -1120,8 +1119,24 @@ sub ants_warp_name_swappity {
 		"ln -s ${out_inverse} ${new_inverse}",
 		"rm ${out_affine} ");
     return @cmds;
-
 }
+sub ants_output_name_gen {
+    my($moving_runno,$fixed_runno,$current_path,
+       $warp_suffix,$inverse_suffix,$affine_suffix,
+       $swap_fixed_and_moving)=@_;
+    
+    my $out_prefix =  "${current_path}/${moving_runno}_to_${fixed_runno}_"; # Same
+    my $new_warp = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz"; # none 
+    my $new_inverse = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
+    #my $new_affine = "${current_path}/${moving_runno}_to_${fixed_runno}_affine.nii.gz";
+    my $out_warp = "${out_prefix}${warp_suffix}";
+    my $out_inverse =  "${out_prefix}${inverse_suffix}";
+    my $out_affine = "${out_prefix}${affine_suffix}";
+    
+    return($out_prefix,$out_affine,$out_warp,$out_inverse,
+	   $new_warp,$new_inverse);
+}
+
 
 #---------------------
 #sub load_tsv {

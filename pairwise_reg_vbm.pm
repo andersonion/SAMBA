@@ -169,18 +169,22 @@ sub create_pairwise_warps {
     my ($moving_runno,$fixed_runno) = @_;
 
     my ($fixed,$moving,$fixed_2,$moving_2,$pairwise_cmd);
-    my $out_file =  "${current_path}/${moving_runno}_to_${fixed_runno}_"; # Same
-    my $new_warp = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz"; # none 
-    my $new_inverse = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
-    my $new_affine = "${current_path}/${moving_runno}_to_${fixed_runno}_affine.nii.gz";
-    my $out_warp = "${out_file}${warp_suffix}";
-    my $out_inverse =  "${out_file}${inverse_suffix}";
-    my $out_affine = "${out_file}${affine_suffix}";
-
+    #my $out_prefix =  "${current_path}/${moving_runno}_to_${fixed_runno}_"; # Same
+    #my $new_warp = "${current_path}/${moving_runno}_to_${fixed_runno}_warp.nii.gz"; # none 
+    #my $new_inverse = "${current_path}/${fixed_runno}_to_${moving_runno}_warp.nii.gz";
+    ##my $new_affine = "${current_path}/${moving_runno}_to_${fixed_runno}_affine.nii.gz";
+    #my $out_warp = "${out_prefix}${warp_suffix}";
+    #my $out_inverse =  "${out_prefix}${inverse_suffix}";
+    #my $out_affine = "${out_prefix}${affine_suffix}";
+    
+    my($out_prefix,$out_affine,$out_warp,$out_inverse,
+       $new_warp,$new_inverse) = ants_output_name_gen($moving_runno,$fixed_runno,$current_path,
+						      $warp_suffix,$inverse_suffix,$affine_suffix,
+						      $swap_fixed_and_moving);
     my $second_contrast_string='';
 
     my ($q_string,$r_string);
-    my ($fixed_string,$moving_string,$fixed_affine,$moving_affine);
+    my ($fixed_string,$moving_string);
     $fixed_string=$Hf->get_value("forward_xforms_${fixed_runno}");
     if ($fixed_string eq 'NO_KEY') {
 	$fixed_string=$Hf->get_value("mdt_forward_xforms_${fixed_runno}")
@@ -207,7 +211,7 @@ sub create_pairwise_warps {
     
     $pairwise_cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} "
 	."-m ${diffeo_metric}[ ${fixed},${moving},1,${diffeo_radius},${diffeo_sampling_options}] "
-	."${second_contrast_string} -o ${out_file} "
+	."${second_contrast_string} -o ${out_prefix} "
 	."-c [ ${diffeo_iterations},${diffeo_convergence_thresh},${diffeo_convergence_window} ] "
 	."-f ${diffeo_shrink_factors} -t SyN[${diffeo_transform_parameters}] -s ${diffeo_smoothing_sigmas} "
 	."${q_string} ${r_string} -u"; 
