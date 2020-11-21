@@ -355,6 +355,8 @@ sub apply_mdt_warp {
     my $space="vbm";
     ($mem_request,my $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
     my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
+    # convert bytes to MiB(not MiB)
+    $mem_request=ceil($est_bytes/(2**20));
     if ($current_contrast eq 'nii4D') {
 	cluck("NII4D HANDLING DEFFICIENT! It will be skipped, however the commands will be allowed to generate in case you want to be adventurous");
 	if (($convert_images_to_RAS == 1) && ($gid == 2)) {
