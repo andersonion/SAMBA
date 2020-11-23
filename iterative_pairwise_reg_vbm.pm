@@ -114,7 +114,7 @@ sub iterative_pairwise_reg_vbm {  # Main code
        my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
        
        if ($done_waiting) {
-	   print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
+	   print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to check output.\n";
        }
    }
    my $case = 2;
@@ -302,7 +302,8 @@ sub create_iterative_pairwise_warps {
 	my ($vx_sc,$est_bytes)=ants::estimate_memory($pairwise_cmd,$vx_count);
 	# Havnt tested this pilot process.
 	#my $out=antsRegistration_memory_estimator($pairwise_cmd);
-	
+	# convert bytes to MiB(not MB)
+	$mem_request=ceil($est_bytes/(2**20));
 	# After checking how slurm mem works, we can request 0 for all mem of a node...
 	# For now gonna try maximize mem.
 	$mem_request=0;

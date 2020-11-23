@@ -278,8 +278,8 @@ sub set_center_and_orientation_vbm {
 			 "",
 			 $input_file, $nhdr_sg);
 	    my ($vx_sc,$est_bytes)=ants::estimate_memory($Wcmd,$vx_count);
-	    # convert bytes to MB(not MiB).
-	    $mem_request=ceil($est_bytes/1000/1000);
+	    # convert bytes to MiB(not MB)
+	    $mem_request=ceil($est_bytes/(2**20));
 	    #$cmd=$cmd." && $Wcmd";
 	    $cmd=$Wcmd;
 	}

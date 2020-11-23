@@ -238,8 +238,8 @@ sub calculate_label_statistics {
 	# estimates here, lets pretend 32-bit int for labels, + 4 x 64-bit contrast images
 	# this mem usage doesn't quite make sense, Realistically, it should just be labels+1 or 2 contrasti mages.
 	my $est_bytes=$vx_count * ( 4 + 8 + 8 + 8 + 8 );
-	# convert bytes to MB(not MiB).
-	$mem_request=ceil($mem_request + $est_bytes/1000/1000);
+	# convert bytes to MiB(not MB)
+	$mem_request=ceil($est_bytes/(2**20));
         $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
         if (! $jid) {
             error_out($stop_message);

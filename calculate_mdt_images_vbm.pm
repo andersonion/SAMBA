@@ -204,8 +204,8 @@ sub calculate_average_mdt_image {
 	push(@cmds,$update_cmd);
 
 	my ($vx_sc,$est_bytes)=ants::estimate_memory($update_cmd,$vx_count);
-	# convert bytes to MB(not MiB).
-	my $expected_max_mem=ceil($est_bytes/1000/1000);
+	# convert bytes to MiB(not MB)
+	my $expected_max_mem=ceil($est_bytes/(2**20));
 	printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
 	if ($expected_max_mem > $mem_request) {
 	    $mem_request = $expected_max_mem;

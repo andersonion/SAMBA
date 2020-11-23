@@ -347,8 +347,8 @@ sub port_atlas_mask_vbm {
 	$cleanup_command=$cleanup_command."\t\tif [ -e \"${temp_out_file}\" ]\n\t\tthen\n\t\t\trm ${temp_out_file};\n";
 	
 	my ($vx_sc,$est_bytes)=ants::estimate_memory($apply_xform_command,$vx_count);
-	# convert bytes to MB(not MiB).
-	$mem_request=ceil($est_bytes/1000/1000);
+	# convert bytes to MiB(not MB)
+	$mem_request=ceil($est_bytes/(2**20));
 	if (! -e $temp_out_file) {
 	    $atlas_mask_reg_command = "antsRegistration -v ${ants_verbosity} -d ${dims} -r [$atlas_mask,$current_norm_mask,1] ".
 #		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t translation[0.1] -c [3000x3000x0x0,1.e-8,20] ".
@@ -362,8 +362,8 @@ sub port_atlas_mask_vbm {
 	    }
 	    
 	    ($vx_sc,$est_bytes)=ants::estimate_memory($atlas_mask_reg_command,$vx_count);
-	    # convert bytes to MB(not MiB).
-	    $mem_request=ceil($est_bytes/1000/1000);
+	    # convert bytes to MiB(not MB)
+	    $mem_request=ceil($est_bytes/(2**20));
 	}
 	$cleanup_command=$cleanup_command."\t\tfi\n";
     }

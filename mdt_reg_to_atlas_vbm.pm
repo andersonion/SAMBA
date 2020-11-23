@@ -249,6 +249,15 @@ sub mdt_reg_to_atlas {
     my $go_message = "$PM: create diffeomorphic warp from MDT to label atlas ${label_atlas}" ;
     my $stop_message = "$PM: could not create diffeomorphic warp from MDT for label atlas ${label_atlas}:\n${pairwise_cmd}\n" ;
     if (cluster_check) {
+	($mem_request,my $vx_count) = refspace_memory_est($mem_request,"vbm",$Hf);
+	my ($vx_sc,$est_bytes)=ants::estimate_memory($pairwise_cmd,$vx_count);
+	# Havnt tested this pilot process.
+	#my $out=antsRegistration_memory_estimator($pairwise_cmd);
+	# convert bytes to MiB(not MB)
+	$mem_request=ceil($est_bytes/(2**20));
+	# After checking how slurm mem works, we can request 0 for all mem of a node...
+	# For now gonna try maximize mem.
+	$mem_request=0;
 	#my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s"; # random sleep of 5-15 seconds
 	my $cmd = join($CMD_SEP,@cmds);
 	

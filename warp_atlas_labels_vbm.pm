@@ -432,8 +432,8 @@ sub apply_mdt_warp_to_labels {
 	    "-o ${out_file} ".
 	    "-r ${reference_image} -n MultiLabel[$voxel_size,2] ${warp_train}";
 	my ($vx_sc,$est_bytes)=ants::estimate_memory($create_cmd,$vx_count);
-	# convert bytes to MB(not MiB).
-	my $expected_max_mem=ceil($est_bytes/1000/1000);
+	# convert bytes to MiB(not MB)
+	my $expected_max_mem=ceil($est_bytes/(2**20));
 	printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
 	if ($expected_max_mem > $mem_request) {
 	    $mem_request = $expected_max_mem;
@@ -742,8 +742,8 @@ sub warp_atlas_labels_vbm_Init_check {
 	    my $Id= "convert_${n}_to_nii";
 	    my $verbose = 1; # Will print log only for work done.
 	    my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
-	    # convert bytes to MB(not MiB).
-	    my $mem_request=ceil($est_bytes/1000/1000);
+	    # convert bytes to MiB(not MB)
+	    my $mem_request=ceil($est_bytes/(2**20));
 	    $jid = cluster_exec($Igo, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
 	    if ($Igo && not $jid) {
 		error_out($stop_message);

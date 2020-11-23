@@ -79,7 +79,7 @@ sub pairwise_reg_vbm {  # Main code
 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,$batch_folder,@jobs);
 
 	if ($done_waiting) {
-	    print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to next step.\n";
+	    print STDOUT  "  All pairwise diffeomorphic registration jobs have completed; moving on to check output.\n";
 	}
     }
     my $case = 2;
@@ -250,12 +250,44 @@ sub create_pairwise_warps {
     #["jc:",$expected_number_of_jobs,"nodes:",$nodes]);
     #die "TESTING";
     if($pairwise_cmd ne ''){
-	unshift(@cmds,$pairwise_cmd);
 	($mem_request,my $vx_count) = refspace_memory_est($mem_request,"vbm",$Hf);
 	my ($vx_sc,$est_bytes)=ants::estimate_memory($pairwise_cmd,$vx_count);
+	# convert bytes to MiB(not MB)
+	$mem_request=ceil($est_bytes/(2**20));
+	####
+	# Memory troubles, found we run out of mem with data long before we expect.
+	# In a test volume at 15um, the memory estimator thought we'd use 85GiB. 
+	# In two tries it was killed at 234GiB, and 219GiB.
+	# We're gonna get extra dirty here, and insert "checkpoint" save of warps when 
+	# expected*3 > max_mem
+	if ( 0 ) {
+	die("Guess MEM GiB:".(ceil($est_bytes/2**30))."nodemax:".(${pipeline_utilities::NODE_MAX}/2**10)."\n"
+	    ."Guess MEM MiB:".(ceil($est_bytes/2**20))."nodemax:".${pipeline_utilities::NODE_MAX}."\n"
+	    ."Guess MEM KiB:".(ceil($est_bytes/2**10))."nodemax:".(${pipeline_utilities::NODE_MAX}*2**10)."\n");
+	}
+	#
+	# TESTED save_state and it didnt completely work as desired. 
+	# It forces the save of h5 files for the warps as well as the state.
+	# Those have different out suffix of "Composite" and "InverseComposite"
+	# 
+	# It does NOT save a checkpoint! To make use of this feature information, we'd have to only 
+	# run up to some DS level and then quit. Leaving us a partial path forward. 
+	# 
+	# We cannot use savestate simply becuase it will ONLY composite transform once its engaged.
+	my $saved_state=$out_prefix."SAVESTATE.h5";
+	if( -e $saved_state ){
+	    #carp("ANTS SAVE STATE FOUND, Will be used to restart");
+	    #$pairwise_cmd=$pairwise_cmd." -k ".$saved_state;
+	}
+	if( ceil($est_bytes/2**20)*3 > ${pipeline_utilities::NODE_MAX}) {
+	    #confess("quiting due to large registration, and expected failure");
+	    #carp("ANTS SAVE STATE ENABLED due to large registration");
+	    #$pairwise_cmd=$pairwise_cmd." --write-composite-transform -j ".$saved_state;
+	}
 	# After checking how slurm mem works, we can request 0 for all mem of a node...
 	# For now gonna try maximize mem.
 	$mem_request=0;
+	unshift(@cmds,$pairwise_cmd);
     }
     my $jid = 0;
     if (cluster_check) {

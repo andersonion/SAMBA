@@ -396,9 +396,8 @@ sub apply_mdt_warp {
     
     my $go_message =  "$PM: apply ${direction_string} MDT warp(s) to ${current_contrast} image for ${runno}";
     my $stop_message = "$PM: could not apply ${direction_string} MDT warp(s) to ${current_contrast} image for  ${runno}:\n${cmd}\n";
-
-    # convert bytes to MB(not MiB).
-    my $expected_max_mem=ceil($est_bytes/1000/1000);
+    # convert bytes to MiB(not MB)
+    my $expected_max_mem=ceil($est_bytes/(2**20));
     printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
     if ($expected_max_mem > $mem_request) {
 	$mem_request = $expected_max_mem;

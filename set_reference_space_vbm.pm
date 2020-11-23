@@ -386,8 +386,8 @@ sub apply_new_reference_space_vbm {
 		my $space='vbm';# or label... could use get_value_like_check... to get both refsizes
 		($mem_request,my $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
 		my ($vx_sc,$est_bytes)=ants::estimate_memory($translation_cmd,$vx_count);
-		# convert bytes to MB(not MiB).
-		$mem_request=ceil($est_bytes/1000/1000);
+		# convert bytes to MiB(not MB)
+		$mem_request=ceil($est_bytes/(2**20));
                 push(@cmds,$translation_cmd);
                 push(@cmds,$remove_cmd);
             } else {
@@ -433,8 +433,8 @@ sub apply_new_reference_space_vbm {
 	    my $space='vbm';# or label... could use get_value_like_check... to get both refsizes
 	    ($mem_request,my $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
 	    my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
-	    # convert bytes to MB(not MiB).
-	    my $expected_max_mem=ceil($est_bytes/1000/1000);
+	    # convert bytes to MiB(not MB)
+	    my $expected_max_mem=ceil($est_bytes/(2**20));
 	    printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
 	    if ($expected_max_mem > $mem_request) {
 		$mem_request = $expected_max_mem;
@@ -846,8 +846,8 @@ sub set_reference_space_vbm_Init_check {
 					 "",
 					 $input_file, $nhdr_sg);
 			my ($vx_sc,$est_bytes)=ants::estimate_memory($Wcmd,$vx_count);
-			# convert bytes to MB(not MiB).
-			$mem_request=ceil($est_bytes/1000/1000);
+			# convert bytes to MiB(not MB)
+			$mem_request=ceil($est_bytes/(2**20));
 			#$cmd=$cmd." && $Wcmd";
 			$cmd="$Wcmd";
 		    }
