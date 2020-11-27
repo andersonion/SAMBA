@@ -261,7 +261,7 @@ sub create_pairwise_warps {
 	# We're gonna get extra dirty here, and insert "checkpoint" save of warps when 
 	# expected*3 > max_mem
 	if ( 0 ) {
-	die("Guess MEM GiB:".(ceil($est_bytes/2**30))."nodemax:".(${pipeline_utilities::NODE_MAX}/2**10)."\n"
+	die("Guess MEM GiB:".(ceil($est_bytes/2**30))."nodemax:".(${pipeline_utilities::NODE_MAX}/2**30)."\n"
 	    ."Guess MEM MiB:".(ceil($est_bytes/2**20))."nodemax:".${pipeline_utilities::NODE_MAX}."\n"
 	    ."Guess MEM KiB:".(ceil($est_bytes/2**10))."nodemax:".(${pipeline_utilities::NODE_MAX}*2**10)."\n");
 	}
