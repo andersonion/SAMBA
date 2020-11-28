@@ -21,7 +21,7 @@ my @jobs=();
 my (%go_hash);
 my $go = 1;
 my $job;
-my ($log_msg);
+my $log_msg='';
 my ($mem_request);
 my $swap_fixed_and_moving=0;
 

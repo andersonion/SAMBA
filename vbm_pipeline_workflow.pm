@@ -106,7 +106,8 @@ my $UNSUCCESSFUL_RUN=$BADEXIT;
 # set pipe email users
 my $pipe_adm="";
 my $grp=getgrgid((getpwuid($<))[3]);
-my @grps=($grp);
+#my @grps;
+#push(@grps,$grp) if defined $grp;
 
 my @gids=getgroups();
 # have to convert groupids to names...
@@ -114,7 +115,7 @@ my @gids=getgroups();
 #  push(@grps,getgrgid($_));
 # }
 if(! defined $CODE_DEV_GROUP
-   || $CODE_DEV_GROUP ne $grp ) {
+   || (defined $grp && $CODE_DEV_GROUP ne $grp)  ) {
    # || ! scalar(grep /$CODE_DEV_GROUP/x, @grps) ) {
     $pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
 }
@@ -1009,7 +1010,7 @@ sub mail_user {
     if (exists $ENV{'WORKSTATION_HOSTNAME'} ){
         $from=$from.'@'.$ENV{'WORKSTATION_HOSTNAME'}
     }
-    run_and_watch("sendmail -f $from $users < $msg");
+    run_and_watch("sendmail -f $from $users < $msg",0);
     return;
 }
 #---------------------

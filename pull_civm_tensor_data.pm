@@ -453,7 +453,7 @@ sub pull_civm_tensor_data {
                 $gradient_file = "${inputs_dir}/${runno}_${grad_filename}${grad_ext}";
 
                 if (data_double_check($gradient_file)) {
-                    use File::Which;
+                    require File::Which;
                     if ( -x which("gradmaker") ) {
                         `gradmaker ${tensor_headfile} ${gradient_file}`;
                     }
