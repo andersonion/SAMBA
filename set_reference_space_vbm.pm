@@ -33,7 +33,7 @@ my (%reference_space_hash,%reference_path_hash,%input_reference_path_hash,%refsp
 #my ($rigid_name,$rigid_dir,$rigid_ext,$new_rigid_path,$future_rigid_path);
 my ($native_ref_name,$translation_dir);
 my ($base_images_for_labels);# synonymous with create_labels
-my ($log_msg);
+my $log_msg='';
 my $split_string = ",,,";
 my (%file_array_ref,@ref_spaces);
 my ($work_to_do_HoA);
@@ -495,7 +495,7 @@ sub set_reference_space_vbm_Init_check {
     ($v_ok2,$preprocess_dir) = $Hf->get_value_check('preprocess_dir');
     ($v_ok3,$base_images) = $Hf->get_value_check('inputs_dir');
     if(!$v_ok||!$v_ok2||!$v_ok3){
-        Data::Dump::dump([$pristine_input_dir,$preprocess_dir,$base_images]);
+        Data::Dump::dump([$pristine_input_dir,$preprocess_dir,$base_images]) if can_dump();
         croak("Missing critical working folder settings");}
     my $dir_work = $Hf->get_value('dir_work');
     ($v_ok, my $rigid_contrast) = $Hf->get_value_check('rigid_contrast');
@@ -1104,7 +1104,7 @@ sub set_reference_space_vbm_Runtime_check {
         ($v_ok,$refname_hash{$space}) =  $Hf->get_value_check("${space}_refname");
         #confess "error missing name for $space" if ! $v_ok;
         if(! $v_ok){
-            Data::Dump::dump([$bn,$ref_info]);
+            Data::Dump::dump([$bn,$ref_info]) if can_dump();
             confess "error missing name for $space";
         }
         if (data_double_check($inpath)) {
