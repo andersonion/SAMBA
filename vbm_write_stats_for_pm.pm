@@ -1,6 +1,6 @@
 
 use strict;
-use warnings;
+use warnings FATAL => qw(uninitialized);
 # use Switch;
 #
 # Considering the "cost" of trying to use the switch module, and that it is literally identical to if/else chains, switch is being optimized out. Fomer wraning code remains.
@@ -15,8 +15,10 @@ sub vbm_write_stats_for_pm {
     if (! defined $PM) {
         $PM = 0;
     } else {
-        $PM =~ s/\.pm$//;
+        $PM =~ s/[.]pm$//;
     }
+
+
     # pm_code 74
     #my $real_time = vbm_write_stats_for_pm($PM_code,$Hf,$start_time,@jobs);
 =item Original switch implemntation.
@@ -83,7 +85,7 @@ sub vbm_write_stats_for_pm {
     elsif($PM eq "smooth_images_vbm") {$PM_code = 71;}
     elsif($PM eq "vbm_analysis_vbm") {$PM_code = 72;}
 
-    elsif($PM eq /[0-9]{2}/) {$PM_code = $PM;}
+    elsif($PM =~ /[0-9]{2}/) {$PM_code = $PM;}
     else  {$PM_code = 0;}
 
     my $end_time = time;
