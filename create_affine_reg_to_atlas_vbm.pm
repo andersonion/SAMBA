@@ -83,7 +83,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                 # we want to use the identity matrix.
                 my $affine_identity = $Hf->get_value('affine_identity_matrix');
                 # Switching to a link from cp.
-                run_and_watch("ln -s ${affine_identity} ${runno_transform_clean}");
+                run_and_watch("ln -sf ${affine_identity} ${runno_transform_clean}");
             } else {
                 ($xform_path,$job) = create_affine_transform_vbm($to_xform_path,  $alt_result_path_base, $runno);
 
@@ -267,7 +267,7 @@ sub create_affine_reg_to_atlas_Output_check {
             $go_hash{$runno}=1;
             push(@file_array,$full_file_1);
             #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-            $missing_files_message = $missing_files_message."   $runno \n";
+            $missing_files_message = $missing_files_message."   $runno\t$full_file_1 \n";
         } else {
             $go_hash{$runno}=0;
             $existing_files_message = $existing_files_message."   $runno \n";
