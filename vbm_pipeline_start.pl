@@ -90,18 +90,20 @@ $schedule_backup_jobs=0;
 # we accept a startup headfile, and/or a (number of nodes|reservation name)
 # If we're doing start file, it must be first.
 $start_file=shift(@ARGV);
-# Only if it looks like a number to we assign it to nodes.
+$start_file=trim($start_file);
+# Only if it looks like a number do we assign it to nodes.
 # this in an attempt to simplify the following handling.
 if( ! defined $start_file ){
     die "Study_variables mode DISABLED! its too messy :P\nPlease create a startup headfile";
 }
-if ( ! -f $start_file && $start_file =~ /[^0-9]/ )  {
+if ( ! -f $start_file && $start_file =~ /^[0-9]+$/ )  {
+    die("NO FILE\n");
     $nodes = $start_file;
     $start_file = '';
 } else {
     $nodes = shift(@ARGV);
+    $nodes=trim($nodes);
 }
-
 # nodes is either a number at this point, nothing or a string.
 # startfile is either a file path or an empty string.
 # nodes and reservation are exclusive, so if nodes is > 0 len string it must be a reservation.
@@ -111,10 +113,10 @@ if (! defined $nodes || $nodes eq '' ) {
 } elsif( $nodes !~ /^[0-9]+$/ ) {
     # filter nodes string to only valid reservation characters
     ($reservation ) = $nodes=~ /([[:alnum:]:_-]+)/x ;
-    my $cmd="scontrol show reservation \"${reservation}\"";
-    my $reservation_info = qx/$cmd/;
     # Unsure if I need the 'm' option)
-    if ($reservation_info =~ /NodeCnt=([0-9]*)/m) {
+    if (cluster_check()) {
+        my $cmd="scontrol show reservation \"${reservation}\"";
+        my ($reservation_info) = run_and_watch($cmd,0);
         $nodes = $1;
         # this slurm handling really belongs in some kinda cluter_env_cleaner function ....
         if ( cluster_scheduler() =~ /slurm/ ){
@@ -134,7 +136,6 @@ print "Attempting to use $nodes nodes;\n\n";
 if ($reservation) {
     print "Using slurm reservation = \"$reservation\".\n\n\n";
 }
-
 
 {
     if ($start_file =~ /.*\.headfile$/) {
