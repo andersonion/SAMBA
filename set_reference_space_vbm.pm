@@ -193,8 +193,7 @@ sub set_reference_space_vbm {  # Main code
 sub set_reference_space_Output_check {
 # ------------------
     my ($case) = @_;
-    my $full_error_msg;
-
+    my $full_error_msg='';
     foreach my $space (@ref_spaces) {
         my @file_array;
         my $message_prefix ='';
@@ -574,7 +573,6 @@ sub set_reference_space_vbm_Init_check {
         ($input_reference_path_hash{$space},$reference_path_hash{$space},$refname_hash{$space},$ref_error)
             = set_reference_path_vbm($reference_space_hash{$space},$space);
         #Data::Dump::dump($input_reference_path_hash{$space},$reference_path_hash{$space},$refname_hash{$space},$ref_error);
-        #print "REF TESTING "; exit 1;
 
         my ($v_ok,$refsize)=$Hf->get_value_check("${space}_refsize");
         #if(! $v_ok && $RS{$space}{'input'} eq 'rerun_init_check_later' ) {
@@ -979,7 +977,6 @@ sub set_reference_path_vbm {
         $ref_path="${ref_folder}/reference_file_${ref_string}${out_ext}";
         $log_msg=$log_msg."\tThe full $space input reference path is ${input_ref_path}\n";
     } else {
-
         my $ref_runno;#=$Hf->get_value('ref_runno');
         my $preprocess_dir = $Hf->get_value('preprocess_dir');
         my $mask_dir = $Hf->get_value('mask_dir');
@@ -993,7 +990,6 @@ sub set_reference_path_vbm {
         $Hf->set_value('ref_runno',$ref_runno);
         #$ref_path = get_nii_from_inputs($preprocess_dir,"native_reference",$ref_runno);
         #$ref_path = get_nii_from_inputs($preprocess_dir,"reference_image_native",$ref_runno);# Updated 1 September 2016
-
         my $c_channel="mask";
         $input_ref_path = get_nii_from_inputs($mask_dir,$ref_runno,$c_channel);
         #if(defined $rerun_init_check) {

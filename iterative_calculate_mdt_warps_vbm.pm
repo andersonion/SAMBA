@@ -198,7 +198,7 @@ sub iterative_calculate_average_mdt_warp {
     }
 
     if ($go && (not $jid)) {
-        error_out("$PM: could not start for warp: ${out_file_1}");
+        #error_out("$PM: could not start for warp: ${out_file_1}");
     }
     print "** $PM expected output: ${out_file_1}\n";
 

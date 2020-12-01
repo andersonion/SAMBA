@@ -281,7 +281,7 @@ sub calculate_average_mdt_image {
     }
 
     if ($go && (not $jid)) {
-        error_out("$PM: could not start average MDT image for contrast: ${contrast}: ${out_file}");
+    #    error_out("$PM: could not start average MDT image for contrast: ${contrast}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
 
@@ -344,7 +344,7 @@ sub calculate_mdt_images_vbm_Runtime_check {
 #
 
     my $case = 1;
-    my ($dummy,$skip_message);
+    my ($dummy,$skip_message)=("","");
     foreach my $contrast (@contrast_list) {
         my $temp_message;
         ($dummy,$temp_message)=calculate_mdt_images_Output_check($case,$contrast);

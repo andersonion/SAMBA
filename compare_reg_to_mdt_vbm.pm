@@ -222,7 +222,6 @@ sub reg_to_mdt {
         run_and_watch("cp ${new_warp} ${new_inverse}");
 
     } else { # Business as usual
-
         $fixed = $median_images_path."/MDT_${mdt_contrast}${out_ext}"; # added .gz 23 October 2015
         my ($r_string);
         my ($moving_string,$moving_affine);
@@ -259,8 +258,8 @@ sub reg_to_mdt {
 
         my $go_message = "$PM: create diffeomorphic warp to MDT for ${runno}" ;
         my $stop_message = "$PM: could not create diffeomorphic warp to MDT for ${runno}:\n${pairwise_cmd}\n" ;
-        push(@cmds,"ln -s ${out_warp} ${new_warp}");
-        push(@cmds,"ln -s ${out_inverse} ${new_inverse}");
+        push(@cmds,"ln -sf ${out_warp} ${new_warp}");
+        push(@cmds,"ln -sf ${out_inverse} ${new_inverse}");
         push(@cmds,"rm ${out_affine}");
 
         if ($mdt_creation_strategy eq 'iterative') {
@@ -293,7 +292,6 @@ sub reg_to_mdt {
         }
         if (cluster_check) {
             #my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s;\n"; # random sleep of 5-15 seconds
-
             my $cmd=join($CMD_SEP,@cmds);
             my $home_path = $current_path;
             $batch_folder = $home_path.'/sbatch/';
@@ -308,9 +306,9 @@ sub reg_to_mdt {
                 error_out($stop_message);
             }
         }
-        if ($go && (not $jid)) {
-            error_out("$PM: could not start for warp results ${new_warp} and ${new_inverse}");
-        }
+        #if ($go && (not $jid)) {
+        #    error_out("$PM: could not start for warp results ${new_warp} and ${new_inverse}");
+        #}
         print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
     }
     return($jid,$new_warp,$new_inverse);
