@@ -391,11 +391,12 @@ sub create_affine_transform_vbm {
         my $verbose = 1; # Will print log only for work done.
         $jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);
         if (not $jid) {
-            error_out($stop_message);
+            #error_out($stop_message);
         }
     } else {
-        if (! execute($go, $go_message, $cmd) ) {
-            error_out($stop_message);
+        if ( execute($go, $go_message, $cmd) ) {
+            $jid=1;
+            #error_out($stop_message);
         }
     }
     # my $transform_path = "${result_transform_path_base}Affine.txt"; # From previous version of Ants, perhaps?
@@ -403,7 +404,8 @@ sub create_affine_transform_vbm {
     if ($go && (not $jid)) {
         # I think that data_double_checking transform path here causes this to wait for completion,
         # while erroneously giving errors.
-        error_out("$PM: could not start for xform: $transform_path");
+        error_out($stop_message);
+        #error_out("$PM: could not start for xform: $transform_path");
     }
     print "** $PM: create_transform $xform_code creating $transform_path\n";
     return($transform_path,$jid);

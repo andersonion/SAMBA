@@ -210,7 +210,7 @@ sub calculate_average_mdt_warp {
     my @cmds = ($cmd);
 
     my $go_message = "$PM: create ${dir_string} MDT warp for ${runno}";
-
+    my $stop_message="$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n";
     my $jid = 0;
     if (cluster_check()) {
         my @test=(0);
@@ -224,16 +224,17 @@ sub calculate_average_mdt_warp {
         my $mem_request = 60000;  # Added 23 November 2016,  Will need to make this smarter later.
         $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
         if (not $jid) {
-            error_out("$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n");
+            #error_out("$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n");
         }
     } else {
-        if (! execute($go, "$PM: create ${dir_string} MDT warp for ${runno}", @cmds) ) {
-            error_out("$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n");
+        if ( execute($go, "$PM: create ${dir_string} MDT warp for ${runno}", @cmds) ) {
+            $jid=1;
+            #error_out("$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n");
         }
     }
-
     if ($go && (not $jid)) {
-        error_out("$PM: missing ${dir_string} MDT warp results for ${runno}: ${out_file}");
+        error_out($stop_message);
+        #error_out("$PM: missing ${dir_string} MDT warp results for ${runno}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
 

@@ -232,8 +232,8 @@ sub create_pairwise_warps {
     if ($fixed_runno eq $moving_runno) {
         carp('FORMERLY COPIED FILE, NOW LINK');
         sleep_with_countdown(3);
-        $pairwise_cmd='';
-        unshift(@cmds, "ln -s ${id_warp} ${new_warp}");
+            $pairwise_cmd='';
+        unshift(@cmds, "ln -sf ${id_warp} ${new_warp}");
         $mem_request=50;
         $node = "civmcluster1";
         @test=(1,$node);

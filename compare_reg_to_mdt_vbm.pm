@@ -299,16 +299,18 @@ sub reg_to_mdt {
             my $verbose = 1; # Will print log only for work done.
             $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
             if (not $jid) {
-                error_out($stop_message);
+                #error_out($stop_message);
             }
         } else {
-            if (! execute($go, $go_message, @cmds) ) {
-                error_out($stop_message);
+            if ( execute($go, $go_message, @cmds) ) {
+                        $jid=1;
+                #error_out($stop_message);
             }
         }
-        #if ($go && (not $jid)) {
+        if ($go && (not $jid)) {
         #    error_out("$PM: could not start for warp results ${new_warp} and ${new_inverse}");
-        #}
+                error_out($stop_message);
+        }
         print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
     }
     return($jid,$new_warp,$new_inverse);

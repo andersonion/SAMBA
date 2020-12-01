@@ -272,15 +272,17 @@ sub calculate_average_mdt_image {
         my $verbose = 1;
         $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
         if (not $jid) {
-            error_out($stop_message);
+            #error_out($stop_message);
         }
     } else {
-        if (! execute($go,$go_message, @cmds) ) {
-            error_out($stop_message);
+        if ( execute($go,$go_message, @cmds) ) {
+            #error_out($stop_message);
+            $jid=1;
         }
     }
 
     if ($go && (not $jid)) {
+        error_out($stop_message);
     #    error_out("$PM: could not start average MDT image for contrast: ${contrast}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";

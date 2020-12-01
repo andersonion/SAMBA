@@ -477,16 +477,18 @@ sub apply_mdt_warp_to_labels {
         #my ($vx_sc,$est_bytes)=ants::estimate_memory($pairwise_cmd);
         $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
         if (not $jid) {
-            error_out($stop_message);
+            #error_out($stop_message);
         }
     } else {
-        if (! execute($go, $go_message, @cmds) ) {
-            error_out($stop_message);
+        if ( execute($go, $go_message, @cmds) ) {
+            $jid=1;
+            #error_out($stop_message);
         }
     }
 
     if ($go && (not $jid)) {
-        error_out("$PM: could not start for ${label_atlas_nickname} label set for ${runno}: ${out_file}");
+        error_out($stop_message);
+        #error_out("$PM: could not start for ${label_atlas_nickname} label set for ${runno}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
 

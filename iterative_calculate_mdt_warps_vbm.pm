@@ -189,16 +189,16 @@ sub iterative_calculate_average_mdt_warp {
         $mem_request = 0;
         $jid = cluster_exec($go, "$PM: create update warp", $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
         if (not $jid) {
-            error_out("$PM: could not create update warp:\n${cmd}\n");
+            #error_out("$PM: could not create update warp:\n${cmd}\n");
         }
     } else {
-        if (! execute($go, "$PM: create update warp", @cmds) ) {
-            error_out("$PM: could not create update warp:\n${cmd}\n");
+        if (execute($go, "$PM: create update warp", @cmds) ) {
+            #error_out("$PM: could not create update warp:\n${cmd}\n");
+            $jid=1;
         }
     }
-
     if ($go && (not $jid)) {
-        #error_out("$PM: could not start for warp: ${out_file_1}");
+        error_out("$PM: could not start for warp: ${out_file_1}");
     }
     print "** $PM expected output: ${out_file_1}\n";
 

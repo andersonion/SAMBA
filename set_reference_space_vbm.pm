@@ -463,14 +463,17 @@ sub apply_new_reference_space_vbm {
             my $verbose = 1; # Will print log only for work done.
             $jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);
             if (not $jid) {
-                error_out($stop_message);
+                #error_out($stop_message);
             }
         } else {
-            if (! execute($go, $go_message, @cmds) ) {
-                error_out($stop_message);
+            if ( execute($go, $go_message, @cmds) ) {
+                $jid=1;
+                #error_out($stop_message);
             }
         }
-
+        if ($go && (not $jid)) {
+			error_out($stop_message);
+		}
     }
 
     return($jid);
@@ -880,13 +883,17 @@ sub set_reference_space_vbm_Init_check {
                         my $verbose = 1; # Will print log only for work done.
                         $jid = cluster_exec($go, $go_message, $cmd,$preprocess_dir,$Id,$verbose,$mem_request,@test);
                         if (not $jid) {
-                            error_out($stop_message);
+                            #error_out($stop_message);
                         }
                         push(@init_jobs,$jid);
                     } else {
-                        if (! execute($go, $go_message, $cmd) ) {
-                            error_out($stop_message);
+                        if (execute($go, $go_message, $cmd) ) {
+                            $jid=1;
+                            #error_out($stop_message);
                         }
+                    }
+                    if ($go && (not $jid)) {
+                        error_out($stop_message);
                     }
                 }
                 if( ! -e $rigid_atlas_cache_file && ! scalar(@init_jobs) ) {
