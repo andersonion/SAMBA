@@ -590,10 +590,10 @@ sub set_reference_space_vbm_Init_check {
             my $ref_runno=$Hf->get_value('ref_runno');
             my $t_ref = get_nii_from_inputs($pristine_input_dir,$ref_runno,$c_channel);
             $refsize="NOT FOUND";
-            if ($t_ref !~ /[\n]+/) {        
+            if ($t_ref !~ /[\n]+/) {
                 $refsize=get_image_dims($t_ref);
             } else {
-                confess("Can't set refsize:".$t_ref);
+                confess("Can't set refsize:".$t_ref) if( defined $rerun_init_check && ! $rerun_init_check);
             }
         } elsif( -e $input_reference_path_hash{$space} ) { #$RS{$space}{'input'} ) {
             #$refsize=get_image_dims($RS{$space}{'input'},$Hf);
