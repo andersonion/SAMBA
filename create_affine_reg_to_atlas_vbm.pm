@@ -473,11 +473,10 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
         $Hf->set_value('affine_contrast',$affine_contrast);
         $log_msg=$log_msg."\tNo affine contrast specified; using rigid contrast \"${rigid_contrast}\" for affine registrations.\n";
     }
-
+    $mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
+    @mdt_contrasts = split('_',$mdt_contrast_string); 
+    $mdt_contrast = $mdt_contrasts[0];
     if ($register_MDT_to_atlas || $create_labels) {
-        $mdt_contrast_string = $Hf->get_value('mdt_contrast'); 
-        @mdt_contrasts = split('_',$mdt_contrast_string); 
-        $mdt_contrast = $mdt_contrasts[0];
 	# Atlas path in this context is atlas image, and annoyingly is just a short term temp var 
         my $label_atlas_name = $Hf->get_value('label_atlas_name');
         my $label_atlas_dir=''; 
@@ -1001,15 +1000,41 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                     # BJ says: this makes it harder to control when all we want to return is runno to use, not the whole file name
                     #my @control_images=civm_simple_util::find_file_by_pattern($inputs_dir, '('.join("|",@controls).').*_'.$contrast.'_masked[.]n.{2,5}$');
                     my %volume_hash;
-                    for my $c_runno (uniq(@controls)) {
-                        my $c_file = get_nii_from_inputs($inputs_dir, $c_runno, "${contrast}_masked");
+
+		    my $vol_type="_mask";
+		    my($v_ok,$volume_dir)=$Hf->get_value("mask_dir");
+		    if( ! $v_ok) {
+			($v_ok,$volume_dir)=$Hf->get_value("preprocess_dir");
+			$volume_dir=File::Spec->catdir($volume_dir,'masks');
+		    }
+		    if(! $v_ok || ! -e $volume_dir) {
+			$volume_dir=File::Spec->catdir($inputs_dir,"masks");
+		    }
+		    if(! -e $volume_dir){
+			$volume_dir=$inputs_dir;
+			$vol_type= "${contrast}_masked";
+		    }
+		    for my $c_runno (uniq(@controls)) {
+			# Old way, find the masked file, 
+                        #my $c_file = get_nii_from_inputs($inputs_dir, $c_runno, "${contrast}_masked");
+			# New way, Find the mask nii becuase our matlab code insists on writing a nii...
+			# and we're after the volume... so this should be mildly more durable.
+                        my $c_file = get_nii_from_inputs($volume_dir, $c_runno, $vol_type);
                         if ($c_file !~ /[\n]+/) {
 			    confess("cannot fslstats on nhdr")if $c_file =~ /(nhdr|nrrd)$/x;
                             #my $volume = `fslstats ${c_file} -V | cut -d ' ' -f2`;
-                            my ( $volume ) = run_and_watch("fslstats ${c_file} -V | cut -d ' ' -f2");
+                            #my ( $volume ) = run_and_watch("fslstats ${c_file} -V | cut -d ' ' -f2");
+			    my ( $volume ) = run_and_watch("fslstats ${c_file} -V");
                             chomp($volume);
+			    (my $dummy, $volume)=split(" ",$volume);
+			    $volume=trim($volume);
+			    if(! defined $volume){
+				error_out("Failed to get volume using fslstats $c_file");
+			    }
                             $volume_hash{$volume}=$c_runno;
-                        }
+                        } else {
+			    error_out($c_file); 
+			}
 		    }
                     use List::Util qw(sum);
                     use civm_simple_util qw(round);
