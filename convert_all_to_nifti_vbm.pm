@@ -304,8 +304,9 @@ sub set_center_and_orientation_vbm {
         my $home_path = $current_path;
         my $Id= "set_${desired_orientation}_${n}_orientation_and_center";
         my $verbose = 1; # Will print log only for work done.
-
-        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
+	#$test,$node,$dependency,$arbitrary_opts) = @_;
+	my $extra_slurm_settings="--partition=\"ssh\"";
+        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,0,$reservation,undef,$extra_slurm_settings);
         if ($go && ( not $jid ) ){
 	    error_out($stop_message);
 	}
