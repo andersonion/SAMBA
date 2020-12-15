@@ -1,11 +1,11 @@
 [pdir]=fileparts(fileparts(mfilename('fullpath')));
 addpath(fullfile(pdir,''));
 addpath(fullfile(pdir,'..'));
-addpath(fullfile(pdir,'..','fdr_bh'));
-addpath(fullfile(pdir,'..','20130227_xlwrite'));
-addpath('/cm/shared/workstation_code_dev/shared/mathworks/extrema');
-addpath('/cm/shared/workstation_code_dev/shared/mathworks/nrrdread');
-addpath('/cm/shared/workstation_code_dev/shared/mathworks/nrrdwrite');
-addpath('/cm/shared/workstation_code_dev/shared/mathworks/NIFTI_20140122');
-addpath('/cm/shared/workstation_code_dev/shared/mathworks/wildcardsearch');
+addpath(fullfile(pdir,'fdr_bh'));
+addpath(fullfile(pdir,'20130227_xlwrite'));
+addpath(fullfile(getenv('WKS_SHARED'), 'mathworks','extrema'));
+addpath(fullfile(getenv('WKS_SHARED'), 'mathworks','nrrdread'));
+addpath(fullfile(getenv('WKS_SHARED'), 'mathworks','nrrdWriter'));
+addpath(fullfile(getenv('WKS_SHARED'), 'mathworks','NIFTI_20140122'));
+addpath(fullfile(getenv('WKS_SHARED'), 'mathworks','wildcardsearch'));
 addpath(fullfile(getenv('WKS_SHARED'),'civm_matlab_common_utils'));
