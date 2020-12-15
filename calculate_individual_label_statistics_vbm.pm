@@ -220,13 +220,13 @@ sub calculate_label_statistics {
     my $stop_message = "$PM: Failed to properly calculate individual label statistics for runno: ${runno} \n" ;
 
     my $jid = 0;
+    my $cmd = "${write_individual_stats_executable_path} ${matlab_path} ${exec_args}";
     if (cluster_check) {
         my @test=(0);
         if (defined $reservation) {
             @test =(0,$reservation);
         }
         my $go =1;
-        my $cmd = "${write_individual_stats_executable_path} ${matlab_path} ${exec_args}";
         my $home_path = $current_path;
         my $Id= "${runno}_calculate_individual_label_statistics";
         my $verbose = 1; # Will print log only for work done.
@@ -241,12 +241,15 @@ sub calculate_label_statistics {
         # convert bytes to MiB(not MB)
         $mem_request=ceil($est_bytes/(2**20));
         $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
-        if (! $jid) {
-            error_out($stop_message);
-        } else {
-            return($jid);
+    } else {
+        if ( execute($go, $go_message, $cmd) ) {
+            $jid=1;
         }
     }
+    if ($go && not $jid) {
+        error_out($stop_message);
+    }
+    return($jid);
 }
 
 
