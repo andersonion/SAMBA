@@ -980,8 +980,9 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
             #  This will be done during the Init check?
             $contrast = $Hf->get_value('affine_contrast');
             
-            $affine_target = $Hf->get_value('affine_target');
-            if ($affine_target eq 'NO_KEY') {
+            (my $v_ok,$affine_target) = $Hf->get_value_check('affine_target');
+            #if ($affine_target eq 'NO_KEY') {
+	    if(! $v_ok) {
                 my @controls = split(',',($Hf->get_value('control_comma_list')));
                 #if ($affine_target eq 'first_control') {
                 #    $affine_target = shift(@controls);
@@ -1001,10 +1002,12 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                     #my @control_images=civm_simple_util::find_file_by_pattern($inputs_dir, '('.join("|",@controls).').*_'.$contrast.'_masked[.]n.{2,5}$');
                     my %volume_hash;
 
-		    my $vol_type="_mask";
-		    my($v_ok,$volume_dir)=$Hf->get_value("mask_dir");
+		    my $vol_type=".*_mask";
+		    my $prev=${SAMBA_global_variables::valid_formats_string};
+		    ${SAMBA_global_variables::valid_formats_string}="nii.gz|nii";
+		    my($v_ok,$volume_dir)=$Hf->get_value_check("mask_dir");
 		    if( ! $v_ok) {
-			($v_ok,$volume_dir)=$Hf->get_value("preprocess_dir");
+			($v_ok,$volume_dir)=$Hf->get_value_check("preprocess_dir");
 			$volume_dir=File::Spec->catdir($volume_dir,'masks');
 		    }
 		    if(! $v_ok || ! -e $volume_dir) {
@@ -1036,6 +1039,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
 			    error_out($c_file); 
 			}
 		    }
+		    ${SAMBA_global_variables::valid_formats_string}=$prev;
                     use List::Util qw(sum);
                     use civm_simple_util qw(round);
                     
