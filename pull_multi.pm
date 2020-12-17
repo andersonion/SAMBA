@@ -132,7 +132,7 @@ sub pull_multi {
         }
     }
     #$debug_val=50;
-    Data::Dump::dump(@master_cmd_list) if $debug_val > 35;
+    Data::Dump::dump(@master_cmd_list) if $debug_val > 35 && can_dump();
     confess if ($debug_val >= 50 && $debug_val < 100 ) ;
     # thought about force slow_master queue to ease data permission grab madness.
     # %ENV{'PIPELINE_QUEUE'}='slow_master';
