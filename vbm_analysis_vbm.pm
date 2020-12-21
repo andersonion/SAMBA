@@ -1,6 +1,6 @@
 #!/usr/bin/false
 
-# vbm_analysis_vbm.pm 
+# vbm_analysis_vbm.pm
 
 #  2015/08/06  Added SurfStat support
 #  2015/12/23  Added basic SPM support
@@ -55,99 +55,99 @@ my $matlab_path = '/cm/shared/apps/MATLAB/R2015b/'; #Need to make this more gene
 # ------------------
 sub vbm_analysis_vbm {
 # ------------------
-    
+
     my @args = @_;
     my $start_time = time;
     vbm_analysis_vbm_Runtime_check(@args);
-    
+
     foreach my $smoothing (@smoothing_params) {
-	print "Running smoothing for ${smoothing}\n";
-	my $smooth_work = $work_dir_hash{$smoothing};
-	my $smooth_results = $results_dir_hash{$smoothing};
-	my $smooth_inputs = $smooth_pool_hash{$smoothing};
-	
-	foreach my $software (@software_array) {
-	    my $software_results_path;
-	    my $software_work_path;
-	    print "Running vba software: ${software}\n";
-	    if ($software eq 'spm') {
-		$software_work_path = "${smooth_work}/${software}/";
-		if (! -e $software_work_path) {
-		    mkdir ($software_work_path,$permissions);
-		}
-	    } else {
-		$software_results_path = "${smooth_results}/${software}/";
-		if (! -e $software_results_path) {
-		    mkdir ($software_results_path,$permissions);
-		}
-	    }
-	    foreach my $contrast (@channel_array) {
-		print "Running vbm with contrast: ${contrast}\n";
-		my (@group_1_files,@group_2_files); 
-		foreach my $runno (@group_1_runnos) {
-		    my $file = get_nii_from_inputs($smooth_inputs,$runno,$contrast);
-		    my ($in_path,$name,$ext) = fileparts($file,2);
-		    my $file_no_path = $name.$ext;
-		    push(@group_1_files,$file_no_path);
-		}
-		
-		foreach my $runno (@group_2_runnos) {
-		    my $file = get_nii_from_inputs($smooth_inputs,$runno,$contrast);
-		    my ($in_path,$name,$ext) = fileparts($file,2);
-		    my $file_no_path = $name.$ext;
-		    push(@group_2_files,$file_no_path);
-		}
-		
-		$group_1_files = join(',',@group_1_files);
-		$group_2_files = join(',',@group_2_files);
-		
-		if ($software eq 'surfstat') {
-		    my @local_jobs = surfstat_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
-		    # `gzip ${software_results_path}/${contrast}/*.nii`; # Hopefully will be unnecessary after 20 Dec 2016 due to updated SurfStat function.
-		    if (@local_jobs) {
-			push(@all_jobs,@local_jobs);
-		    }
-		} elsif ($software eq 'spm') {
-		    spm_analysis_vbm($contrast,$smooth_inputs,$software_work_path);
-		} elsif ($software eq 'antsr') {
-		    my @local_jobs =  antsr_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
-		    if (@local_jobs) {
-			push(@all_jobs,@local_jobs);
-		    }
-		} elsif ($software eq 'fsl') {
-		    my (@local_jobs) = fsl_nonparametric_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
-		    if (@local_jobs) {
-			push(@all_jobs,@local_jobs);
-		    }
-		} else {
-		    print "I'm sorry, but VBM software \"$software\" is currently not supported :( \n";
-		}
-	    }
-	}
+        print "Running smoothing for ${smoothing}\n";
+        my $smooth_work = $work_dir_hash{$smoothing};
+        my $smooth_results = $results_dir_hash{$smoothing};
+        my $smooth_inputs = $smooth_pool_hash{$smoothing};
+
+        foreach my $software (@software_array) {
+            my $software_results_path;
+            my $software_work_path;
+            print "Running vba software: ${software}\n";
+            if ($software eq 'spm') {
+                $software_work_path = "${smooth_work}/${software}/";
+                if (! -e $software_work_path) {
+                    mkdir ($software_work_path,$permissions);
+                }
+            } else {
+                $software_results_path = "${smooth_results}/${software}/";
+                if (! -e $software_results_path) {
+                    mkdir ($software_results_path,$permissions);
+                }
+            }
+            foreach my $contrast (@channel_array) {
+                print "Running vbm with contrast: ${contrast}\n";
+                my (@group_1_files,@group_2_files);
+                foreach my $runno (@group_1_runnos) {
+                    my $file = get_nii_from_inputs($smooth_inputs,$runno,$contrast);
+                    my ($in_path,$name,$ext) = fileparts($file,2);
+                    my $file_no_path = $name.$ext;
+                    push(@group_1_files,$file_no_path);
+                }
+
+                foreach my $runno (@group_2_runnos) {
+                    my $file = get_nii_from_inputs($smooth_inputs,$runno,$contrast);
+                    my ($in_path,$name,$ext) = fileparts($file,2);
+                    my $file_no_path = $name.$ext;
+                    push(@group_2_files,$file_no_path);
+                }
+
+                $group_1_files = join(',',@group_1_files);
+                $group_2_files = join(',',@group_2_files);
+
+                if ($software eq 'surfstat') {
+                    my @local_jobs = surfstat_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+                    # `gzip ${software_results_path}/${contrast}/*.nii`; # Hopefully will be unnecessary after 20 Dec 2016 due to updated SurfStat function.
+                    if (@local_jobs) {
+                        push(@all_jobs,@local_jobs);
+                    }
+                } elsif ($software eq 'spm') {
+                    spm_analysis_vbm($contrast,$smooth_inputs,$software_work_path);
+                } elsif ($software eq 'antsr') {
+                    my @local_jobs =  antsr_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+                    if (@local_jobs) {
+                        push(@all_jobs,@local_jobs);
+                    }
+                } elsif ($software eq 'fsl') {
+                    my (@local_jobs) = fsl_nonparametric_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
+                    if (@local_jobs) {
+                        push(@all_jobs,@local_jobs);
+                    }
+                } else {
+                    print "I'm sorry, but VBM software \"$software\" is currently not supported :( \n";
+                }
+            }
+        }
     }
     @all_jobs=uniq(@all_jobs);
     my $all_job_string = join(',',@all_jobs);
     if (@all_jobs) {
-	print STDOUT "SLURM: Waiting for jobs ${all_job_string} to complete (may contain job dependencies).\n";
+        print STDOUT "SLURM: Waiting for jobs ${all_job_string} to complete (may contain job dependencies).\n";
     }
-    
+
     if (cluster_check() && (@all_jobs)) {
-	my $interval = 2;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@all_jobs);
-	
-	if ($done_waiting) {
-	    print STDOUT  " All voxel-based analysis jobs have completed; moving on to next step.\n";
-	}
+        my $interval = 2;
+        my $verbose = 1;
+        my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@all_jobs);
+
+        if ($done_waiting) {
+            print STDOUT  " All voxel-based analysis jobs have completed; moving on to next step.\n";
+        }
     }
 
 
-#}    
-    
+#}
+
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time,@all_jobs);
     print "$PM took ${real_time} seconds to complete.\n";
-    
-    
+
+
 }
 
 
@@ -163,43 +163,43 @@ sub vbm_analysis_vbm {
 #     my $existing_files_message = '';
 #     my $missing_files_message = '';
 
-    
+
 #     if ($case == 1) {
-# 	$message_prefix = "  Prepared niftis have been found for the following runnos and will not be re-prepared:\n";
+#       $message_prefix = "  Prepared niftis have been found for the following runnos and will not be re-prepared:\n";
 #     } elsif ($case == 2) {
-# 	 $message_prefix = "  Unable to properly prepare niftis for the following runnos and channels:\n";
+#        $message_prefix = "  Unable to properly prepare niftis for the following runnos and channels:\n";
 #     }   # For Init_check, we could just add the appropriate cases.
-    
+
 #     foreach my $runno (@array_of_runnos) {
-# 	my $sub_existing_files_message='';
-# 	my $sub_missing_files_message='';
-	
-# 	foreach my $ch (@channel_array) {
-# 	    $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
-# 	    if ((data_double_check($file_1) ) || ((! $do_mask) &&  ($file_1 =~ /.*masked\.nii / ))) {
-# 		$go_hash{$runno}{$ch}=1;
-# 		push(@file_array,$file_1);
-# 		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
-# 	    } else {
-# 		$go_hash{$runno}{$ch}=0;
-# 		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
-# 	    }
-# 	}
-# 	if (($sub_existing_files_message ne '') && ($case == 1)) {
-# 	    $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
-# 	} elsif (($sub_missing_files_message ne '') && ($case == 2)) {
-# 	    $missing_files_message =$missing_files_message. $runno."\t".$sub_missing_files_message."\n";
-# 	}
+#       my $sub_existing_files_message='';
+#       my $sub_missing_files_message='';
+
+#       foreach my $ch (@channel_array) {
+#           $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
+#           if ((data_double_check($file_1) ) || ((! $do_mask) &&  ($file_1 =~ /.*masked\.nii / ))) {
+#               $go_hash{$runno}{$ch}=1;
+#               push(@file_array,$file_1);
+#               $sub_missing_files_message = $sub_missing_files_message."\t$ch";
+#           } else {
+#               $go_hash{$runno}{$ch}=0;
+#               $sub_existing_files_message = $sub_existing_files_message."\t$ch";
+#           }
+#       }
+#       if (($sub_existing_files_message ne '') && ($case == 1)) {
+#           $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
+#       } elsif (($sub_missing_files_message ne '') && ($case == 2)) {
+#           $missing_files_message =$missing_files_message. $runno."\t".$sub_missing_files_message."\n";
+#       }
 #     }
-     
+
 #     my $error_msg='';
-    
+
 #     if (($existing_files_message ne '') && ($case == 1)) {
-# 	$error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
+#       $error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
 #     } elsif (($missing_files_message ne '') && ($case == 2)) {
-# 	$error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
+#       $error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
 #     }
-     
+
 #     my $file_array_ref = \@file_array;
 #     return($file_array_ref,$error_msg);
 # }
@@ -211,7 +211,7 @@ sub antsr_analysis_vbm {
     my ($contrast,$input_path,$results_master_path) = @_;
     my $contrast_path = "${results_master_path}/${contrast}/";
     if (! -e $contrast_path) {
-	mkdir ($contrast_path,$permissions);
+        mkdir ($contrast_path,$permissions);
     }
 
     my $antsr_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\',\'${min_cluster_size}\'";
@@ -223,12 +223,12 @@ sub antsr_analysis_vbm {
     my $copy_of_function_command='';
 
     open(my $fh, '<:encoding(UTF-8)', $source)
-	or die "Could not open file '$source' $!";
-		
+        or die "Could not open file '$source' $!";
+
     while (my $row = <$fh>) {
-#	chomp $row;
-	#print "$row\n";
-	$copy_of_function_command = $copy_of_function_command."\## ".$row;
+#       chomp $row;
+        #print "$row\n";
+        $copy_of_function_command = $copy_of_function_command."\## ".$row;
     }
     close($fh);
 
@@ -247,37 +247,37 @@ sub antsr_analysis_vbm {
     my @test = (0);
     my $go_message = "I guess we're testing out ANTsR vbm analysis here...\n";
     my $mem_request = 120000;
-    my $antsr_command = "Rscript ${stub_path} --save\n"; 
+    my $antsr_command = "Rscript ${stub_path} --save\n";
     print "ANTsR command = ${antsr_command}\n";
 
     if (defined $reservation) {
-	@test =(0,$reservation);
+        @test =(0,$reservation);
     }
-    
+
     my $jid = 0;
-    if (cluster_check) {    
-     	my $cmd = $antsr_command.$copy_of_function_command;
-	my $go = 1;
-     	my $home_path = $contrast_path;
-    	my $batch_folder = $home_path.'/sbatch/';
-#    	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
-    	my $verbose = 1; # Will print log only for work done.
-    	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-    	if (not $jid) {
-    	    error_out();
-    	}
+    if (cluster_check) {
+        my $cmd = $antsr_command.$copy_of_function_command;
+        my $go = 1;
+        my $home_path = $contrast_path;
+        my $batch_folder = $home_path.'/sbatch/';
+#       my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
+        my $verbose = 1; # Will print log only for work done.
+        $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
+        if (not $jid) {
+            error_out();
+        }
     } # else {
-    # 	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
-    # 	if (! execute($go, $go_message, @cmds) ) {
-    # 	    error_out($stop_message);
-    # 	}
+    #   my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
+    #   if (! execute($go, $go_message, @cmds) ) {
+    #       error_out($stop_message);
+    #   }
     # }
 
     # if (((!-e $new_warp) | (!-e $new_inverse)) && ($jid == 0)) {
-    # 	error_out($stop_message);
+    #   error_out($stop_message);
     # }
     # print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
-  
+
     return($jid);
 }
 
@@ -289,16 +289,16 @@ sub spm_analysis_vbm {
 
 #make work directories
     if (! -e $contrast_path) {
-	mkdir ($contrast_path,$permissions);
+        mkdir ($contrast_path,$permissions);
     }
 
     my $group_1_path = $contrast_path.'/'.$group_1_name;
     my $group_2_path = $contrast_path.'/'.$group_2_name;
     if (! -e $group_1_path) {
-	mkdir ($group_1_path,$permissions);
+        mkdir ($group_1_path,$permissions);
     }
     if (! -e $group_2_path) {
-	mkdir ($group_2_path,$permissions);
+        mkdir ($group_2_path,$permissions);
     }
 
 
@@ -308,17 +308,17 @@ sub spm_analysis_vbm {
     my @group_2_array = split(',',$group_2_files);
 
     foreach my $file (@group_1_array){
-	my $old_file = "../../../smoothed_image_pool/${file}";
-	my $linked_file = "${group_1_path}/${file}";
-	`ln -s ${old_file} ${linked_file}`;
+        my $old_file = "../../../smoothed_image_pool/${file}";
+        my $linked_file = "${group_1_path}/${file}";
+        `ln -s ${old_file} ${linked_file}`;
     }
 
    foreach my $file (@group_2_array){
-	my $old_file = "../../../smoothed_image_pool/${file}";
-	my $linked_file = "${group_2_path}/${file}";
-	`ln -s ${old_file} ${linked_file}`;
+        my $old_file = "../../../smoothed_image_pool/${file}";
+        my $linked_file = "${group_2_path}/${file}";
+        `ln -s ${old_file} ${linked_file}`;
     }
-    
+
     return();
 }
 
@@ -328,42 +328,42 @@ sub surfstat_analysis_vbm {
     my ($contrast,$input_path,$results_master_path) = @_;
     my $contrast_path = "${results_master_path}/${contrast}/";
     if (! -e $contrast_path) {
-	mkdir ($contrast_path,$permissions);
+        mkdir ($contrast_path,$permissions);
     }
-    
+
     my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
     my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
     my $exec_testing =1;
     my $jid = 0;
     if ($exec_testing) {
-	my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
-	my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
-	my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
-	
-	my @test=(0);
-	if (defined $reservation) {
-	    @test =(0,$reservation);
-	}
-	my $mem_request = '10000';
+        my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
+        my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
+        my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
 
-	if (cluster_check) {
-	    my $go =1;	    
-#	my $cmd = $pairwise_cmd.$rename_cmd;
-	    my $cmd = "${executable_path} ${matlab_path} ${surfstat_args_2}";
-	    
-	    my $home_path = $current_path;
-	    my $Id= "${contrast}_surfstat_VBA_for_${group_1_name}_vs_${group_2_name}";
-	    my $verbose = 1; # Will print log only for work done.
-	    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	    if (not $jid) {
-		error_out($stop_message);
-	    }
-	}
+        my @test=(0);
+        if (defined $reservation) {
+            @test =(0,$reservation);
+        }
+        my $mem_request = '10000';
+
+        if (cluster_check) {
+            my $go =1;
+#       my $cmd = $pairwise_cmd.$rename_cmd;
+            my $cmd = "${executable_path} ${matlab_path} ${surfstat_args_2}";
+
+            my $home_path = $current_path;
+            my $Id= "${contrast}_surfstat_VBA_for_${group_1_name}_vs_${group_2_name}";
+            my $verbose = 1; # Will print log only for work done.
+            $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
+            if (not $jid) {
+                error_out($stop_message);
+            }
+        }
     } else {
-	my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
-	print "surfstat command = ${surfstat_command}\n";
-	my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
-	print "Current state = $state\n";
+        my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
+        print "surfstat command = ${surfstat_command}\n";
+        my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
+        print "Current state = $state\n";
     }
     return($jid);
 }
@@ -375,92 +375,92 @@ sub fsl_nonparametric_analysis_vbm {
 
     my $contrast_path = "${results_master_path}/${contrast}/";
     if (! -e $contrast_path) {
-	mkdir ($contrast_path,$permissions);
+        mkdir ($contrast_path,$permissions);
     }
 
     my $prep_jid = fsl_nonparametric_analysis_prep($contrast,$input_path,$make_masks_jid);
 
     my $local_results_path = "${contrast_path}/${local_sub_name}_${nonparametric_permutations}_perms/";
     if (! -e $local_results_path) {
-	mkdir ($local_results_path,$permissions);
+        mkdir ($local_results_path,$permissions);
     }
 
 
     #$number_of_test_contrasts=`head -2 $con_file | tail -1 | cut -d ' ' -f 2`; # This does not work for arbitrary con files.
     my $num_con_line=`cat $con_file | grep NumContrasts`;
     if ($num_con_line =~ /([0-9]+)/) {
-	$number_of_test_contrasts=$1;
+        $number_of_test_contrasts=$1;
     } else {
-	$number_of_test_contrasts=2; # Default
-	print "using default number of contrasts (2)\n";
+        $number_of_test_contrasts=2; # Default
+        print "using default number of contrasts (2)\n";
     }
- 
+
     print "number_of_test_contrasts = $number_of_test_contrasts\n\n";
 
     my $prefix = "${contrast}_nonparametric_testing";
     my $master_job_name="fsl_nonparametric_testing_for_${local_sub_name}_${contrast}";
     my @expected_outputs = ();
-    
-    
+
+
     my $remaining_permutations = $nonparametric_permutations;
     my $seed;
     my %cleanup_string;
     my @output_key_list = ('_','_glm_cope_','_glm_pe_','_glm_sigmasqr_','_glm_varcope_'); # This corresponds to the raw ttest and glm  outputs.
-    
+
     if ($randomise_options =~ /\ -T\ / ) { # $tfce_analysis
-	my @t_keys = ('_tfce_','_tfce_p_','_tfce_corrp_');
-	push(@output_key_list,@t_keys);
+        my @t_keys = ('_tfce_','_tfce_p_','_tfce_corrp_');
+        push(@output_key_list,@t_keys);
     }
-    
+
     if ($cmbt_analysis)  { # $cmbt_analysis
-	my @c_keys = ('_clusterm_','_clusterm_corrp_');
-	push(@output_key_list,@c_keys);
+        my @c_keys = ('_clusterm_','_clusterm_corrp_');
+        push(@output_key_list,@c_keys);
     }
-    
+
     if ($cbt_analysis)  { # $cbt_analysis
-	my @c2_keys = ('_clustere_','_clustere_corrp_');
-	push(@output_key_list,@c2_keys);
+        my @c2_keys = ('_clustere_','_clustere_corrp_');
+        push(@output_key_list,@c2_keys);
     }
 
     if ($randomise_options =~ /\ -x\ /) {
-	my @x_keys = ('_vox_p_','_vox_corrp_');
-	push(@output_key_list,@x_keys);
+        my @x_keys = ('_vox_p_','_vox_corrp_');
+        push(@output_key_list,@x_keys);
     }
 
    if ($randomise_options =~ /\ -P\ /) {
-	my @P_keys = ('_perm_');
-	push(@output_key_list,@P_keys);
+        my @P_keys = ('_perm_');
+        push(@output_key_list,@P_keys);
     }
-    
-    
-    for ($seed = 1; $remaining_permutations > 0 ;$seed++) {
-	# ($seed,$num_of_perms,$output_path,$prefix,$contrast_number)
-	my $c_permutations = $default_nonparametric_job_size;
-	$c_permutations =  min($c_permutations,$remaining_permutations);
-	$remaining_permutations = $remaining_permutations - $c_permutations;
-	
-	for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
-	    my $expected_perms = $c_permutations;
-	    if ($seed > 1) {$expected_perms++;} 
-	    my $rfix = $local_results_path.$prefix;
-	    my $rfix_S = '${rd}'.$prefix; 
-	    my $cfix = "${local_work_dir}/${prefix}_SEED${seed}x${expected_perms}";
-	    my $cfix_S = '${wd}'."${prefix}_SEED${seed}x${expected_perms}";
-	    my $cfix2 = "tstat${test_contrast}.nii.gz";
-	    my $c_file; #current [full] file
-	    my $r_file; #results [full] file 
-	    my $c_file_short; #current file string with directory variable
-	    my $r_file_short; #result file string with directory variable
-	    my @expected_p_outputs=(); # The expected outputs of each parallel process
-	    my %temp_remove_commands;	    
 
-	    for my $output_key (@output_key_list) {
-		if ($output_key !~ /_perm_/) { 
-		    $c_file="${cfix}${output_key}${cfix2}";
-		    $c_file_short="${cfix_S}${output_key}${cfix2}";
-		    $r_file = "${rfix}${output_key}${cfix2}";
-		    $r_file_short = "${rfix_S}${output_key}${cfix2}";
-		    if ( ($output_key =~ /^_$/) || ($output_key =~ /^_cluster/) || ($output_key =~ /^_tfce_$/) || ($output_key =~ /^_glm/)) {
+
+    for ($seed = 1; $remaining_permutations > 0 ;$seed++) {
+        # ($seed,$num_of_perms,$output_path,$prefix,$contrast_number)
+        my $c_permutations = $default_nonparametric_job_size;
+        $c_permutations =  min($c_permutations,$remaining_permutations);
+        $remaining_permutations = $remaining_permutations - $c_permutations;
+
+        for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
+            my $expected_perms = $c_permutations;
+            if ($seed > 1) {$expected_perms++;}
+            my $rfix = $local_results_path.$prefix;
+            my $rfix_S = '${rd}'.$prefix;
+            my $cfix = "${local_work_dir}/${prefix}_SEED${seed}x${expected_perms}";
+            my $cfix_S = '${wd}'."${prefix}_SEED${seed}x${expected_perms}";
+            my $cfix2 = "tstat${test_contrast}.nii.gz";
+            my $c_file; #current [full] file
+            my $r_file; #results [full] file
+            my $c_file_short; #current file string with directory variable
+            my $r_file_short; #result file string with directory variable
+            my @expected_p_outputs=(); # The expected outputs of each parallel process
+            my %temp_remove_commands;
+
+            for my $output_key (@output_key_list) {
+                if ($output_key !~ /_perm_/) {
+                    $c_file="${cfix}${output_key}${cfix2}";
+                    $c_file_short="${cfix_S}${output_key}${cfix2}";
+                    $r_file = "${rfix}${output_key}${cfix2}";
+                    $r_file_short = "${rfix_S}${output_key}${cfix2}";
+                    if ( ($output_key =~ /^_$/) || ($output_key =~ /^_cluster/) || ($output_key =~ /^_tfce_$/) || ($output_key =~ /^_glm/)) {
                 if ($seed == 1) {
                     $cleanup_string{$output_key}{$test_contrast} = "cp ${c_file_short} ${r_file_short};\n";
                     push(@expected_p_outputs,$c_file);
@@ -470,89 +470,89 @@ sub fsl_nonparametric_analysis_vbm {
                     #$cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} rm ${c_file};\n";
                     $temp_remove_commands{$output_key} = " rm ${c_file_short};\n";
                     }
-            	}
-		    } else {
+                }
+                    } else {
                 push(@expected_p_outputs,$c_file);
                 if ($seed == 1) {
                     $cleanup_string{$output_key}{$test_contrast}  = "fslmaths ${c_file_short} ";
                     push(@expected_outputs,$r_file);
                 } else {
                     $cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} -add ${c_file_short} ";
-                }		    
-		    }
+                }
+                    }
 
-		} else {
-		    my $cfix3 = "tstat${test_contrast}.txt";
-		    $c_file="${cfix}${output_key}${cfix3}";
-		    $c_file_short="${cfix_S}${output_key}${cfix3}";
-		    $r_file = "${rfix}${output_key}${cfix3}";
-		    $r_file_short = "${rfix_S}${output_key}${cfix3}";
-		    if ($seed == 1) {
-			$cleanup_string{$output_key}{$test_contrast}  = "cat ${c_file_short} > ${r_file_short};\n ";
-			push(@expected_outputs,$r_file);
-		    } else {
-			$cleanup_string{$output_key}{$test_contrast}  = $cleanup_string{$output_key}{$test_contrast}."tail -n +2 ${c_file_short} >> ${r_file_short};\n ";
-		    }
-		    push(@expected_p_outputs,$c_file);
-		}
-	    }
-	    if (data_double_check(@expected_outputs)) {
-		if (data_double_check(@expected_p_outputs)) { # If any one of the expected outputs is missing, the work will be performed.
-		    for my $output_key (@output_key_list) {
-			if ($temp_remove_commands{$output_key}) {
-			    $cleanup_string{$output_key}{$test_contrast} = $cleanup_string{$output_key}{$test_contrast}.$temp_remove_commands{$output_key};
-			}
-		    }
-		    
-		    ($job) = parallelized_randomise($seed,$c_permutations,$local_work_dir,$prefix,$contrast,$master_job_name,$test_contrast,$prep_jid);
-		    my @j_array = split(',',$job);
-		    if ($j_array[0] > 1) {
-			push(@jobs,$job);
-		    }
-		}
-	    }	    
-	}
+                } else {
+                    my $cfix3 = "tstat${test_contrast}.txt";
+                    $c_file="${cfix}${output_key}${cfix3}";
+                    $c_file_short="${cfix_S}${output_key}${cfix3}";
+                    $r_file = "${rfix}${output_key}${cfix3}";
+                    $r_file_short = "${rfix_S}${output_key}${cfix3}";
+                    if ($seed == 1) {
+                        $cleanup_string{$output_key}{$test_contrast}  = "cat ${c_file_short} > ${r_file_short};\n ";
+                        push(@expected_outputs,$r_file);
+                    } else {
+                        $cleanup_string{$output_key}{$test_contrast}  = $cleanup_string{$output_key}{$test_contrast}."tail -n +2 ${c_file_short} >> ${r_file_short};\n ";
+                    }
+                    push(@expected_p_outputs,$c_file);
+                }
+            }
+            if (data_double_check(@expected_outputs)) {
+                if (data_double_check(@expected_p_outputs)) { # If any one of the expected outputs is missing, the work will be performed.
+                    for my $output_key (@output_key_list) {
+                        if ($temp_remove_commands{$output_key}) {
+                            $cleanup_string{$output_key}{$test_contrast} = $cleanup_string{$output_key}{$test_contrast}.$temp_remove_commands{$output_key};
+                        }
+                    }
+
+                    ($job) = parallelized_randomise($seed,$c_permutations,$local_work_dir,$prefix,$contrast,$master_job_name,$test_contrast,$prep_jid);
+                    my @j_array = split(',',$job);
+                    if ($j_array[0] > 1) {
+                        push(@jobs,$job);
+                    }
+                }
+            }
+        }
     }
-    
+
   # Schedule defragmentation...
 
     my $scale =  $default_nonparametric_job_size/$nonparametric_permutations;
     for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
-	for my $output_key (@output_key_list) {
-	    if (! (($output_key =~ /^_$/) || ($output_key =~ /^_cluster/)|| ($output_key =~ /^_perm/) || ($output_key =~ /^_glm/)) ) {
-		#my $rfix = "${local_results_path}/${prefix}";
-		my $rfix = '${rd}'."${prefix}";
-		my $cfix2 = "tstat${test_contrast}.nii.gz";
-		my $r_file = "${rfix}${output_key}${cfix2}";
-		$cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} -mul ${scale} ${r_file};\n";
-	    }
-	}
+        for my $output_key (@output_key_list) {
+            if (! (($output_key =~ /^_$/) || ($output_key =~ /^_cluster/)|| ($output_key =~ /^_perm/) || ($output_key =~ /^_glm/)) ) {
+                #my $rfix = "${local_results_path}/${prefix}";
+                my $rfix = '${rd}'."${prefix}";
+                my $cfix2 = "tstat${test_contrast}.nii.gz";
+                my $r_file = "${rfix}${output_key}${cfix2}";
+                $cleanup_string{$output_key}{$test_contrast}  = "$cleanup_string{$output_key}{$test_contrast} -mul ${scale} ${r_file};\n";
+            }
+        }
     }
 
 
-    
+
     my $number_of_jobs = scalar(@jobs);
     if ($number_of_jobs) {
-	print " Number of jobs = ${number_of_jobs}\n";
+        print " Number of jobs = ${number_of_jobs}\n";
     }
     my $jobs=join(',',@jobs);
-    
+
     my $defrag_cmd='';
     for my $key1 (@output_key_list) {
-	for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
+        for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
 
-	    my $cfix2;
-	    if ($key1 !~ /_perm_/ ) {
-		$cfix2 = "tstat${test_contrast}.nii.gz";
-	    } else{ 
-		$cfix2 = "tstat${test_contrast}.txt";
-	    }
-	    my $result_file = "${local_results_path}/${prefix}${key1}${cfix2}";
-	    #  my $new_string =  join(' -add ',split(' ',$cleanup_string{$key1}{$test_contrast}));
-	    if (! -e $result_file) {
-		$defrag_cmd= $defrag_cmd.$cleanup_string{$key1}{$test_contrast};
-	    }
-	}
+            my $cfix2;
+            if ($key1 !~ /_perm_/ ) {
+                $cfix2 = "tstat${test_contrast}.nii.gz";
+            } else{
+                $cfix2 = "tstat${test_contrast}.txt";
+            }
+            my $result_file = "${local_results_path}/${prefix}${key1}${cfix2}";
+            #  my $new_string =  join(' -add ',split(' ',$cleanup_string{$key1}{$test_contrast}));
+            if (! -e $result_file) {
+                $defrag_cmd= $defrag_cmd.$cleanup_string{$key1}{$test_contrast};
+            }
+        }
     }
 
     my @default_alphas = (0.01,0.02,0.05);
@@ -561,117 +561,117 @@ sub fsl_nonparametric_analysis_vbm {
     my %combined_masks;
     unshift(@mask_names,'brain');
     for my $mask_name (@mask_names) {
-	my $c_mask;
-	for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
-	    if ($mask_name eq 'brain') {
-		$c_mask = $average_mask;
-	    } else {
-		$c_mask = "${mask_folder}/${mask_name}_mask.nii.gz";
-	    }
-	    my $input_image_prefix = "${local_results_path}/${prefix}_vox_p_tstat${test_contrast}";
-	    #my $masked_image ="${input_image}_masked_with_${mask_name}";
-	    my $fdr_image = "${local_results_path}/${prefix}_vox_q_tstat${test_contrast}_${mask_name}.nii.gz";
-	    my $input_image = $input_image_prefix.'.nii.gz';
-	    #$fdr_image = $fdr_image.'.nii.gz';
-	    if (data_double_check($fdr_image)) {
-		my $fdr_cmd = "fdr -i ${input_image} --oneminusp -m ${c_mask} -a ${fdr_image}";
-		$defrag_cmd= $defrag_cmd.$fdr_cmd.";\n";
-	    }	    
+        my $c_mask;
+        for (my $test_contrast = 1; $test_contrast <= $number_of_test_contrasts; $test_contrast++) {
+            if ($mask_name eq 'brain') {
+                $c_mask = $average_mask;
+            } else {
+                $c_mask = "${mask_folder}/${mask_name}_mask.nii.gz";
+            }
+            my $input_image_prefix = "${local_results_path}/${prefix}_vox_p_tstat${test_contrast}";
+            #my $masked_image ="${input_image}_masked_with_${mask_name}";
+            my $fdr_image = "${local_results_path}/${prefix}_vox_q_tstat${test_contrast}_${mask_name}.nii.gz";
+            my $input_image = $input_image_prefix.'.nii.gz';
+            #$fdr_image = $fdr_image.'.nii.gz';
+            if (data_double_check($fdr_image)) {
+                my $fdr_cmd = "fdr -i ${input_image} --oneminusp -m ${c_mask} -a ${fdr_image}";
+                $defrag_cmd= $defrag_cmd.$fdr_cmd.";\n";
+            }
 
-	    for my $alpha (@default_alphas) {
-		my $thresh = 1-$alpha;
-		my $alpha_string = $alpha;
-		if ($alpha_string =~ s/[\.]/p/) {}
-		my $threshmask = "${input_image_prefix}_${mask_name}_${alpha_string}_threshmask.nii.gz";
-		my $combined_threshmask = $threshmask;
-		if ($combined_threshmask =~ s/(_tstat${test_contrast})/_tstat/){}
-		$combined_masks{$alpha} = $combined_threshmask;
-		my $thresh_cmd = "fslmaths  ${input_image} -mas ${c_mask} -thr ${thresh} -bin ${threshmask}";		
-		if (data_double_check($threshmask)) {
-		    $defrag_cmd= $defrag_cmd.$thresh_cmd.";\n";
-		}
-		if ($test_contrast == 1) {
-		    $masks_to_combine{$alpha}="fslmaths ${threshmask} ";
-		} else {
-		    $masks_to_combine{$alpha}=$masks_to_combine{$alpha}." -add ${threshmask} ";
-		}
+            for my $alpha (@default_alphas) {
+                my $thresh = 1-$alpha;
+                my $alpha_string = $alpha;
+                if ($alpha_string =~ s/[\.]/p/) {}
+                my $threshmask = "${input_image_prefix}_${mask_name}_${alpha_string}_threshmask.nii.gz";
+                my $combined_threshmask = $threshmask;
+                if ($combined_threshmask =~ s/(_tstat${test_contrast})/_tstat/){}
+                $combined_masks{$alpha} = $combined_threshmask;
+                my $thresh_cmd = "fslmaths  ${input_image} -mas ${c_mask} -thr ${thresh} -bin ${threshmask}";
+                if (data_double_check($threshmask)) {
+                    $defrag_cmd= $defrag_cmd.$thresh_cmd.";\n";
+                }
+                if ($test_contrast == 1) {
+                    $masks_to_combine{$alpha}="fslmaths ${threshmask} ";
+                } else {
+                    $masks_to_combine{$alpha}=$masks_to_combine{$alpha}." -add ${threshmask} ";
+                }
 
-		if ($test_contrast == $number_of_test_contrasts) {
-		    $masks_to_combine{$alpha}=$masks_to_combine{$alpha}." ${combined_threshmask} ";
-		}
-	    }
-	}
-	
-	for my $alpha (@default_alphas) {
-	    if (data_double_check($combined_masks{$alpha})) {
-		$defrag_cmd= $defrag_cmd.$masks_to_combine{$alpha}.";\n";
-	    }
-	    my $alpha_string = $alpha;
-	    if ($alpha_string =~ s/[\.]/p/) {}
-	    my $masked_tstat_image =  "${local_results_path}/${prefix}_vox_p_tstat_${alpha_string}.nii.gz";
-	    my $input =  "${local_results_path}/${prefix}_tstat1.nii.gz";
-	    if (data_double_check($masked_tstat_image))  {
-		my $apply_mask_cmd  ="fslmaths ${input} -mas ${combined_masks{$alpha}} ${masked_tstat_image} ";
-		$defrag_cmd= $defrag_cmd.$apply_mask_cmd.";\n";
-	    }
-	}
+                if ($test_contrast == $number_of_test_contrasts) {
+                    $masks_to_combine{$alpha}=$masks_to_combine{$alpha}." ${combined_threshmask} ";
+                }
+            }
+        }
+
+        for my $alpha (@default_alphas) {
+            if (data_double_check($combined_masks{$alpha})) {
+                $defrag_cmd= $defrag_cmd.$masks_to_combine{$alpha}.";\n";
+            }
+            my $alpha_string = $alpha;
+            if ($alpha_string =~ s/[\.]/p/) {}
+            my $masked_tstat_image =  "${local_results_path}/${prefix}_vox_p_tstat_${alpha_string}.nii.gz";
+            my $input =  "${local_results_path}/${prefix}_tstat1.nii.gz";
+            if (data_double_check($masked_tstat_image))  {
+                my $apply_mask_cmd  ="fslmaths ${input} -mas ${combined_masks{$alpha}} ${masked_tstat_image} ";
+                $defrag_cmd= $defrag_cmd.$apply_mask_cmd.";\n";
+            }
+        }
     }
 
     # Schedule defragmentation ans other post processing jobs...
     my $cleanup_jid = 0;
     if ($defrag_cmd ne '') {
 
-	# Shorten file names for human readibility.
-	if ($local_work_dir =~ s/([\/]+)/\//) {}
-	if ($local_results_path =~ s/([\/]+)/\//) {}
-	if ($mask_folder =~ s/([\/]+)/\//) {}
-	if ($defrag_cmd =~ s/([\/]+)/\//) {}
-	if ($defrag_cmd =~ s/${local_work_dir}/\$\{wd\}/) {}
-	if ($defrag_cmd =~ s/${local_results_path}/\$\{rd\}/) {}
-	if ($defrag_cmd =~ s/${mask_folder}/\$\{md\}/) {}
+        # Shorten file names for human readibility.
+        if ($local_work_dir =~ s/([\/]+)/\//) {}
+        if ($local_results_path =~ s/([\/]+)/\//) {}
+        if ($mask_folder =~ s/([\/]+)/\//) {}
+        if ($defrag_cmd =~ s/([\/]+)/\//) {}
+        if ($defrag_cmd =~ s/${local_work_dir}/\$\{wd\}/) {}
+        if ($defrag_cmd =~ s/${local_results_path}/\$\{rd\}/) {}
+        if ($defrag_cmd =~ s/${mask_folder}/\$\{md\}/) {}
 
-	$defrag_cmd = 'wd='.$local_work_dir.";\n".'rd='.$local_results_path.";\n".'md='.$mask_folder.";\n".$defrag_cmd;
+        $defrag_cmd = 'wd='.$local_work_dir.";\n".'rd='.$local_results_path.";\n".'md='.$mask_folder.";\n".$defrag_cmd;
 
-	my @test=(0,0,'singleton');
-	if (defined $reservation) {
-	    @test =(0,$reservation,'singleton');
-	}
-	
-	my $go_message = "$PM: Cleaning up fsl nonparametric testing for contrast: ${contrast}\n" ;
-	my $stop_message = "$PM: Failed to properly clean up data for fsl nonparametric testing in folder: ${local_work_dir}  \n" ;
-	
-	
-	my $mem_request = '17600';
-	
-	if (cluster_check) {
-	    my $go =1;	    
-	    my $home_path = $local_results_path;  # Changed from local_work_dir to local_results_path to keep bookkeeping closer to final data.
-	    my $Id= $master_job_name;
-	    my $verbose =0; # These commands can be quite spammy, so will suppress. They can be found in the sbatch folder.
-	    $cleanup_jid = cluster_exec($go,$go_message , $defrag_cmd,$home_path,$Id,$verbose,$mem_request,@test);     
-	} else {
-	    `${defrag_cmd}`;
-	}
-	
-	#if ($jobs) {
-	#    print STDOUT "SLURM: Waiting for jobs $jobs to complete via singleton job dependency of ${cleanup_jid}.\n";
-	#} else {
-	#    print STDOUT "SLURM: Waiting for jobs ${cleanup_jid} to complete.\n";
-	#}
+        my @test=(0,0,'singleton');
+        if (defined $reservation) {
+            @test =(0,$reservation,'singleton');
+        }
 
-	#if (cluster_check() && ($cleanup_jid)) {
-	#    my $interval = 2;
-	#    my $verbose = 1;
-	#    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($cleanup_jid));
-	#    
-	#    if ($done_waiting) {
-	#	print STDOUT  " Clean up is complete for fsl nonparametric testing of ${contrast} for ${local_sub_name}; moving on to next step.\n";
-	#    }
-	#}
+        my $go_message = "$PM: Cleaning up fsl nonparametric testing for contrast: ${contrast}\n" ;
+        my $stop_message = "$PM: Failed to properly clean up data for fsl nonparametric testing in folder: ${local_work_dir}  \n" ;
+
+
+        my $mem_request = '17600';
+
+        if (cluster_check) {
+            my $go =1;
+            my $home_path = $local_results_path;  # Changed from local_work_dir to local_results_path to keep bookkeeping closer to final data.
+            my $Id= $master_job_name;
+            my $verbose =0; # These commands can be quite spammy, so will suppress. They can be found in the sbatch folder.
+            $cleanup_jid = cluster_exec($go,$go_message , $defrag_cmd,$home_path,$Id,$verbose,$mem_request,@test);
+        } else {
+            `${defrag_cmd}`;
+        }
+
+        #if ($jobs) {
+        #    print STDOUT "SLURM: Waiting for jobs $jobs to complete via singleton job dependency of ${cleanup_jid}.\n";
+        #} else {
+        #    print STDOUT "SLURM: Waiting for jobs ${cleanup_jid} to complete.\n";
+        #}
+
+        #if (cluster_check() && ($cleanup_jid)) {
+        #    my $interval = 2;
+        #    my $verbose = 1;
+        #    my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($cleanup_jid));
+        #
+        #    if ($done_waiting) {
+        #       print STDOUT  " Clean up is complete for fsl nonparametric testing of ${contrast} for ${local_sub_name}; moving on to next step.\n";
+        #    }
+        #}
 
     }
     if ($cleanup_jid) {
-	push(@jobs,$cleanup_jid);
+        push(@jobs,$cleanup_jid);
     }
     return(@jobs);
 }
@@ -680,17 +680,17 @@ sub fsl_nonparametric_analysis_vbm {
 sub fsl_nonparametric_analysis_prep {
 # ------------------
     my ($contrast,$input_path,$c_make_masks_jid) = @_;
-    
-    if (defined $Hf) { 
-	$use_Hf = 1;
+
+    if (defined $Hf) {
+        $use_Hf = 1;
     } elsif (! defined $Hf) {
-	$use_Hf = 0;
+        $use_Hf = 0;
     } else {
-	print "\$Hf is confusing.  This shouldn't be happening.\n";
+        print "\$Hf is confusing.  This shouldn't be happening.\n";
     }
     if ($use_Hf) {
-	$nonparametric_permutations = $Hf->get_value('nonparametric_permutations');
-	$number_of_nonparametric_seeds = $Hf->get_value('number_of_nonparametric_seeds');
+        $nonparametric_permutations = $Hf->get_value('nonparametric_permutations');
+        $number_of_nonparametric_seeds = $Hf->get_value('number_of_nonparametric_seeds');
     }
 
     ## Begin randomise command options.
@@ -702,19 +702,19 @@ sub fsl_nonparametric_analysis_prep {
 
     my $custom_tfce_extent=$Hf->get_value('tfce_extent');
     if ($custom_tfce_extent ne 'NO_KEY') {
-	$tfce_extent=$custom_tfce_extent;
+        $tfce_extent=$custom_tfce_extent;
     }
 
     my $custom_tfce_height=$Hf->get_value('tfce_height');
     if ($custom_tfce_height ne 'NO_KEY') {
-	$tfce_height=$custom_tfce_height;
+        $tfce_height=$custom_tfce_height;
     }
 
 
     my $tfce_options='';
 
     if ($tfce_analysis) {
-	$tfce_options = " -T --tfce_E=${tfce_extent} --tfce_H=${tfce_height} ";
+        $tfce_options = " -T --tfce_E=${tfce_extent} --tfce_H=${tfce_height} ";
     }
 
     # Cluster-mass-based thresholding business...
@@ -728,7 +728,7 @@ sub fsl_nonparametric_analysis_prep {
     my $v_smoothing_options='';
 
     if ($variance_smoothing) {
-	$v_smoothing_options  = " -v ${variance_smoothing_kernal_in_mm} ";
+        $v_smoothing_options  = " -v ${variance_smoothing_kernal_in_mm} ";
     }
 
     my $output_options = " -x -P -R "; # Originally  --glm_output and -R was here, but it is only needed for the first (or any) seed, as it is derived from the unpermuted case.
@@ -738,19 +738,19 @@ sub fsl_nonparametric_analysis_prep {
 
 
     my @d_array= split('/',$input_path);
-    pop(@d_array); 
+    pop(@d_array);
     push(@d_array,'fsl');
     my $fsl_local_work_directory = join('/',@d_array);
-   
+
     if (! -e $fsl_local_work_directory ) {
-	mkdir ($fsl_local_work_directory,$permissions);
+        mkdir ($fsl_local_work_directory,$permissions);
     }
     my $n1 = $#group_1_runnos + 1;
     my $n2 = $#group_2_runnos + 1;
     $local_sub_name = "groups_of_${n1}_and_${n2}";
     $local_work_dir = "${fsl_local_work_directory}/${local_sub_name}/";
     if (! -e $local_work_dir ) {
-	mkdir ($local_work_dir,$permissions);
+        mkdir ($local_work_dir,$permissions);
     }
 
     my $setup_cmds='';
@@ -760,67 +760,67 @@ sub fsl_nonparametric_analysis_prep {
     $mat_file = "${local_prefix}.mat";
     my $m_flag=''; # else $m_flag = ' -m ';
     if (data_double_check($con_file,$mat_file)) {
-	my $con_mat_cmd = "design_ttest2 ${local_prefix} ${n1} ${n2} ${m_flag}";
-	$setup_cmds=$setup_cmds.$con_mat_cmd.";\n";
+        my $con_mat_cmd = "design_ttest2 ${local_prefix} ${n1} ${n2} ${m_flag}";
+        $setup_cmds=$setup_cmds.$con_mat_cmd.";\n";
     }
 
     $nii4D = "${local_work_dir}${local_sub_name}_nii4D_${contrast}.nii.gz";
     if (data_double_check($nii4D)) {
-	my $dim_plus = $dims + 1;
-	my $make_nii4D_cmd = "ImageMath ${dim_plus} ${nii4D} TimeSeriesAssemble 1 0";
-	for my $current_name_ext (split(',',$group_1_files)) {
-	    my $current_file = "${input_path}/${current_name_ext}";
-	    $make_nii4D_cmd = "${make_nii4D_cmd} ${current_file}";
-	}
-	
-	for my $current_name_ext (split(',',$group_2_files)) {
-	    my $current_file = "${input_path}/${current_name_ext}";
-	    $make_nii4D_cmd = "${make_nii4D_cmd} ${current_file}";
-	}
-	$setup_cmds=$setup_cmds.$make_nii4D_cmd.";\n";
+        my $dim_plus = $dims + 1;
+        my $make_nii4D_cmd = "ImageMath ${dim_plus} ${nii4D} TimeSeriesAssemble 1 0";
+        for my $current_name_ext (split(',',$group_1_files)) {
+            my $current_file = "${input_path}/${current_name_ext}";
+            $make_nii4D_cmd = "${make_nii4D_cmd} ${current_file}";
+        }
+
+        for my $current_name_ext (split(',',$group_2_files)) {
+            my $current_file = "${input_path}/${current_name_ext}";
+            $make_nii4D_cmd = "${make_nii4D_cmd} ${current_file}";
+        }
+        $setup_cmds=$setup_cmds.$make_nii4D_cmd.";\n";
     }
 
     my $go_message = "$PM: Setting up fsl nonparametric testing for contrast: ${contrast}\n" ;
     my $stop_message = "$PM: Failed to properly set up data for fsl nonparametric testing in folder: ${local_work_dir}  \n" ;
 
-    
+
     my $jid = 0;
     if ($setup_cmds ne '') {
 
-	my @test=(0);
+        my @test=(0);
 
-	if (defined $reservation) {
-	    @test =(0,$reservation);
-	}
-	if ($c_make_masks_jid) {
-	    if ($c_make_masks_jid =~ s/,/:/) {}
-	    push(@test,"afterany:".$c_make_masks_jid)
-	}
+        if (defined $reservation) {
+            @test =(0,$reservation);
+        }
+        if ($c_make_masks_jid) {
+            if ($c_make_masks_jid =~ s/,/:/) {}
+            push(@test,"afterany:".$c_make_masks_jid)
+        }
 
-	my $mem_request = '17600'; #
-	#my $jid = 0;
-	if (cluster_check) {
-	    my $go =1;	    
-	    my $home_path = $local_work_dir;
-	    my $Id= "setup_for_fsl_nonparametric_testing_with_n${n1}_and_n${n2}";
-	    my $verbose = 1; 
-	    $jid = cluster_exec($go,$go_message , $setup_cmds,$home_path,$Id,$verbose,$mem_request,@test);     
+        my $mem_request = '17600'; #
+        #my $jid = 0;
+        if (cluster_check) {
+            my $go =1;
+            my $home_path = $local_work_dir;
+            my $Id= "setup_for_fsl_nonparametric_testing_with_n${n1}_and_n${n2}";
+            my $verbose = 1;
+            $jid = cluster_exec($go,$go_message , $setup_cmds,$home_path,$Id,$verbose,$mem_request,@test);
 
-	    return($jid);
-	} else {
-	    `${setup_cmds}`;
-	    return(0);
-	}
+            return($jid);
+        } else {
+            `${setup_cmds}`;
+            return(0);
+        }
     }
 
     # if (cluster_check() && ($jid)){
-    # 	my $interval = 2;
-    # 	my $verbose = 1;
-    # 	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($jid));
-	
-    # 	if ($done_waiting) {
-    # 	    print STDOUT  " Set up is complete for fsl nonparametric testing for ${local_sub_name} ; moving on to next step.\n";
-    # 	}
+    #   my $interval = 2;
+    #   my $verbose = 1;
+    #   my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($jid));
+
+    #   if ($done_waiting) {
+    #       print STDOUT  " Set up is complete for fsl nonparametric testing for ${local_sub_name} ; moving on to next step.\n";
+    #   }
     # }
 
     #fsl_nonparametric_analysis_Output_check();
@@ -845,7 +845,7 @@ sub parallelized_randomise {
             $cmbt_options = " -C ${fsl_cluster_size} ";
         }
 
-    	$cbt_options='';
+        $cbt_options='';
         if ($cbt_analysis) {
             $cbt_options = " -c ${fsl_cluster_size} ";
         }
@@ -856,31 +856,31 @@ sub parallelized_randomise {
     # check for expected output first? -- should, but will have to add later, once I have a better idea of what that looks like...
     my $cmd = "randomise -i ${nii4D} -m ${average_mask} -d ${mat_file} -t ${con_file} ${randomise_options} ${glm_option} ${cmbt_options} ${cbt_options}  -n ${num_of_perms} -o ${output}_SEED${seed}x${num_of_perms} --seed=${seed} --skipTo=${contrast_number}";
     my $go_message ="$PM: Running fsl nonparametric testing for contrast: ${contrast}\n" ;
-   
+
     if ($optional_job_dependency) {
-	if ($optional_job_dependency !~ /^afterany:/) {
-	    $optional_job_dependency = "afterany:${optional_job_dependency}";
-	} 
+        if ($optional_job_dependency !~ /^afterany:/) {
+            $optional_job_dependency = "afterany:${optional_job_dependency}";
+        }
     }
-    
+
     my @test=(0,0,$optional_job_dependency);
     if (defined $reservation) {
-	@test =(0,$reservation,$optional_job_dependency);
+        @test =(0,$reservation,$optional_job_dependency);
     }
-    
+
     my $mem_request = '5900 -c 1 '; # Processes appear to be single-threaded...trying to stuff as many jobs onto a node as there are [virtual?] cores...
     my $jid = 0;
     if (cluster_check) {
-	my $go =1;	    
-	my $home_path = $local_work_dir;
-	my $Id= $job_name;
-	my $verbose = 1; # Will print log only for work done.
-	$jid = cluster_exec($go,$go_message , $cmd,$home_path,$Id,$verbose,$mem_request,@test);     
-	
-	return($jid);
+        my $go =1;
+        my $home_path = $local_work_dir;
+        my $Id= $job_name;
+        my $verbose = 1; # Will print log only for work done.
+        $jid = cluster_exec($go,$go_message , $cmd,$home_path,$Id,$verbose,$mem_request,@test);
+
+        return($jid);
     } else {
-	`${cmd}`;
-	return(0);
+        `${cmd}`;
+        return(0);
     }
 }
 
@@ -901,144 +901,144 @@ sub make_custom_masks {
 
     # # Sort out the requested types of masks...
     # for my $mask_string (@fdr_mask_array) {
-    # 	my @mask_parameters = split(':',$mask_string);
-    # 	my $mask_type = shift(@mask_parameters);
-    # 	if ((looks_like_number($mask_type)) || ($ROI_options =~ /${mask_type}/i)) {
-    # 	    if (looks_like_number($mask_type)) {
-    # 		unshift(@mask_parameters,$mask_type);
-    # 	    }
-    # 	    push(@ROI_masks,join(':',@mask_parameters));
-    # 	    push(@ROIs_needed,@mask_parameters);
-    # 	} elsif ($available_contrasts =~ /${mask_type}/i){
-    # 	    if ($#mask_parameters > 1) { # i.e. are more than a min and possibly max values remaining in array?
-    # 		push(@erroneous_masks,$mask_string);
-    # 	    } else {
-    # 		push(@thresh_masks,$mask_string);
-    # 	    }
-    # 	} else {
-    # 	    push(@erroneous_masks,$mask_string);
-    # 	}
+    #   my @mask_parameters = split(':',$mask_string);
+    #   my $mask_type = shift(@mask_parameters);
+    #   if ((looks_like_number($mask_type)) || ($ROI_options =~ /${mask_type}/i)) {
+    #       if (looks_like_number($mask_type)) {
+    #           unshift(@mask_parameters,$mask_type);
+    #       }
+    #       push(@ROI_masks,join(':',@mask_parameters));
+    #       push(@ROIs_needed,@mask_parameters);
+    #   } elsif ($available_contrasts =~ /${mask_type}/i){
+    #       if ($#mask_parameters > 1) { # i.e. are more than a min and possibly max values remaining in array?
+    #           push(@erroneous_masks,$mask_string);
+    #       } else {
+    #           push(@thresh_masks,$mask_string);
+    #       }
+    #   } else {
+    #       push(@erroneous_masks,$mask_string);
+    #   }
     # }
-    
+
 
     my @unique_ROIs = uniq(split(':',join(':',@ROIs_needed)));
-    
+
     for my $u_ROI (@unique_ROIs) {
-	my $mask_path = "${mask_dir}/${label_atlas_name}_ROI${u_ROI}.nii.gz";
-	if (data_double_check($mask_path)) {
-	    my $u_mask_cmd = "fslmaths ${mdt_labels} -thr ${u_ROI} -uthr ${u_ROI} ${mask_path}";
-	    $make_mask_cmds=$make_mask_cmds.$u_mask_cmd.";\n";
-	}   	
+        my $mask_path = "${mask_dir}/${label_atlas_name}_ROI${u_ROI}.nii.gz";
+        if (data_double_check($mask_path)) {
+            my $u_mask_cmd = "fslmaths ${mdt_labels} -thr ${u_ROI} -uthr ${u_ROI} ${mask_path}";
+            $make_mask_cmds=$make_mask_cmds.$u_mask_cmd.";\n";
+        }
     }
-    
+
     for my $ROI_mask (@ROI_masks) {
-	my @ROIs = split(':',$ROI_mask);
-	my $name_string = $label_atlas_name."_ROI".join('_',@ROIs);
-	push(@mask_names,$name_string);
-	if ($#ROIs) {
-	    my $mask_path = "${mask_dir}/${name_string}_mask.nii.gz";
-	    if (data_double_check($mask_path)) {
-		my $add_mask_cmd;
-		my $roi_counter = 1;
-		for my $ROI (@ROIs) {
-		    my $c_mask_path = "${mask_dir}/${label_atlas_name}_ROI${ROI}.nii.gz";
-		    if ($roi_counter == 1) {
-			$add_mask_cmd = $add_mask_cmd."fslmaths ${c_mask_path} ";
-		    } else {
-			$add_mask_cmd = $add_mask_cmd."-add ${c_mask_path} ";
-		    }
-		    $roi_counter=$roi_counter+1;
-		}
-		$add_mask_cmd = $add_mask_cmd."${mask_path};\nfslmaths ${mask_path} -bin ${mask_path}";
-		$make_mask_cmds=$make_mask_cmds.$add_mask_cmd.";\n";
-	    }
-	}
+        my @ROIs = split(':',$ROI_mask);
+        my $name_string = $label_atlas_name."_ROI".join('_',@ROIs);
+        push(@mask_names,$name_string);
+        if ($#ROIs) {
+            my $mask_path = "${mask_dir}/${name_string}_mask.nii.gz";
+            if (data_double_check($mask_path)) {
+                my $add_mask_cmd;
+                my $roi_counter = 1;
+                for my $ROI (@ROIs) {
+                    my $c_mask_path = "${mask_dir}/${label_atlas_name}_ROI${ROI}.nii.gz";
+                    if ($roi_counter == 1) {
+                        $add_mask_cmd = $add_mask_cmd."fslmaths ${c_mask_path} ";
+                    } else {
+                        $add_mask_cmd = $add_mask_cmd."-add ${c_mask_path} ";
+                    }
+                    $roi_counter=$roi_counter+1;
+                }
+                $add_mask_cmd = $add_mask_cmd."${mask_path};\nfslmaths ${mask_path} -bin ${mask_path}";
+                $make_mask_cmds=$make_mask_cmds.$add_mask_cmd.";\n";
+            }
+        }
     }
 
 
     for my $thresh_mask (@thresh_masks) {
-	my @mask_parameters = split(':',$thresh_mask);
-	my $mask_contrast = shift(@mask_parameters);
-	my $min_threshold = shift(@mask_parameters);
-	my $max_threshold='';
-	if (@mask_parameters) {
-	    $max_threshold = shift(@mask_parameters);
-	    if ($min_threshold > $max_threshold) {
-		my $tmp = $min_threshold;
-		$min_threshold = $max_threshold;
-		$max_threshold = $tmp;
-	    }
-	}
+        my @mask_parameters = split(':',$thresh_mask);
+        my $mask_contrast = shift(@mask_parameters);
+        my $min_threshold = shift(@mask_parameters);
+        my $max_threshold='';
+        if (@mask_parameters) {
+            $max_threshold = shift(@mask_parameters);
+            if ($min_threshold > $max_threshold) {
+                my $tmp = $min_threshold;
+                $min_threshold = $max_threshold;
+                $max_threshold = $tmp;
+            }
+        }
 
-	my $max_string = '';
-	my $max_cmd='';
-	if ($max_threshold) {
-	    $max_string = "_max${max_threshold}";
-	    if ($max_string =~ s/^([-]+)/neg/) {}
-	    if ($max_string =~ s/[\.]+/p/) {}
-	    $max_cmd = " -uthr ${max_threshold} ";
-	}
+        my $max_string = '';
+        my $max_cmd='';
+        if ($max_threshold) {
+            $max_string = "_max${max_threshold}";
+            if ($max_string =~ s/^([-]+)/neg/) {}
+            if ($max_string =~ s/[\.]+/p/) {}
+            $max_cmd = " -uthr ${max_threshold} ";
+        }
 
-	my $min_string = "_min${min_threshold}";
-	if ($min_string =~ s/^([-]+)/neg/) {}
-	if ($min_string =~ s/[\.]+/p/) {}
-	
-	my $include_zero_string = '';
-	if (($min_threshold < 0) && ($max_threshold > 0)) {
-	    $include_zero_string = " -fillh "; # This allows us to handle contrasts where zero might be a valid value (CT for example), but also the masked region value.
-	}
-	
-	my $name_string = "${mask_contrast}${min_string}${max_string}";
-	push(@mask_names,$name_string);
-	# Let's assume that the MDT images are in the same directory as MDT labelset...
-	my ($mdt_dir,$dummy,$dummy2) = fileparts($mdt_labels,2);
-	my $contrast_image = get_nii_from_inputs($mdt_dir,'MDT',$mask_contrast);
-	my $mask_path = "${mask_dir}/${name_string}_mask.nii.gz";
-	if (data_double_check($mask_path)) {
-	    my $thresh_mask_cmd = "fslmaths ${contrast_image} -thr ${min_threshold} ${max_cmd} -abs -bin ${include_zero_string} ${mask_path};\nfslmath";
-	    $make_mask_cmds=$make_mask_cmds.$thresh_mask_cmd.";\n";
-	}
+        my $min_string = "_min${min_threshold}";
+        if ($min_string =~ s/^([-]+)/neg/) {}
+        if ($min_string =~ s/[\.]+/p/) {}
+
+        my $include_zero_string = '';
+        if (($min_threshold < 0) && ($max_threshold > 0)) {
+            $include_zero_string = " -fillh "; # This allows us to handle contrasts where zero might be a valid value (CT for example), but also the masked region value.
+        }
+
+        my $name_string = "${mask_contrast}${min_string}${max_string}";
+        push(@mask_names,$name_string);
+        # Let's assume that the MDT images are in the same directory as MDT labelset...
+        my ($mdt_dir,$dummy,$dummy2) = fileparts($mdt_labels,2);
+        my $contrast_image = get_nii_from_inputs($mdt_dir,'MDT',$mask_contrast);
+        my $mask_path = "${mask_dir}/${name_string}_mask.nii.gz";
+        if (data_double_check($mask_path)) {
+            my $thresh_mask_cmd = "fslmaths ${contrast_image} -thr ${min_threshold} ${max_cmd} -abs -bin ${include_zero_string} ${mask_path};\nfslmath";
+            $make_mask_cmds=$make_mask_cmds.$thresh_mask_cmd.";\n";
+        }
     }
 
     if ($optional_job_dependency) {
-	if ($optional_job_dependency !~ /^afterany:/) {
-	    $optional_job_dependency = "afterany:${optional_job_dependency}";
-	} 
+        if ($optional_job_dependency !~ /^afterany:/) {
+            $optional_job_dependency = "afterany:${optional_job_dependency}";
+        }
     }
 
     my $go_message = "$PM: Creating custom masks in ${mask_dir}.\n" ;
     my $stop_message = "$PM: Failed to properly create custom masks in: ${mask_dir}  \n" ;
-    
+
     my $jid = 0;
     if ($make_mask_cmds ne '') {
-	my @test=(0,0,0);
-	if (defined $reservation) {
-	    @test =(0,$reservation,$optional_job_dependency);
-	}
-	my $mem_request = '17600'; #
-	#my $jid = 0;
-	if (cluster_check) {
-	    my $go =1;	    
-	    my $home_path = $mask_dir;
-	    my $Id= "creating_custom_VBA_masks";
-	    my $verbose = 1; 
-	    $jid = cluster_exec($go,$go_message , $make_mask_cmds,$home_path,$Id,$verbose,$mem_request,@test);     
+        my @test=(0,0,0);
+        if (defined $reservation) {
+            @test =(0,$reservation,$optional_job_dependency);
+        }
+        my $mem_request = '17600'; #
+        #my $jid = 0;
+        if (cluster_check) {
+            my $go =1;
+            my $home_path = $mask_dir;
+            my $Id= "creating_custom_VBA_masks";
+            my $verbose = 1;
+            $jid = cluster_exec($go,$go_message , $make_mask_cmds,$home_path,$Id,$verbose,$mem_request,@test);
 
-	    #return($jid);
-	} else {
-	    `${make_mask_cmds}`;
-	   # return(1);
-	}
+            #return($jid);
+        } else {
+            `${make_mask_cmds}`;
+           # return(1);
+        }
     }
 
     if (cluster_check() && ($jid)){
-	my $interval = 2;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($jid));
-	
-	if ($done_waiting) {
-	    print STDOUT  " Completed custom mask creation for VBA ; moving on to next step.\n";
-	}
+        my $interval = 2;
+        my $verbose = 1;
+        my $done_waiting = cluster_wait_for_jobs($interval,$verbose,($jid));
+
+        if ($done_waiting) {
+            print STDOUT  " Completed custom mask creation for VBA ; moving on to next step.\n";
+        }
     }
 
     return($jid);
@@ -1057,43 +1057,43 @@ sub make_custom_masks {
 #     my $existing_files_message = '';
 #     my $missing_files_message = '';
 
-    
+
 #     if ($case == 1) {
-# 	$message_prefix = "  Prepared niftis have been found for the following runnos and will not be re-prepared:\n";
+#       $message_prefix = "  Prepared niftis have been found for the following runnos and will not be re-prepared:\n";
 #     } elsif ($case == 2) {
-# 	 $message_prefix = "  Unable to properly prepare niftis for the following runnos and channels:\n";
+#        $message_prefix = "  Unable to properly prepare niftis for the following runnos and channels:\n";
 #     }   # For Init_check, we could just add the appropriate cases.
-    
+
 #     foreach my $runno (@array_of_runnos) {
-# 	my $sub_existing_files_message='';
-# 	my $sub_missing_files_message='';
-	
-# 	foreach my $ch (@channel_array) {
-# 	    $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
-# 	    if ((data_double_check($file_1) ) || ((! $do_mask) &&  ($file_1 =~ /.*masked\.nii / ))) {
-# 		$go_hash{$runno}{$ch}=1;
-# 		push(@file_array,$file_1);
-# 		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
-# 	    } else {
-# 		$go_hash{$runno}{$ch}=0;
-# 		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
-# 	    }
-# 	}
-# 	if (($sub_existing_files_message ne '') && ($case == 1)) {
-# 	    $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
-# 	} elsif (($sub_missing_files_message ne '') && ($case == 2)) {
-# 	    $missing_files_message =$missing_files_message. $runno."\t".$sub_missing_files_message."\n";
-# 	}
+#       my $sub_existing_files_message='';
+#       my $sub_missing_files_message='';
+
+#       foreach my $ch (@channel_array) {
+#           $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
+#           if ((data_double_check($file_1) ) || ((! $do_mask) &&  ($file_1 =~ /.*masked\.nii / ))) {
+#               $go_hash{$runno}{$ch}=1;
+#               push(@file_array,$file_1);
+#               $sub_missing_files_message = $sub_missing_files_message."\t$ch";
+#           } else {
+#               $go_hash{$runno}{$ch}=0;
+#               $sub_existing_files_message = $sub_existing_files_message."\t$ch";
+#           }
+#       }
+#       if (($sub_existing_files_message ne '') && ($case == 1)) {
+#           $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
+#       } elsif (($sub_missing_files_message ne '') && ($case == 2)) {
+#           $missing_files_message =$missing_files_message. $runno."\t".$sub_missing_files_message."\n";
+#       }
 #     }
-     
+
 #     my $error_msg='';
-    
+
 #     if (($existing_files_message ne '') && ($case == 1)) {
-# 	$error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
+#       $error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
 #     } elsif (($missing_files_message ne '') && ($case == 2)) {
-# 	$error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
+#       $error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
 #     }
-     
+
 #     my $file_array_ref = \@file_array;
 #     return($file_array_ref,$error_msg);
 # }
@@ -1111,43 +1111,43 @@ sub vbm_analysis_vbm_Init_check {
 
 
     my $vba_contrast_comma_list = $Hf->get_value('vba_contrast_comma_list');
-    if ($vba_contrast_comma_list eq 'NO_KEY') { ## Should this go in init_check? # New feature to allow limited VBA/VBM analysis, 
-	# used for reproccessing corrected Jacobians (07 Dec 2015);
-	$vba_contrast_comma_list = $Hf->get_value('channel_comma_list');
+    if ($vba_contrast_comma_list eq 'NO_KEY') { ## Should this go in init_check? # New feature to allow limited VBA/VBM analysis,
+        # used for reproccessing corrected Jacobians (07 Dec 2015);
+        $vba_contrast_comma_list = $Hf->get_value('channel_comma_list');
     }
     @channel_array = split(',',$vba_contrast_comma_list);
 
     $software_list = $Hf->get_value('vba_analysis_software');
     if ($software_list eq 'NO_KEY') {
-	$software_list = "surfstat"; 
-	$Hf->set_value('vba_analysis_software',$software_list);
+        $software_list = "surfstat";
+        $Hf->set_value('vba_analysis_software',$software_list);
     }
     @software_array = split(',',$software_list);
-    
+
     $software_list = '';
     my @temp_software_array;
     my $cluster_stats=0;
-    
-    foreach my $software (@software_array) {
-	if ($software =~ /${supported_vbm_software}/i) {
-	    if ($software =~ /^surfstat$/i) {
-		$software = 'surfstat';
-	    } elsif ($software =~ /^spm$/i) {
-		$software = 'spm';
-	    } elsif ($software =~ /^antsr$/i) {
-		$software = 'antsr';
-		$cluster_stats = 1;
-	    } elsif ($software =~ /^fsl$/i) {
-		$software = 'fsl';
-		$log_msg = $log_msg."\tNon-parametric testing will be performed with: ${software}. \n";
-	    } elsif ($software =~ /^nonparametric$/i) {
-		$software = 'fsl';
-		$log_msg = $log_msg."\tNon-parametric testing will be performed with: ${software}. \n";
-	    }
-	    
-	    push(@temp_software_array,$software);
 
-	    if ($software eq 'fsl') {
+    foreach my $software (@software_array) {
+        if ($software =~ /${supported_vbm_software}/i) {
+            if ($software =~ /^surfstat$/i) {
+                $software = 'surfstat';
+            } elsif ($software =~ /^spm$/i) {
+                $software = 'spm';
+            } elsif ($software =~ /^antsr$/i) {
+                $software = 'antsr';
+                $cluster_stats = 1;
+            } elsif ($software =~ /^fsl$/i) {
+                $software = 'fsl';
+                $log_msg = $log_msg."\tNon-parametric testing will be performed with: ${software}. \n";
+            } elsif ($software =~ /^nonparametric$/i) {
+                $software = 'fsl';
+                $log_msg = $log_msg."\tNon-parametric testing will be performed with: ${software}. \n";
+            }
+
+            push(@temp_software_array,$software);
+
+            if ($software eq 'fsl') {
             $default_nonparametric_job_size = 100; #Using only 25 tends to choke SLURM...# We expect to keep this hardcoded...might we need to decrease this for large data sets?
             my $default_nonparametric_permutations = 5000;
             $default_nonparametric_permutations = $default_nonparametric_job_size*(ceil($default_nonparametric_permutations/$default_nonparametric_job_size));
@@ -1182,11 +1182,11 @@ sub vbm_analysis_vbm_Init_check {
             $cbt_analysis=0;
             $fsl_cluster_size = $Hf->get_value('fsl_cluster_size');
             if ($fsl_cluster_size ne 'NO_KEY') {
-                my $cluster_test = $fsl_cluster_size*100000 % 100000;  
+                my $cluster_test = $fsl_cluster_size*100000 % 100000;
                 if ($cluster_test) {
                     $cmbt_analysis=1;
                     $cbt_analysis=1;
-                    $log_msg = $log_msg."\t\$fsl_cluster_size appears to be legit (${fsl_cluster_size}); cluster-based/cluster-mass-based thresholding will be performed . \n"; 
+                    $log_msg = $log_msg."\t\$fsl_cluster_size appears to be legit (${fsl_cluster_size}); cluster-based/cluster-mass-based thresholding will be performed . \n";
                 } else {
                     $init_error_msg=$init_error_msg."An integer value for \$fsl_cluster_size was requested; I don't think that means what you think that means.\n";
 
@@ -1194,98 +1194,98 @@ sub vbm_analysis_vbm_Init_check {
             } else {
                 $log_msg = $log_msg."\t\$fsl_cluster_size has not been specified; NO cluster-based/cluster-mass-based thresholding will be performed . \n";
             }
-        }    
-	    $log_msg = $log_msg."\n\tVBA will be performed with software: ${software} \n";   
-	} else {
-	    $init_error_msg=$init_error_msg."I'm sorry, but VBM software \"${software}\" is currently not supported :( \n";
-	}
+        }
+            $log_msg = $log_msg."\n\tVBA will be performed with software: ${software} \n";
+        } else {
+            $init_error_msg=$init_error_msg."I'm sorry, but VBM software \"${software}\" is currently not supported :( \n";
+        }
     }
 
     $software_list = join(',',@temp_software_array);
     $Hf->set_value('vba_analysis_software',$software_list);
     $min_cluster_size = $Hf->get_value('minimum_vba_cluster_size');
     if (($min_cluster_size eq 'NO_KEY') && ($cluster_stats)) {
-	$min_cluster_size = 200; 
-	$Hf->set_value('minimum_vba_cluster_size',$min_cluster_size);
-	$log_msg = $log_msg."\tMinimum cluster size for ANTsR VBA cluster analysis not specified; using default of 200.\n";
-	print "min_cluster_size = ${min_cluster_size}\n";
+        $min_cluster_size = 200;
+        $Hf->set_value('minimum_vba_cluster_size',$min_cluster_size);
+        $log_msg = $log_msg."\tMinimum cluster size for ANTsR VBA cluster analysis not specified; using default of 200.\n";
+        print "min_cluster_size = ${min_cluster_size}\n";
     }
 
     $fdr_masks = $Hf->get_value('fdr_masks');
     if ($fdr_masks eq 'NO_KEY') {
-	@fdr_mask_array=();
+        @fdr_mask_array=();
     } else {
-	@fdr_mask_array = split(',',$fdr_masks);
+        @fdr_mask_array = split(',',$fdr_masks);
     }
-    
+
     # my @thresh_masks;
     # my @ROI_masks;
     my @erroneous_masks;
     # my @ROIs_needed;
     # my @mask_names;
-    
+
     my $available_contrasts = join(' ',(@channel_array,'rd','jac','ajax')); # Need to include potentially derived contrasts
     my $ROI_options = 'ROI label';
-    
+
     # Sort out the requested types of masks...
     for my $mask_string (@fdr_mask_array) {
-	my @mask_parameters = split(':',$mask_string);
-	my $mask_type = shift(@mask_parameters);
-	if ((looks_like_number($mask_type)) || ($ROI_options =~ /${mask_type}/i)) {
-	    if (looks_like_number($mask_type)) {
-		unshift(@mask_parameters,$mask_type);
-	    }
-	    push(@ROI_masks,join(':',@mask_parameters));
-	    push(@ROIs_needed,@mask_parameters);
-	} elsif ($available_contrasts =~ /${mask_type}/i){
-	    if ($#mask_parameters > 1) { # i.e. are more than a min and possibly max values remaining in array?
-		push(@erroneous_masks,$mask_string);
-	    } else {
-		push(@thresh_masks,$mask_string);
-	    }
-	} else {
-	    push(@erroneous_masks,$mask_string);
-	}
+        my @mask_parameters = split(':',$mask_string);
+        my $mask_type = shift(@mask_parameters);
+        if ((looks_like_number($mask_type)) || ($ROI_options =~ /${mask_type}/i)) {
+            if (looks_like_number($mask_type)) {
+                unshift(@mask_parameters,$mask_type);
+            }
+            push(@ROI_masks,join(':',@mask_parameters));
+            push(@ROIs_needed,@mask_parameters);
+        } elsif ($available_contrasts =~ /${mask_type}/i){
+            if ($#mask_parameters > 1) { # i.e. are more than a min and possibly max values remaining in array?
+                push(@erroneous_masks,$mask_string);
+            } else {
+                push(@thresh_masks,$mask_string);
+            }
+        } else {
+            push(@erroneous_masks,$mask_string);
+        }
     }
-    
+
     if (@thresh_masks){
-	$thresh_masks =  join(',',@thresh_masks);
-	$Hf->set_value('thresh_masks',$thresh_masks);
+        $thresh_masks =  join(',',@thresh_masks);
+        $Hf->set_value('thresh_masks',$thresh_masks);
     }
-    
+
     if (@ROI_masks){
-	$ROI_masks =  join(',',@ROI_masks);
-	$Hf->set_value('ROI_masks',$ROI_masks);
+        $ROI_masks =  join(',',@ROI_masks);
+        $Hf->set_value('ROI_masks',$ROI_masks);
     }
-    
+
     if (@erroneous_masks){
-	for my $error_mask_string (@erroneous_masks) {
-	    $init_error_msg = $init_error_msg. "An invalid or imparsable request was made for a VBA fdr mask: \"${error_mask_string}\".\n";
-	}
+        for my $error_mask_string (@erroneous_masks) {
+            $init_error_msg = $init_error_msg. "An invalid or imparsable request was made for a VBA fdr mask: \"${error_mask_string}\".\n";
+        }
     }
 
 
 
     if ($log_msg ne '') {
-	log_info("${message_prefix}${log_msg}");
+        log_info("${message_prefix}${log_msg}");
     }
 
     if ($init_error_msg ne '') {
-	$init_error_msg = $message_prefix.$init_error_msg;
+        $init_error_msg = $message_prefix.$init_error_msg;
     }
-    
+
     return($init_error_msg);
 }
 
 # ------------------
 sub vbm_analysis_vbm_Runtime_check {
 # ------------------
-    if (defined $Hf) { 
-	$use_Hf = 1;
+    if (defined $Hf) {
+        $use_Hf = 1;
     } elsif (! defined $Hf) {
-	$use_Hf = 0;
+        $use_Hf = 0;
     } else {
-	print "\$Hf is confusing.  This shouldn't be happening.\n";
+        print "\$Hf is confusing.  This shouldn't be happening.\n";
     }
 
 
@@ -1293,64 +1293,64 @@ sub vbm_analysis_vbm_Runtime_check {
     my $directory_prefix='';
 
     if ($use_Hf) {
-	$template_path = $Hf->get_value('template_work_dir');
-	$current_path = $Hf->get_value('vba_analysis_path');
-	if ($current_path eq 'NO_KEY') {
-	    $current_path = "${template_path}/vbm_analysis";
-	    $Hf->set_value('vba_analysis_path',$current_path);
+        $template_path = $Hf->get_value('template_work_dir');
+        $current_path = $Hf->get_value('vba_analysis_path');
+        if ($current_path eq 'NO_KEY') {
+            $current_path = "${template_path}/vbm_analysis";
+            $Hf->set_value('vba_analysis_path',$current_path);
 
-	    $thresh_masks = $Hf->get_value('thresh_masks');
-	    if ($thresh_masks eq 'NO_KEY') {
-		@thresh_masks=();
-	    } else {
-		@thresh_masks = split(',',$thresh_masks);
-	    }
+            $thresh_masks = $Hf->get_value('thresh_masks');
+            if ($thresh_masks eq 'NO_KEY') {
+                @thresh_masks=();
+            } else {
+                @thresh_masks = split(',',$thresh_masks);
+            }
 
 
-	    $ROI_masks = $Hf->get_value('ROI_masks');
-	    if ($ROI_masks eq 'NO_KEY') {
-		@ROI_masks=();
-	    } else {
-		@ROI_masks = split(',',$ROI_masks);
-	    }
+            $ROI_masks = $Hf->get_value('ROI_masks');
+            if ($ROI_masks eq 'NO_KEY') {
+                @ROI_masks=();
+            } else {
+                @ROI_masks = split(',',$ROI_masks);
+            }
 
-	    $label_atlas_name = $Hf->get_value('label_atlas_name');	
-	    $mdt_labels = $Hf->get_value("${label_atlas_name}_MDT_labels");	
-	}
-	if (! -e $current_path) {
-	    mkdir ($current_path,$permissions);
-	}
+            $label_atlas_name = $Hf->get_value('label_atlas_name');
+            $mdt_labels = $Hf->get_value("${label_atlas_name}_MDT_labels");
+        }
+        if (! -e $current_path) {
+            mkdir ($current_path,$permissions);
+        }
 
-	$directory_prefix = $current_path;
-	#if ($directory_prefix =~ s/\/glusterspace//) { }
+        $directory_prefix = $current_path;
+        #if ($directory_prefix =~ s/\/glusterspace//) { }
     if ($directory_prefix =~ s/${BIGGUS_DISKUS}//) { } # Fixed 25 October 2018 (Thurs)
 
-	$software_list = $Hf->get_value('vba_analysis_software');
-	if ($software_list eq 'NO_KEY') { ## Should this go in init_check?
-	    $software_list = "surfstat"; 
-	    $Hf->set_value('vba_analysis_software',$software_list);
-	}
-	@software_array = split(',',$software_list);
+        $software_list = $Hf->get_value('vba_analysis_software');
+        if ($software_list eq 'NO_KEY') { ## Should this go in init_check?
+            $software_list = "surfstat";
+            $Hf->set_value('vba_analysis_software',$software_list);
+        }
+        @software_array = split(',',$software_list);
 
-	my $vba_contrast_comma_list = $Hf->get_value('vba_contrast_comma_list');
-	if ($vba_contrast_comma_list eq 'NO_KEY') { ## Should this go in init_check? # New feature to allow limited VBA/VBM analysis, 
-	    # used for reproccessing corrected Jacobians (07 Dec 2015);
-	    $vba_contrast_comma_list = $Hf->get_value('channel_comma_list');
-	}
-	@channel_array = split(',',$vba_contrast_comma_list);
+        my $vba_contrast_comma_list = $Hf->get_value('vba_contrast_comma_list');
+        if ($vba_contrast_comma_list eq 'NO_KEY') { ## Should this go in init_check? # New feature to allow limited VBA/VBM analysis,
+            # used for reproccessing corrected Jacobians (07 Dec 2015);
+            $vba_contrast_comma_list = $Hf->get_value('channel_comma_list');
+        }
+        @channel_array = split(',',$vba_contrast_comma_list);
 
-	$smoothing_comma_list = $Hf->get_value('smoothing_comma_list');
+        $smoothing_comma_list = $Hf->get_value('smoothing_comma_list');
 
 
-	if ($smoothing_comma_list eq 'NO_KEY') { ## Should this go in init_check?
-	    $smoothing_comma_list = "3vox"; 
-	    $Hf->set_value('smoothing_comma_list',$smoothing_comma_list);
-	}
+        if ($smoothing_comma_list eq 'NO_KEY') { ## Should this go in init_check?
+            $smoothing_comma_list = "3vox";
+            $Hf->set_value('smoothing_comma_list',$smoothing_comma_list);
+        }
 
-	@smoothing_params = split(',',$smoothing_comma_list);
+        @smoothing_params = split(',',$smoothing_comma_list);
 
-	$template_name = $Hf->get_value('template_name');
-	$min_cluster_size = $Hf->get_value('minimum_vba_cluster_size');
+        $template_name = $Hf->get_value('template_name');
+        $min_cluster_size = $Hf->get_value('minimum_vba_cluster_size');
     }
 
     my $template_images_path = $Hf->get_value('mdt_images_path');
@@ -1358,15 +1358,15 @@ sub vbm_analysis_vbm_Runtime_check {
 
     my $runlist = $Hf->get_value('all_groups_comma_list');
     if ($runlist eq 'NO_KEY') {
-	$runlist = $Hf->get_value('complete_comma_list');
+        $runlist = $Hf->get_value('complete_comma_list');
     }
 
     my @array_of_runnos;
-    
+
     if ($runlist eq 'EMPTY_VALUE') {
-	@array_of_runnos = ();
+        @array_of_runnos = ();
     } else {
-	@array_of_runnos = split(',',$runlist);
+        @array_of_runnos = split(',',$runlist);
     }
 
     my $runno_OR_list = join("|",@array_of_runnos);
@@ -1374,105 +1374,105 @@ sub vbm_analysis_vbm_Runtime_check {
     my $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
 
     if (${mdt_creation_strategy} eq 'iterative') {
-	$use_template_images = 0;
+        $use_template_images = 0;
     }
 
     my @all_input_dirs;
     if ($use_template_images) {
-	@all_input_dirs = ($template_images_path,$registered_images_path);
+        @all_input_dirs = ($template_images_path,$registered_images_path);
     } else {
-	@all_input_dirs = ($registered_images_path); #BJA, 4 Jan 2017: Added this fix because previously it would pull from the template path. This is not set up to be backward compatible, although we got involved in related shenanigans with the Reacher (O'Brien) data.
-    } 
+        @all_input_dirs = ($registered_images_path); #BJA, 4 Jan 2017: Added this fix because previously it would pull from the template path. This is not set up to be backward compatible, although we got involved in related shenanigans with the Reacher (O'Brien) data.
+    }
 
 
-    my @files_to_link; 
+    my @files_to_link;
 
     foreach my $directory (@all_input_dirs) {
-	if (-d $directory) {
-	    opendir(DIR, $directory);
-	    my @files_in_dir = grep(/(${runno_OR_list}).*(\.${valid_formats_string})+(\.gz)*$/ ,readdir(DIR));# @input_files;
-	    foreach my $current_file (@files_in_dir) {
-		my $full_file = $directory.'/'.$current_file;
-		push (@files_to_link,$full_file);		
-	    }
-	}
+        if (-d $directory) {
+            opendir(DIR, $directory);
+            my @files_in_dir = grep(/(${runno_OR_list}).*(\.${valid_formats_string})+(\.gz)*$/ ,readdir(DIR));# @input_files;
+            foreach my $current_file (@files_in_dir) {
+                my $full_file = $directory.'/'.$current_file;
+                push (@files_to_link,$full_file);
+            }
+        }
     }
 
     my ($local_inputs,$local_work,$local_results,$local_Hf);
     my @already_processed;
     foreach my $smoothing (@smoothing_params) {
-	my $input_smoothing = $smoothing;
-	my $mm_not_voxels = 0;
-	my $units = 'vox';
-	
-	# Strip off units and white space (if any).
-	if ($smoothing =~ s/[\s]*(vox|voxel|voxels|mm)$//) {
-	    $units = $1;
-	    if ($units eq 'mm') {	
-		${mm_not_voxels} = 1;
-	    } else {
-		$units = 'vox';
-	    }
-	}
-	my $smoothing_string = $smoothing;
-	if ($smoothing_string =~ s/(\.){1}/p/) {}
+        my $input_smoothing = $smoothing;
+        my $mm_not_voxels = 0;
+        my $units = 'vox';
 
-	my $smoothing_with_units_string = $smoothing_string.$units;
-	my $smoothing_with_units = $smoothing.$units;
-	my $already_smoothed = join('|',@already_processed);
-	if ($smoothing_with_units =~ /^(${already_smoothed})$/) { 
-	    print "$PM: Work for specified smoothing \"${input_smoothing}\" has already been completed as \"$1\".\n";
-	} else {
-	    print "$PM: Specified smoothing \"${input_smoothing}\" being processed as \"${smoothing_with_units}\".\n";
-	    my $folder_suffix = "${smoothing_with_units_string}_smoothing"; 
-	    my $file_suffix = "s${smoothing_with_units_string}";
-	    
-	    my $local_folder_name  = $directory_prefix.'/'.$template_name.'_'.$folder_suffix;
-	    ($local_inputs,$local_work,$local_results,$local_Hf)=make_process_dirs($local_folder_name);
-	    foreach my $file (@files_to_link) {
-		my ($file_path,$file_name,$file_ext) = fileparts($file,2);
-		my $linked_file = $local_inputs."/".$file_name.$file_ext;
-		#`ln -f $file ${linked_file}`;  # Using -f will "force" the link to refresh with the most recent data.
-		link($file,$linked_file);
-	    }
-	    my $pool_path = $local_work.'/smoothed_image_pool/';
-	    if (! -e $pool_path) {
-		mkdir ($pool_path,$permissions);
-	    }
-	    $results_dir_hash{$smoothing_with_units} = $local_results;
-	    $work_dir_hash{$smoothing_with_units} = $local_work;
-	    $smooth_pool_hash{$smoothing_with_units} = $pool_path;
-	    smooth_images_vbm($smoothing_with_units,$pool_path,$file_suffix,$local_inputs);
-	    push (@already_processed,$smoothing_with_units);
-	}
+        # Strip off units and white space (if any).
+        if ($smoothing =~ s/[\s]*(vox|voxel|voxels|mm)$//) {
+            $units = $1;
+            if ($units eq 'mm') {
+                ${mm_not_voxels} = 1;
+            } else {
+                $units = 'vox';
+            }
+        }
+        my $smoothing_string = $smoothing;
+        if ($smoothing_string =~ s/(\.){1}/p/) {}
+
+        my $smoothing_with_units_string = $smoothing_string.$units;
+        my $smoothing_with_units = $smoothing.$units;
+        my $already_smoothed = join('|',@already_processed);
+        if ($smoothing_with_units =~ /^(${already_smoothed})$/) {
+            print "$PM: Work for specified smoothing \"${input_smoothing}\" has already been completed as \"$1\".\n";
+        } else {
+            print "$PM: Specified smoothing \"${input_smoothing}\" being processed as \"${smoothing_with_units}\".\n";
+            my $folder_suffix = "${smoothing_with_units_string}_smoothing";
+            my $file_suffix = "s${smoothing_with_units_string}";
+
+            my $local_folder_name  = $directory_prefix.'/'.$template_name.'_'.$folder_suffix;
+            ($local_inputs,$local_work,$local_results,$local_Hf)=make_process_dirs($local_folder_name);
+            foreach my $file (@files_to_link) {
+                my ($file_path,$file_name,$file_ext) = fileparts($file,2);
+                my $linked_file = $local_inputs."/".$file_name.$file_ext;
+                #`ln -f $file ${linked_file}`;  # Using -f will "force" the link to refresh with the most recent data.
+                link($file,$linked_file);
+            }
+            my $pool_path = $local_work.'/smoothed_image_pool/';
+            if (! -e $pool_path) {
+                mkdir ($pool_path,$permissions);
+            }
+            $results_dir_hash{$smoothing_with_units} = $local_results;
+            $work_dir_hash{$smoothing_with_units} = $local_work;
+            $smooth_pool_hash{$smoothing_with_units} = $pool_path;
+            smooth_images_vbm($smoothing_with_units,$pool_path,$file_suffix,$local_inputs);
+            push (@already_processed,$smoothing_with_units);
+        }
     }
     @smoothing_params = @already_processed;
 
     $predictor_id = $Hf->get_value('predictor_id');
     if ($predictor_id eq 'NO_KEY') {
-	$group_1_name = 'control';
-	$group_2_name = 'treated';
-	
-    } else {	
-	if ($predictor_id =~ /([^_]+)_(''|vs_|VS_|Vs_){1}([^_]+)/) {
-	    $group_1_name = $1;
-	    if (($3 ne '') || (defined $3)) {
-		$group_2_name = $3;
-	    } else {
-		$group_2_name = 'others';
-	    }
-	}
+        $group_1_name = 'control';
+        $group_2_name = 'treated';
+
+    } else {
+        if ($predictor_id =~ /([^_]+)_(''|vs_|VS_|Vs_){1}([^_]+)/) {
+            $group_1_name = $1;
+            if (($3 ne '') || (defined $3)) {
+                $group_2_name = $3;
+            } else {
+                $group_2_name = 'others';
+            }
+        }
     }
 
     my $group_1_runnos = $Hf->get_value('group_1_runnos');
     if ($group_1_runnos eq 'NO_KEY') {
-	$group_1_runnos = $Hf->get_value('control_comma_list');
+        $group_1_runnos = $Hf->get_value('control_comma_list');
     }
     @group_1_runnos = split(',',$group_1_runnos);
 
     my $group_2_runnos = $Hf->get_value('group_2_runnos');
-    if ($group_2_runnos eq 'NO_KEY'){ 
-	$group_2_runnos = $Hf->get_value('compare_comma_list');
+    if ($group_2_runnos eq 'NO_KEY'){
+        $group_2_runnos = $Hf->get_value('compare_comma_list');
     }
     @group_2_runnos = split(',',$group_2_runnos);
 
@@ -1480,17 +1480,17 @@ sub vbm_analysis_vbm_Runtime_check {
 
     $mask_folder = $local_work."/masks/";
     if (! -e $mask_folder) {
-	mkdir ($mask_folder,$permissions);
+        mkdir ($mask_folder,$permissions);
     }
-    $make_masks_jid = make_custom_masks($mask_folder,$mdt_labels);    
+    $make_masks_jid = make_custom_masks($mask_folder,$mdt_labels);
 
     if (! defined $make_masks_jid) {
-	$make_masks_jid = 0;
+        $make_masks_jid = 0;
     }
-    
+
 #     $runlist = $Hf->get_value('complete_comma_list');
 #     @array_of_runnos = split(',',$runlist);
- 
+
 #     $ch_runlist = $Hf->get_value('channel_comma_list');
 #     @channel_array = split(',',$ch_runlist);
 
@@ -1498,12 +1498,11 @@ sub vbm_analysis_vbm_Runtime_check {
 #     my ($dummy,$skip_message)=vbm_analysis_Output_check($case);
 
 #     if ($skip_message ne '') {
-# 	print "${skip_message}";
+#       print "${skip_message}";
 #     }
-    
-    
+
+
 }
 
 
 1;
-

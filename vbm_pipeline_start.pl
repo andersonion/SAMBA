@@ -43,7 +43,7 @@ BEGIN {
     use lib split(':',$RADISH_PERL_LIB);
 }
 
-use civm_simple_util qw(sleep_with_countdown activity_log printd uniq $debug_val 
+use civm_simple_util qw(sleep_with_countdown activity_log printd uniq $debug_val
 write_array_to_file );
 
 activity_log();
@@ -60,12 +60,12 @@ use SAMBA_structure;
 use vars qw($start_file);
 use vbm_pipeline_workflow;
 
-my $PM = 'vbm_pipeline_start.pl'; 
+my $PM = 'vbm_pipeline_start.pl';
 my $git_log=git_log_last( abs_path(__FILE__));
 my $PIPELINE_VERSION = $git_log->{"date"}." ".$git_log->{"commit"};
 $PIPELINE_NAME="SAMBA";
 
-# pipeline_utilities uses GOODEXIT and BADEXIT, but it doesnt choose for you which you want. 
+# pipeline_utilities uses GOODEXIT and BADEXIT, but it doesnt choose for you which you want.
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 
@@ -85,13 +85,13 @@ $test_mode = 0;
 # Used to always schedul backup jobs, but right now wanna shut it off for more rapid failure
 $schedule_backup_jobs=0;
 
-### 
-# simple input handling, 
+###
+# simple input handling,
 # we accept a startup headfile, and/or a (number of nodes|reservation name)
-# If we're doing start file, it must be first. 
+# If we're doing start file, it must be first.
 $start_file=shift(@ARGV);
 # Only if it looks like a number to we assign it to nodes.
-# this in an attempt to simplify the following handling. 
+# this in an attempt to simplify the following handling.
 if( ! defined $start_file ){
     die "Study_variables mode DISABLED! its too messy :P\nPlease create a startup headfile";
 }
@@ -122,16 +122,16 @@ if (! defined $nodes || $nodes eq '' ) {
             $ENV{'SBATCH_RESERVATION'}=$reservation;
             $ENV{'SLURM_RESERVATION'}=$reservation;
         }
-    } else {	
+    } else {
         warn "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\n\n\n".
             " Maybe your start file($start_file) was not found !\n";
-	#" Will start with # $nodes nodes in a few seconds."; 
-	undef $reservation;
-	die;
+        #" Will start with # $nodes nodes in a few seconds.";
+        undef $reservation;
+        die;
     }
 }
 print "Attempting to use $nodes nodes;\n\n";
-if ($reservation) { 
+if ($reservation) {
     print "Using slurm reservation = \"$reservation\".\n\n\n";
 }
 
@@ -142,11 +142,11 @@ if ($reservation) {
         load_SAMBA_parameters($start_file);
         #} elsif ($start_file =~ /.*\.json$/) { # BJA, 6 June 2019: temporarily killing all JSON support until a robust solution is in place ensuring the JSON package is available in arbitrary user's environment.
         #    $start_file = abs_path($start_file);
-        #    load_SAMBA_json_parameters($start_file); 
+        #    load_SAMBA_json_parameters($start_file);
     } else {
         die "Study variables is not good, so its no longer allowed";
-	# Commented this ugly beast out becuase it was deprecated long enough. 
-	# require study_variables_vbm;
+        # Commented this ugly beast out becuase it was deprecated long enough.
+        # require study_variables_vbm;
         # study_variables_vbm();
     }
     #if (! defined $do_vba) {
@@ -161,7 +161,7 @@ exit $GOODEXIT;
 # Subroutine definintions below.
 #
 # it occurs to me that these subroutines really belong to samba_globals or pipeline_workflow as exported functions.
-# that'd let other pipelines open up samba input files in more meaningful ways. 
+# that'd let other pipelines open up samba input files in more meaningful ways.
 
 # ------------------
 sub load_SAMBA_parameters {
@@ -173,10 +173,10 @@ sub load_SAMBA_parameters {
         return(0);
     }
     if (! $tempHf->read_headfile) {
-        error_out(" Unable to read SAMBA parameter file ${param_file}."); 
+        error_out(" Unable to read SAMBA parameter file ${param_file}.");
         return(0);
     }
-    my $is_headfile=1;  
+    my $is_headfile=1;
     assign_parameters($tempHf,$is_headfile);
 }
 
@@ -193,11 +193,11 @@ sub load_SAMBA_json_parameters {
             error_out("Invalid .JSON parameter file ${json_file}: $@\n");
             #}
             #if (! valid_json($json_file)) {
-            #    error_out(" Invalid .JSON parameter file ${json_file}."); 
+            #    error_out(" Invalid .JSON parameter file ${json_file}.");
             return(0);
         }
     }
-    
+
     my $is_headfile=0;
     assign_parameters($tempHf,$is_headfile);
 }
@@ -210,14 +210,14 @@ sub assign_parameters {
     my ($tempHf,$is_headfile) = (@_); # Current headfile implementation only supports strings/scalars
     my @unused_vars;
     if ($is_headfile) {
-	@unused_vars=SAMBA_global_variables::populate($tempHf);
+        @unused_vars=SAMBA_global_variables::populate($tempHf);
     } else {
-	# Life would be easier if we loaded json to a headfile, then this segment wouldn't need exist.
+        # Life would be easier if we loaded json to a headfile, then this segment wouldn't need exist.
         foreach (keys %{ $tempHf }) {
             #if ($kevin_spacey =~ /\b$_\b/) {
-	    if ( exists $SAMBA_global_variables::{$_} ) {
+            if ( exists $SAMBA_global_variables::{$_} ) {
                 #my $val = %{ $tempHf }->{($_)};
-                #print "\n\n$_\n\n"; 
+                #print "\n\n$_\n\n";
                 die "json mode requires revalidation!!!";
                 my $val;
                 $val = %{ $tempHf ->{$_}}; # Option A: take hash in tempHf and store as scalar
@@ -227,42 +227,42 @@ sub assign_parameters {
                     #print "LOOK HERE TO SEE NOTHING\$val = ${val}\n";
                     if ($val =~ /^ARRAY\(0x[0-9,a-f]{5,}/){
                         eval("\@$_=\'@$val\'");
-                        print "$_ = @{$_}\n"; 
+                        print "$_ = @{$_}\n";
                     } elsif ($val =~ /^HASH\(0x[0-9,a-f]{5,}/){
                         eval("\%$_=\'%$val\'");
-                        print "$_ = %{$_}\n"; 
+                        print "$_ = %{$_}\n";
 
                     } else { # It's just a normal scalar.
                         eval("\$$_=\'$val\'");
-                        print "$_ = ${$_}\n";   
+                        print "$_ = ${$_}\n";
                         if ($_ eq 'rigid_atlas_name') {
-			    # tmp_rigid is assigned direct later straight from the global, 
-			    # that should give identical behavior for undefined's
+                            # tmp_rigid is assigned direct later straight from the global,
+                            # that should give identical behavior for undefined's
                             #eval("\$tmp_rigid_atlas_name=\'$val\'");
                         }
                     }
                 }
             } else {
-		push(@unused_vars,$_);
-	    }
+                push(@unused_vars,$_);
+            }
         }
     }
-    
+
     if(scalar(@unused_vars) ) {
-	Data::Dump::dump(["Some headfile vars were not used, That is probably an error.",
-			  "Feeding a result headfile back in is not currnetly supported.",
-			  \@unused_vars,
-			  "Press ctrl+c to cancel"]) if can_dump();
-	sleep_with_countdown(15);
+        Data::Dump::dump(["Some headfile vars were not used, That is probably an error.",
+                          "Feeding a result headfile back in is not currnetly supported.",
+                          \@unused_vars,
+                          "Press ctrl+c to cancel"]) if can_dump();
+        sleep_with_countdown(15);
     }
-    # do some default assignment 
+    # do some default assignment
     my @ps_array;
 
-    if ( defined $project_name) { 
-	printd(40,"project_name:$project_name\n");
+    if ( defined $project_name) {
+        printd(40,"project_name:$project_name\n");
     } else {
-	printd(5,"UNTESTED CODE PATH: Watch carefully, and yell at programmer.\n");
-	sleep_with_countdown(4);
+        printd(5,"UNTESTED CODE PATH: Watch carefully, and yell at programmer.\n");
+        sleep_with_countdown(4);
         my $project_string;
         if ($is_headfile) {
             $project_string = $tempHf->get_value('project_id');
@@ -279,55 +279,54 @@ sub assign_parameters {
             $project_name = "$1.$2.$3";
         }
 
-	# If opt suffix undefined, make it the ps_array
-	# making this the empty string most of the time.
+        # If opt suffix undefined, make it the ps_array
+        # making this the empty string most of the time.
         if (! defined $optional_suffix) {
             $optional_suffix = join('_',@ps_array);
-	    # tmp var was localized here because it's looks suspiciously like old garbage.
-	    my $tmp_rigid_atlas_name=$rigid_atlas_name;
+            # tmp var was localized here because it's looks suspiciously like old garbage.
+            my $tmp_rigid_atlas_name=$rigid_atlas_name;
             if ($tmp_rigid_atlas_name ne ''){
                 $optional_suffix =~ s/^(${tmp_rigid_atlas_name}[_]?)//;
             }
-	    warn("No optional sufix, auto-guessing set to ($optional_suffix)\n");
+            warn("No optional sufix, auto-guessing set to ($optional_suffix)\n");
         }
     }
 
     # pre_masked and do_masked are exclusive options, if one is true the other shouldn't be.
     # They can both be set which will probably work, and is likely a waste of time.
-    # Originally this code didn't handle the case where neither was set. 
+    # Originally this code didn't handle the case where neither was set.
     # Now adjusting that to the expected default of do_mask on, but we'll give a warning.
-    if (! defined $pre_masked && ! defined $do_mask ) { 
-	printd(5,"mask choices not specified, forcing do_mask on.\n");
-	sleep_with_countdown(3);
-	$do_mask=1;
+    if (! defined $pre_masked && ! defined $do_mask ) {
+        printd(5,"mask choices not specified, forcing do_mask on.\n");
+        sleep_with_countdown(3);
+        $do_mask=1;
     }
     $pre_masked = ! $do_mask unless defined $pre_masked;
-    $do_mask = ! $pre_masked unless defined $do_mask;    
-    
+    $do_mask = ! $pre_masked unless defined $do_mask;
+
     ### shortended version of original code
     #if ((! defined ($pre_masked)) && (defined ($do_mask))) {
     #  $pre_masked = ! $do_mask; }
     # if ((defined ($pre_masked)) && (! defined ($do_mask))) {
     #  $do_mask = !$pre_masked; }
-    
+
     $port_atlas_mask = 0 unless defined $port_atlas_mask;
     if (($test_mode) && ($test_mode eq 'off')) { $test_mode = 0;}
 
     if (defined $channel_comma_list) {
-	# Filter vbm and non 3d channels from our channel list.
+        # Filter vbm and non 3d channels from our channel list.
         my @CCL = split(',',$channel_comma_list);
         foreach (@CCL) {
             if ($_ !~ /(jac|ajax|nii4D)/) {
                 push (@channel_array,$_);
-	    } else {
-		warn("channel $_ is a special channel, and should not be part of the channel_comma_list, filtering it out.\n"
-		    ."\t(Don't worry it'll be used appropriately later.)\n");
-	    }
-	}
+            } else {
+                warn("channel $_ is a special channel, and should not be part of the channel_comma_list, filtering it out.\n"
+                    ."\t(Don't worry it'll be used appropriately later.)\n");
+            }
+        }
         @channel_array = uniq(@channel_array);
         $channel_comma_list = join(',',@channel_array);
     }
-    # Formerly did an auto assign of optional suffix, but it was form the json only code path, 
+    # Formerly did an auto assign of optional suffix, but it was form the json only code path,
     # so that was moved into that if condition.
 }
-

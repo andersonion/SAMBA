@@ -1,5 +1,5 @@
 #!/usr/bin/false
-#  tabulate_label_statistics_by_contrast_vbm.pm 
+#  tabulate_label_statistics_by_contrast_vbm.pm
 #  2017/06/19  Created by BJ Anderson, CIVM.
 
 my $PM = " tabulate_label_statistics_by_contrast_vbm.pm";
@@ -10,7 +10,7 @@ use strict;
 use warnings;
 
 # 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
-use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH);
 if (! defined($MATLAB_EXEC_PATH)) {
    $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
 }
@@ -36,34 +36,34 @@ my $PM_code = 66;
 
 # New enhancements stabilized.
 my $compilation_date = "stable";
-my $tabulate_study_stats_executable_path = "$MATLAB_EXEC_PATH/study_stats_by_contrast_executable/${compilation_date}/run_study_stats_by_contrast_exec.sh"; 
+my $tabulate_study_stats_executable_path = "$MATLAB_EXEC_PATH/study_stats_by_contrast_executable/${compilation_date}/run_study_stats_by_contrast_exec.sh";
 
 # ------------------
 sub  tabulate_label_statistics_by_contrast_vbm {
 # ------------------
- 
+
     ($current_label_space,@initial_channel_array) = @_;
     my $start_time = time;
     @channel_array=();
     tabulate_label_statistics_by_contrast_Runtime_check();
 
     foreach my $contrast (@channel_array) {
-	$go = $go_hash{$contrast};
-	if ($go) {
-	    ($job) = tabulate_label_statistics_by_contrast($contrast);
-	    if ($job) {
-		push(@jobs,$job);
-	    }
-	} 
+        $go = $go_hash{$contrast};
+        if ($go) {
+            ($job) = tabulate_label_statistics_by_contrast($contrast);
+            if ($job) {
+                push(@jobs,$job);
+            }
+        }
     }
 
     if (cluster_check() && (scalar @jobs)) {
-	my $interval = 2;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-	if ($done_waiting) {
-	    print STDOUT  " study-wide ${current_label_space} label statistics has been calculated for all contrasts; moving on to next step.\n";
-	}
+        my $interval = 2;
+        my $verbose = 1;
+        my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+        if ($done_waiting) {
+            print STDOUT  " study-wide ${current_label_space} label statistics has been calculated for all contrasts; moving on to next step.\n";
+        }
     }
     my $case = 2;
     my ($dummy,$error_message)=tabulate_label_statistics_by_contrast_Output_check($case);
@@ -75,9 +75,9 @@ sub  tabulate_label_statistics_by_contrast_vbm {
 
     my $write_path_for_Hf = "${current_path}/stats_collate_${label_atlas_nickname}_${space_string}_temp.headfile";
     if ($error_message ne '') {
-	error_out("${error_message}",0);
+        error_out("${error_message}",0);
     } else {
-	$Hf->write_headfile($write_path_for_Hf);
+        $Hf->write_headfile($write_path_for_Hf);
     }
     return;
 }
@@ -95,65 +95,65 @@ sub tabulate_label_statistics_by_contrast_Output_check {
     my $existing_files_message = '';
     my $missing_files_message = '';
 
-    
+
     if ($case == 1) {
-	$message_prefix = "  Study-wide label statistics have been found for the following contrasts and will not be re-tabulated:\n";
+        $message_prefix = "  Study-wide label statistics have been found for the following contrasts and will not be re-tabulated:\n";
     } elsif ($case == 2) {
-	 $message_prefix = "  Unable to properly tabulate study-wide label statistics for the following contrasts:\n";
+         $message_prefix = "  Unable to properly tabulate study-wide label statistics for the following contrasts:\n";
     }   # For Init_check, we could just add the appropriate cases.
 
     foreach my $contrast (@channel_array) {
-	#print "$runno\n\n";
-	my $sub_existing_files_message='';
-	my $sub_missing_files_message='';
-	
-	my $file_1 = "${current_path}/studywide_stats_for_${contrast}.txt" ;
-	$file_1 = "${current_path}/collated_${contrast}_${label_atlas_nickname}_${space_string}_stats.txt" ;
-#	print "${file_1}\n\n\n";
-	if (data_double_check($file_1,$case-1)) {
-	    $go_hash{$contrast}=1;
-	    push(@file_array,$file_1);
-	    $sub_missing_files_message = $sub_missing_files_message."\t$contrast";
-	} else {
-	    my $header_string = `head -1 ${file_1}`;
-	    #my @c_array_1 = split('=',$header_string);
-	    #my @completed_contrasts = split(',',$c_array_1[1]);
-	    #my $completed_contrasts_string = join(' ',@completed_contrasts);
-	    my $missing_runnos = 0;
-	    my @runno_array = split(',',$runlist);
-	    foreach my $runno (@runno_array) {
-		if (! $missing_runnos) {
-		    #if ($completed_contrasts_string !~ /($ch)/) {
-		    if ($header_string !~ /($runno)/) {
-			$missing_runnos = 1;
-		    }
-		}
-	    }
-	    if ($missing_runnos) {
-		$go_hash{$contrast}=1;
-		push(@file_array,$file_1);
-		$sub_missing_files_message = $sub_missing_files_message."\t$contrast";
-	    } else {
-		$go_hash{$contrast}=0;
-		$sub_existing_files_message = $sub_existing_files_message."\t$contrast";
-	    }
-	}
+        #print "$runno\n\n";
+        my $sub_existing_files_message='';
+        my $sub_missing_files_message='';
 
-	if (($sub_existing_files_message ne '') && ($case == 1)) {
-	    $existing_files_message = $existing_files_message.$contrast."\t".$sub_existing_files_message."\n";
-	} elsif (($sub_missing_files_message ne '') && ($case == 2)) {
-	    $missing_files_message =$missing_files_message.$contrast."\t".$sub_missing_files_message."\n";
-	}
+        my $file_1 = "${current_path}/studywide_stats_for_${contrast}.txt" ;
+        $file_1 = "${current_path}/collated_${contrast}_${label_atlas_nickname}_${space_string}_stats.txt" ;
+#       print "${file_1}\n\n\n";
+        if (data_double_check($file_1,$case-1)) {
+            $go_hash{$contrast}=1;
+            push(@file_array,$file_1);
+            $sub_missing_files_message = $sub_missing_files_message."\t$contrast";
+        } else {
+            my $header_string = `head -1 ${file_1}`;
+            #my @c_array_1 = split('=',$header_string);
+            #my @completed_contrasts = split(',',$c_array_1[1]);
+            #my $completed_contrasts_string = join(' ',@completed_contrasts);
+            my $missing_runnos = 0;
+            my @runno_array = split(',',$runlist);
+            foreach my $runno (@runno_array) {
+                if (! $missing_runnos) {
+                    #if ($completed_contrasts_string !~ /($ch)/) {
+                    if ($header_string !~ /($runno)/) {
+                        $missing_runnos = 1;
+                    }
+                }
+            }
+            if ($missing_runnos) {
+                $go_hash{$contrast}=1;
+                push(@file_array,$file_1);
+                $sub_missing_files_message = $sub_missing_files_message."\t$contrast";
+            } else {
+                $go_hash{$contrast}=0;
+                $sub_existing_files_message = $sub_existing_files_message."\t$contrast";
+            }
+        }
+
+        if (($sub_existing_files_message ne '') && ($case == 1)) {
+            $existing_files_message = $existing_files_message.$contrast."\t".$sub_existing_files_message."\n";
+        } elsif (($sub_missing_files_message ne '') && ($case == 2)) {
+            $missing_files_message =$missing_files_message.$contrast."\t".$sub_missing_files_message."\n";
+        }
     }
- 
+
     my $error_msg='';
-    
+
     if (($existing_files_message ne '') && ($case == 1)) {
-	$error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
+        $error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
     } elsif (($missing_files_message ne '') && ($case == 2)) {
-	$error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
+        $error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
     }
-     
+
     my $file_array_ref = \@file_array;
     return($file_array_ref,$error_msg);
 }
@@ -169,7 +169,7 @@ sub tabulate_label_statistics_by_contrast {
 
     my $go_message = "$PM: Tabulating study-wide label statistics for contrast: ${current_contrast}\n" ;
     my $stop_message = "$PM: Failed to properly tabulate study_wide label statistics for contrast: ${current_contrast} \n" ;
-    
+
     my @test=(0);
     if (defined $reservation) {
         @test =(0,$reservation);
@@ -177,13 +177,13 @@ sub tabulate_label_statistics_by_contrast {
     my $mem_request = '10000';
     my $jid = 0;
     if (cluster_check) {
-        my $go =1;	    
+        my $go =1;
         my $cmd = "${tabulate_study_stats_executable_path} ${matlab_path} ${exec_args}";
 
         my $home_path = ${current_path};
         my $Id= "${current_contrast}_tabulate_label_statistics_by_contrast";
         my $verbose = 1; # Will print log only for work done.
-        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
         if (! $jid) {
             error_out($stop_message);
         } else {
@@ -191,7 +191,7 @@ sub tabulate_label_statistics_by_contrast {
         }
     }
     return;
-} 
+}
 
 # ------------------
 sub  tabulate_label_statistics_by_contrast_vbm_Init_check {
@@ -203,18 +203,18 @@ sub  tabulate_label_statistics_by_contrast_vbm_Init_check {
    # if ($log_msg ne '') {
    #     log_info("${message_prefix}${log_msg}");
    # }
-   
+
    if ($init_error_msg ne '') {
        $init_error_msg = $message_prefix.$init_error_msg;
    }
-       
+
    return($init_error_msg);
 }
 
 # ------------------
 sub  tabulate_label_statistics_by_contrast_Runtime_check {
 # ------------------
-    
+
     $label_atlas_nickname = $Hf->get_value('label_atlas_nickname');
     $label_atlas_name = $Hf->get_value('label_atlas_name');
     if ($label_atlas_nickname eq 'NO_KEY') {
@@ -224,7 +224,7 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
     if (! defined $current_label_space) {
         $current_label_space = $Hf->get_value('label_space');
     }
-    
+
     $space_string='rigid'; # Default
 
     if ($current_label_space eq 'pre_rigid') {
@@ -257,9 +257,9 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
     }
     #@array_of_runnos = split(',',$runlist);
     foreach my $contrast (@initial_channel_array) {
-	if ($contrast !~ /^(ajax|jac|nii4D)/) {
-	    push(@channel_array,$contrast);
-	}
+        if ($contrast !~ /^(ajax|jac|nii4D)/) {
+            push(@channel_array,$contrast);
+        }
     }
     push(@channel_array,'volume');
     @channel_array=uniq(@channel_array);
@@ -268,12 +268,11 @@ sub  tabulate_label_statistics_by_contrast_Runtime_check {
 
     my $case = 1;
     my ($dummy,$skip_message)=tabulate_label_statistics_by_contrast_Output_check($case);
- 
+
     if ($skip_message ne '') {
-	print "${skip_message}";
+        print "${skip_message}";
     }
 }
 
 
 1;
-

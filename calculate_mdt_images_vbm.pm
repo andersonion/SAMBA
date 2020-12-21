@@ -1,5 +1,5 @@
 #!/usr/bin/false
-# calculate_mdt_images_vbm.pm 
+# calculate_mdt_images_vbm.pm
 
 my $PM = "calculate_mdt_images_vbm.pm";
 my $VERSION = "2016/11/14"; # Cleaned up code, added support for iterative template creation process.
@@ -51,19 +51,19 @@ sub calculate_mdt_images_vbm {  # Main code
 
 
     foreach my $contrast (@contrast_list) {
-	$go = $go_hash{$contrast};
+        $go = $go_hash{$contrast};
         if ($go) {
             ($job) = calculate_average_mdt_image($contrast);
             if ($job) {
                 push(@jobs,$job);
             }
-        } 
+        }
     }
     if (cluster_check()) {
         my $interval = 2;
         my $verbose = 1;
         my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-        
+
         if ($done_waiting) {
             my $contrast_string;
             if ($mdt_contrast eq ($contrast_list[0] || $contrast_list[2])){
@@ -96,7 +96,7 @@ sub calculate_mdt_images_vbm {  # Main code
         $Hf->write_headfile($write_path_for_Hf);
         #       symbolic_link_cleanup($pairwise_path);
     }
-    
+
 }
 
 
@@ -114,40 +114,40 @@ sub calculate_mdt_images_Output_check {
         $message_prefix = "  Unable to create average MDT images for contrast:\n";
     }   # For Init_check, we could just add the appropriate cases.
 
-    
+
     my $existing_files_message = '';
     my $missing_files_message = '';
-    
+
     $out_file = "${current_path}/MDT_${contrast}${out_ext}";
     $int_go_hash{$contrast}=0;
     if (data_double_check($out_file,$case-1)) {
-	# file not found. So remove GZ and try again? 
-	# We've ALREADY waited plenty! so lets use simple check.
-	$out_file =~ s/\.gz$//;
-	if (! -e $out_file) {
-	    $go_hash{$contrast}=1;
-	    push(@file_array,$out_file);
-	    #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-	    $missing_files_message = $missing_files_message."\t$contrast\n";
-	    if ($mdt_creation_strategy eq 'iterative'){
-		my $int_file = "${current_path}/intermediate_MDT_${contrast}${out_ext}";
-		if (data_double_check($int_file,$case-1)) {
-		    $int_file =~ s/\.gz$//;
-		    if (! -e $int_file) {
-			    $int_go_hash{$contrast}=1;
-			    push(@file_array,$int_file);
-			    #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-		    }
-		}
-	    } else {
-		$int_go_hash{$contrast}=1;
-	    }
-	} elsif($out_file =~ /nii/x) {
-	    # Only safely compress nii outs
-	    run_and_watch("gzip -vf ${out_file}","\t"); #Is -f safe to use?
-	    $go_hash{$contrast}=0;
-	    $existing_files_message = $existing_files_message."\t$contrast\n";
-	}
+        # file not found. So remove GZ and try again?
+        # We've ALREADY waited plenty! so lets use simple check.
+        $out_file =~ s/\.gz$//;
+        if (! -e $out_file) {
+            $go_hash{$contrast}=1;
+            push(@file_array,$out_file);
+            #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+            $missing_files_message = $missing_files_message."\t$contrast\n";
+            if ($mdt_creation_strategy eq 'iterative'){
+                my $int_file = "${current_path}/intermediate_MDT_${contrast}${out_ext}";
+                if (data_double_check($int_file,$case-1)) {
+                    $int_file =~ s/\.gz$//;
+                    if (! -e $int_file) {
+                            $int_go_hash{$contrast}=1;
+                            push(@file_array,$int_file);
+                            #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+                    }
+                }
+            } else {
+                $int_go_hash{$contrast}=1;
+            }
+        } elsif($out_file =~ /nii/x) {
+            # Only safely compress nii outs
+            run_and_watch("gzip -vf ${out_file}","\t"); #Is -f safe to use?
+            $go_hash{$contrast}=0;
+            $existing_files_message = $existing_files_message."\t$contrast\n";
+        }
     } else {
         $go_hash{$contrast}=0;
         $existing_files_message = $existing_files_message."\t$contrast\n";
@@ -158,7 +158,7 @@ sub calculate_mdt_images_Output_check {
     } elsif (($missing_files_message ne '') && ($case == 2)) {
         $missing_files_message = $missing_files_message."\n";
     }
-    
+
     my $error_msg='';
 
     if (($existing_files_message ne '') && ($case == 1)) {
@@ -198,61 +198,61 @@ sub calculate_average_mdt_image {
         $intermediate_file = "${current_path}/intermediate_MDT_${contrast}${out_ext}";
 
         my $opt_e_string='';
-	$opt_e_string=ants_opt_e($intermediate_file);
+        $opt_e_string=ants_opt_e($intermediate_file);
 
         $update_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${intermediate_file} -o ${out_file} -r ${reference_image} -n $interp ${warp_train}";
-	push(@cmds,$update_cmd);
+        push(@cmds,$update_cmd);
 
-	my ($vx_sc,$est_bytes)=ants::estimate_memory($update_cmd,$vx_count);
-	# convert bytes to MiB(not MB)
-	my $expected_max_mem=ceil($est_bytes/(2**20));
-	printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
-	if ($expected_max_mem > $mem_request) {
-	    $mem_request = $expected_max_mem;
-	}
+        my ($vx_sc,$est_bytes)=ants::estimate_memory($update_cmd,$vx_count);
+        # convert bytes to MiB(not MB)
+        my $expected_max_mem=ceil($est_bytes/(2**20));
+        printd(45,"Expected amount of memory required to apply warps: ${expected_max_mem} MB.\n");
+        if ($expected_max_mem > $mem_request) {
+            $mem_request = $expected_max_mem;
+        }
 
-	$cleanup_cmd = "if [[ -f ${out_file} ]]; then rm ${intermediate_file}; fi";
-	push(@cmds,$cleanup_cmd) if $intermediate_file !~ /nhdr$/x;
-	my @cleanup_script;
-	@cleanup_script=("o=\"$out_file\";"
-			 ,"i=\"$intermediate_file\";"
-			 ,"ip=\$(dirname \$i);"
-			 ,"id=\$(grep -i 'Data File' \$i |cut -d ':' -f2-|xargs)"
-			 ,"id=\"\${ip}/\${id}\";"
-			 ,"if [[ -f \$o ]] && [[ -e \$i ]] && [[ -e \$id ]];then rm \$i \$id || exit 1; fi;") if $intermediate_file =~ /nhdr$/x;
-	if ($contrast eq $mdt_contrast) { # This needs to be adapted to support multiple mdt contrasts!
-	    my $template_n="${template_name}_i${current_iteration}";
-	    my $backup_file = "${master_template_dir}/$template_n${out_ext}";
-	    $copy_cmd = "cp -v ${out_file} ${backup_file}";
-	    push(@cmds,$copy_cmd) if $out_file !~ /nhdr$/x;
-	    push(@cleanup_script,("b=\"$backup_file\";"
-				  ,"if [[ -e \$b ]]; then exit 0; fi;"
-				  ,"bn=\"$template_n\";"
-				  ,"bp=\"$master_template_dir\";"
-				  ,"op=\$(dirname \$o);"
-				  ,"odn=\$(grep -i 'Data File' \$o |cut -d ':' -f2-|xargs)"
-				  ,"bdn=\"\$bn.\${odn#*.}\";"
-				  ,"od=\"\${op}/\${odn}\";"
-				  ,"cp -p \$o \$b && cp -p \$od \$bp/\$bdn"
-				  ,"sed -i'' \"s:\$odn:\$bdn:\" \$b"
-		 ) ) if $out_file =~ /nhdr$/x;
-	}
-	if(scalar(@cleanup_script)){
-	    unshift(@cleanup_script,'#!/usr/bin/env bash');
-	    my $c_s_p="$master_template_dir/cleanup_i$current_iteration.bash";
-	    write_array_to_file($c_s_p,[join("\n",@cleanup_script)."\n"]);
-	    push(@cmds,"bash ".$c_s_p);
-	}
+        $cleanup_cmd = "if [[ -f ${out_file} ]]; then rm ${intermediate_file}; fi";
+        push(@cmds,$cleanup_cmd) if $intermediate_file !~ /nhdr$/x;
+        my @cleanup_script;
+        @cleanup_script=("o=\"$out_file\";"
+                         ,"i=\"$intermediate_file\";"
+                         ,"ip=\$(dirname \$i);"
+                         ,"id=\$(grep -i 'Data File' \$i |cut -d ':' -f2-|xargs)"
+                         ,"id=\"\${ip}/\${id}\";"
+                         ,"if [[ -f \$o ]] && [[ -e \$i ]] && [[ -e \$id ]];then rm \$i \$id || exit 1; fi;") if $intermediate_file =~ /nhdr$/x;
+        if ($contrast eq $mdt_contrast) { # This needs to be adapted to support multiple mdt contrasts!
+            my $template_n="${template_name}_i${current_iteration}";
+            my $backup_file = "${master_template_dir}/$template_n${out_ext}";
+            $copy_cmd = "cp -v ${out_file} ${backup_file}";
+            push(@cmds,$copy_cmd) if $out_file !~ /nhdr$/x;
+            push(@cleanup_script,("b=\"$backup_file\";"
+                                  ,"if [[ -e \$b ]]; then exit 0; fi;"
+                                  ,"bn=\"$template_n\";"
+                                  ,"bp=\"$master_template_dir\";"
+                                  ,"op=\$(dirname \$o);"
+                                  ,"odn=\$(grep -i 'Data File' \$o |cut -d ':' -f2-|xargs)"
+                                  ,"bdn=\"\$bn.\${odn#*.}\";"
+                                  ,"od=\"\${op}/\${odn}\";"
+                                  ,"cp -p \$o \$b && cp -p \$od \$bp/\$bdn"
+                                  ,"sed -i'' \"s:\$odn:\$bdn:\" \$b"
+                 ) ) if $out_file =~ /nhdr$/x;
+        }
+        if(scalar(@cleanup_script)){
+            unshift(@cleanup_script,'#!/usr/bin/env bash');
+            my $c_s_p="$master_template_dir/cleanup_i$current_iteration.bash";
+            write_array_to_file($c_s_p,[join("\n",@cleanup_script)."\n"]);
+            push(@cmds,"bash ".$c_s_p);
+        }
     } else {
         $intermediate_file = $out_file;
     }
     # WARNING: We stuff this command on the front!
-    if ($int_go_hash{$contrast}) { 
+    if ($int_go_hash{$contrast}) {
         $avg_cmd =" AverageImages 3 ${intermediate_file} 0";
         foreach my $runno (@array_of_runnos) {
             $avg_cmd = $avg_cmd." ${mdt_images_path}/${runno}_${contrast}_to_MDT${out_ext}";
         }
-	unshift(@cmds,$avg_cmd);
+        unshift(@cmds,$avg_cmd);
     }
     my $CMD_SEP=";\n";
     $CMD_SEP=" && ";
@@ -263,19 +263,19 @@ sub calculate_average_mdt_image {
 
     my $jid = 0;
     if (cluster_check) {
-	my @test=(0);
-	if (defined $reservation) {
-	    @test =(0,$reservation);
-	}
+        my @test=(0);
+        if (defined $reservation) {
+            @test =(0,$reservation);
+        }
         my $home_path = $current_path;
         my $Id= "${contrast}_calculate_average_MDT_image";
         my $verbose = 1;
-        $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+        $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
         if (not $jid) {
             error_out($stop_message);
         }
     } else {
-	if (! execute($go,$go_message, @cmds) ) {
+        if (! execute($go,$go_message, @cmds) ) {
             error_out($stop_message);
         }
     }
@@ -284,7 +284,7 @@ sub calculate_average_mdt_image {
         error_out("$PM: could not start average MDT image for contrast: ${contrast}: ${out_file}");
     }
     print "** $PM expected output: ${out_file}\n";
-    
+
     return($jid,$out_file);
 }
 
@@ -309,8 +309,8 @@ sub calculate_mdt_images_vbm_Runtime_check {
     $last_update_warp = $Hf->get_value('last_update_warp');
     $mdt_creation_strategy = $Hf->get_value('mdt_creation_strategy');
 
-    $template_path = $Hf->get_value('template_work_dir');  
-    $template_name = $Hf->get_value('template_name'); 
+    $template_path = $Hf->get_value('template_work_dir');
+    $template_name = $Hf->get_value('template_name');
 #
     $mdt_images_path = $Hf->get_value('mdt_images_path');
     #$current_path = $Hf->get_value('median_images_path');
@@ -320,13 +320,13 @@ sub calculate_mdt_images_vbm_Runtime_check {
     if (! -e $current_path) {
         mkdir ($current_path,$permissions);
     }
-    $Hf->set_value('median_images_path',$current_path); 
+    $Hf->set_value('median_images_path',$current_path);
     #}
 
     my $vbm_reference_path = $Hf->get_value('vbm_reference_path');
     $reference_image=$vbm_reference_path;
 
-    
+
     $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
 
 #    $runlist = $Hf->get_value('control_comma_list');
@@ -352,7 +352,7 @@ sub calculate_mdt_images_vbm_Runtime_check {
             $skip_message=$skip_message.$temp_message;
         }
     }
-    
+
     if ((defined $skip_message) && ($skip_message ne '') ) {
         print "${skip_message}";
     }

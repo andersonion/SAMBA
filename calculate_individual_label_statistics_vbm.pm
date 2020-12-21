@@ -1,5 +1,5 @@
 #!/usr/bin/false
-#  calculate_individual_label_statistics_vbm.pm 
+#  calculate_individual_label_statistics_vbm.pm
 #  2017/06/16  Created by BJ Anderson, CIVM.
 
 my $PM = " calculate_individual_label_statistics_vbm.pm";
@@ -11,7 +11,7 @@ use warnings FATAL => qw(uninitialized);
 require Headfile;
 require pipeline_utilities;
 
-use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH);
 if (! defined($MATLAB_EXEC_PATH)) {
     $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
 }
@@ -24,7 +24,7 @@ my ($current_path, $image_dir,$work_dir,$runlist,$ch_runlist,$in_folder,$out_fol
 my ($channel_comma_list,$channel_comma_list_2,$mdt_contrast,$space_string,$current_label_space,$labels_dir,$label_atlas_name,$label_atlas_nickname);
 my (@array_of_runnos,@channel_array,@initial_channel_array);
 #my ($predictor_id); # SAVE FOR LAST ROUND OF LABEL STATS CODE
-my ($vx_count);# count of voxels in current space... 
+my ($vx_count);# count of voxels in current space...
 my @jobs=();
 my (%go_hash,%go_mask);
 my $log_msg='';
@@ -38,7 +38,7 @@ my $PM_code = 65;
 
 # New enhancements stabilized.
 my $compilation_date = "latest";
-my $write_individual_stats_executable_path = "$MATLAB_EXEC_PATH/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec.sh"; 
+my $write_individual_stats_executable_path = "$MATLAB_EXEC_PATH/write_individual_stats_executable/${compilation_date}/run_write_individual_stats_exec.sh";
 my $write_rat_report_executable_path = "$MATLAB_EXEC_PATH/label_stats_executables/write_rat_report_executable/20171013_1038/run_write_rat_report_exec.sh";
 
 my $out_ext=".nii.gz";
@@ -50,25 +50,25 @@ sub  calculate_individual_label_statistics_vbm {
     my $start_time = time;
 
     calculate_individual_label_statistics_Runtime_check();
-    
+
     foreach my $runno (@array_of_runnos) {
         $go = $go_hash{$runno};
         if ($go) {
             my $input_labels = "${work_dir}/${runno}_${label_atlas_nickname}_${label_type}${out_ext}";
-	    my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
+            my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
             if ($local_lookup eq 'NO_KEY') {
                 undef $local_lookup;
             }
-	    if($current_label_space =~ /MDT/ ) {
-		# in the tset case labelfile hf key was WHS_MDT_labels
-		#$input_labels=$Hf->get_value("${label_atlas_nickname}_${current_label_space}_${label_type}${out_ext}")
-		$input_labels=$Hf->get_value("${label_atlas_nickname}_${current_label_space}_labels");
-	    }
+            if($current_label_space =~ /MDT/ ) {
+                # in the tset case labelfile hf key was WHS_MDT_labels
+                #$input_labels=$Hf->get_value("${label_atlas_nickname}_${current_label_space}_${label_type}${out_ext}")
+                $input_labels=$Hf->get_value("${label_atlas_nickname}_${current_label_space}_labels");
+            }
             ($job) = calculate_label_statistics($runno,$input_labels,$local_lookup);
             if ($job) {
                 push(@jobs,$job);
             }
-        } 
+        }
     }
 
     my $species = $Hf->get_value_like('U_species.*');
@@ -83,7 +83,7 @@ sub  calculate_individual_label_statistics_vbm {
                 if ($job) {
                     push(@jobs,$job);
                 }
-            } 
+            }
         }
     }
     if (cluster_check() && (scalar(@jobs)>0)) {
@@ -129,41 +129,41 @@ sub calculate_individual_label_statistics_Output_check {
         my $sub_missing_files_message='';
 
         my $file_old = "${current_path}/${runno}_${label_atlas_nickname}_labels_in_${space_string}_space_stats.txt" ;
-	my $file = "${current_path}/${runno}_${label_atlas_nickname}_measured_in_${space_string}_space_stats.txt" ;
+        my $file = "${current_path}/${runno}_${label_atlas_nickname}_measured_in_${space_string}_space_stats.txt" ;
         my $file_found=0;
         my $missing_contrasts = 0;
-	my $header_string;
-	# do a hard check on new_type first
+        my $header_string;
+        # do a hard check on new_type first
         if (data_double_check($file,$case-1)) {
             # 19 March 2019: 'labels' is not a sufficient descriptor anymore, thanks to CCF3_quagmire, etc.
             # Switching to 'measured' as now is hardcoded by write_individual_stats_exec_v2.m
             # $file_1 => "${current_path}/${runno}_${label_atlas_nickname}_measured_in_${space_string}_space_stats.txt" ;
 
-	    # do a soft check on old second.
+            # do a soft check on old second.
             if (data_double_check($file_old)) {
                 $go_hash{$runno}=1;
                 push(@file_array,$file);
                 $sub_missing_files_message = $sub_missing_files_message."\t$runno";
             } else {
-		$file=$file_old;
+                $file=$file_old;
                 $file_found=1;
                 $header_string = `head -1 ${file}`;
-		# this is for the old header code which we've removd ain favor of simple table saving
-		# This WHOLE code is a WASTE OF TIME becuase we just match the contrast to the string ANYWAY!!!.
-		#my @c_array_1 = split('=',$header_string);
-		#@completed_contrasts = split(',',$c_array_1[1]);    
+                # this is for the old header code which we've removd ain favor of simple table saving
+                # This WHOLE code is a WASTE OF TIME becuase we just match the contrast to the string ANYWAY!!!.
+                #my @c_array_1 = split('=',$header_string);
+                #@completed_contrasts = split(',',$c_array_1[1]);
             }
         } else {
             $file_found=1;
             $header_string = `head -1 ${file}`;
-	    # This WHOLE code is a WASTE OF TIME becuase we just match the contrast to the string ANYWAY!!!.
-	    #my @c_array_1 = split("\t",$header_string);
-	    #foreach (@c_array_1) {
-	    #    if ($_ =~ /^(.*)_mean/) {
-	    #        push(@completed_contrasts,$1);
-	    #    }
-	    #}
-	}
+            # This WHOLE code is a WASTE OF TIME becuase we just match the contrast to the string ANYWAY!!!.
+            #my @c_array_1 = split("\t",$header_string);
+            #foreach (@c_array_1) {
+            #    if ($_ =~ /^(.*)_mean/) {
+            #        push(@completed_contrasts,$1);
+            #    }
+            #}
+        }
 
         if ($file_found) {
             foreach my $ch (@channel_array) {
@@ -189,14 +189,14 @@ sub calculate_individual_label_statistics_Output_check {
             $missing_files_message =$missing_files_message. $runno."\t".$sub_missing_files_message."\n";
         }
     }
-    
+
     my $error_msg='';
     if (($existing_files_message ne '') && ($case == 1)) {
         $error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
     } elsif (($missing_files_message ne '') && ($case == 2)) {
         $error_msg =  "$PM:\n${message_prefix}${missing_files_message}in_dir:$current_path\n";
     }
-    
+
     my $file_array_ref = \@file_array;
     return($file_array_ref,$error_msg);
 }
@@ -206,13 +206,13 @@ sub calculate_individual_label_statistics_Output_check {
 sub calculate_label_statistics {
 # ------------------
     my ($runno,$input_labels,$lookup_table) = @_;
-    
-    # 15 March 2019, when this option is turned on, intersection of ROI=0 
+
+    # 15 March 2019, when this option is turned on, intersection of ROI=0
     #   and the zeros of the first listed contrast (we attempt to force this to DWI,
     #   if present) will be treated as null for all contrasts.  This is mainly
     #   to improved memory used by tracking all the indices representing these voxels.
     my ${mask_with_first_contrast}=1;
-    
+
     if (! defined $lookup_table) { $lookup_table='';}
     my $exec_args ="${runno} ${input_labels} ${channel_comma_list_2} ${image_dir} ${current_path} ${space_string} ${label_atlas_nickname} ${lookup_table} ${mask_with_first_contrast}";
 
@@ -221,33 +221,33 @@ sub calculate_label_statistics {
 
     my $jid = 0;
     if (cluster_check) {
-	my @test=(0);
-	if (defined $reservation) {
-	    @test =(0,$reservation);
-	}
-        my $go =1;          
+        my @test=(0);
+        if (defined $reservation) {
+            @test =(0,$reservation);
+        }
+        my $go =1;
         my $cmd = "${write_individual_stats_executable_path} ${matlab_path} ${exec_args}";
         my $home_path = $current_path;
         my $Id= "${runno}_calculate_individual_label_statistics";
         my $verbose = 1; # Will print log only for work done.
-	my $mem_request = '512';# min req for matlab exec.
+        my $mem_request = '512';# min req for matlab exec.
 
-	my $space="label";
-	($mem_request, $vx_count)=refspace_memory_est($mem_request,$space,$Hf,5);
+        my $space="label";
+        ($mem_request, $vx_count)=refspace_memory_est($mem_request,$space,$Hf,5);
 
-	# estimates here, lets pretend 32-bit int for labels, + 4 x 64-bit contrast images
-	# this mem usage doesn't quite make sense, Realistically, it should just be labels+1 or 2 contrasti mages.
-	my $est_bytes=$vx_count * ( 4 + 8 + 8 + 8 + 8 );
-	# convert bytes to MiB(not MB)
-	$mem_request=ceil($est_bytes/(2**20));
-        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+        # estimates here, lets pretend 32-bit int for labels, + 4 x 64-bit contrast images
+        # this mem usage doesn't quite make sense, Realistically, it should just be labels+1 or 2 contrasti mages.
+        my $est_bytes=$vx_count * ( 4 + 8 + 8 + 8 + 8 );
+        # convert bytes to MiB(not MB)
+        $mem_request=ceil($est_bytes/(2**20));
+        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
         if (! $jid) {
             error_out($stop_message);
         } else {
             return($jid);
         }
     }
-} 
+}
 
 
 # ------------------
@@ -264,7 +264,7 @@ sub write_rat_report {
 
     my $go_message = "$PM: Writing rat report for runno: ${runno}\n" ;
     my $stop_message = "$PM: Failed to properly write rat report for runno: ${runno} \n" ;
-    
+
     my @test=(0);
     if (defined $reservation) {
         @test =(0,$reservation);
@@ -272,21 +272,21 @@ sub write_rat_report {
     my $mem_request = '10000';
     my $jid = 0;
     if (cluster_check) {
-        my $go =1;          
+        my $go =1;
 #       my $cmd = $pairwise_cmd.$rename_cmd;
         my $cmd = "${write_rat_report_executable_path} ${matlab_path} ${exec_args}";
-        
+
         my $home_path = $current_path;
         my $Id= "${runno}_write_rat_report";
         my $verbose = 1; # Will print log only for work done.
-        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
         if (! $jid) {
             error_out($stop_message);
         } else {
             return($jid);
         }
     }
-} 
+}
 
 
 
@@ -300,7 +300,7 @@ sub  calculate_individual_label_statistics_vbm_Init_check {
     # if ($log_msg ne '') {
     #     log_info("${message_prefix}${log_msg}");
     # }
-    
+
     if ($init_error_msg ne '') {
         $init_error_msg = $message_prefix.$init_error_msg;
     }
@@ -311,7 +311,7 @@ sub  calculate_individual_label_statistics_vbm_Init_check {
 # ------------------
 sub  calculate_individual_label_statistics_Runtime_check {
 # ------------------
-    
+
     $mdt_contrast = $Hf->get_value('mdt_contrast');
     $label_atlas_nickname = $Hf->get_value('label_atlas_nickname');
     $label_atlas_name = $Hf->get_value('label_atlas_name');
@@ -331,7 +331,7 @@ sub  calculate_individual_label_statistics_Runtime_check {
     } else {
         $msg = "current_label_space has been explicitly set to: ${current_label_space}";
     }
-    printd(35,$msg);    
+    printd(35,$msg);
 
     $space_string='rigid'; # Default
     if ($current_label_space eq 'pre_rigid') {
@@ -353,37 +353,37 @@ sub  calculate_individual_label_statistics_Runtime_check {
     my $stat_path=$labels_dir;
 
     if ( $current_label_space =~ /MDT/ ) {
-	# When MDT space but not MDT images, its desireable to move the stats 
-	# relative to the labels ...
-	#  for now we'll fix it by setting labels dir to a lie,
-	#  (where we would have saved them IF we were generating new files)
-	#
+        # When MDT space but not MDT images, its desireable to move the stats
+        # relative to the labels ...
+        #  for now we'll fix it by setting labels dir to a lie,
+        #  (where we would have saved them IF we were generating new files)
+        #
     }
-    # checking "the new way" with the post_affine, i Like how it works out, 
+    # checking "the new way" with the post_affine, i Like how it works out,
     # so whis whole block of intermediary will be commented for now.
 =item dead_intermediary_code
     if ( $current_label_space !~ /pre_rigid|MDT/ ){
-	# It is not clear this path setting should be here at all!
-	# In theory the image and stat dir shouldnt need updating right now.
-	# just in case I'm wrong, only the two known good cases jump through this.
-	my $intermediary_path = "${labels_dir}/${current_label_space}_${label_refname}_space";
-	die "HEllo iNTErMedaiaryPath! This code has been disabled due to lack of testing.".
-	    "Your work is mostly done, but you'll need to measure your own label stats, ".
-	    "Avizo does a competent job (don't forget to load the lookup table too). \n".
-	    "(or pick on the programmer to blindly enable this to see what happens:D ).\n".
-	    "labels_dir=$labels_dir\n".
-	    "stat_path=$stat_path\n".
-	    "image_dir=$image_dir\n".
-	    "inter=$intermediary_path\n".
-	    "  would expand inter with stats, images, and $label_atlas_nickname";
+        # It is not clear this path setting should be here at all!
+        # In theory the image and stat dir shouldnt need updating right now.
+        # just in case I'm wrong, only the two known good cases jump through this.
+        my $intermediary_path = "${labels_dir}/${current_label_space}_${label_refname}_space";
+        die "HEllo iNTErMedaiaryPath! This code has been disabled due to lack of testing.".
+            "Your work is mostly done, but you'll need to measure your own label stats, ".
+            "Avizo does a competent job (don't forget to load the lookup table too). \n".
+            "(or pick on the programmer to blindly enable this to see what happens:D ).\n".
+            "labels_dir=$labels_dir\n".
+            "stat_path=$stat_path\n".
+            "image_dir=$image_dir\n".
+            "inter=$intermediary_path\n".
+            "  would expand inter with stats, images, and $label_atlas_nickname";
 
-	my $intermediary_path = "${labels_dir}/${current_label_space}_${label_refname}_space";
-	$image_dir = "${intermediary_path}/images/";
-	$work_dir="${intermediary_path}/${label_atlas_nickname}/";
-	$stat_path = "${work_dir}/stats/";
+        my $intermediary_path = "${labels_dir}/${current_label_space}_${label_refname}_space";
+        $image_dir = "${intermediary_path}/images/";
+        $work_dir="${intermediary_path}/${label_atlas_nickname}/";
+        $stat_path = "${work_dir}/stats/";
     }
 =cut
-    
+
     $Hf->set_value('stat_path',${stat_path});
     if (! -e $stat_path) {
         mkdir ($stat_path,$permissions);
@@ -400,21 +400,21 @@ sub  calculate_individual_label_statistics_Runtime_check {
         $runlist = $Hf->get_value('complete_comma_list');
     }
     @array_of_runnos = split(',',$runlist);
-    
-    
-    if ( ! scalar(@initial_channel_array) ) { 
-	$ch_runlist = $Hf->get_value('channel_comma_list');
-	@initial_channel_array = split(',',$ch_runlist);
+
+
+    if ( ! scalar(@initial_channel_array) ) {
+        $ch_runlist = $Hf->get_value('channel_comma_list');
+        @initial_channel_array = split(',',$ch_runlist);
     }
     # Despite what this loop looks like, @channel_array should always be empty when this runs.
     @channel_array=();
     foreach my $contrast (@initial_channel_array) {
         if ($contrast !~ /^(ajax|jac|nii4D)$/i) {
             if ($contrast =~ /^(dwi)$/i) {
-		# patch messy upper/lower case dwi by getting whichever we've prescribed
-		$contrast=$1;
+                # patch messy upper/lower case dwi by getting whichever we've prescribed
+                $contrast=$1;
             }
-	    push(@channel_array,$contrast);
+            push(@channel_array,$contrast);
         }
     }
     @channel_array=uniq(@channel_array);
@@ -422,7 +422,7 @@ sub  calculate_individual_label_statistics_Runtime_check {
 
     my $case = 1;
     my ($dummy,$skip_message)=calculate_individual_label_statistics_Output_check($case);
-    
+
     if ($skip_message ne '') {
         print "${skip_message}";
     }
@@ -430,4 +430,3 @@ sub  calculate_individual_label_statistics_Runtime_check {
 
 
 1;
-

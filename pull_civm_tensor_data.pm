@@ -7,7 +7,7 @@
 # All my includes and requires are belong to us.
 # use ...
 # THIS BOILERPLATE IS MOSTLY IN THE WRONG SPOT AND SHOULD BE DELETED.
-my $PM = 'pull_civm_tensor_data.pm'; 
+my $PM = 'pull_civm_tensor_data.pm';
 
 use strict;
 use warnings;
@@ -58,11 +58,11 @@ sub pull_civm_tensor_data_Init_check {
     if ($log_msg ne '') {
         log_info("${message_prefix}${log_msg}");
     }
-    
+
     if ($init_error_msg ne '') {
         $init_error_msg = $message_prefix.$init_error_msg;
     }
-    
+
     return($init_error_msg);
 }
 
@@ -73,7 +73,7 @@ sub find_my_tensor_data {
 #---------------------
     my ($local_runno) = @_;
 
-    #  As of 25 April 2017: 
+    #  As of 25 April 2017:
     #  If $recon_machine is set, and a singular and appropriate tensor headfile can be found there, then all data associated with a given runno will
     #  be pulled off of that machine.
     #
@@ -83,26 +83,26 @@ sub find_my_tensor_data {
     #  If the archived data is bad, and the user is hoping to use a fresh run of tensor_create, then the appropriate_recon machine will need to be specified.
     #  The downfall of this is that only one recon_machine can be specified at the start of a pipeline run, but can possibly be circumvented by multiple runs.
     #
-    #  Note that it is possible to find more than one tensor_create results folder on a machine...the use of wildcards make this somewhat precarious, with no 
+    #  Note that it is possible to find more than one tensor_create results folder on a machine...the use of wildcards make this somewhat precarious, with no
     #  current solution.  puller_simple is used, which is believed to find the most recent match of the wildcard search.  If multiple tensor_creates are ran on
     #  the same machine, it might accidentally (and silently) pull unwanted data.  This can also occur when poor runno naming conventions are used, namely when
     #  one runno is an appended version of another runno, e.g. N54321 and N54321_26.  This might lead to pulling N54321_26 when requesting N54321. Don't say you
     #  weren't warned...
-    
+
     # no recon machines enabled here as this code should be good and dead.
     my @recon_machines = ();
     funct_obsolete("find_my_tensor_data","This concept is being retired");
 #        dusom_civm
 #        delos
 #        piper
-#        andros      
+#        andros
 #        vidconfmac
 #        sifnos
 #        milos
 #        panorama
 #        rhodos
 #        syros
-#        tinos); # James has a function to automatically compiling a valid list... 
+#        tinos); # James has a function to automatically compiling a valid list...
 
 # 10 July 2017: removed naxos temporarily until we better address "dead machine" issue.
 # 11 October 2017: removed crete temporarily because we are too lazy to turn it back on now.
@@ -112,29 +112,29 @@ sub find_my_tensor_data {
         $recon_machine='';
     }
     @recon_machines = uniq(@recon_machines);
-    
-    
+
+
     my $inputs_dir = $Hf->get_value('pristine_input_dir');
     my $message_prefix="vbm_pipeline_workflow.pm::pull_data_for_connectivity::find_my_tensor_data:\n";
     my $message_body='';
     my $error_prefix = "${message_prefix}The following errors were encountered while trying to locate remote tensor  data:\n";
     my $error_body='';
-    
+
     my $log_msg='';
     my $tmp_log_msg='';
     my $local_message_prefix="Attempting to retrieve data for runno: ${local_runno}\n";
     my $error_msg='';
     my $tmp_error_msg='';
     my $tmp_error_prefix = "Error while trying to retrieve data for runno: ${local_runno}\n";
-    
+
     my @tensor_recon_machines;
     my $tensor_recon_machine;
-    
+
     #my $local_message_prefix="Attempting to retrieve data from ${current_recon_machine} for runno: ${local_runno}\n";
-    
+
     # my $look_in_local_folder = 0;
     my $local_folder = "${inputs_dir}/${local_runno}_tmp/";
-    
+
     ## Get tensor and raw headfiles
     my ($tensor_headfile,$raw_headfile);
     my $tensor_headfile_exists = 0;
@@ -152,7 +152,7 @@ sub find_my_tensor_data {
             $tensor_headfile = "${inputs_dir}/${tensor_headfile}";
         }
     }
-    
+
     my $little_engine_that_did;
     my @possible_tensor_recon_machines;
     if ($tensor_headfile_exists) {
@@ -176,25 +176,25 @@ sub find_my_tensor_data {
     } else {
         @possible_tensor_recon_machines = @recon_machines;
     }
-    
-    
+
+
     my @original_tensor_headfiles;
     my @temp_tensor_headfiles;
-    
+
     ## Cycle through possible locations until we successfully pull in a tensor headfile, while noting location of data.
-    
+
     my $keep_checking = 1;
     foreach my $current_recon_machine (@possible_tensor_recon_machines){
         print("searching ${current_recon_machine}...\n");
         if ($keep_checking){
             my $archive_prefix = '';
-            my $machine_suffix = '';            
+            my $machine_suffix = '';
             if ($current_recon_machine eq 'dusom_civm') {
                 $archive_prefix = "${project_name}/research/";
             } else {
                 $machine_suffix = "-DTI-results";
             }
-            
+
             my $pull_headfile_cmd;
             if ($current_recon_machine eq 'gluster') {
                 ## Look for local tensor results directory
@@ -206,7 +206,7 @@ sub find_my_tensor_data {
                         for my $current_dir (@gluster_contents) {
                             $current_dir=$BIGGUS_DISKUS.'/'.$current_dir;
                             if (-d $current_dir) {
-                                push(@tensor_recon_machines,'gluster');  
+                                push(@tensor_recon_machines,'gluster');
                                 $tmp_log_msg = "Tensor_create \"results\" folder for runno \"${local_runno}\" found locally at ${current_dir}\n";
                                 $log_msg = $log_msg.$tmp_log_msg;
                                 if (! $tensor_headfile_exists) {
@@ -258,9 +258,9 @@ sub find_my_tensor_data {
                     `mv ${latest_headfile} ${temp_headfile_name}`;
                     push(@original_tensor_headfiles,$latest_headfile);
                     push(@temp_tensor_headfiles,$temp_headfile_name);
-                    
+
                     $tensor_headfile = $temp_headfile_name;#temp solution only !!!
-                    
+
                     $tmp_log_msg = "Tensor headfile for runno \"${local_runno}\" found on machine: ${current_recon_machine}\n";
                     $log_msg = $log_msg.$tmp_log_msg;
                 }
@@ -268,7 +268,7 @@ sub find_my_tensor_data {
                     $keep_checking = 0;
                 }
             }
-        }       
+        }
     }
     #print "${tensor_headfile}\n\n";
     my $pos;
@@ -300,7 +300,7 @@ sub find_my_tensor_data {
         $tmp_log_msg = "A tensor headfile for runno \"${local_runno}\" was found on \$recon_machine ${tensor_recon_machine}\n\tAny missing data will be pulled from here.\n";
         $log_msg = $log_msg.$tmp_log_msg;
     }
-    
+
     if (defined $pos) {
         my ($dummy_1,$f,$e) = fileparts($original_tensor_headfiles[$pos],3);
         $tensor_headfile = "${inputs_dir}/${f}${e}";
@@ -309,7 +309,7 @@ sub find_my_tensor_data {
         $tmp_log_msg = "Tensor headfile for runno \"${local_runno}\" is: ${tensor_headfile}\n";
         $log_msg = $log_msg.$tmp_log_msg;
     }
-    
+
     if ( -d $local_folder) {
         `rm -r ${local_folder}`;
     }
@@ -339,9 +339,9 @@ sub pull_civm_tensor_data {
 #        panorama
 #        rhodos
 #        syros
-#        tinos); # James has a function to automatically compiling a valid list... 
-    
-# 10 July 2017: removed naxos temporarily until we better address "dead machine" issue. 
+#        tinos); # James has a function to automatically compiling a valid list...
+
+# 10 July 2017: removed naxos temporarily until we better address "dead machine" issue.
 # 11 October 2017: removed crete temporarily because we are too lazy to turn it back on now.
     if ((defined $recon_machine) && ($recon_machine ne 'NO_KEY') && ($recon_machine ne '')) {
         unshift(@recon_machines,$recon_machine);
@@ -354,17 +354,17 @@ sub pull_civm_tensor_data {
     }
     my @array_of_runnos = split(',',$complete_runno_list);
     @array_of_runnos = uniq(@array_of_runnos);
-    
+
     if (! defined $complete_channel_list) {
         $complete_channel_list=$Hf->get_value('channel_comma_list');
     }
-    
+
     my @array_of_channels = split(',',$complete_channel_list);
     @array_of_channels = uniq(@array_of_channels);
 
 
 ####
-# JAMES's Dangerous last minute substitution of code here. 
+# JAMES's Dangerous last minute substitution of code here.
 ###
     # This is NOT a fix for the tensor_create vs diffusion_calc difference.
     #TODO, read runnos, and contrasts from known info. Prepend recon machine to machine list and unique it.
@@ -376,17 +376,17 @@ sub pull_civm_tensor_data {
         #push(@array_of_channels,'b_table');
         # Was gonna stuff gradmaker here, but REALLY this is supposed to grab data... That would be out of spec.
     }
-    # This adds our affine transforms, note this is targeted at and m## style notation per transform. 
-    # Very old tensor data doesnt have that, and the m may be overly specific. 
+    # This adds our affine transforms, note this is targeted at and m## style notation per transform.
+    # Very old tensor data doesnt have that, and the m may be overly specific.
     if ((defined $eddy_current_correction) && ($eddy_current_correction ne 'NO_KEY') && ($eddy_current_correction == 1)) {
         push(@array_of_channels,'m*GenericAffine*');
     }
     push(@array_of_channels,'tensor*headfile');
     #@recon_machines=qw(dusom_civm);
-    # pull multi is an ugly-elegant kludge function. 
+    # pull multi is an ugly-elegant kludge function.
     my $status=pull_multi(\@array_of_runnos,\@array_of_channels,\@recon_machines,$Hf);
     return $status;
-    
+
 ###
 # end DANGER ZONE
 ####
@@ -400,7 +400,7 @@ sub pull_civm_tensor_data {
     my $message_body='';
     my $error_prefix = "${message_prefix}The following errors were encountered while trying to retrieve remote tensor data:\n";
     my $error_body='';
-    foreach my $runno (@array_of_runnos) { 
+    foreach my $runno (@array_of_runnos) {
         my $log_msg='';
         my $tmp_log_msg='';
         my $local_message_prefix="Attempting to retrieve data for runno: ${runno}\n";
@@ -418,7 +418,7 @@ sub pull_civm_tensor_data {
         if (0 && $do_connectivity) {
             ## Look for local tensor headfile
             if (-d $inputs_dir) {
-                opendir(DIR, $inputs_dir);      
+                opendir(DIR, $inputs_dir);
                 my @input_files_1= grep(/^tensor($runno).*\.headfile(\.gz)?$/i ,readdir(DIR));
                 if ($#input_files_1 > 0) {
                     $tmp_error_msg = "More than 1 tensor headfile detected for runno \"${runno}\"; it appears invalid and/or ambiguous runnos are being used.\n";
@@ -465,7 +465,7 @@ sub pull_civm_tensor_data {
                         opendir(DIR, $inputs_dir);
                         my @input_files_2= grep(/^($runno).*\.headfile(\.gz)?$/i ,readdir(DIR));
                         if ($#input_files_2 > 0) {
-                            $tmp_error_msg = "More than 1 raw headfile detected for runno \"${runno}\"...". 
+                            $tmp_error_msg = "More than 1 raw headfile detected for runno \"${runno}\"...".
                                 "\tIt appears invalid and/or ambiguous runnos are being used. BEHAVE YOURSELF!";
                             $error_msg=$error_msg.$tmp_error_msg;
                         }
@@ -473,7 +473,7 @@ sub pull_civm_tensor_data {
                         if ((defined $raw_headfile)&& ($raw_headfile ne '')) {
                             $raw_headfile = "${inputs_dir}/${raw_headfile}";
                         } else {
-                            my $raw_machine_found=0;                    
+                            my $raw_machine_found=0;
                             ##Cycle through possible locations until we successfully pull in a raw headfile, while noting location of data.
                             foreach my $current_recon_machine (@recon_machines){
                                 if (! $raw_machine_found) {
@@ -499,9 +499,9 @@ sub pull_civm_tensor_data {
                                                     my $input_headfile = `ls -rt ${current_dir}/${runno}*/${runno}*/${runno}*headfile | head -1`;
                                                     chomp($input_headfile);
                                                     `cp ${input_headfile} ${inputs_dir}/`;
-                                                    $raw_headfile = `ls -t ${inputs_dir}/${runno}*headfile | head -1`; 
+                                                    $raw_headfile = `ls -t ${inputs_dir}/${runno}*headfile | head -1`;
                                                     chomp($raw_headfile);
-                                                    if ($raw_headfile !~ /"no such file"/) { 
+                                                    if ($raw_headfile !~ /"no such file"/) {
                                                         $raw_machine_found=1;
                                                         $tmp_log_msg =$tmp_log_msg."raw headfile \"${raw_headfile}\" successfully copied to inputs directory.\n";
                                                     } else {
@@ -554,7 +554,7 @@ sub pull_civm_tensor_data {
                             @Hf_gradients = split(' ',$Hf_grad_string);
                             ($num_bvecs,$v_dim) = split(':',$grad_dim_info);
                         }
-                    }           
+                    }
 
                     if ((defined $num_bvecs) && ($num_bvecs > 6)) {
                         #parse bvals
@@ -619,7 +619,7 @@ sub pull_civm_tensor_data {
                         write_array_to_file($gradient_file,\@gradient_matrix);
                         $tmp_log_msg = "\nDone creating b-table: ${gradient_file} for ${num_bvecs} bval/bvec entries.\n";
                         $log_msg = $tmp_log_msg;
-                    }   
+                    }
                 }
 
                 $Hf->set_value("original_bvecs_${runno}",$gradient_file);
@@ -729,7 +729,7 @@ sub pull_civm_tensor_data {
                     if ($contrast eq 'tensor') {
                         #print  "machine suffix = ${machine_suffix}\n\n\n";
                         if ($machine_suffix =~ s/results/work/) {}
-                        #print  "machine suffix = ${machine_suffix}\n\n\n";  
+                        #print  "machine suffix = ${machine_suffix}\n\n\n";
                     }
                     if ($data_home eq 'gluster') {
                         $pull_file_cmd = "cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/${runno}*_${contrast}.${file_suffix}* ${inputs_dir}/";
@@ -759,7 +759,7 @@ sub pull_civm_tensor_data {
                             $error_msg=$error_msg.$find_error_msg;
 
                             if ($data_home eq 'gluster') {
-                                $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;                     
+                                $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;
                             } else {
                                 $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
                             }
@@ -773,7 +773,7 @@ sub pull_civm_tensor_data {
                         $log_msg=$log_msg.$find_log_msg;
                         $error_msg=$error_msg.$find_error_msg;
                         if ($data_home eq 'gluster') {
-                            $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;                     
+                            $pull_nii4D_cmd= `cp /${BIGGUS_DISKUS}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii* ${inputs_dir}/`;
                         } else {
                             $pull_nii4D_cmd = "puller_simple -f file -ore ${data_home} ${archive_prefix}/tensor${runno}*${machine_suffix}/nii4D_${runno}*.nii ${inputs_dir}/";
                         }
@@ -813,13 +813,13 @@ sub pull_civm_tensor_data {
         }
         if ($error_msg ne '') {
             $error_body=$error_body."\n".$tmp_error_prefix.$error_msg;
-        }       
+        }
     }
-    
+
     if ($message_body ne '') {
         log_info("${message_prefix}${message_body}");
     }
-    
+
     if ($error_body ne '')  {
         error_out("${error_prefix}${error_body}");
     }
@@ -866,7 +866,7 @@ sub query_data_home{
     #print "for some runno, ${runno}: \"".$home_array_ref->{$runno}."\"\n\n";
     #print " this should be \"${data_home}\"\n\n";
     my $archive_prefix = '';
-    my $machine_suffix = '';             
+    my $machine_suffix = '';
     if ($data_home eq 'dusom_civm') {
         $archive_prefix = "${project_name}/research/";
     } else {

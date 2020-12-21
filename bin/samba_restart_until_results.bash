@@ -38,13 +38,13 @@ vbmsuf_regex="$(vbmsuffix_regex)";
 echo "Persistent start mode activating now.";
 echo "$limit SAMBA runs(at most) scheduling and interfering with one another."
 echo "$max_try attempts before a headfile will be moved to max_fail directory";
-echo ""; 
+echo "";
 echo " usage $0 limit max_try";
 echo " continuing in 8 seconds";
-sleep 8; 
+sleep 8;
 # I'll suffer this particular abonimation of emaily
 declare -x SAMBA_MAIL_USERS=$USER@duke.edu,jjc29@duke.edu
-# Start the smart launcher in the background, will pack any that are ready(after 300 second delay), 
+# Start the smart launcher in the background, will pack any that are ready(after 300 second delay),
 while [ $(ls $rp|grep -v last |grep -ci "$vbmsuf_regex" ) -lt $(ls *headfile |wc -l) ];
 do  samba_smart_tmux $limit 0 $max_try;
     # samba_smart_tmux may move a headfile out of the way, that requires we update the suffix regex
@@ -62,5 +62,3 @@ do  echo -n "Samba auto-restart samba_smart_tmux active: "; date ;
     echo "hint:   ps -ef|grep bash|grep samba|grep $USER";
     sleep 120;
 done
-
-
