@@ -143,7 +143,10 @@ sub vbm_pipeline_workflow {
 # Create a master list of all specimen that are to be pre-processed and rigid/affinely aligned
 
     # Override sigdie once we get started.
-    $SIG{__DIE__} = \&vbm_signal_DIE;
+    if( ${civm_simple_util::IS_LINUX} || ${civm_simple_util::IS_MAC}){
+        $SIG{__DIE__} = \&vbm_signal_DIE;
+    }
+
     print "\n\nStart work\n\n";
     # the components could be made responsible for filling this in by passing the array reference to their init routines
     my @variables_to_headfile=qw(
@@ -767,6 +770,7 @@ U_specid U_species_m00 U_code
         }
         if (! $v_ok ) {
             $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time);
+            $real_time = 0 if ! defined $real_time;
         }
         print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
         if ( $create_labels ) {
@@ -977,12 +981,14 @@ sub vbm_signal_DIE {
     my $err_mail = $subj.$msg.$time_info;
     write_array_to_file($err_file,[$err_mail]);
     mail_user($MAIL_USERS,$err_file);
-
     # restore normal sigdie
     $SIG{__DIE__}=$FORMER_SIGDIE_HANDLER;
     # let our "nice" error handler take it from there.
     #die($msg);
     #error_out($msg);
+
+    &{$FORMER_SIGDIE_HANDLER}(@_);
+
 }
 
 sub mail_user {
@@ -1020,6 +1026,10 @@ sub image_preview_mail {
 # Not sold on this name yet, but ... well :p (ortho prievew mail, ortho preview dir ? )
     # RELIES ON SOME SAMBA GLOBALS($Hf)
     my($source_dir,$preview_dir,$ex_ref,$MAIL_USERS)=@_;
+    if(!${civm_simple_util::IS_MAC} && ! ${civm_simple_util::IS_LINUX}) {
+        print("image_preview_mail cannot run outside linux/mac");
+        return;
+    }
     # Will generate ortho slice previews using civm_bulk_ortho and then
     # mail the folder of results to you.
     #
@@ -1134,8 +1144,8 @@ sub ants_warp_name_swappity {
     #"ln -s ${out_warp} ${new_warp}",
     #"ln -s ${out_inverse} ${new_inverse}",
     #"rm ${out_affine} ");
-    my @cmds = ("ln -s ${out_warp} ${new_warp}",
-                "ln -s ${out_inverse} ${new_inverse}",
+    my @cmds = ("ln -sf ${out_warp} ${new_warp}",
+                "ln -sf ${out_inverse} ${new_inverse}",
                 "rm ${out_affine} ");
     return @cmds;
 }
