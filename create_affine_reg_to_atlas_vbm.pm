@@ -55,7 +55,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
         my $alt_result_path_base;
         if ($mdt_to_atlas){
             $mdt_path = $Hf->get_value('median_images_path');
-            $to_xform_path = $mdt_path.'/'.$runno.$out_ext; #added .gz 22 October 2015
+            $to_xform_path = $mdt_path.'/'.$runno.$out_ext;
             $result_path_base = "${current_path}/${runno}_to_${label_atlas}_";
             if ($swap_fixed_and_moving) {
                 $alt_result_path_base = "${current_path}/${label_atlas}_to_${runno}_";
@@ -67,7 +67,6 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
             $result_path_base = "${current_path}/${runno}_";
             $alt_result_path_base = "${current_path}/${runno}_";
         }
-
         $go = $go_hash{$runno};
         # Not sure I like these var names, runno_transform_clean, and runno_to_clean_named_trasforms.
         # They are the singluar simple transform name and the collection of same.
@@ -77,7 +76,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
         $alt_result_path_bases{$runno}=$alt_result_path_base;
         if ($go) {
             if ( ! $do_rigid
-                && ( $runno eq $affine_target || scalar(@array_of_runnos)<3 )
+                && ! $mdt_to_atlas && ( $runno eq $affine_target || scalar(@array_of_runnos)<3 )
                 ) {
                 # For the affine target ONLY, and ONLY when we are doing an affine(not rigid) transform,
                 # we want to use the identity matrix.
@@ -86,12 +85,10 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                 run_and_watch("ln -sf ${affine_identity} ${runno_transform_clean}");
             } else {
                 ($xform_path,$job) = create_affine_transform_vbm($to_xform_path,  $alt_result_path_base, $runno);
-
                 # We are setting atlas as fixed and current runno as moving...
                 # this is opposite of what happens in seg_pipe_mc,
                 # when you are essential passing around the INVERSE of that registration to atlas step,
                 # but accounting for it by setting "-i 1" with $do_inverse_bool.
-
                 $xform_paths{$runno}=$xform_path;
                 if ($swap_fixed_and_moving) {
                     print "swap_fixed_and_moving is activated\n\n\n";
@@ -104,15 +101,12 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                 }
             }
         }
-
         my $mdt_flag = 0;
         foreach my $current_runno (@array_of_control_runnos) {
             if ($runno eq $current_runno) {
                 $mdt_flag = 1;
             }
         }
-
-
         # COMICALLY REDUNDANT BLEH, TODO: clean up.
         if ($mdt_to_atlas) {
             headfile_list_handler($Hf,"forward_label_xforms","${runno_transform_clean}",0);
@@ -157,7 +151,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
         #if (! (  (!$do_rigid) && ($runno eq $affine_target)  )    ) {
         # if   we're not the affine target, or transform_is_rigid
         # Code should operate for all rigid, and most affine(exclude affine target)
-        if (  $do_rigid
+        if (  $do_rigid || $mdt_to_atlas
               || ($runno ne $affine_target && scalar(@array_of_runnos)>2)
             ) {
             $xform_path = $xform_paths{$runno};
@@ -196,6 +190,8 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                 if( -f ${xform_path} ) {
                     rename($xform_path,$runno_transform_clean)
                         || error_out("trouble renaming $xform_path $runno_transform_clean");
+                } else {
+                    error_out("Missing $xform_path, (cannot be renamed to $runno_transform_clean)");
                 }
             }
         }
@@ -374,7 +370,9 @@ sub create_affine_transform_vbm {
     } else {
         error_out("$PM: create_transform: don't understand xform_code: $xform_code\n");
     }
-
+    if( -e $transform_path) {
+        $cmd="echo $transform_path";
+    }
     my @list = split '/', $atlas_path;
     my $A_file = pop @list;
     my ($dum,$B_name,$b_e) = fileparts($B_path,3);
