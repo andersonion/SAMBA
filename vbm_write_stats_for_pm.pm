@@ -91,9 +91,10 @@ sub vbm_write_stats_for_pm {
     my $end_time = time;
     my $real_time = ($end_time - $start_time);
     my $pm_string = "${PM_code},0,0,${start_time},${real_time},0";
-    my $stats_file = $Hf->get_value("stats_file");
-    if ($stats_file ne "NO_KEY") {
-        run_and_watch("echo \"${pm_string}\" >> ${stats_file}");
+    my ($write_out,$stats_file) = $Hf->get_value_check("stats_file");
+    if ($write_out) {
+        append_file($pm_string."\n");
+        #run_and_watch("echo \"${pm_string}\" >> ${stats_file}");
     }
 
     if  ($#jobs != -1) {

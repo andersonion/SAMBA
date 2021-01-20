@@ -770,8 +770,8 @@ U_specid U_species_m00 U_code
         }
         if (! $v_ok ) {
             $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time);
-            $real_time = 0 if ! defined $real_time;
         }
+        $real_time = 0 if ! defined $real_time;
         print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
         if ( $create_labels ) {
             # label_space is comma sep global
