@@ -1001,9 +1001,11 @@ sub warp_atlas_labels_vbm_Runtime_check {
 
     my $atlas_label_dir= dirname $label_input_file;
     my $source_lookup;
+    my $at_pattern;
     if ( -d "$atlas_label_dir" ) {
-        my $pattern = "^.*lookup[.][^.]*\$";
-        ($source_lookup) = find_file_by_pattern($atlas_label_dir,$pattern,1);
+        $at_pattern = "^.*lookup[.][^.]*\$";
+        #$debug_val=150;
+        ($source_lookup) = find_file_by_pattern($atlas_label_dir,$at_pattern,1);
     }
     # # # #
     # Naughty copy lookup tables at runtime... that belongs in the "work" sub.
@@ -1012,8 +1014,8 @@ sub warp_atlas_labels_vbm_Runtime_check {
         # 7 March 2019 Find and copy lookup table, if available (look locally first)
         # Note that ONLY ONE file near source labels/quagmire can have the name *lookup.*
         # Otherwise we make no guarantee to proper behavior
-        my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
-        if ($local_lookup eq 'NO_KEY') {
+        my ($v_ok,$local_lookup) = $Hf->get_value_check("${runno}_${label_atlas_nickname}_label_lookup_table");
+        if (!$v_ok) {#if ($local_lookup eq 'NO_KEY') {
             my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup[.].*\$";
             ($local_lookup) = find_file_by_pattern($current_path,$local_pattern,1);
             if ((defined $local_lookup) && ( -e $local_lookup) ) {
@@ -1026,10 +1028,13 @@ sub warp_atlas_labels_vbm_Runtime_check {
                 }
                 #($local_lookup) = find_file_by_pattern($current_path,$local_pattern,1);
                 #Data::Dump::dump($source_lookup,$label_input_file,$atlas_label_dir,$current_path,$local_lookup);
-                if ( -e $local_lookup) {
+                if ( defined $local_lookup && -e $local_lookup) {
                     $Hf->set_value("${runno}_${label_atlas_nickname}_label_lookup_table",$local_lookup);
                 } else {
-                    die "I insist you have a lookup table, and try though I might I could not get one.";
+
+                    die "I insist you have a lookup table, and try though I might I could not get one.\n".
+                        "  tried: $current_path: $local_pattern\n".
+                        "  and:   $atlas_label_dir: $at_pattern";
                 }
             }
         }
