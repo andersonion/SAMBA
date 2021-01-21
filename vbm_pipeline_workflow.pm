@@ -576,7 +576,7 @@ U_specid U_species_m00 U_code
     set_reference_space_vbm(); #$PM_code = 15
     # set_ref also sets our best guess memory requirements by adding ref_size key to Hf
     sleep($interval);
-
+    
     # Force mask and nii4D out of channel array becuase they require special handling.
     @channel_array = grep {$_ ne 'mask' } @channel_array;
     @channel_array = grep {$_ ne 'nii4D' } @channel_array;
@@ -589,6 +589,11 @@ U_specid U_species_m00 U_code
     my $img_preview_src=File::Spec->catdir($preprocess_dir,'base_images');
     my $img_preview_dir=File::Spec->catdir($dir_work,"reg_init_preview");
     image_preview_mail($img_preview_src,$img_preview_dir,my $blank,$MAIL_USERS);
+    
+    if(${$main::opts->{"only-precondition"}}){
+	printd(5,"Precondition only stop\n");
+	exit $GOODEXIT;
+    }
 ###
 # Register all to atlas
 # First as rigid, then not

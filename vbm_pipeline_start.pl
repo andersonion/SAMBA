@@ -77,6 +77,11 @@ if ( 0 ) {
 }
 $permissions=0777 ^ $permission_mask;
 
+#my $opts={};
+our $opts={};
+${$opts->{"only-precondition"}}=0;
+$opts=auto_opt($opts,\@ARGV);
+
 $debug_val=45;
 
 # a do it again variable, will allow you to pull data from another vbm_run
