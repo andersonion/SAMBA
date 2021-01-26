@@ -80,7 +80,7 @@ sub mask_images_vbm {
             if ( (! -e $mask_path) && (! -e $mask_path.".gz")  ){
                 if ( (! $port_atlas_mask)
                      || $port_atlas_mask && (! -e $ported_mask) && (! -e $ported_mask.'.gz') ) {
-                    ($job) =  strip_mask_vbm($current_file,$mask_path,$mask_threshold);
+                    ($job) =  strip_mask_vbm($current_file,$mask_path,$mask_threshold,$runno);
                     if ($job) {
                         push(@jobs,$job);
                     }
@@ -278,7 +278,7 @@ sub mask_images_Output_check {
 # ------------------
 sub strip_mask_vbm {
 # ------------------
-    my ($input_file,$mask_path,$mask_threshold) = @_;
+    my ($input_file,$mask_path,$mask_threshold,$ident) = @_;
 
     my $jid = 0;
     my ($go_message, $stop_message);
@@ -298,9 +298,8 @@ sub strip_mask_vbm {
             @test =(0,$reservation);
         }
         my $go =1;
-
         my $home_path = $current_path;
-        my $Id= "creating_mask_from_contrast_${template_contrast}";
+        my $Id= "gen_${ident}_${template_contrast}_mask";
         my $verbose = 2; # Will print log only for work done.
         my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
         my $space="vbm";
