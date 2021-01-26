@@ -50,21 +50,21 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     }
     printd(1,"$PM: \tswap_fixed_and_moving is TURNED OFF (as it probably should be)\n\n");
     foreach my $runno (@array_of_runnos) {
-        my $to_xform_path;
+        my $subject_path;
         my $result_path_base;
         my $alt_result_path_base;
         if ($mdt_to_atlas){
             $mdt_path = $Hf->get_value('median_images_path');
-            $to_xform_path = $mdt_path.'/'.$runno.$out_ext;
+            $subject_path = $mdt_path.'/'.$runno.$out_ext;
             $result_path_base = "${current_path}/${runno}_to_${label_atlas}_";
-            if ($swap_fixed_and_moving) {
-                $alt_result_path_base = "${current_path}/${label_atlas}_to_${runno}_";
-            } else {
+            if (! $swap_fixed_and_moving) {
                 $alt_result_path_base = "${current_path}/${runno}_to_${label_atlas}_";
+            } else {
+                $alt_result_path_base = "${current_path}/${label_atlas}_to_${runno}_";
             }
         } else {
-            $to_xform_path=get_nii_from_inputs($inputs_dir,$runno,$contrast);
-            $result_path_base = "${current_path}/${runno}_";
+            $subject_path=get_nii_from_inputs($inputs_dir,$runno,$contrast);
+            $result_path_base     = "${current_path}/${runno}_";
             $alt_result_path_base = "${current_path}/${runno}_";
         }
         $go = $go_hash{$runno};
@@ -74,23 +74,25 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
         my  $runno_transform_clean = $result_path_base.$xform_suffix;
         $runno_to_clean_named_transforms{$runno}=$runno_transform_clean;
         $alt_result_path_bases{$runno}=$alt_result_path_base;
-        if ($go) {
+	# This go hash was making work harder to verify, due to the hand-waving name swapping....
+	# it also prevented xform_path from being filled in.
+        #if ($go) {
             if ( ! $do_rigid
                 && ! $mdt_to_atlas && ( $runno eq $affine_target || scalar(@array_of_runnos)<3 )
                 ) {
                 # For the affine target ONLY, and ONLY when we are doing an affine(not rigid) transform,
                 # we want to use the identity matrix.
                 my $affine_identity = $Hf->get_value('affine_identity_matrix');
-                # Switching to a link from cp.
-                run_and_watch("ln -sf ${affine_identity} ${runno_transform_clean}");
+		# Switching to a link from cp.
+                run_and_watch("ln -sf ${affine_identity} ${runno_transform_clean}") if ! -e $runno_transform_clean;
+		$xform_path=$runno_transform_clean;
             } else {
-                ($xform_path,$job) = create_affine_transform_vbm($to_xform_path,  $alt_result_path_base, $runno);
+                ($xform_path,$job) = create_affine_transform_vbm($subject_path,  $alt_result_path_base, $runno);
                 # We are setting atlas as fixed and current runno as moving...
                 # this is opposite of what happens in seg_pipe_mc,
                 # when you are essential passing around the INVERSE of that registration to atlas step,
                 # but accounting for it by setting "-i 1" with $do_inverse_bool.
-                $xform_paths{$runno}=$xform_path;
-                if ($swap_fixed_and_moving) {
+		if ($swap_fixed_and_moving) {
                     print "swap_fixed_and_moving is activated\n\n\n";
                 } else {
                     #MOVED LINK CODE TO LATER BECAUSE THE FILE WOULDN'T BE READY YET.
@@ -100,7 +102,8 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                     push(@jobs,$job);
                 }
             }
-        }
+	    $xform_paths{$runno}=$xform_path;
+        #}
         my $mdt_flag = 0;
         foreach my $current_runno (@array_of_control_runnos) {
             if ($runno eq $current_runno) {
@@ -138,12 +141,10 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
             print STDOUT  "  All ${rigid_or_affine} registration jobs have completed; moving on to next step.\n";
         }
     }
-
-
+    #Data::Dump::dump(%xform_paths);
+    #$SIG{__DIE__}='DEFAULT';die'TESTING';
     foreach my $runno (@array_of_runnos) {
-        if (! $go) {
-            next;
-        }
+	next if ! $go_hash{$runno};
         # All these negatives makes it hard to understand when this would be run.
         #do_rigid is 0 or 1, and would be better named, transform_is_rigid
         # so this could be written as
@@ -287,10 +288,14 @@ sub create_affine_reg_to_atlas_Output_check {
 }
 
 # ------------------
+# HIDDEN INPUT "atlas_path" which is BADLY NAMED. 
+# IT may be the affine_target runno, and not at all atlas related. 
 sub create_affine_transform_vbm {
 # ------------------
-    #($to_xform_path,  $alt_result_path_base, $runno);
-    my ($B_path, $result_transform_path_base,$moving_runno) = @_;
+    # RUNNO here is better "subject_name" because its a pain to trim the a proper name from the file path.
+    #($subject_path,  $alt_result_path_base, $runno);
+    
+    my ($subject_path, $result_transform_path_base,$moving_runno) = @_;
     my $collapse = 0;
     my $transform_path="${result_transform_path_base}0GenericAffine.mat";
 
@@ -316,12 +321,12 @@ sub create_affine_transform_vbm {
     }
 
     my ($fixed,$moving);
-    if ($swap_fixed_and_moving){
-        $moving = $atlas_path;
-        $fixed = $B_path;
-    } else {
+    if (! $swap_fixed_and_moving){
         $fixed = $atlas_path;
-        $moving = $B_path;
+        $moving = $subject_path;
+    } else {
+        $moving = $atlas_path;
+        $fixed = $subject_path;
     }
     confess "Err missing m:$moving" if ! -e $moving;
     confess "Err missing f:$fixed" if ! -e $fixed;
@@ -362,7 +367,7 @@ sub create_affine_transform_vbm {
                 " -s  ${affine_smoothing_sigmas} -f ${affine_shrink_factors} ". # -s 4x2x1x0vox  -f  6x4x2x1
                 " -u 1 -z 1 -l 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";  # "-z 1" instead of "-z $collapse", as we want rigid + affine together in this case.
         } else {
-            $cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ". #-r [$atlas_path,$B_path,1] ".
+            $cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ". #-r [$atlas_path,$subject_path,1] ".
                 " ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [ ${affine_iterations},${affine_convergence_thresh},${affine_convergence_window} ] ".
                 "-s ${affine_smoothing_sigmas} -f  ${affine_shrink_factors} -l 1 ". # -s 4x2x1x0.5vox-f 6x4x2x1
                 " $q $r -u 1 -z $collapse -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
@@ -373,10 +378,15 @@ sub create_affine_transform_vbm {
     if( -e $transform_path) {
         $cmd="echo $transform_path";
     }
-    my @list = split '/', $atlas_path;
-    my $A_file = pop @list;
-    my ($dum,$B_name,$b_e) = fileparts($B_path,3);
-    my $go_message =  "create ${xform_code} transform for ${B_name}".$b_e;
+    #my @list = split '/', $atlas_path;
+    #my $A_file = pop @list;
+    # WHEN is this NOT moving_runno? Lets presume thats right and die if its incorrect
+    my ($dum,$B_name,$b_e) = fileparts($subject_path,3);
+    #my $go_message =  "create ${xform_code} transform for ${B_name}".$b_e;
+    my $go_message =  "create ${xform_code} transform for ${moving_runno}".$b_e;
+    if ($B_name !~ /$moving_runno/x){
+	die "CODE OVER SIMPLIFICATION, B_name != moving_runno.Tell programmer!";
+    }
     my $stop_message = "$PM: create_transform: could not make transform: $cmd\n";
     my @test=(0);
     if (defined $reservation) {
@@ -384,10 +394,11 @@ sub create_affine_transform_vbm {
     }
     my $jid = 0;
     if (cluster_check) {
-        my ($home_path,$dummy1,$dummy2) = fileparts($result_transform_path_base,2);
+        #my ($home_path,$dummy1,$dummy2) = fileparts($result_transform_path_base,2);
+	my $home_path=dirname($result_transform_path_base);
         my $Id= "${moving_runno}_create_affine_registration";
         my $verbose = 1; # Will print log only for work done.
-        $jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);
+        $jid = cluster_exec($go, $go_message, $cmd, $home_path, $Id, $verbose, $mem_request, @test);
         if (not $jid) {
             #error_out($stop_message);
         }
