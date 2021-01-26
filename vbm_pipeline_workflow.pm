@@ -35,8 +35,6 @@ use lib split(':',$RADISH_PERL_LIB);
 # use ...
 # CIVM standard req
 use Headfile;
-# Save SIGDIE for later.
-my $FORMER_SIGDIE_HANDLER=$SIG{DIE};
 use text_sheet_utils;
 
 # retrieve_archived_data is largely retired.
@@ -77,12 +75,19 @@ use apply_warps_to_bvecs;
 our ($log_file,$stats_file,$timestamped_inputs_file,$project_id,$all_groups_comma_list );
 our ($pristine_input_dir,$dir_work,$results_dir,$result_headfile);
 our ($rigid_transform_suffix,$affine_transform_suffix, $affine_identity_matrix, $preprocess_dir,$inputs_dir);
-# a do it again variable, will allow you to pull data from another vbm_run
 
+#
+# WARNING: few statements are run when we "use" workflow. 
+# TO have more obvious control, several have been move to "workflow_init".
+#
+
+# a do it again variable, will allow you to pull data from another vbm_run
 $test_mode = 0;
 
+$schedule_backup_jobs=0;
+
 # A forced wait time after starting each bit. (also used when we're doing check and wait operations.)
-my $interval = 0.1; ##Normally 1
+my $interval = 0.1;
 # pulled img out of list, because hdr is supposed to take care of that.
 $valid_formats_string = 'nhdr|nrrd|nii|nii.gz|ngz|hdr';
 $samba_label_types='labels|quagmire|mess';
@@ -90,49 +95,67 @@ $samba_label_types='labels|quagmire|mess';
 # a flag to indicate we're in the civm eco system so all the parts should work
 # and we try to resolve all the funny things.
 $civm_ecosystem = 1;
-if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
-    $civm_ecosystem = 1;
-} elsif ( $ENV{'BIGGUS_DISKUS'} =~ /civmnas4/) {
-    $civm_ecosystem = 1;
-} elsif (! exists $ENV{'WORKSTATION_HOSTNAME'}
-         || ! defined load_engine_deps() ) {
-    $civm_ecosystem = 0;
-    printd(5,"WARNING: appears to be outside the full eco-system. Disabling overly specific bits\n");
-    sleep_with_countdown(3);
-}
 # fun games with negation right here(dont mind the madness of abusing default 0 exit)
-my $UNSUCCESSFUL_RUN=$BADEXIT;
+our $UNSUCCESSFUL_RUN;
 
+#
+# INIT PROCESSING... Move to special function, with package globals.
+#
+# seems this isn't strictly necessary, we can just set it back to 'DEFAULT'
+#our $FORMER_SIGDIE_HANDLER;
+our $pipe_adm="";
+my $pwuid = getpwuid( $< );
+our $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
+our $cluster_user;
+
+sub workflow_init {
+
+=item cruft
+    $FORMER_SIGDIE_HANDLER=$SIG{__DIE__};
+    if( ! defined $FORMER_SIGDIE_HANDLER){
+	print("Unable to save SIG __DIE__\n");
+	if(can_dump()){
+	    Data::Dump::dump(\%SIG);
+	} else { display_complex_data_structure(\%SIG);}
+	print("Possible SIGs:<".join(",",keys %SIG).">\n");
+	exit $BADEXIT;
+    }
+=cut
+
+    $UNSUCCESSFUL_RUN=$BADEXIT;
+    if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
+	$civm_ecosystem = 1;
+    } elsif ( $ENV{'BIGGUS_DISKUS'} =~ /civmnas4/) {
+	$civm_ecosystem = 1;
+    } elsif (! exists $ENV{'WORKSTATION_HOSTNAME'}
+	     || ! defined load_engine_deps() ) {
+	$civm_ecosystem = 0;
+	printd(5,"WARNING: appears to be outside the full eco-system. Disabling overly specific bits\n");
+	sleep_with_countdown(3);
+    }
 # set pipe email users
-my $pipe_adm="";
-my $grp=getgrgid((getpwuid($<))[3]);
+    my $grp=getgrgid((getpwuid($<))[3]);
 #my @grps;
 #push(@grps,$grp) if defined $grp;
-
-my @gids=getgroups();
+#my @gids=getgroups();
 # have to convert groupids to names...
 #foreach (@gids) {
 #  push(@grps,getgrgid($_));
 # }
-if(! defined $CODE_DEV_GROUP
-   || (defined $grp && $CODE_DEV_GROUP ne $grp)  ) {
-   # || ! scalar(grep /$CODE_DEV_GROUP/x, @grps) ) {
-    $pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
-}
+    if(! defined $CODE_DEV_GROUP
+       || (defined $grp && $CODE_DEV_GROUP ne $grp)  ) {
+	# || ! scalar(grep /$CODE_DEV_GROUP/x, @grps) ) {
+	$pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
+	$MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
+    }
 #die join("\n",@grps).$CODE_DEV_GROUP."$pipe_adm";
-
-my $pwuid = getpwuid( $< );
-my $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
-my $cluster_user=$ENV{USER} || $ENV{USERNAME};
-if (exists $ENV{'SAMBA_MAIL_USERS'} && $ENV{'SAMBA_MAIL_USERS'} ne ''){
-    $MAIL_USERS=$ENV{'SAMBA_MAIL_USERS'};
-    printd(5,"Overrideing default mail recipients with env var SAMBA_MAIL_USERS\n");
+    
+    $cluster_user=$ENV{USER} || $ENV{USERNAME};
+    if (exists $ENV{'SAMBA_MAIL_USERS'} && $ENV{'SAMBA_MAIL_USERS'} ne ''){
+	$MAIL_USERS=$ENV{'SAMBA_MAIL_USERS'};
+	printd(5,"Overrideing default mail recipients with env var SAMBA_MAIL_USERS\n");
+    }
 }
-
-# Temporary hardcoded variables
-# variables, set up by the study vars script(study_variables_vbm.pm)
-
-$schedule_backup_jobs=0;
 
 sub vbm_pipeline_workflow {
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
@@ -141,7 +164,7 @@ sub vbm_pipeline_workflow {
 # Figure out better method than "group_1" "group_2" etc, maybe a hash structure with group_name/group_description/group_members, etc
 # Concatanate and uniq comparison list to create reg_to_mdt(?) group list
 # Create a master list of all specimen that are to be pre-processed and rigid/affinely aligned
-
+    workflow_init();
     # Override sigdie once we get started.
     if( ${civm_simple_util::IS_LINUX} || ${civm_simple_util::IS_MAC}){
         $SIG{__DIE__} = \&vbm_signal_DIE;
@@ -894,7 +917,8 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
     ####
     # restore normal sigdie DO NOT insert any code below
     ####
-    $SIG{__DIE__}=$FORMER_SIGDIE_HANDLER;
+    #$SIG{__DIE__}=$FORMER_SIGDIE_HANDLER;
+    $SIG{__DIE__}='DEFAULT';
     $UNSUCCESSFUL_RUN=$GOODEXIT;
     ####
     #### INSERT ALL CODE BEFORE SIGDIE RESTORE (probably before mailing status :D )
@@ -987,12 +1011,14 @@ sub vbm_signal_DIE {
     write_array_to_file($err_file,[$err_mail]);
     mail_user($MAIL_USERS,$err_file);
     # restore normal sigdie
-    $SIG{__DIE__}=$FORMER_SIGDIE_HANDLER;
+    #$SIG{__DIE__}=$FORMER_SIGDIE_HANDLER;
+    $SIG{__DIE__}='DEFAULT';
     # let our "nice" error handler take it from there.
     #die($msg);
     #error_out($msg);
 
-    &{$FORMER_SIGDIE_HANDLER}(@_);
+    die(@_);
+    #&{$FORMER_SIGDIE_HANDLER}(@_);
 
 }
 
