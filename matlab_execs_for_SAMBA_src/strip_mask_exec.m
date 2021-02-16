@@ -1,5 +1,5 @@
 function strip_mask_exec(img_path, dim_divisor, threshold_zero, varargin)
-%function STRIP_MASK(img_path, dim_divisor, threshold_code,mask_result_nii,num_morph,radius,debug)
+%function STRIP_MASK(img_path, dim_divisor, threshold_code,mask_result_nii,num_morph,radius,debug,safe_fill)
 %
 % This function adapted for deployment by BJ Anderson, CIVM, 27 July 2017
 % This mainly consisted of testing the inputs to see if they were strings,
@@ -42,6 +42,8 @@ function strip_mask_exec(img_path, dim_divisor, threshold_zero, varargin)
 %                   2, show every step in a view_nii panel,
 %                   1, only display the output mask, or
 %                   0, display none.
+% safe_fill,       do a 2d only fill to finalize the mask, first in dim
+%                  1+2, then in dim 2,3.
 % To tune your call use
 % strip_mask('/path/to/file.nii', 4, -1 , '', 4, 1.6 );
 %   4 downsamples to speed up process
@@ -95,6 +97,11 @@ if( length(varargin)>=1)
 else
     [result_path, filename, extension]=fileparts(img_path);
     mask_out=strcat(result_path,'/',filename, '_8bit_mask', extension);
+end
+
+if exist(mask_out,'file')
+    warning('Previous mask file, quiting');
+    return;
 end
 
 
@@ -152,6 +159,15 @@ if (debuglevel >=1 )
     status_largestconnecteddisplay=1; % comment this line to suppress status view_nii
 else
     status_largestconnecteddisplay=0;
+end
+
+safe_fill=0;
+if length(varargin)>=5 && ~isempty(varargin{5})
+    if ischar(varargin{5})
+        safe_fill=str2double(varargin{5});
+    else
+        safe_fill=varargin{5};
+    end
 end
 
 %num_morph ammount.
@@ -277,7 +293,7 @@ if threshold_zero>=0 && threshold_zero < 100
             if numel(vals)<threshold_zero
                 warning('cannot mask with theshold zero %i, DATA FILE LIKELY CORRUPT',threshold_zero)
                 if isdeployed
-                    quit foce
+                    quit force
                 else
                     return
                 end
@@ -457,10 +473,32 @@ end
 %
 disp('filling final holes...');
 tic
-nii.img=imfill(nii.img, 'holes');% This doesn't always work in a single shot?
+if ~safe_fill
+    nii.img=imfill(nii.img, 'holes');% This doesn't always work in a single shot?
+    nii.img=imfill(nii.img, 'holes');
+else
+    disp('  fill dim 1 + 2');
+    for s=1:size(nii.img,3)
+        nii.img(:,:,s)=imfill(nii.img(:,:,s), 'holes');
+    end
+    disp('  fill dim 2 + 3');
+    % this might go drastically faster if we first permute and then process
+    % in the two rapid dimensions.
+    % permute(nii.img,[2,3,1]) to start, followed by
+    % ipermute(nii.img,[2,3,1]) to end.
+    for s=1:size(nii.img,1)
+        nii.img(s,:,:)=imfill(nii.img(s,:,:), 'holes');
+    end
+    toc
+    disp('  dialate 1of2');
+    nii.img=imdilate(nii.img, nhood);
+    toc
+    disp('  dialate 2of2');
+    nii.img=imdilate(nii.img, nhood);
+    toc
+end
 nii.img=imfill(nii.img, 'holes');
-nii.img=imfill(nii.img, 'holes');
-
+disp('finalizing:');
 toc
 
 if(status_img==1);
