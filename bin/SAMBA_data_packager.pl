@@ -463,7 +463,12 @@ sub main {
             ###
             print("\t Linking up images\n");
             while (my ($key, $value) = each %$mdt_lookup ) {
-                qx(ln -vs $key $value);
+		#  copy_paired_data($in_file,$out_file,$prep,$update,$link_mode)=@_;
+		if($key =~ /[.](nhdr|nrrd)$/){
+		    copy_paired_data($key,$value,0,1,0);
+		} else {
+		    qx(ln -vs $key $value);
+		}
             }
         }
         # check for a labels folder in median images we'd want to capture.
@@ -552,8 +557,9 @@ sub main {
              # $hf->get_value("label_images_dir"),
             ]
             );
+	
         #my $sub_lookup=transmogrify_folder($in_im_dir,$spec_out_path,$Specimen,$Specimen);
-        # 4 part machhcing, speimen, _something{1..n}, _masked{0,1}, compoundext
+        # 4 part macthcing, speimen, _something{1..n}, _masked{0,1}, compoundext
         my $inpat="($Specimen)((?:_[^_]+)+?)(_masked)?((?:[.][^.]+)+)\$";
         my $outpat='$1$2$4';
         #$outpat='\1\2\4';
@@ -561,9 +567,31 @@ sub main {
         if ( scalar(keys(%$sub_lookup)) ) {
             print("\t Linking up images\n");
             while (my ($key, $value) = each %$sub_lookup ) {
-                qx(ln -vs $key $value);
+		if($key =~ /[.](nhdr|nrrd)$/){
+		    copy_paired_data($key,$value,0,1,0);
+		} else {
+		    qx(ln -vs $key $value);
+		}
             }
         }
+        # we were missing TRANSLATION FROM INPUTS TO BASE IMAGES, !
+        # THE FULL WORK is inputs->reorient+mask(preprocess)->translation(base_images)
+	my $translation_xforms=File::Spec->catfile($base_images,"translation_xforms");
+	my ($translator)=civm_simple_util::find_file_by_pattern($translation_xforms,$Specimen.".*InitialMovingTranslation[.].*");
+	if( ! defined $translator){
+	    croak("suspicious! We didnt find a translator! typically we find those!");
+	} else {
+	    printd(45,"translator found for $spec_out_path at $translator\n");
+	}
+	# not sure if we have the fwd or the back transform.
+        # Ref is first, img is second
+	my $translator_fwd=File::Spec->catfile($spec_out_path,"transforms",$Specimen."inputs"."_to_".$Specimen."work.mat");
+	if( ! -e $translator_fwd){ qx(ln -vs $translator $translator_fwd); }
+	my $translator_bak=File::Spec->catfile($spec_out_path,"transforms",$Specimen."work"."_to_".$Specimen."inputs.mat");
+	if( ! -e $translator_bak){ 
+	    my $create_inv=File::Spec->catfile($spec_out_path,"transforms",".create_inv_t_translator.sh");
+	    create_inverse_affine_transform($create_inv, $translator, $translator_bak);
+	}
         package_transforms_SPEC($mdtpath,$spec_out_path,$Specimen,$mdtname,$n_vbm);
         if ( $SingleSegMode ) {
             # When in single seg mode we have a messy batch of transform in our directory.
@@ -732,6 +760,7 @@ sub transmogrify_folder {
 #       push(@files,'/mnt/civmbigdata/civmBigDataVol/jjc29/VBM_18gaj42_chass_symmetric3_RAS_BXD62_stat-work/preprocess/base_images/N57008_fa_color_masked.nii.gz');
         #Data::Dump::dump(@files);die;
     }
+    # out is regular expression, because we've got compplicated bits to work over. 
     my $out_is_reg=1;
     if($in_key =~ /[(].*[)]/x ){
         # Has match portions already, do not adjust
@@ -756,12 +785,13 @@ sub transmogrify_folder {
     #my $var = "start middle end";
     #sub_modify($var, $find, $replace);
     foreach (@files) {
-        if( $_ !~ /^.*(txt|csv|xlsx?|headfile)|(nhdr|nrrd|raw.gz)|(nii([.]gz)?)$/ ) {
+        if( $_ !~ /^.*(txt|csv|xlsx?|headfile)|(nhdr|nrrd)|(nii([.]gz)?)$/ ) {
             next;
         }
         my $n=basename$_;
         my $o=$n;
-        if($out_is_reg) {
+	if($out_is_reg) {
+	    # out is regular expression, because we've got compplicated bits to work over. 
             #require String::Substitution;
             #String::Substitution->import(qw( sub_modify ));
             #sub_modify($o, $in_key, $oreg);
@@ -906,8 +936,11 @@ sub package_transforms_MDT {
     my $TargetDataPackage_ThisPackage_affine="$road_backward/".$n_ThisPackage_t_a;
     #my $antsCreateInverse="ComposeMultiTransform 3 ${TargetDataPackage_ThisPackage_affine} -i ${ThisPackage_TargetDataPackage_affine} && ConvertTransformFile 3 ${TargetDataPackage_ThisPackage_affine} ${TargetDataPackage_ThisPackage_affine} --convertToAffineType";
     my($p,$n,$e)=fileparts(${TargetDataPackage_ThisPackage_affine},3);
+    
     my $p_i_t_c=File::Spec->catfile($p,$n.".sh");
-
+    create_inverse_affine_transform($p_i_t_c,$ThisPackage_TargetDataPackage_affine, $TargetDataPackage_ThisPackage_affine);
+    my $old_way=0;
+    if( $old_way ){
     my ($i_out,$i_cmd);
     ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform(
         $ThisPackage_TargetDataPackage_affine, $TargetDataPackage_ThisPackage_affine);
@@ -925,6 +958,8 @@ sub package_transforms_MDT {
         die("Missing(or bad file) $ThisPackage_TargetDataPackage_affine");
 
     }
+    }
+
 ###
 # Create ordered links ( relative links to files in same folder just for our future selve's book keeping.
 ###
@@ -1022,32 +1057,32 @@ sub package_transforms_SPEC {
     my ($i_out,$i_cmd);
     if ( ! -e $TargetDataPackage_ThisPackageName_rigid) {
         die "Error, rigid is the backward transform, it must exist" if ! $rigid_is_forward;
-        if ( 0 ) {
-            qx(ln -vs $rig $TargetDataPackage_ThisPackageName_rigid);
-        } else {
-            ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform($rig,$TargetDataPackage_ThisPackageName_rigid);
-            my ($p,$n)=fileparts($TargetDataPackage_ThisPackageName_rigid,2);
-            my $create_inv=File::Spec->catfile($road_backward,
-                                               ".create_inv_t_".$n."_R.sh");
-            open(my $f_id,'>',$create_inv);
-            print($f_id "#!/bin/bash\n$i_cmd;\n");
-            close($f_id);
-        }
+        #if ( 0 ) {
+        #    qx(ln -vs $rig $TargetDataPackage_ThisPackageName_rigid);
+        #} else {
+        #    ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform($rig,$TargetDataPackage_ThisPackageName_rigid);
+        #    my ($p,$n)=fileparts($TargetDataPackage_ThisPackageName_rigid,2);
+        #    my $create_inv=File::Spec->catfile($road_backward,
+        #                                       ".create_inv_t_".$n."_R.sh");
+        #    open(my $f_id,'>',$create_inv);
+        #    print($f_id "#!/bin/bash\n$i_cmd;\n");
+        #    close($f_id);
+        #}
     }
     if ( ! -e $ThisPackageName_TargetDataPackage_rigid) {
         die "Error, rigid is the forward transform, it must exist" if $rigid_is_forward;
-        if ( 0 ) {
-            qx(ln -vs $rig $ThisPackageName_TargetDataPackage_rigid);
-        } else {
-            ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform(
-                $rig,$ThisPackageName_TargetDataPackage_rigid);
-            my ($p,$n)=fileparts($ThisPackageName_TargetDataPackage_rigid,2);
-            my $create_inv=File::Spec->catfile($road_backward,
-                                               ".create_inv_t_".$n."_R.sh");
-            open(my $f_id,'>',$create_inv);
-            print($f_id "#!/bin/bash\n$i_cmd;\n");
-            close($f_id);
-        }
+        #if ( 0 ) {
+        #    qx(ln -vs $rig $ThisPackageName_TargetDataPackage_rigid);
+        #} else {
+        #    ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform(
+        #        $rig,$ThisPackageName_TargetDataPackage_rigid);
+        #    my ($p,$n)=fileparts($ThisPackageName_TargetDataPackage_rigid,2);
+        #    my $create_inv=File::Spec->catfile($road_backward,
+        #                                       ".create_inv_t_".$n."_R.sh");
+        #    open(my $f_id,'>',$create_inv);
+        #    print($f_id "#!/bin/bash\n$i_cmd;\n");
+        #    close($f_id);
+        #}
     }
 
     my $ThisPackageName_TargetDataPackage_affine=
@@ -1071,12 +1106,17 @@ sub package_transforms_SPEC {
         die "Error, affine is the backward transform, it must exist" if ! $rigid_is_forward;
     }
     if ( ! -e $TargetDataPackage_ThisPackageName_affine ) {
-        ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform($aff,$TargetDataPackage_ThisPackageName_affine);
         my ($p,$n)=fileparts($TargetDataPackage_ThisPackageName_affine,2);
         my $create_inv=File::Spec->catfile($road_forward,".create_inv_t_".$n."_A.sh");
+
+	create_inverse_affine_transform($create_inv,$aff,$TargetDataPackage_ThisPackageName_affine);
+	my $old_way=0;
+	if($old_way) {
+        ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform($aff,$TargetDataPackage_ThisPackageName_affine);
         open(my $f_id,'>',$create_inv) or croak "error on open $create_inv: $!";
         print($f_id "#!/bin/bash\n$i_cmd;\n");
         close($f_id);
+	}
     }
 ###
 # get the warp
@@ -1308,7 +1348,12 @@ sub package_labels_SPEC {
     # Debug die showing everything to "transfer".
     #Data::Dump::dump($label_in_folder,$stat_pat,$sub_lookup);die;
     while (my ($key, $value) = each %$sub_lookup ) {
-        qx(ln -vs $key $value);
+	#  copy_paired_data($in_file,$out_file,$prep,$update,$link_mode)=@_;
+	if($key =~ /[.](nhdr|nrrd)$/){
+	    copy_paired_data($key,$value,0,1,0);
+	} else {
+	    qx(ln -vs $key $value);
+	}
     }
 
     return;
