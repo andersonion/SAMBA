@@ -68,7 +68,11 @@ if isstruct(img) && isfield(img,'img')
 elseif ~exist(img,'file')
         error('Image cannot be found, please specify the full path as a string');
 elseif ~strcmp(img(end-3:end),'.nii') && ~strcmp(img(end-6:end),'.nii.gz')
+  if ~strcmp(img(end-4:end),'.nhdr') && ~strcmp(img(end-4:end),'.nrrd')
     error('Input image must be in NIfTI format')
+  else
+    warning('nhdr input not well tested, good luck');
+  end
 end
 
 %voxel order checks
@@ -113,15 +117,23 @@ use_exact_output=0;
 % Start with the input name
 if ~isstruct(img)
     [out_dir, img_name, ext]=fileparts(img);
+    if ~isempty(regexpi(img,'.nii(.gz)?')) && ~isempty(regexpi(ext,'[.]gz'))
+        [~,img_name,~]=fileparts(img_name);
+    end
+    ext='.nii.gz';
 end
 if ~exist('output_path','var')
     suff=['_' desired_vorder];
 else
     % output_path was set, is it a directory or a filename.
     % we figure this out based on extension presence.
-    if ~isempty(regexpi(output_path,'.nii(.gz)?'))
+    if ~isempty(regexpi(output_path,'[.](nii([.]gz)?)|(n(rrd|hdr))$'))
         % specified as a nifti file with optional gz ext.
         [out_dir, img_name, ext]=fileparts(output_path);
+        if ~isempty(regexpi(ext,'[.]gz'))
+            [~,img_name,~]=fileparts(img_name);
+        end
+	ext='.nii.gz';
         use_exact_output=1;
     else 
         out_dir=output_path;
@@ -133,10 +145,12 @@ else
 end
 
 affine_out=fullfile(out_dir,[current_vorder '_to_' desired_vorder '_affine.mat']);
+%{
 if strcmp(ext,'.gz')
     nii_ext_len=4;
     img_name=img_name(1:end-nii_ext_len);
 end
+%}
 ext='.nii.gz';
 if ~use_exact_output
     output_path=fullfile(out_dir,[img_name suff ext]);
@@ -175,6 +189,7 @@ if ~isstruct(img)
             nii.hdr=load_niigz_hdr(img);
         end
     catch
+      try
         time_1=toc(n1t);
         n2t=tic;
         if ~exist(output_path,'file')
@@ -184,6 +199,11 @@ if ~isstruct(img)
         end
         time_2=toc(n2t);
         warning(['Function load_niigz (runtime: ' num2str(time_1) ') failed with datatype: ' num2str(nii.hdr.dime.datatype) ' (perhaps because it currently doesn''t support RGB?). Used load_nii instead (runtime: ' num2str(time_2) ').']);
+      catch
+	[data,hdr]=read_civm_image(img);
+        %nii=make_nii(cast(data,'single'));
+	nii=make_nii(data);
+	end
     end
 else
     nii=img;img='NOPATH_DIRECT_IN_STRUCT_MODE';
