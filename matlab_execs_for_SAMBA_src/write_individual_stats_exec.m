@@ -367,11 +367,13 @@ if contrasts_to_process > 0
     catch
         warning('load any image via helper unsucessful, falling back to load_niigz.');
         label_orig=load_niigz(label_file);
+        %patching hdr to same place read_civm_image would put it
+        label_orig.hf.hdr=label_orig.hdr;
     end
-    if ~isfield(label_orig,'hdr')
+    if ~isfield(label_orig.hf,'hdr')
         voxel_vol=prod(nrrd_vox(label_orig.hf.nhdr));
     else
-        voxel_vol=prod(label_orig.hdr.dime.pixdim(2:4));
+        voxel_vol=prod(label_orig.hf.hdr.dime.pixdim(2:4));
     end
     dims.label=size(label_orig.img);
     if isfield(dims,'img') && nnz(dims.img-dims.label)
