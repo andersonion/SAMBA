@@ -136,7 +136,8 @@ end
 try
     atlas_lookup_T=readtable(atlas_lookup_table,'ReadVariableNames', false,'HeaderLines',0,'Delimiter',' ' ...
         ,'Format','%d64 %s %d %d %d %d %s','CommentStyle','#');
-catch
+catch merr
+    warning(merr.message);
     atlas_lookup_T=readtable(atlas_lookup_table,'ReadVariableNames', true,'Delimiter','\t');
 end
 atlas_lookup_T=lowercase_table(atlas_lookup_T,'ROI');
