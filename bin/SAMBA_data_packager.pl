@@ -585,11 +585,15 @@ sub main {
 	}
 	# not sure if we have the fwd or the back transform.
         # Ref is first, img is second
-	my $translator_fwd=File::Spec->catfile($spec_out_path,"transforms",$Specimen."inputs"."_to_".$Specimen."work.mat");
+	my $transform_dir=File::Spec->catdir($spec_out_path,"transforms");
+	if(! -d $transform_dir){
+	    mkdir($transform_dir);
+	}
+	my $translator_fwd=File::Spec->catfile(${transform_dir},$Specimen."inputs"."_to_".$Specimen."work.mat");
 	if( ! -e $translator_fwd){ qx(ln -vs $translator $translator_fwd); }
-	my $translator_bak=File::Spec->catfile($spec_out_path,"transforms",$Specimen."work"."_to_".$Specimen."inputs.mat");
+	my $translator_bak=File::Spec->catfile(${transform_dir},$Specimen."work"."_to_".$Specimen."inputs.mat");
 	if( ! -e $translator_bak){ 
-	    my $create_inv=File::Spec->catfile($spec_out_path,"transforms",".create_inv_t_translator.sh");
+	    my $create_inv=File::Spec->catfile(${transform_dir},".create_inv_t_translator.sh");
 	    create_inverse_affine_transform($create_inv, $translator, $translator_bak);
 	}
         package_transforms_SPEC($mdtpath,$spec_out_path,$Specimen,$mdtname,$n_vbm);
@@ -635,7 +639,7 @@ sub main {
             if( scalar(@headfiles) != 1 ){
                 croak "Input Headfile lookup found # ".scalar(@headfiles)." headfiles, not sure how to proceed."
                     ."\t Maybe archive share disconnected ? \n"
-                    ."\t  use  \"cifscreds add -u $USER -d DHE\" to connect \n"
+                    ."\t  use  \"cifscreds add -u $USER -d dhe\" to connect \n"
                     ."\t (Searched $hf_dir for *$Specimen*.headfile)";
             }
             my $hfname=basename($headfiles[0]);
@@ -695,13 +699,13 @@ sub main {
         # collapse any multi slashing to single
         $rsync_location=~s|/+|//|g;
     }
-    print(" Data \"packaged\" sucessfully! THIS IS A PRESENTATION SET, NOT what we would archive.\n");
+    print("\n Data \"packaged\" sucessfully! THIS IS A PRESENTATION SET, NOT what we would archive.\n");
     print(" To get archive ready please use the SAMBA_archive_prep\n");
     print("\n");
     print(" You can send all your data to one of our workstations (piper) for continuting work with the following:\n");
-    print("   rsync -a --copy-unsafe-links $output_base/ $rsync_location \n");
+    print("   rsync -va --copy-unsafe-links $output_base/ $rsync_location \n");
     print(" To archive you will need to dereference the linkages, with the following command:\n");
-    print("   rsync -a --copy-unsafe-links $output_base/ NEW_PATH/ \n");
+    print("   rsync -va --copy-unsafe-links $output_base/ NEW_PATH/ \n");
     print(" You can ask Lucy or James to help you with that step.\n\n");
     print("To use this MDT for your next SAMBA run, add its path to your transform chain:\n");
     print("\t$mdt_out_path \n");
