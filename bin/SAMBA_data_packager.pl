@@ -488,32 +488,34 @@ sub main {
             if ( ! -e $lo && -e $lo_o  ) {
                 qx(mv $lo_o $lo);
             }
-            # If we havnt got them yet, make sybolic link stack for labels folder
+            # If we havnt got them yet, make symbolic link stack for labels folder
+	    # This is to capture all the meta data tracking out of the pipeline.
             # This is only done the first time. If we have need to repeat this(due to pipeline additions)
             # best practice would be to remove the existing labels package.
             if(! -e $lo) {
                 mkdir($lo);
                 qx(lndir $lp $lo);
             }
-            # run through link stack setting up the name.
-            my $sub_lookup=transmogrify_folder($lo,$lo,'MDT',$mdtname);
-            while (my ($key, $value) = each %$sub_lookup ) {
-                qx(mv $key $value);
-            }
-            # handle label nicks
+            # handle label nicks(dir)
             my $ln=File::Spec->catfile($lo,$n_a_l_n);
             if(! -e $ln) {
                 mkdir($ln);
             }
-            $sub_lookup=transmogrify_folder($lo,$ln,$n_a_l_n,$n_a_l_n);
+            # run through link stack setting up the name.
+	    # if the name(and location) is already righteous we will not do anything
+            my $sub_lookup=transmogrify_folder($lo,$ln,'MDT',$mdtname);
             while (my ($key, $value) = each %$sub_lookup ) {
-                qx(mv $key $value);
+		if($key =~ /[.](nhdr|nrrd)$/){
+		    printd(25,"$key .. $value");
+		    copy_paired_data($key,$value,0,1,'move');
+		} else {
+		    qx(mv $key $value);
+		}
             }
         }
     } else {
         print("\tNot linked today, just getting the transforms together.\n");
     }
-
 # transcribe the name of the atlas for labels into targetatlas for code clarity.
     my $TargetDataPackage=$n_a_l;
     package_transforms_MDT($mdtpath,$mdt_out_path,$mdtname,$TargetDataPackage,$n_vbm);
@@ -525,7 +527,6 @@ sub main {
     # Handle per specimen images as measured.
     ###
     # There are other specimen images available, but this seems like the best choice.
-
     ($v_ok, my $hf_dir)=$hf->get_value_check('pristine_input_dir');
     if(! $v_ok ){
         undef $hf_dir;
@@ -568,7 +569,7 @@ sub main {
             print("\t Linking up images\n");
             while (my ($key, $value) = each %$sub_lookup ) {
 		if($key =~ /[.](nhdr|nrrd)$/){
-		    copy_paired_data($key,$value,0,1,0);
+		    copy_paired_data($key,$value,0,1,"copy");
 		} else {
 		    qx(ln -vs $key $value);
 		}
@@ -789,7 +790,7 @@ sub transmogrify_folder {
     #my $var = "start middle end";
     #sub_modify($var, $find, $replace);
     foreach (@files) {
-        if( $_ !~ /^.*(txt|csv|xlsx?|headfile)|(nhdr|nrrd)|(nii([.]gz)?)$/ ) {
+        if( $_ !~ /^.*((txt|csv|xlsx?|headfile)|(nhdr|nrrd)|(nii([.]gz)?))$/ ) {
             next;
         }
         my $n=basename$_;
@@ -1354,12 +1355,11 @@ sub package_labels_SPEC {
     while (my ($key, $value) = each %$sub_lookup ) {
 	#  copy_paired_data($in_file,$out_file,$prep,$update,$link_mode)=@_;
 	if($key =~ /[.](nhdr|nrrd)$/){
-	    copy_paired_data($key,$value,0,1,0);
+	    copy_paired_data($key,$value,0,1,"copy");
 	} else {
 	    qx(ln -vs $key $value);
 	}
     }
-
     return;
 }
 sub fix_ts_new {
