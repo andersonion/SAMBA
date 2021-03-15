@@ -48,9 +48,16 @@ if ~ismember('ROI',existing_fields)
     pause(3);
     stats_table.ROI=1:1:n_ROIs;
 end
-roi_data=[stats_table.ROI,stats_table.(c_field)];
 
 %% trim the exterior out
+% nan's and 0's show up in our stats table ROI column as 0.
+% Artfully skip those by omitting them internally.
+% This is an alternative to the singular_exterior method that follows.
+% By using this new way, the old one should never trip.
+idx=stats_table.ROI~=0;
+roi_data=[stats_table.ROI(idx),stats_table.(c_field)(idx)];
+n_ROIs=size(roi_data,1);
+% Old method of remove 0's
 singular_exterior=mod(n_ROIs,2);
 % If the the first entry is '0' (hopefully whole-brain exterior)
 if ~roi_data(1,1)

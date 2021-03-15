@@ -45,8 +45,13 @@ for i_s=1:numel(stat_files)
     atlas_id=bits{end};
     id=strjoin(bits(1:end-1),'_');
     try
-        a_p=fullfile(atlas_dir, 'labels',atlas_id, [atlas '_labels']);
-        output=generate_QA_for_coeffecient_of_variation(id,stat_files{i_s},'volume_mm3,dwi,fa,ad,rd,gfa,nqa,md',a_p);
+        % Former atlas pattern, updated for symmetric45um
+        % a_p=fullfile(atlas_dir, 'labels',atlas_id, [atlas '_labels']);
+        a_p=fullfile(atlas_dir, 'labels',atlas_id, [atlas '_' atlas_id '_labels']);
+        % Full contrast list
+        % output=generate_QA_for_coeffecient_of_variation(id,stat_files{i_s},'volume_mm3,dwi,fa,ad,rd,gfa,nqa,md',a_p);
+        % Minimal contrast list
+        output=generate_QA_for_coeffecient_of_variation(id,stat_files{i_s},'volume_mm3,dwi,fa',a_p);
     catch merr
         disp(merr);
         err=err+1;

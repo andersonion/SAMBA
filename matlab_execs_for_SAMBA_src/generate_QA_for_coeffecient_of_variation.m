@@ -150,6 +150,10 @@ atlas_lookup_T.Properties.VariableNames{4}='G';
 atlas_lookup_T.Properties.VariableNames{5}='B';
 atlas_lookup_T.Properties.VariableNames{6}='A';
 
+if iscell(atlas_lookup_T.ROI(1)) && ischar(atlas_lookup_T.ROI{1}) ...
+    || ischar(atlas_lookup_T.ROI(1)) 
+    atlas_lookup_T.ROI=str2double(atlas_lookup_T.ROI);
+end
 % Build a proper sorted master_T to save in the data file
 % taking advantage that the first column should be volume 
 master_CoV_T=table;
