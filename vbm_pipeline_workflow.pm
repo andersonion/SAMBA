@@ -864,7 +864,7 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
                     } else {
                         calculate_individual_label_statistics_vbm($a_label_space,@current_channel_array); #$PM_code = 65
                     }
-                    if ($multiple_runnos) {
+                    if ($multiple_runnos && $tabulate_statistics){
                         tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66
                         if ($multiple_groups) {
                             label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67

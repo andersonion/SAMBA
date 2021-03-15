@@ -132,6 +132,7 @@ $fsl_cluster_size
 $nonparametric_permutations
 
 $convert_labels_to_RAS
+$tabulate_statistics
 $eddy_current_correction
 $do_connectivity
 $recon_machine
