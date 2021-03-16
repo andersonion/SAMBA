@@ -1094,6 +1094,7 @@ sub set_reference_space_vbm_Runtime_check {
     }
     my %centered_masses;
     my @center_mass_gen;
+    my @center_mass_cleanup;
     foreach my $space (@ref_spaces) {
         $reference_space_hash{$space} = $Hf->get_value("${space}_reference_space");
         (my $v_ok,$refspace_folder_hash{$space}) = $Hf->get_value_check("${space}_refspace_folder");
@@ -1125,8 +1126,8 @@ sub set_reference_space_vbm_Runtime_check {
             # (Internally create centered has been upgraded to read nii or nhdr, and write back to same format.)
             my $mat_id = "REF_".${refname_hash{$space}};
             #my $name = "REF_${refname_hash{$space}}";
-            my $t_ref = file_add_suffix($outpath,"_tmp");
-            #my $mat_args = "\'${inpath}\' , \'${outpath}\'";
+	    # WARNING, we reset these if we're employing cleanup ops
+	    my $mat_args = "\'${inpath}\' , \'${outpath}\'";
             #
             # passing the additional parameter quarter will do the old behavior which would routinly shove our data in the wrong direction.
             # New behavior is to center object in the ref space, and ensure minimum padding.
@@ -1134,17 +1135,33 @@ sub set_reference_space_vbm_Runtime_check {
             # When in old "quarter" mode a CopyImageHeaerInformation worked fine.
             #my $mat_args = "\'${inpath}\' , \'${t_ref}\' 'quarter'";
             #my $mat_args = "\'${inpath}\' , \'${t_ref}\'";
-            my $mat_args = "\'${inpath}\' , \'${outpath}\'";
-            #my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$mat_args,"${name}_",$Hf,0); # 'center_nii'
-            my $mat_mas_gen = make_matlab_command('create_centered_mass_from_image_array',$mat_args,"${mat_id}_",$Hf,0); # 'center_nii'
-            #$mat_mas_gen=$mat_mas_gen." && "."CopyImageHeaderInformation $inpath $t_ref $outpath 1 1 1 0"." && "."rm \"$t_ref\"";
-            #$mat_mas_gen=$mat_mas_gen." && "."ln -s $t_ref $outpath ";
-            #$mat_mas_gen=$mat_mas_gen." && "."ants_center_image $t_ref $outpath "." && "."rm \"$t_ref\"";
-            push(@center_mass_gen,$mat_mas_gen);
+
+	    my $cleanup_required=0;
+	    # Cleanup vars
+	    # Patch headers in stages, first save ref to temp
+	    my $t_ref = file_add_suffix($outpath,"_tmp");
+	    # Second update origin
+	    my $t_oref = file_add_suffix($outpath,"_otmp");
+	    # third, update center and save as final outpath.
+	    if($cleanup_required){
+		$mat_args = "\'${inpath}\' , \'${t_ref}\'";
+	    }
+	    #my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$mat_args,"${name}_",$Hf,0); # 'center_nii'
+	    my $mat_mas_gen = make_matlab_command('create_centered_mass_from_image_array',$mat_args,"${mat_id}_",$Hf,0); # 'center_nii'
+	    #$mat_mas_gen=$mat_mas_gen." && "."CopyImageHeaderInformation $inpath $t_ref $outpath 1 1 1 0"." && "."rm \"$t_ref\"";
+	    push(@center_mass_gen,$mat_mas_gen);
+	    if($cleanup_required) {
+		my $center_cleanup="CopyImageHeaderInformation $inpath $t_ref $t_oref 1 1 1 0"." && "."rm \"$t_ref\"";
+		$center_cleanup=$center_cleanup." && "."ants_center_image $t_oref $outpath "." && "."rm \"$t_oref\"";
+		push(@center_mass_cleanup,$center_cleanup);
+	    }
         }
     }
     if(scalar(@center_mass_gen)){
         execute_indep_forks(1, "Creating a dummy centered mass for referencing purposes", @center_mass_gen);
+    }
+    if(scalar(@center_mass_cleanup)){
+        execute_indep_forks(1, "Header adjust centered mass for referencing purposes", @center_mass_cleanup);
     }
     # UPDATE BOUNDING BOX beacuase we may have needed to be padded.
     foreach my $space (@ref_spaces) {
