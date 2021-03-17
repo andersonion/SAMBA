@@ -1,28 +1,28 @@
 #!/usr/bin/false
-# SAMBA_global_variables.pm 
+# SAMBA_global_variables.pm
 # Originally written by James Cook & BJ Anderson, CIVM
 # A messy but singluar place to globalize all the globals.
 # When you "use" this file, you get all these globals.
-# INSTEAD YOU CAN "require" this, 
+# INSTEAD YOU CAN "require" this,
 # then pluck out individuals with ${SAMBA_global_variables::variable_name}
 # (Maybe that highlights a path away from 100 globals to concise limited scoping?)
-# This is done for very select functions in pipeline utilities so that these 
+# This is done for very select functions in pipeline utilities so that these
 # variables don't destroy the current namespace.
-# 
+#
 # It should be evident that Any code using a SAMBA_global_variable IS SAMBA CODE,
 # and therefore shouldn't be separate.
 #
-# Broadly these are variables from our input headfile we want to share, 
+# Broadly these are variables from our input headfile we want to share,
 # with some additions.
-# 
-# Adding limited support functions, but really want to keep this pm 
-# ultra minimal. 
+#
+# Adding limited support functions, but really want to keep this pm
+# ultra minimal.
 # Derrived vars will be functions operating on the existing vars.
-# 
+#
 # SUBROUTINES:
 # populate  -  taking a hf object populate our vars.
 # all_runnos - combine the relevant vars to create an array of all runnos.
-# 
+#
 package SAMBA_global_variables;
 use strict;
 use warnings;
@@ -41,7 +41,7 @@ BEGIN {
     # (requires too much brainpower for the time being to implement correctly).
 
     our @EXPORT = qw(
-$project_name 
+$project_name
 @control_group
 $control_comma_list
 @compare_group
@@ -63,7 +63,7 @@ $template_predictor
 $template_name
 
 $flip_x
-$flip_z 
+$flip_z
 $optional_suffix
 $rigid_atlas_name
 $label_atlas_name
@@ -193,14 +193,14 @@ sub populate {
     printd(5,"Transcribing input headfile to variables\n");
     # For all variables in the given headfile, populate a samba global named the same.
     foreach ($tempHf->get_keys) {
-	my ($v_ok,$val) = $tempHf->get_value_check($_);
-	if ( exists $SAMBA_global_variables::{$_} 
-	     && $v_ok && defined $val) {
-	    eval("\$$_=\'$val\'");
-	    printd(5,"\t".$_." = $val\n");
-	} else {
-	    push(@unused_vars,$_);
-	}
+        my ($v_ok,$val) = $tempHf->get_value_check($_);
+        if ( exists $SAMBA_global_variables::{$_}
+             && $v_ok && defined $val) {
+            eval("\$$_=\'$val\'");
+            printd(5,"\t".$_." = $val\n");
+        } else {
+            push(@unused_vars,$_);
+        }
     }
     return @unused_vars;
 }
@@ -209,33 +209,33 @@ sub populate {
 sub all_runnos {
     # After the globals have been loaded, and populate has been run we can see the derived var
     # all_runnos
-    
-    # While very tempting to create a function for group1, 2 compare and control in addition 
-    # to this one, it will be resisted for now because those are all bad groups for different reasons. 
+
+    # While very tempting to create a function for group1, 2 compare and control in addition
+    # to this one, it will be resisted for now because those are all bad groups for different reasons.
 
     # only group1 and group2 are expected to be exclusive, and that is not controlled here.
-    # Group names are somewhat misleading here, 
+    # Group names are somewhat misleading here,
     # Control really means "mdt" group, and compare means "Not-mdt" group.
     # For the forseeable use cases what we really need is, MDT group, and Complete group.
-    
+
     # The group management code takes advantage of the behaviorof push with empty arrays.
     @group_1 = split(',',$group_1_runnos) if defined $group_1_runnos;
     @group_2 = split(',',$group_2_runnos) if defined $group_2_runnos;
 
     if ( defined $control_comma_list ) {
-	@control_group = split(',',$control_comma_list) ;
+        @control_group = split(',',$control_comma_list) ;
     } else {
-	push(@control_group,@group_1);
-	push(@control_group,@group_2);
+        push(@control_group,@group_1);
+        push(@control_group,@group_2);
     }
     if (defined $compare_comma_list) {
-	@compare_group = split(',',$compare_comma_list);
+        @compare_group = split(',',$compare_comma_list);
     } else {
-	@compare_group = @control_group;
+        @compare_group = @control_group;
     }
     push(@compare_group,@group_1);
     push(@compare_group,@group_2);
-    
+
     # becuase we make no attempt to be clean about replication or runnos earlier, we need to uniq now.
     @control_group=uniq(@control_group);
     @compare_group=uniq(@compare_group);

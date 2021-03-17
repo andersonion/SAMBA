@@ -223,7 +223,7 @@ sub extract_and_erode_mask {
         }
     } else {
         if ( execute($go, $go_message, @cmds) ) {
-			$jid=1;
+                        $jid=1;
             #error_out($stop_message);
         }
     }

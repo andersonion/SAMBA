@@ -1,8 +1,8 @@
 #!/usr/bin/false
 # SAMBA_structure
-# Originally written by James Cook 
+# Originally written by James Cook
 # To better enable extension of the SAMBA bits this characterizes where
-# different parts of data live. 
+# different parts of data live.
 # Its value became clear as the semi-extenral data-packager was created.
 # Primary use in the data-packger and archive prep.
 
@@ -32,7 +32,7 @@ sub main_dir {
     if (defined $optional_suffix && $optional_suffix ne '') {
         $optional_suffix = "_${optional_suffix}";
     } else {
-	$optional_suffix = "";
+        $optional_suffix = "";
     }
     my $main_folder_prefix;
     if ($count==1) {
@@ -43,7 +43,7 @@ sub main_dir {
     my @project_components = split(/[.]/,$project_name); # $project_name =~ s/[.]//g;
     my $main_dir =  join('',@project_components);
     ###create_identifer($project_name); ?
-    $main_dir = $main_folder_prefix.$main_dir.'_'.$rigid_target.$optional_suffix; 
+    $main_dir = $main_folder_prefix.$main_dir.'_'.$rigid_target.$optional_suffix;
     return $main_dir;
 }
 

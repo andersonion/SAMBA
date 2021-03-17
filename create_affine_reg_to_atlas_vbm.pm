@@ -74,8 +74,8 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
         my  $runno_transform_clean = $result_path_base.$xform_suffix;
         $runno_to_clean_named_transforms{$runno}=$runno_transform_clean;
         $alt_result_path_bases{$runno}=$alt_result_path_base;
-	# This go hash was making work harder to verify, due to the hand-waving name swapping....
-	# it also prevented xform_path from being filled in.
+        # This go hash was making work harder to verify, due to the hand-waving name swapping....
+        # it also prevented xform_path from being filled in.
         #if ($go) {
             if ( ! $do_rigid
                 && ! $mdt_to_atlas && ( $runno eq $affine_target || scalar(@array_of_runnos)<3 )
@@ -83,16 +83,16 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                 # For the affine target ONLY, and ONLY when we are doing an affine(not rigid) transform,
                 # we want to use the identity matrix.
                 my $affine_identity = $Hf->get_value('affine_identity_matrix');
-		# Switching to a link from cp.
+                # Switching to a link from cp.
                 run_and_watch("ln -sf ${affine_identity} ${runno_transform_clean}") if ! -e $runno_transform_clean;
-		$xform_path=$runno_transform_clean;
+                $xform_path=$runno_transform_clean;
             } else {
                 ($xform_path,$job) = create_affine_transform_vbm($subject_path,  $alt_result_path_base, $runno);
                 # We are setting atlas as fixed and current runno as moving...
                 # this is opposite of what happens in seg_pipe_mc,
                 # when you are essential passing around the INVERSE of that registration to atlas step,
                 # but accounting for it by setting "-i 1" with $do_inverse_bool.
-		if ($swap_fixed_and_moving) {
+                if ($swap_fixed_and_moving) {
                     print "swap_fixed_and_moving is activated\n\n\n";
                 } else {
                     #MOVED LINK CODE TO LATER BECAUSE THE FILE WOULDN'T BE READY YET.
@@ -102,7 +102,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
                     push(@jobs,$job);
                 }
             }
-	    $xform_paths{$runno}=$xform_path;
+            $xform_paths{$runno}=$xform_path;
         #}
         my $mdt_flag = 0;
         foreach my $current_runno (@array_of_control_runnos) {
@@ -144,7 +144,7 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
     #Data::Dump::dump(%xform_paths);
     #$SIG{__DIE__}='DEFAULT';die'TESTING';
     foreach my $runno (@array_of_runnos) {
-	next if ! $go_hash{$runno};
+        next if ! $go_hash{$runno};
         # All these negatives makes it hard to understand when this would be run.
         #do_rigid is 0 or 1, and would be better named, transform_is_rigid
         # so this could be written as
@@ -288,13 +288,13 @@ sub create_affine_reg_to_atlas_Output_check {
 }
 
 # ------------------
-# HIDDEN INPUT "atlas_path" which is BADLY NAMED. 
-# IT may be the affine_target runno, and not at all atlas related. 
+# HIDDEN INPUT "atlas_path" which is BADLY NAMED.
+# IT may be the affine_target runno, and not at all atlas related.
 sub create_affine_transform_vbm {
 # ------------------
     # RUNNO here is better "subject_name" because its a pain to trim the a proper name from the file path.
     #($subject_path,  $alt_result_path_base, $runno);
-    
+
     my ($subject_path, $result_transform_path_base,$moving_runno) = @_;
     my $collapse = 0;
     my $transform_path="${result_transform_path_base}0GenericAffine.mat";
@@ -385,7 +385,7 @@ sub create_affine_transform_vbm {
     #my $go_message =  "create ${xform_code} transform for ${B_name}".$b_e;
     my $go_message =  "create ${xform_code} transform for ${moving_runno}".$b_e;
     if ($B_name !~ /$moving_runno/x){
-	die "CODE OVER SIMPLIFICATION, B_name != moving_runno.Tell programmer!";
+        die "CODE OVER SIMPLIFICATION, B_name != moving_runno.Tell programmer!";
     }
     my $stop_message = "$PM: create_transform: could not make transform: $cmd\n";
     my @test=(0);
@@ -395,7 +395,7 @@ sub create_affine_transform_vbm {
     my $jid = 0;
     if (cluster_check) {
         #my ($home_path,$dummy1,$dummy2) = fileparts($result_transform_path_base,2);
-	my $home_path=dirname($result_transform_path_base);
+        my $home_path=dirname($result_transform_path_base);
         my $Id= "${moving_runno}_create_affine_registration";
         my $verbose = 1; # Will print log only for work done.
         $jid = cluster_exec($go, $go_message, $cmd, $home_path, $Id, $verbose, $mem_request, @test);

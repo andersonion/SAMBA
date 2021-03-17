@@ -30,7 +30,7 @@ images <- c(controlFileNames, treatedFileNames)
 c1 <-detectCores()
 #output <- antsImageRead('MDT_fa.nii')
 #mask<-thresholdImage(output, 0.3, 1.3)
-#getMask(mask) 
+#getMask(mask)
 #maskname <- ("../inputs/MDT_mask_A.nii")
 #antsImageWrite(mask,maskname)
 directions = c(1,-1)
@@ -48,7 +48,7 @@ if(direction == 1) {
 }
 if (1) {
   (simple_voxel_based_analysis_2(dimensionality = 3, imageFileNames = images, predictors = data.frame(diagnosis),maskFileName = maskname, outputPrefix = paste0(outputPath, prefix), testType = "student.t"))
-  
+
 #simple_voxel_based_analysis(dimensionality = 3, imageFileNames = images, predictors = data.frame(diagnosis),
 #                            maskFileName = maskname, outputPrefix = paste0(outputPath, prefix), testType = "student.t")
 }
@@ -66,7 +66,7 @@ x = antsImageRead(unc_t_file_name)
 lower_thresh <- 0.8 # what are good values for the two threshs?
 upper_thresh <- 1   #
 cluster_thresh_size = 200;
-clusts <-image2ClusterImages(x,cluster_thresh_size,lower_thresh,upper_thresh) 
+clusts <-image2ClusterImages(x,cluster_thresh_size,lower_thresh,upper_thresh)
 
 num_clusts <- length(unlist(clusts))
 #Values for each cluster
@@ -109,6 +109,3 @@ write.table(cluster3, "sumvalsclust3.csv", append = FALSE, sep = ",", col.names 
 }
 
 }
-
-
-
