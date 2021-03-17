@@ -235,9 +235,10 @@ sub calculate_label_statistics {
         my $space="label";
         ($mem_request, $vx_count)=refspace_memory_est($mem_request,$space,$Hf,5);
 
-        # estimates here, lets pretend 32-bit int for labels, + 4 x 64-bit contrast images
-        # this mem usage doesn't quite make sense, Realistically, it should just be labels+1 or 2 contrasti mages.
-        my $est_bytes=$vx_count * ( 4 + 8 + 8 + 8 + 8 );
+        # estimates here, lets pretend 32-bit int for labels, + 5 x 64-bit contrast images
+        # this mem usage doesn't make sense, Realistically, it should just be labels+1 or 2 contrast images.
+        # Must be some glitch in function with incorrect mem handling.
+        my $est_bytes=$vx_count * ( 4 + 5*8 );
         # convert bytes to MiB(not MB)
         $mem_request=ceil($est_bytes/(2**20));
         $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
