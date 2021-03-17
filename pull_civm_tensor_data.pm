@@ -378,7 +378,9 @@ sub pull_civm_tensor_data {
     }
     # This adds our affine transforms, note this is targeted at and m## style notation per transform.
     # Very old tensor data doesnt have that, and the m may be overly specific.
-    if ((defined $eddy_current_correction) && ($eddy_current_correction ne 'NO_KEY') && ($eddy_current_correction == 1)) {
+    if (defined $eddy_current_correction
+        && $eddy_current_correction ne 'NO_KEY'
+        && $eddy_current_correction == 1 ) {
         push(@array_of_channels,'m*GenericAffine*');
     }
     push(@array_of_channels,'tensor*headfile');

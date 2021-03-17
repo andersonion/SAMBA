@@ -77,7 +77,7 @@ our ($pristine_input_dir,$dir_work,$results_dir,$result_headfile);
 our ($rigid_transform_suffix,$affine_transform_suffix, $affine_identity_matrix, $preprocess_dir,$inputs_dir);
 
 #
-# WARNING: few statements are run when we "use" workflow. 
+# WARNING: few statements are run when we "use" workflow.
 # TO have more obvious control, several have been move to "workflow_init".
 #
 
@@ -113,25 +113,25 @@ sub workflow_init {
 =item cruft
     $FORMER_SIGDIE_HANDLER=$SIG{__DIE__};
     if( ! defined $FORMER_SIGDIE_HANDLER){
-	print("Unable to save SIG __DIE__\n");
-	if(can_dump()){
-	    Data::Dump::dump(\%SIG);
-	} else { display_complex_data_structure(\%SIG);}
-	print("Possible SIGs:<".join(",",keys %SIG).">\n");
-	exit $BADEXIT;
+        print("Unable to save SIG __DIE__\n");
+        if(can_dump()){
+            Data::Dump::dump(\%SIG);
+        } else { display_complex_data_structure(\%SIG);}
+        print("Possible SIGs:<".join(",",keys %SIG).">\n");
+        exit $BADEXIT;
     }
 =cut
 
     $UNSUCCESSFUL_RUN=$BADEXIT;
     if ( $ENV{'BIGGUS_DISKUS'} =~ /gluster/) {
-	$civm_ecosystem = 1;
+        $civm_ecosystem = 1;
     } elsif ( $ENV{'BIGGUS_DISKUS'} =~ /civmnas4/) {
-	$civm_ecosystem = 1;
+        $civm_ecosystem = 1;
     } elsif (! exists $ENV{'WORKSTATION_HOSTNAME'}
-	     || ! defined load_engine_deps() ) {
-	$civm_ecosystem = 0;
-	printd(5,"WARNING: appears to be outside the full eco-system. Disabling overly specific bits\n");
-	sleep_with_countdown(3);
+             || ! defined load_engine_deps() ) {
+        $civm_ecosystem = 0;
+        printd(5,"WARNING: appears to be outside the full eco-system. Disabling overly specific bits\n");
+        sleep_with_countdown(3);
     }
 # set pipe email users
     my $grp=getgrgid((getpwuid($<))[3]);
@@ -144,16 +144,16 @@ sub workflow_init {
 # }
     if(! defined $CODE_DEV_GROUP
        || (defined $grp && $CODE_DEV_GROUP ne $grp)  ) {
-	# || ! scalar(grep /$CODE_DEV_GROUP/x, @grps) ) {
-	$pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
-	$MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
+        # || ! scalar(grep /$CODE_DEV_GROUP/x, @grps) ) {
+        $pipe_adm=",9196128939\@vtext.com,rja20\@duke.edu";
+        $MAIL_USERS="$pwuid\@duke.edu$pipe_adm";
     }
 #die join("\n",@grps).$CODE_DEV_GROUP."$pipe_adm";
-    
+
     $cluster_user=$ENV{USER} || $ENV{USERNAME};
     if (exists $ENV{'SAMBA_MAIL_USERS'} && $ENV{'SAMBA_MAIL_USERS'} ne ''){
-	$MAIL_USERS=$ENV{'SAMBA_MAIL_USERS'};
-	printd(5,"Overrideing default mail recipients with env var SAMBA_MAIL_USERS\n");
+        $MAIL_USERS=$ENV{'SAMBA_MAIL_USERS'};
+        printd(5,"Overrideing default mail recipients with env var SAMBA_MAIL_USERS\n");
     }
 }
 
@@ -582,6 +582,8 @@ U_specid U_species_m00 U_code
 # and
 # nifti_header_capitulator... or nifti_unifier ...
 # perhaps nifti_capitulator is most unclearly clear.
+
+    collect_small_files($project_name,@all_runnos);
     convert_all_to_nifti_vbm(); #$PM_code = 12
     sleep($interval);
     if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
@@ -599,7 +601,7 @@ U_specid U_species_m00 U_code
     set_reference_space_vbm(); #$PM_code = 15
     # set_ref also sets our best guess memory requirements by adding ref_size key to Hf
     sleep($interval);
-    
+
     # Force mask and nii4D out of channel array becuase they require special handling.
     @channel_array = grep {$_ ne 'mask' } @channel_array;
     @channel_array = grep {$_ ne 'nii4D' } @channel_array;
@@ -612,10 +614,10 @@ U_specid U_species_m00 U_code
     my $img_preview_src=File::Spec->catdir($preprocess_dir,'base_images');
     my $img_preview_dir=File::Spec->catdir($dir_work,"reg_init_preview");
     image_preview_mail($img_preview_src,$img_preview_dir,my $blank,$MAIL_USERS);
-    
+
     if(${$main::opts->{"only-precondition"}}){
-	printd(5,"Precondition only stop\n");
-	exit $GOODEXIT;
+        printd(5,"Precondition only stop\n");
+        exit $GOODEXIT;
     }
 ###
 # Register all to atlas
@@ -924,6 +926,48 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
     #### INSERT ALL CODE BEFORE SIGDIE RESTORE (probably before mailing status :D )
     ####
 } #end main
+
+sub collect_small_files {
+    my($project_code,@all_runnos)=@_;
+    my $p_cache = File::Spec->catdir("${BIGGUS_DISKUS}",${project_code});
+    my $ecc_dir=File::Spec->catdir($Hf->get_value('pristine_input_dir'),"ecc_xforms");
+    my @cmds;
+    # for all runno find their files
+    for my $runno (@all_runnos) {
+        my $in_dir = File::Spec->catdir($p_cache,${runno});
+        my $in_hfp = File::Spec->catfile($in_dir,"*${runno}*.headfile");
+        my ($hf)=glob $in_hfp;
+        if (defined $hf){
+            my $n=basename($hf);
+            my $o=File::Spec->catfile($Hf->get_value('pristine_input_dir'),$n);
+            push(@cmds,"cp -p $hf ".$Hf->get_value('pristine_input_dir')) if ! -e $o;
+        }
+        if( $eddy_current_correction) {
+            mkdir $ecc_dir if ! -d $ecc_dir;
+            # missing ecc's in our inputs ecc dir
+            my @m_ecc;
+            my $in_ecc = File::Spec->catdir($in_dir,"ecc_xforms");
+            if(! -d $in_ecc){
+                $in_ecc=$in_dir;
+                #my @r_ecc=glob "$in_dir/xform_*";
+                # For all transforms
+                #foreach (@r_ecc){
+                while( glob "$in_dir/xform_*"){
+                    my $n=basename($_);
+                    my $o=File::Spec->catfile($ecc_dir,$n);
+                    # Add to missing if not in our localized dir.
+                    push(@m_ecc,$_)if ! -e $o;;
+                }
+            }
+            push(@cmds,"cp -p ".join(" ",@m_ecc)." $ecc_dir") if(scalar(@m_ecc));
+        }
+    }
+    #Data::Dump::dump(\@cmds);die;
+    #execute(scalar(@cmds),"copy small files to input for later",@cmds);
+    foreach(@cmds){ run_and_watch($_);}
+    # this wont work because we chose to never copy
+    #symbolic_link_cleanup($ecc_dir) if -e $ecc_dir;
+}
 
 #---------------------
 sub add_defined_variables_to_headfile {

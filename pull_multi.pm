@@ -66,9 +66,14 @@ sub pull_multi {
             my $target_dir = "${BIGGUS_DISKUS}/${project_code}/${runno}";
             # Magic contrast 'm*GenericAffine*'
             if ($contrast =~ /^m\*GenericAffine\*$/ ){
+                # We generally rebuild diffusion dir as a plain pull,
+                # so instead of separating them we dont have the ecc layer.
+                # BUT this is slow and dumb! so leets leave this code broken for now!
                 $target_dir = "${BIGGUS_DISKUS}/${project_code}/${runno}/ecc_xforms";
+                #$target_dir = "${BIGGUS_DISKUS}/${project_code}/${runno}";
                 $file_prefix='xform_';
                 $inputs_dir=File::Spec->catdir($Hf->get_value('pristine_input_dir'),"ecc_xforms");
+                #mkdir $inputs_dir if ! -d $inputs_dir;
             }
             # Magic contrast 'nii4D'
             #my $swap_order=0;
@@ -78,19 +83,19 @@ sub pull_multi {
             #($runno,$contrast)=($contrast,$runno);
             #$swap_order=1;
             #}
-            my $file_search_string = "/${file_prefix}${runno}*_${contrast}.*";
+            my $file_search_string = "${file_prefix}${runno}*_${contrast}.*";
             # Magic contrast 'nii4D'
             if ($contrast =~ /nii4D/ ){
-                $file_search_string = "/${file_prefix}${contrast}*_${runno}*.*nii*";
+                $file_search_string = "${file_prefix}${contrast}*_${runno}*.*nii*";
             }
             # Magic contrast 'tensor*headfile'
             if ($contrast =~ /tensor\*headfile/ ){
-                $file_search_string = "/${file_prefix}tensor*${runno}*.headfile";
+                $file_search_string = "${file_prefix}tensor*${runno}*.headfile";
                 #confess "getting tensor * headfile with $file_search_string";
             }
             # Magic contrast 'diffusion*headfile'
             if ($contrast =~ /diffusion\*headfile/ ){
-                $file_search_string = "/${file_prefix}diffusion*${runno}*.headfile";
+                $file_search_string = "${file_prefix}diffusion*${runno}*.headfile";
                 #confess "getting tensor * headfile with $file_search_string";
             }
             # If we swapped runno and contrast put it back.
@@ -109,7 +114,7 @@ sub pull_multi {
                 }
 
                 if ($file_prefix eq 'xform_') { $multi= '-M'; ${r_e_flags}='';}
-                my $psfs = "${archive_prefix}tensor${runno}*${machine_suffix}${file_search_string}";
+                my $psfs = "${archive_prefix}tensor${runno}*${machine_suffix}/${file_search_string}";
                 my $puller_simple_options=" -f file ${multi} -o ${r_e_flags} ${machine} ${psfs} ${target_dir}";
                 my $c_cmd = "puller_simple -D0 ${puller_simple_options}";
 
@@ -122,10 +127,20 @@ sub pull_multi {
             # Our "inputs" have never really been the inputs, they've always been adjusted
             # to something uniformly globbed instead of arbitrary.
             # This shell code is how that is handled here.
-            my $l_cmd = "in_f=\$(ls ${target_dir}${file_search_string}); if [ ! -z \"\$in_f\" ];then ext_and_gz=\$(basename \$in_f |sed 's:^.*\\([.]nii.*\\)\$:\\1:'); if [ ! -z \"\$ext_and_gz\" ];then ln -sf \$in_f $inputs_file\$ext_and_gz;else echo error getting ext from \$in_f;fi;fi;";
+            my $l_cmd = "in_f=\$(ls ${target_dir}/${file_search_string});".
+                "if [ ! -z \"\$in_f\" ];".
+                "then ext_and_gz=\$(basename \$in_f |sed 's:^.*\\([.]nii.*\\)\$:\\1:');".
+                " if [ ! -z \"\$ext_and_gz\" ];".
+                "then ln -sf \$in_f $inputs_file\$ext_and_gz;".
+                "else echo error getting ext from \$in_f;".
+                "fi;".
+                "fi;";
 
             if ($contrast =~ /(tensor|diffusion)\*headfile|m\*GenericAffine/ ){
-                $l_cmd="in_f=\$(ls ${target_dir}${file_search_string}); if [ ! -z \"\$in_f\" ];then ln -sf \$in_f $inputs_dir;fi;";
+                $l_cmd="in_f=\$(find ${target_dir} -name \"${file_search_string}\");".
+                    " if [ ! -z \"\$in_f\" ];".
+                    "then find \"$target_dir\" -name \"${file_search_string}\" -exec cp -p {} \"$inputs_dir\" \\; ;".
+                    "fi;";
             }
             push(@master_cmd_list,' '.join(' || ',@c_cmds).' ; '.$l_cmd);
             #push(@master_cmd_list,$l_cmd);

@@ -76,7 +76,7 @@ sub convert_all_to_nifti_vbm {
                 my $go = $go_hash{$runno}{$ch};
                 if ($go) {
                     my $job;
-                    my $current_file=get_nii_from_inputs($in_folder,$runno,$ch);
+                    my $current_file=get_nii_from_inputs($in_folder,$runno,$ch,4);
                     my $Hf_key = "original_orientation_${runno}";
                     my $I_key=$Hf_key;
                     # May need to evolve to where each image is checked for proper orientation.
@@ -145,11 +145,18 @@ sub convert_all_to_nifti_vbm {
         }
 
         my $case = 2;
+        # force the wait mode off becuase its dumb here.
+        # thought about using 2-run_again
+        # or 1+second_run
+        # HA, this code is so nasty it requires teh case checking and ITS NOT AN ERROR MESSAGE
+        # Its a damn status spam! Which is intentionally blank for case=2, and spammy on case=1
+        #$case = 1;
         ($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
-
         #my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time); #moved outside of while loop.
         #print "$PM took ${real_time} seconds to complete.\n";
         if (($error_message eq '') || ($second_run)) {
+            #WHEN ERROR IS BLANK
+            # We found all and don't need try again!
             $run_again = 0;
         } else {
             if ($civm_ecosystem) {
@@ -158,7 +165,7 @@ sub convert_all_to_nifti_vbm {
                 # it forced that code to be terribly smart about what was missing or not.
                 # New design goal is to let existing tools do their jobs.
                 # internally pull_civm_tensor_data relies on pull_many calling puller_simple to decide to do work or not.
-                pull_civm_tensor_data();
+                my $status=pull_civm_tensor_data();
                 $second_run=1;
             } else {
                 error_out("${error_message}",0);
@@ -204,9 +211,11 @@ sub convert_all_to_nifti_Output_check {
                 $file_1 = "${current_path}/${runno}_${ch}.nii";
                 $unfounded = 1;
             }
-#die "here";
-            if ((data_double_check($file_1,$file_1.'.gz') == 2 ) || ((! $pre_masked) && $unfounded &&  ($file_1 !~ /.*masked\.nii/))) { # 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).
-                # if ((data_double_check($file_1) ) || ((! $do_mask) &&  (($file_1 =~ /.*masked\.nii/) || ($file_1 =~ /.*masked\.nii\.gz/)))) { # 6 January 2016: updated to look for .nii.gz as well.
+            # if neither found
+            if ((data_double_check($file_1,$file_1.'.gz') == 2 )
+                || ((! $pre_masked) && $unfounded &&  ($file_1 !~ /.*masked\.nii/))) {
+ # 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).
+# if ((data_double_check($file_1) ) || ((! $do_mask) &&  (($file_1 =~ /.*masked\.nii/) || ($file_1 =~ /.*masked\.nii\.gz/)))) { # 6 January 2016: updated to look for .nii.gz as well.
                 $go_hash{$runno}{$ch}=1;
                 push(@file_array,$file_1);
                 $sub_missing_files_message = $sub_missing_files_message."\t$ch";
