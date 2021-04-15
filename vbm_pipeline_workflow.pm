@@ -274,12 +274,25 @@ U_specid U_species_m00 U_code
         croak("Is this your data? If not, you will need the original owner to run the pipeline.")
     }
 
+    # Waffled on load_engine deps...
+    # REALLY it helps anyone anywhere to list their useful pieces.
+    # SO, dear programmer should you find this. DON'T DISABLE IT.
+    # Instead go look at pipeline_utilites::load_engine_deps,
+    # AND define your engine dependencies!
+    # IF YOU'RE lazy consider having workstation settings live in
+    # your SAMBA dir via an ENV{WKS_SETTINGS} someplace above (if ! civm_ecosystem)
+    #if($civm_ecosystem){
+    my $ED=load_engine_deps();
+    $Hf->copy_in($ED);
+    #} else {
+    #}
+
     my $papertrail_dir="${results_dir}/papertrail";
     if (! -e $papertrail_dir) {
         mkdir($papertrail_dir);
     }
-
-    $log_file = open_log($papertrail_dir); # 26 Feb 2019--changed from results_dir to "papertrail" subfolder
+    # 26 Feb 2019--changed from results_dir to "papertrail" subfolder
+    $log_file = open_log($papertrail_dir);
     printd(1000,"\tlog is $log_file\n");
     ( $stats_file = $log_file ) =~ s/pipeline_info/job_stats/;
     printd(1000,"\tlog is $log_file\n");
@@ -443,8 +456,18 @@ U_specid U_species_m00 U_code
     } else {
         $Hf->set_value('test_mode','off');
     }
-    $Hf->set_value('engine_app_matlab','/usr/local/bin/matlab');
-    $Hf->set_value('engine_app_matlab_opts','-nosplash -nodisplay -nodesktop');
+    # OH HO SNEAKY BAD HARD CODE :p i'll be nice and either or it with error on missing.
+    {
+        my($v_ok,$mat_path)=$Hf->get_value_check('engine_app_matlab');
+        $mat_path='/usr/local/bin/matlab' if ! $v_ok;
+        die "NEED MATAB INSTALL" if ! -e $mat_path;
+        $Hf->set_value('engine_app_matlab',$mat_path) if ! $v_ok;
+        ($v_ok,my $mat_args)=$Hf->get_value_check('engine_app_matlab_opts');
+        if(! $v_ok){
+            $mat_args='-nosplash -nodisplay -nodesktop';
+            $Hf->set_value('engine_app_matlab_opts',$mat_args);
+        }
+    }
     $Hf->set_value('nifti_matlab_converter','civm_to_nii'); # This should stay hardcoded.
 
 # Finished setting up headfile
