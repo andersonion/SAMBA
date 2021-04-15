@@ -429,6 +429,7 @@ sub main {
     }
     if( ${$opts->{"instant_feedback"}} ){
         Data::Dump::dump($opts) if can_dump();
+	display_complex_data_structure($opts) if ! can_dump();
         printf( "Packing \"MDT\" into $mdt_out_path\n"
                 ."  (from deep in $n_vbm\n"
                 ."\t".File::Spec->catdir($mdtpath,'median_images')."\n  )\n"
@@ -1525,32 +1526,6 @@ sub concatenate_transform_dirs {
         push(@cmds,sprintf("mv %s %s",$_,File::Spec->catfile($expanding_dir,$outname)));
     }
     return @cmds;
-}
-
-sub record_metadata {
-    # record_metadata sets all link timestamps to their true source as found by
-    # realpath and then runs ls -lR on the directory.
-    my ($output_path)=@_;
-    # find all files in this output_path
-    my @files=find_file_by_pattern($output_path,'.*');
-    foreach (@files) {
-        #my $rp=resolve_link($_);
-        my $rp = Cwd::realpath($_);
-        if ( ! -e $_ ) {
-            confess "issue resolving $_ to its true path, failed at $_";
-        }
-        if ( -e $rp && -e $_ ) {
-            qx(touch -hr $rp $_);
-        } else {
-            die "error on resolve $_, got $rp";
-        }
-        # save file meta data listing before someone gets the chance to transfer it
-        # might be nice to play timestamp games with this to set its timestamp
-        # to the newest file(not folder) of the output...
-    }
-    my $meta_record_cmd=sprintf("ls -lR %s &> %s/.file_meta.log",$output_path,$output_path);
-    qx($meta_record_cmd);
-    return;
 }
 
 1;
