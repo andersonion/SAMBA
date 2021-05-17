@@ -76,8 +76,8 @@ sub mask_images_vbm {
                 # no mask available. set specificly mask file
                 $mask_path = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
             }
-            my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
             if ( (! -e $mask_path) && (! -e $mask_path.".gz")  ){
+                my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
                 if ( (! $port_atlas_mask)
                      || $port_atlas_mask && (! -e $ported_mask) && (! -e $ported_mask.'.gz') ) {
                     ($job) =  strip_mask_vbm($current_file,$mask_path,$mask_threshold,$runno);
@@ -119,7 +119,7 @@ sub mask_images_vbm {
             }
         }
 
-        if (cluster_check() && ($#jobs != -1)) {
+        if (cluster_check() && scalar(@jobs)) {
             my $interval = 2;
             my $verbose = 1;
             my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
@@ -287,7 +287,14 @@ sub strip_mask_vbm {
     $go_message = "$PM: Creating mask from file: ${input_file}\n" ;
     $stop_message = "$PM: Failed to properly create mask from file: ${input_file}\n" ;
 
+
     my $cmd = "${strip_mask_executable_path} ${matlab_path} ${matlab_exec_args}";
+    if((! ${civm_simple_util::IS_LINUX} && ! ${civm_simple_util::IS_MAC})){
+        my $args="'".join("','",split(" ",$matlab_exec_args))."'";
+        $cmd=make_matlab_command('strip_mask_exec', $args, "mask_image", $Hf,1);
+#        make_matlab_command_nohf('strip_mask_exec', $args, "mask_image", $work_dir, $matlab_app, $stdout_log, $matlab_opts, $verbose);
+    }
+
     if( $out_ext =~ /nhdr/){
         (my $mout = $mask_path)=~s/(^.+)[.]nii(?:[.]gz)?$/$1.nhdr/;
         $cmd=$cmd." && "."CopyImageHeaderInformation $input_file $mask_path $mout 1 1 1 0";
@@ -304,15 +311,15 @@ sub strip_mask_vbm {
         my $mem_request = '40000'; # Should test to get an idea of actual mem usage.
         my $space="vbm";
         ($mem_request)=refspace_memory_est($mem_request,$space,$Hf);
-
         $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
-        if (not $jid) {
-            error_out($stop_message);
-        }
     } else {
-        execute(1,"strip_mask",$cmd);
+        if(execute($go,"strip_mask",$cmd)){
+            $jid=1;
+        }
     }
-
+    if ($go && not $jid) {
+        error_out($stop_message);
+    }
     return($jid);
 }
 
@@ -429,7 +436,8 @@ sub mask_one_image {
     #my $apply_cmd = "fslmaths ${centered_path} -mas ${runno_mask} ${out_path} -odt \"input\";"; # 7 March 2016, Switched from ants ImageMath command to fslmaths, as fslmaths should be able to automatically handle color_fa images. (dim =4 instead of 3).
     my $apply_cmd = "fslmaths \${i} -mas \${m} \${o} -odt \"input\";";
     if( $out_ext =~ /nhdr/){
-        $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};";
+        #$apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};";
+        $apply_cmd =  "ImageMath ${dims} \${o} m \${i} \${m};";
     }
     my $im_a_real_tensor = '';
     if ($centered_path =~ /tensor/){
@@ -451,13 +459,14 @@ sub mask_one_image {
     # So, we've set up to sbatch them in the background... :D
     my $cleanup_cmd = "if [[ -f \${o} ]];then\n".
         "\tfn=\$(basename \${i});\n".
+        "\tfn=\${fn%%.*};\n".
         "\td=\$(dirname \${i});\n".
         "\tif [[ ! -d \$d/unmasked ]];then mkdir \$d/unmasked;fi;\n".
         "\tif [[ -e \${i} ]];then\n".
         "\tcbatch=\"\$d/unmasked/compresss_\${fn}.bash\";\n".
         "\techo '#!/usr/bin/env bash' > \${cbatch};\n".
-        "\techo \"gzip -v \$d/unmasked/\$fn\" >> \${cbatch};\n".
-        "\t\tmv \${i} \$d/unmasked/\$fn && sbatch --out=\${d}/unmasked/slurm-%j.out \${cbatch}\n".
+        "\techo \"gzip -v \$d/unmasked/\$fn*\" >> \${cbatch};\n".
+        "\t\tmv \${d}/\${fn}* \$d/unmasked/ && if [ -x sbatch ];then sbatch --out=\${d}/unmasked/slurm-%j.out \${cbatch};\n; else bash \${cbatch};\n;fi".
         "\tfi\n".
         "fi\n";
 
@@ -481,18 +490,13 @@ sub mask_one_image {
         my $verbose = 2; # Will print log only for work done.
         my $mem_request = 100000; # 12 April 2017, BJA: upped mem req from 60000 because of nii4Ds...may need to even go higher
         $jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
-        if (! $jid) {
-            error_out($stop_message);
-        }
     } else {
-        if (! execute($go, $go_message, @cmds) ) {
-            error_out($stop_message);
+        if (! execute($go, $go_message, $cmd) ) {
+            $jid=1;
         }
-        $jid=1;
     }
-
-    if ($go && (not $jid)) {
-        error_out("$PM: could not start for masked image: ${out_path}");
+    if ($go && not $jid) {
+        error_out($stop_message);
     }
     print "** $PM expected output: ${out_path}\n";
 
