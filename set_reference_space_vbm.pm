@@ -340,6 +340,7 @@ sub apply_new_reference_space_vbm {
 
     # Do reg is off for any output images
     # HANDLED PER the out_file conditional below.
+    # I don't understand this logic?
     my $do_registration = 1;
 
     my $opt_e_string='';
@@ -428,6 +429,9 @@ sub apply_new_reference_space_vbm {
                 $runno = $1;
             }
             $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
+            # before adding this check some kinda nasty bit was skipping this work, some times.
+            # concerned it was a race condition problem, and that it'll haunt me later.
+            confess "MISSING $translation_transform" if ! -e $translation_transform;
             $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform}";
             my $space='vbm';# or label... could use get_value_like_check... to get both refsizes
             ($mem_request,my $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
@@ -462,20 +466,15 @@ sub apply_new_reference_space_vbm {
             my $Id= "${short_filename}_reference_to_proper_space";
             my $verbose = 1; # Will print log only for work done.
             $jid = cluster_exec($go, $go_message, $cmd,$home_path,$Id,$verbose,$mem_request,@test);
-            if (not $jid) {
-                #error_out($stop_message);
-            }
         } else {
             if ( execute($go, $go_message, @cmds) ) {
                 $jid=1;
-                #error_out($stop_message);
             }
         }
         if ($go && (not $jid)) {
-                        error_out($stop_message);
-                }
+            error_out($stop_message);
+        }
     }
-
     return($jid);
 }
 
@@ -882,14 +881,10 @@ sub set_reference_space_vbm_Init_check {
                         my $Id= "rigid_reference_cache";
                         my $verbose = 1; # Will print log only for work done.
                         $jid = cluster_exec($go, $go_message, $cmd,$preprocess_dir,$Id,$verbose,$mem_request,@test);
-                        if (not $jid) {
-                            #error_out($stop_message);
-                        }
                         push(@init_jobs,$jid);
                     } else {
                         if (execute($go, $go_message, $cmd) ) {
                             $jid=1;
-                            #error_out($stop_message);
                         }
                     }
                     if ($go && (not $jid)) {
@@ -1136,7 +1131,12 @@ sub set_reference_space_vbm_Runtime_check {
             #my $mat_args = "\'${inpath}\' , \'${t_ref}\' 'quarter'";
             #my $mat_args = "\'${inpath}\' , \'${t_ref}\'";
 
+            # NOT CLEAR WHEN cleanup is required! but it certainly is some of the time...
+            # maybe its a "nhdr" only problem? Possibly due to nhdr defacto space being NOT RAS.
+            # (when we have identity affine header)
+            # Assuming that is the case added nhdr out check if( $out_ext =~ /nhdr|nrrd/ ) {
             my $cleanup_required=0;
+            $cleanup_required=1 if($reference_space_hash{$space} =~ /native/x && $out_ext =~ /nhdr|nrrd/);
             # Cleanup vars
             # Patch headers in stages, first save ref to temp
             my $t_ref = file_add_suffix($outpath,"_tmp");
