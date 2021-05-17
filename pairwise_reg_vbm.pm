@@ -222,8 +222,7 @@ sub create_pairwise_warps {
     if (-e $new_warp) { unlink($new_warp);}
     if (-e $new_inverse) { unlink($new_inverse);}
     my $go_message = "$PM: create warp for ${moving_runno} and ${fixed_runno}" ;
-    my $stop_message = "$PM: could not start warp calc for ${moving_runno} and ${fixed_runno}:\n"
-        ."\t${pairwise_cmd}\n";
+
 
     my @cmds=ants_warp_name_swappity($out_warp,$new_warp,$out_inverse,$new_inverse,$out_affine);
 
@@ -232,8 +231,13 @@ sub create_pairwise_warps {
     if ($fixed_runno eq $moving_runno) {
         carp('FORMERLY COPIED FILE, NOW LINK');
         sleep_with_countdown(3);
-            $pairwise_cmd='';
+        $pairwise_cmd='';
+        # was originally going direct to new_warp, but that seems to require more work...
+        # for now gonna linke the outs instead.
+        @cmds=();
         unshift(@cmds, "ln -sf ${id_warp} ${new_warp}");
+        #unshift(@cmds, "ln -sf ${id_warp} ${out_warp}");
+        #unshift(@cmds, "ln -sf ${id_warp} ${out_inverse}");
         $mem_request=50;
         $node = "civmcluster1";
         @test=(1,$node);
@@ -289,6 +293,8 @@ sub create_pairwise_warps {
         $mem_request=0;
         unshift(@cmds,$pairwise_cmd);
     }
+    my $stop_message = "$PM: could not start warp calc for ${moving_runno} and ${fixed_runno}:\n"
+        .join("\t\n",@cmds)."\n";
     my $jid = 0;
     if (cluster_check) {
         my $cmd = join($CMD_SEP,@cmds);
@@ -651,10 +657,17 @@ sub pairwise_reg_vbm_Runtime_check {
     ## Generate an identity warp for our general purposes ##
 
     $id_warp = "${current_path}/identity_warp.nii.gz";
+    my $alt_idw=dirname ${current_path};
+    $alt_idw=$alt_idw."/identity_warp.nii.gz";
+    if(! -e $id_warp && -e $alt_idw ){
+        cluck("WARNING: double run fun, first run didnt put identity_warp warp where it meant to, but we're gonna correct it on second pass, by changing where we look");
+        $id_warp = $alt_idw;
+    }
     my $first_runno = $array_of_runnos[0];
     my $first_image = get_nii_from_inputs($inputs_dir,$first_runno,$mdt_contrast);
     # print "current path = ${current_path}\n\n";
     if (data_double_check($id_warp)) {
+        #printd(20,"$id_warp says it doesn't exist, but it may be lying.\n");die "mat ident debug";
         make_identity_warp($first_image,$Hf,$current_path);
     }
 

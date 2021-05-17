@@ -213,9 +213,14 @@ sub reg_to_mdt {
 
     if ($runno =~ /^${CCL}$/) {
         my $id_warp = "${current_path}/identity_warp.nii.gz";
-        my $first_image = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
-
+        my $alt_idw=dirname ${current_path};
+        $alt_idw=$alt_idw."/identity_warp.nii.gz";
+        if(! -e $id_warp && -e $alt_idw ){
+            cluck("WARNING: double run fun, first run didnt put identity_warp warp where it meant to, but we're gonna correct it on second pass, by changing where we look");
+            $id_warp = $alt_idw;
+        }
         if (data_double_check($id_warp)) {
+            my $first_image = get_nii_from_inputs($inputs_dir,$runno,$mdt_contrast);
             make_identity_warp($first_image,$Hf,$current_path);
         }
         run_and_watch("mv ${id_warp} ${new_warp}");
