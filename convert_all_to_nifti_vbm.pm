@@ -272,8 +272,13 @@ sub set_center_and_orientation_vbm {
     if($current_orientation eq $desired_orientation && $e eq '.nhdr') {
         carp("experimental startup from nhdr engaged. INPUT HEADERS MUST BE CORRECT AND CENTERED.");
         my $reconditioned_dir=$output_folder;
-        $reconditioned_dir=File::Spec->catdir($p,"conv_nhdr");
-        mkdir $reconditioned_dir if ! -e $reconditioned_dir;
+        if($p !~ /conv_nhdr/x){
+            $reconditioned_dir=File::Spec->catdir($p,"conv_nhdr");
+            mkdir $reconditioned_dir if ! -e $reconditioned_dir;
+        } else {
+            #error_out("Reconditioning previously recond files! output should be $output_folder");
+            $reconditioned_dir=$p;
+        }
         my $nhdr_sg=File::Spec->catfile($reconditioned_dir,$n.$out_ext);
         my $nhdr_out=File::Spec->catfile($output_folder,$n.$out_ext);
         #$matlab_exec_args="${nhdr_sg} ${current_orientation} ${desired_orientation} ${output_folder}";
@@ -291,6 +296,10 @@ sub set_center_and_orientation_vbm {
             $mem_request=ceil($est_bytes/(2**20));
             #$cmd=$cmd." && $Wcmd";
             $cmd=$Wcmd;
+        }
+        if($reconditioned_dir eq $p) {
+            # blank the command as conv must have run already.
+            $cmd="";
         }
         my $c_cmd="ants_center_image $nhdr_sg $nhdr_out";
         if($cmd eq ''){
@@ -316,9 +325,13 @@ sub set_center_and_orientation_vbm {
         #$test,$node,$dependency,$arbitrary_opts) = @_;
         my $extra_slurm_settings="--partition=\"ssh\"";
         $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,0,$reservation,undef,$extra_slurm_settings);
-        if ($go && ( not $jid ) ){
-            error_out($stop_message);
+    } else {
+        if (execute($go, "$PM: $n set $desired_orientation orientation and center", $cmd) ) {
+            $jid=1;
         }
+    }
+    if ($go && (not $jid)) {
+        error_out("$stop_message");
     }
     return($jid,$cmd);
 }
