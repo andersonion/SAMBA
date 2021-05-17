@@ -8,20 +8,21 @@
 # use as the targetatlas of future SAMBA runs.
 #
 
-
-
-# sys level include
 use strict;
-use warnings;
-use Carp qw(carp croak cluck confess);
+use warnings FATAL => qw(uninitialized);
+# carp and friends, backtrace yn, fatal yn
+use Carp qw(cluck confess carp croak);
+our $DEF_WARN=$SIG{__WARN__};
+our $DEF_DIE=$SIG{__DIE__};
+# Seems like it'd be great to have this signal handler dependent on debug_val.
+# hard to wire that into a general concept.
+#$SIG{__WARN__} = sub { cluck "Undef value: @_" if $_[0] =~ /undefined|uninitialized/;&{$DEF_WARN}(@_) };
+$SIG{__WARN__} = sub { cluck "Undef value: @_" if $_[0] =~ /undefined|uninitialized/;
+if(defined $DEF_WARN) { &{$DEF_WARN}(@_)} };
 
-use Cwd qw(abs_path);
-use File::Basename;
-use File::Path qw(make_path);
-use Getopt::Std;
-use Scalar::Util qw(looks_like_number);
-use List::MoreUtils qw(uniq);
-
+#### VAR CHECK
+# Note, vars will have to be hardcoded becuased this is a check for env.
+# That means, ONLY variables which will certainly exist should be here.
 # BOILER PLATE
 BEGIN {
     # we could import radish_perl_lib direct to an array, however that complicates the if def checking.
@@ -36,13 +37,21 @@ BEGIN {
 use lib split(':',$RADISH_PERL_LIB);
 # my absolute fav civm_simple_util components.
 use civm_simple_util qw(activity_log printd $debug_val);
-
+# On the fence about including pipe utils every time
 use pipeline_utilities;
 # pipeline_utilities uses GOODEXIT and BADEXIT, but it doesnt choose for you which you want.
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 # END BOILER PLATE
-use civm_simple_util qw(activity_log can_dump file_trim load_file_to_array write_array_to_file find_file_by_pattern file_mod_extreme is_writable round printd whoami whowasi debugloc sleep_with_countdown $debug_val $debug_locator);
+
+use Cwd qw(abs_path);
+use File::Basename;
+use File::Path qw(make_path);
+use Getopt::Std;
+use Scalar::Util qw(looks_like_number);
+#use List::MoreUtils qw(uniq);
+
+use civm_simple_util qw(activity_log can_dump file_trim load_file_to_array write_array_to_file find_file_by_pattern file_mod_extreme is_writable round uniq printd whoami whowasi debugloc sleep_with_countdown $debug_val $debug_locator);
 use Headfile;
 
 # ex of use lib a module (called MyModule) in current dir
@@ -429,7 +438,7 @@ sub main {
     }
     if( ${$opts->{"instant_feedback"}} ){
         Data::Dump::dump($opts) if can_dump();
-	display_complex_data_structure($opts) if ! can_dump();
+        display_complex_data_structure($opts) if ! can_dump();
         printf( "Packing \"MDT\" into $mdt_out_path\n"
                 ."  (from deep in $n_vbm\n"
                 ."\t".File::Spec->catdir($mdtpath,'median_images')."\n  )\n"
@@ -464,12 +473,12 @@ sub main {
             ###
             print("\t Linking up images\n");
             while (my ($key, $value) = each %$mdt_lookup ) {
-		#  copy_paired_data($in_file,$out_file,$prep,$update,$link_mode)=@_;
-		if($key =~ /[.](nhdr|nrrd)$/){
-		    copy_paired_data($key,$value,0,1,0);
-		} else {
-		    qx(ln -vs $key $value);
-		}
+                #  copy_paired_data($in_file,$out_file,$prep,$update,$link_mode)=@_;
+                if($key =~ /[.](nhdr|nrrd)$/){
+                    copy_paired_data($key,$value,0,1,0);
+                } else {
+                    qx(ln -vs $key $value);
+                }
             }
         }
         # check for a labels folder in median images we'd want to capture.
@@ -490,7 +499,7 @@ sub main {
                 qx(mv $lo_o $lo);
             }
             # If we havnt got them yet, make symbolic link stack for labels folder
-	    # This is to capture all the meta data tracking out of the pipeline.
+            # This is to capture all the meta data tracking out of the pipeline.
             # This is only done the first time. If we have need to repeat this(due to pipeline additions)
             # best practice would be to remove the existing labels package.
             if(! -e $lo) {
@@ -503,15 +512,15 @@ sub main {
                 mkdir($ln);
             }
             # run through link stack setting up the name.
-	    # if the name(and location) is already righteous we will not do anything
+            # if the name(and location) is already righteous we will not do anything
             my $sub_lookup=transmogrify_folder($lo,$ln,'MDT',$mdtname);
             while (my ($key, $value) = each %$sub_lookup ) {
-		if($key =~ /[.](nhdr|nrrd)$/){
-		    printd(25,"$key .. $value");
-		    copy_paired_data($key,$value,0,1,'move');
-		} else {
-		    qx(mv $key $value);
-		}
+                if($key =~ /[.](nhdr|nrrd)$/){
+                    printd(25,"$key .. $value");
+                    copy_paired_data($key,$value,0,1,'move');
+                } else {
+                    qx(mv $key $value);
+                }
             }
         }
     } else {
@@ -559,7 +568,7 @@ sub main {
              # $hf->get_value("label_images_dir"),
             ]
             );
-	
+
         #my $sub_lookup=transmogrify_folder($in_im_dir,$spec_out_path,$Specimen,$Specimen);
         # 4 part macthcing, speimen, _something{1..n}, _masked{0,1}, compoundext
         my $inpat="($Specimen)((?:_[^_]+)+?)(_masked)?((?:[.][^.]+)+)\$";
@@ -569,35 +578,35 @@ sub main {
         if ( scalar(keys(%$sub_lookup)) ) {
             print("\t Linking up images\n");
             while (my ($key, $value) = each %$sub_lookup ) {
-		if($key =~ /[.](nhdr|nrrd)$/){
-		    copy_paired_data($key,$value,0,1,"copy");
-		} else {
-		    qx(ln -vs $key $value);
-		}
+                if($key =~ /[.](nhdr|nrrd)$/){
+                    copy_paired_data($key,$value,0,1,"copy");
+                } else {
+                    qx(ln -vs $key $value);
+                }
             }
         }
         # we were missing TRANSLATION FROM INPUTS TO BASE IMAGES, !
         # THE FULL WORK is inputs->reorient+mask(preprocess)->translation(base_images)
-	my $translation_xforms=File::Spec->catfile($base_images,"translation_xforms");
-	my ($translator)=civm_simple_util::find_file_by_pattern($translation_xforms,$Specimen.".*InitialMovingTranslation[.].*");
-	if( ! defined $translator){
-	    croak("suspicious! We didnt find a translator! typically we find those!");
-	} else {
-	    printd(45,"translator found for $spec_out_path at $translator\n");
-	}
-	# not sure if we have the fwd or the back transform.
+        my $translation_xforms=File::Spec->catfile($base_images,"translation_xforms");
+        my ($translator)=civm_simple_util::find_file_by_pattern($translation_xforms,$Specimen.".*InitialMovingTranslation[.].*");
+        if( ! defined $translator){
+            croak("suspicious! We didnt find a translator! typically we find those!");
+        } else {
+            printd(45,"translator found for $spec_out_path at $translator\n");
+        }
+        # not sure if we have the fwd or the back transform.
         # Ref is first, img is second
-	my $transform_dir=File::Spec->catdir($spec_out_path,"transforms");
-	if(! -d $transform_dir){
-	    mkdir($transform_dir);
-	}
-	my $translator_fwd=File::Spec->catfile(${transform_dir},$Specimen."inputs"."_to_".$Specimen."work.mat");
-	if( ! -e $translator_fwd){ qx(ln -vs $translator $translator_fwd); }
-	my $translator_bak=File::Spec->catfile(${transform_dir},$Specimen."work"."_to_".$Specimen."inputs.mat");
-	if( ! -e $translator_bak){ 
-	    my $create_inv=File::Spec->catfile(${transform_dir},".create_inv_t_translator.sh");
-	    create_inverse_affine_transform($create_inv, $translator, $translator_bak);
-	}
+        my $transform_dir=File::Spec->catdir($spec_out_path,"transforms");
+        if(! -d $transform_dir){
+            mkdir($transform_dir);
+        }
+        my $translator_fwd=File::Spec->catfile(${transform_dir},$Specimen."inputs"."_to_".$Specimen."work.mat");
+        if( ! -e $translator_fwd){ qx(ln -vs $translator $translator_fwd); }
+        my $translator_bak=File::Spec->catfile(${transform_dir},$Specimen."work"."_to_".$Specimen."inputs.mat");
+        if( ! -e $translator_bak){
+            my $create_inv=File::Spec->catfile(${transform_dir},".create_inv_t_translator.sh");
+            create_inverse_affine_transform($create_inv, $translator, $translator_bak);
+        }
         package_transforms_SPEC($mdtpath,$spec_out_path,$Specimen,$mdtname,$n_vbm);
         if ( $SingleSegMode ) {
             # When in single seg mode we have a messy batch of transform in our directory.
@@ -639,9 +648,10 @@ sub main {
             #archivedestination_unique_item_name=diffusionN57240dsi_studio
             my @headfiles=find_file_by_pattern($hf_dir,".*$Specimen.*[.]headfile\$",1);
             if( scalar(@headfiles) != 1 ){
+                my $user=$ENV{USER} || $ENV{USERNAME};
                 croak "Input Headfile lookup found # ".scalar(@headfiles)." headfiles, not sure how to proceed."
                     ."\t Maybe archive share disconnected ? \n"
-                    ."\t  use  \"cifscreds add -u $USER -d dhe\" to connect \n"
+                    ."\t  use  \"cifscreds add -u $user -d dhe\" to connect \n"
                     ."\t (Searched $hf_dir for *$Specimen*.headfile)";
             }
             my $hfname=basename($headfiles[0]);
@@ -766,7 +776,7 @@ sub transmogrify_folder {
 #       push(@files,'/mnt/civmbigdata/civmBigDataVol/jjc29/VBM_18gaj42_chass_symmetric3_RAS_BXD62_stat-work/preprocess/base_images/N57008_fa_color_masked.nii.gz');
         #Data::Dump::dump(@files);die;
     }
-    # out is regular expression, because we've got compplicated bits to work over. 
+    # out is regular expression, because we've got compplicated bits to work over.
     my $out_is_reg=1;
     if($in_key =~ /[(].*[)]/x ){
         # Has match portions already, do not adjust
@@ -796,8 +806,8 @@ sub transmogrify_folder {
         }
         my $n=basename$_;
         my $o=$n;
-	if($out_is_reg) {
-	    # out is regular expression, because we've got compplicated bits to work over. 
+        if($out_is_reg) {
+            # out is regular expression, because we've got compplicated bits to work over.
             #require String::Substitution;
             #String::Substitution->import(qw( sub_modify ));
             #sub_modify($o, $in_key, $oreg);
@@ -892,10 +902,14 @@ sub package_transforms_MDT {
         ]  );
     my $aff;
     if ( ! defined $aff ) {
-        $aff=qx(ls $a_dir/MDT_*_to_${TargetDataPackage}_affine.*) || die "affine find fail, even tried old fashioned location";
+        my $a_pat="MDT_[^_]+_to_${TargetDataPackage}_affine[.].+";
+        #$aff=qx(ls $a_dir/MDT_*_to_${TargetDataPackage}_affine.*) || die "affine find fail, even tried old fashioned location";
+        printd(90,"affine search with $a_pat in $a_dir\n");
+        ($aff,my @others)=find_file_by_pattern($a_dir,$a_pat,1);
+        if(scalar(@others)){carp "affine ambiguous, also found:\n".join("\n",@others)."\n";}
     }
     chomp($aff);
-
+    printd(45,"found affine $aff\n");
     my $t_merge_file=File::Spec->catfile($ThisPackageOutLocation,"transforms",".merge.log");
     if( -e $t_merge_file ) {
         warn("DID NOT UPDATE TRANFORMS for $ThisPackageName!\n"
@@ -942,7 +956,7 @@ sub package_transforms_MDT {
     my $TargetDataPackage_ThisPackage_affine="$road_backward/".$n_ThisPackage_t_a;
     #my $antsCreateInverse="ComposeMultiTransform 3 ${TargetDataPackage_ThisPackage_affine} -i ${ThisPackage_TargetDataPackage_affine} && ConvertTransformFile 3 ${TargetDataPackage_ThisPackage_affine} ${TargetDataPackage_ThisPackage_affine} --convertToAffineType";
     my($p,$n,$e)=fileparts(${TargetDataPackage_ThisPackage_affine},3);
-    
+
     my $p_i_t_c=File::Spec->catfile($p,$n.".sh");
     create_inverse_affine_transform($p_i_t_c,$ThisPackage_TargetDataPackage_affine, $TargetDataPackage_ThisPackage_affine);
     my $old_way=0;
@@ -1115,14 +1129,14 @@ sub package_transforms_SPEC {
         my ($p,$n)=fileparts($TargetDataPackage_ThisPackageName_affine,2);
         my $create_inv=File::Spec->catfile($road_forward,".create_inv_t_".$n."_A.sh");
 
-	create_inverse_affine_transform($create_inv,$aff,$TargetDataPackage_ThisPackageName_affine);
-	my $old_way=0;
-	if($old_way) {
+        create_inverse_affine_transform($create_inv,$aff,$TargetDataPackage_ThisPackageName_affine);
+        my $old_way=0;
+        if($old_way) {
         ($i_out,$i_cmd)=create_explicit_inverse_of_ants_affine_transform($aff,$TargetDataPackage_ThisPackageName_affine);
         open(my $f_id,'>',$create_inv) or croak "error on open $create_inv: $!";
         print($f_id "#!/bin/bash\n$i_cmd;\n");
         close($f_id);
-	}
+        }
     }
 ###
 # get the warp
@@ -1354,12 +1368,12 @@ sub package_labels_SPEC {
     # Debug die showing everything to "transfer".
     #Data::Dump::dump($label_in_folder,$stat_pat,$sub_lookup);die;
     while (my ($key, $value) = each %$sub_lookup ) {
-	#  copy_paired_data($in_file,$out_file,$prep,$update,$link_mode)=@_;
-	if($key =~ /[.](nhdr|nrrd)$/){
-	    copy_paired_data($key,$value,0,1,"copy");
-	} else {
-	    qx(ln -vs $key $value);
-	}
+        #  copy_paired_data($in_file,$out_file,$prep,$update,$link_mode)=@_;
+        if($key =~ /[.](nhdr|nrrd)$/){
+            copy_paired_data($key,$value,0,1,"copy");
+        } else {
+            qx(ln -vs $key $value);
+        }
     }
     return;
 }
