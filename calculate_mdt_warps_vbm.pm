@@ -382,7 +382,10 @@ sub calculate_mdt_warps_vbm_Runtime_check {
 # should switch to include, could have modules report values they rely on,
 # then by asking each module in sequnce we would be able to say do we need to repeat or not.
         my $include = 0;
-        my @excluded_keys =qw(start_file
+	#engine_[[:alnum:]-_+]
+        my @excluded_keys =qw(engine.*
+                              local_group
+                              start_file
                               original_orientation_*
                               affine_identity_matrix
                               affine_target_image

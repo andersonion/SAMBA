@@ -397,7 +397,10 @@ U_specid U_species_m00 U_code
             error_out(" Unable to read current inputs parameter file ${c_input_headfile}.");
             return(0);
         }
-        my @excluded_keys=qw(hfpcmt);
+	#engine_[[:alnum:]-_+]
+        my @excluded_keys =qw(engine.*
+                             local_group
+                             hfpcmt);
         my $include=0;
         my $Hf_comp = '';
         $Hf_comp = compare_headfiles($ci_Hf,$tempHf,$include,@excluded_keys);
@@ -881,20 +884,32 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
                     if ( $qa_only_mdt && $a_label_space =~ /MDT/ ) {
                         @current_channel_array=qw(dwi fa);
                     }
+		    #
+		    # 
+		    #
                     foreach my $a_contrast (@current_channel_array) {
                         apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
                     }
+		    #
+		    # measure label stats per individual
+		    #
                     if ( ! ( $qa_only_mdt && $a_label_space =~ /MDT/ ) ) {
                         calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
                     } else {
                         calculate_individual_label_statistics_vbm($a_label_space,@current_channel_array); #$PM_code = 65
                     }
+		    #
+		    # join stat files and run group comparisons (mostly depricated)
+		    #
                     if ($multiple_runnos && $tabulate_statistics){
                         tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66
                         if ($multiple_groups) {
                             label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
                         }
                     }
+		    #
+		    # ecc bvecs
+		    #
                     if ( $qa_only_mdt && $a_label_space =~ /MDT/ ) {
                         # intentionally skipping bvec if we just quietly insisted on making a bigger mess.
                         next;
