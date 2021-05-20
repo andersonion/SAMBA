@@ -423,7 +423,11 @@ sub apply_mdt_warp_to_labels {
         push(@cmds,$create_cmd,$smooth_cmd);
     } else {
         my $space='label';
-        my @ref_array=split( ' ',$Hf->get_value("${space}_refspace"));
+	my ($v_ok,$vox)=$Hf->get_value_check("${space}_refspace");
+	if(!$v_ok){
+	    error_out("Voxel size not available in Headfile entry ${space}_refspace");
+	}
+        my @ref_array=split( ' ',);
         my $voxel_size=pop(@ref_array);
         #$create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${label_input_file} -o ${out_file} -r ${reference_image} -n MultiLabel[$voxel_size,2] ${warp_train};\n";
         # 11 March 2019: Removing "--float" option so that it will, OUT OF NECESSITY for the ABA/CCF3 case, use double for calculations and save out as such.
@@ -889,7 +893,10 @@ sub warp_atlas_labels_vbm_Runtime_check {
 =cut
 
     $label_reference_path = $Hf->get_value('label_reference_path');
-    $label_refname = $Hf->get_value('label_refname');
+    (my $v_ok,$label_refname) = $Hf->get_value_check('label_refname');
+    if(!$v_ok){
+	error_out("label_refname not set properly");
+    }
     $mdt_contrast = $Hf->get_value('mdt_contrast');
     $inputs_dir = $Hf->get_value('inputs_dir');
 
