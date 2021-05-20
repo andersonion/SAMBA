@@ -1227,8 +1227,8 @@ sub ants_opt_e {
         carp("CANNOT SET antsApplyTransform  (-e)  file not available yet: $in_file");
         return "";
     }
+=item     # nii only!!
     my @hdr=ants::PrintHeader($in_file);
-    # nii only!!
     if($in_file =~ /[.]nii([.]gz)?/x) {
         my @dim_lines=grep /[\s]+dim\[[0-7]\]/x, @hdr;
         #Data::Dump::dump(\@hdr,\@dim_lines);
@@ -1236,6 +1236,7 @@ sub ants_opt_e {
         sleep_with_countdown(2);
         ($test_dim = $dim_lines[0]) =~ /.*=[\s]*([0-9]+)[\s*]/x;
     }
+=cut
     my @dims=split(' ',get_image_dims($in_file));
     if ($test_dim > 3 && scalar(@dims) > 3) {
         $opt_e_string = ' -e 3 ';
