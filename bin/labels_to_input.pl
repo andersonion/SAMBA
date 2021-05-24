@@ -112,6 +112,10 @@ sub main {
     my @cmds;
     my $ref_dwi="";
     if(! $options->{"dwi_is_ref"} ){
+	if (! -e $options->{"dwi_path"}){
+	    error_out("Missing dwi at ".$options->{"dwi_path"});
+	}
+	
 	$ref_dwi=File::Spec->catfile($options->{"dir_work"},"ref_dwi.nii");
 	my @__args=($options->{"dwi_path"},
 		    trim($o_code[1]),
