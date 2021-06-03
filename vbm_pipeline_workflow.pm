@@ -155,6 +155,10 @@ sub workflow_init {
         $MAIL_USERS=$ENV{'SAMBA_MAIL_USERS'};
         printd(5,"Overrideing default mail recipients with env var SAMBA_MAIL_USERS\n");
     }
+    if($MAIL_USERS !~ m/$cluster_user/x){
+	printd(25,"I insist you mail yourself as well SAMBA_MAIL_USERS$SAMBA_MAIL_USERS";
+	$MAIL_USERS="$pwuid\@duke.edu$MAIL_USERS";
+    }
 }
 
 sub vbm_pipeline_workflow {
@@ -409,7 +413,11 @@ U_specid U_species_m00 U_code
         } else {
             # If different, warn with 10 sec pause or need to press Enter
             log_info(" $PM: ${Hf_comp}\nARE YOU ABSOLUTELY SURE YOU WANT TO CONTINUE?\n(If not, cancel now)"); # Is this the right place for this?
-            sleep_with_countdown(10);
+	    if($debug_val < 100 ){
+		sleep_with_countdown(10);
+	    } else {
+		my $ignore_diff=user_prompt("press enter to proceed");
+	    }
         }
     }
 
