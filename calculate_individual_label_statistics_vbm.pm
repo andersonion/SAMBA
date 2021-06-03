@@ -234,14 +234,21 @@ sub calculate_label_statistics {
 
         my $space="label";
         ($mem_request, $vx_count)=refspace_memory_est($mem_request,$space,$Hf,5);
-
-        # estimates here, lets pretend 32-bit int for labels, + 5 x 64-bit contrast images
-        # this mem usage doesn't make sense, Realistically, it should just be labels+1 or 2 contrast images.
-        # Must be some glitch in function with incorrect mem handling.
-        my $est_bytes=$vx_count * ( 4 + 5*8 );
+	# We could probably do this ealier, but oh well.
+	my $contrast_count=scalar(split(",",$channel_comma_list_2));
+        # estimates explaination 8 bytes in 64 bit data, 
+	# (5 working space + 1 label file) at 64-bits + (num_contrast_images at 64-bit)
+        # Estimate is not 100% sensible, idealistically, it should just be labels+1 or 2 contrast images.
+        # Clearly we're a little sloppy in there. 
+	# The reason we're using 5x working space is to leave room for the data table we hold in mem.
+	# We started with just lables, then increated to labels+3, and now we're using + 5. Strangely
+	# failures were intermittent, some worked even at the low estimate.
+	# It's okay for this to over estimate here as the code is reasonably multi-threaded and quick, 
+	# and this is not the bottleneck code.
+        my $est_bytes=$vx_count * ( (5 + 1)*8 + $contrast_count*8 );
         # convert bytes to MiB(not MB)
         $mem_request=ceil($est_bytes/(2**20));
-        $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
+        $jid = cluster_exec($go, $go_message, $cmd, $home_path, $Id, $verbose, $mem_request, @test);
     } else {
         if ( execute($go, $go_message, $cmd) ) {
             $jid=1;
