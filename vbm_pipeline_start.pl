@@ -43,8 +43,7 @@ BEGIN {
     use lib split(':',$RADISH_PERL_LIB);
 }
 
-use civm_simple_util qw(sleep_with_countdown activity_log printd uniq $debug_val
-write_array_to_file );
+use civm_simple_util qw(write_array_to_file sleep_with_countdown activity_log printd uniq can_dump $debug_val);
 
 activity_log();
 use pipeline_utilities;
@@ -76,19 +75,16 @@ if ( 0 ) {
     $permissions = 0755;
 }
 $permissions=0777 ^ $permission_mask;
+$debug_val=45;
+# a do it again variable, will allow you to pull data from another vbm_run
+$test_mode = 0;
+# Used to always schedul backup jobs, but right now wanna shut it off for more rapid failure
+$schedule_backup_jobs=0;
 
 #my $opts={};
 our $opts={};
 ${$opts->{"only-precondition"}}=0;
 $opts=auto_opt($opts,\@ARGV);
-
-$debug_val=45;
-
-# a do it again variable, will allow you to pull data from another vbm_run
-$test_mode = 0;
-
-# Used to always schedul backup jobs, but right now wanna shut it off for more rapid failure
-$schedule_backup_jobs=0;
 
 ###
 # simple input handling,
