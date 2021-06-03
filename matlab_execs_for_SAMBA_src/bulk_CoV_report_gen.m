@@ -25,7 +25,12 @@ function err=bulk_CoV_report_gen(stats_dir,atlas_dir)
 % For most reliability, only letters and numbers in atlasid's
 % ex, data=N012345, atlas_id=WHS, space=native_space
 %     ->  N012345_WHS_measured_in_native_space_stats.txt
-[~,atlas,~]=fileparts(atlas_dir);
+[temp_atlas_dir,atlas,~]=fileparts(atlas_dir);
+% we might have a version dir, so test for that.
+if regexpi(atlas,'(v?[12][901245][0-9][0-9][-_.]?[0-9][0-9][-_.]?[0-9][0-9])','once')
+    [~,atlas,~]=fileparts(temp_atlas_dir);
+end
+    
 stat_files=wildcardsearch(stats_dir,'*stats.txt',1,1);
 if numel(stat_files)==1
     warning('%s\n%s\n%s\n\t%s\n%s'... 
@@ -47,7 +52,11 @@ for i_s=1:numel(stat_files)
     try
         % Former atlas pattern, updated for symmetric45um
         % a_p=fullfile(atlas_dir, 'labels',atlas_id, [atlas '_labels']);
-        a_p=fullfile(atlas_dir, 'labels',atlas_id, [atlas '_' atlas_id '_labels']);
+        if regexpi(atlas,atlas_id,'once')
+            a_p=fullfile(atlas_dir, 'labels',atlas_id, [atlas '_labels']);
+        else
+            a_p=fullfile(atlas_dir, 'labels',atlas_id, [atlas '_' atlas_id '_labels']);
+        end
         % Full contrast list
         % output=generate_QA_for_coeffecient_of_variation(id,stat_files{i_s},'volume_mm3,dwi,fa,ad,rd,gfa,nqa,md',a_p);
         % Minimal contrast list
