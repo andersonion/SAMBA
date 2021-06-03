@@ -427,7 +427,7 @@ sub apply_mdt_warp_to_labels {
 	if(!$v_ok){
 	    error_out("Voxel size not available in Headfile entry ${space}_refspace");
 	}
-        my @ref_array=split( ' ',);
+        my @ref_array=split( ' ',$vox);
         my $voxel_size=pop(@ref_array);
         #$create_cmd = "antsApplyTransforms --float -v ${ants_verbosity} -d 3 -i ${label_input_file} -o ${out_file} -r ${reference_image} -n MultiLabel[$voxel_size,2] ${warp_train};\n";
         # 11 March 2019: Removing "--float" option so that it will, OUT OF NECESSITY for the ABA/CCF3 case, use double for calculations and save out as such.
@@ -714,7 +714,7 @@ sub warp_atlas_labels_vbm_Init_check {
 
     my $space="label";
     my $mem_request=0;
-    ($mem_request,my $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
+    ($mem_request, $vx_count)=refspace_memory_est($mem_request,$space,$Hf);
 
     #### NHDR IN HURRY HACK
     # this should at some point be unnecessary, but while the pipe is nifti only we gotta do this.
