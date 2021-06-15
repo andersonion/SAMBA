@@ -1319,7 +1319,12 @@ sub refspace_memory_est {
         my @d=split(" ",$refsize);
         $vx_count=1;
         foreach(@d){
-            $vx_count*=$_; }
+			if($_ =~ m/^[0-9]+$/x) {
+				$vx_count*=$_; 
+			} else {
+				die "Bad refsize $refsize";
+			}
+		}
         # 512 vx @64bit * volumes, in MB for slurm, (NOT MiB);
         # NOTE: on further investigation it appears slurm DOES use MiB,
         # Leaving this in MB for safety margine.
