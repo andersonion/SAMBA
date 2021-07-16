@@ -138,6 +138,8 @@ sub mask_images_vbm {
                 if ($do_mask) {
                     ($job) = mask_one_image($runno,$ch);
                 } else {
+		    carp "do you really want to rename your $runno:$ch?";
+		    sleep_with_countdown(8);
                     ($job) = rename_one_image($runno,$ch);
                 }
                 if ($job) {
@@ -201,9 +203,14 @@ sub mask_images_Output_check {
     my $existing_files_message = '';
     my $missing_files_message = '';
 
+    #Due to changes in set_ref space we NEED a mask, so we'll always generate one, 
+    # this var will prevent us from bothering the images after taht.
+    my $mask_flip=0;
     if ($case == 1) {
         if ($do_mask) {
             $message_prefix = "  Masked images have been found for the following runno(s) and will not be re-processed:\n";
+	    $do_mask=1;
+	    $mask_flip=1;
         } else {
             $message_prefix = "  Unmasked and properly named images have been found for the following runno(s) and will not be re-processed:\n";
         }
@@ -228,7 +235,7 @@ sub mask_images_Output_check {
             $file_path = "${current_path}/${runno}_${ch}.${out_ext}";
             push(@infiles,$file_path);
             push(@infiles,$file_path.'.gz') if $out_ext =~ /[.]nii$/x;
-            if ($do_mask) {
+            if ($do_mask && ! $mask_flip) {
                 $file_path = "${current_path}/${runno}_${ch}_masked${out_ext}";
                 push(@outfiles,$file_path.'.gz') if $out_ext =~ /[.]nii$/x;
                 push(@outfiles,$file_path);
@@ -263,10 +270,11 @@ sub mask_images_Output_check {
         }
 
     }
-
+    
     my $error_msg='';
     if (($existing_files_message ne '') && ($case == 1)) {
         $error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
+	$do_mask=0 if $mask_flip;
     } elsif (($missing_files_message ne '') && ($case == 2)) {
         $error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
     }

@@ -174,6 +174,7 @@ sub tabulate_label_statistics_by_contrast {
     if (defined $reservation) {
         @test =(0,$reservation);
     }
+    # Getting memory failures, but WTF is this code doing that is memory intensive?
     my $mem_request = '10000';
     my $jid = 0;
     if (cluster_check) {

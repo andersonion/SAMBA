@@ -13,3 +13,4 @@
 *.obj
 *.o
 *.sphere
+.emacs.desktop

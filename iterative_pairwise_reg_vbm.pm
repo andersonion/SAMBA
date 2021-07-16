@@ -891,6 +891,15 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                     $template_match = 1;
                 } else {
                     print " $PM: ${Hf_comp}\n"; # Is this the right place for this?
+		    if($debug_val< 100 ){
+			sleep_with_countdown(3);
+		    } else {
+			my $ignore_diff='';
+			do { 
+			    $ignore_diff=user_prompt("Are these differences okay? (y/N)");
+			} while($ignore_diff !~ m/^y(es)?|n(o)?$/ix);
+			$template_match = 1 if $ignore_diff =~ m/^y(es)?$/ix;
+		    }
                 }
                 last;
                     } else {

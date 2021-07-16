@@ -155,6 +155,10 @@ sub workflow_init {
         $MAIL_USERS=$ENV{'SAMBA_MAIL_USERS'};
         printd(5,"Overrideing default mail recipients with env var SAMBA_MAIL_USERS\n");
     }
+    if($MAIL_USERS !~ m/$cluster_user/x){
+	printd(25,"I insist you mail yourself as well SAMBA_MAIL_USERS".$ENV{"SAMBA_MAIL_USERS"}."\n");
+	$MAIL_USERS="$pwuid\@duke.edu$MAIL_USERS";
+    }
 }
 
 sub vbm_pipeline_workflow {
@@ -409,7 +413,11 @@ U_specid U_species_m00 U_code
         } else {
             # If different, warn with 10 sec pause or need to press Enter
             log_info(" $PM: ${Hf_comp}\nARE YOU ABSOLUTELY SURE YOU WANT TO CONTINUE?\n(If not, cancel now)"); # Is this the right place for this?
-            sleep_with_countdown(10);
+	    if($debug_val < 100 ){
+		sleep_with_countdown(10);
+	    } else {
+		my $ignore_diff=user_prompt("press enter to proceed");
+	    }
         }
     }
 
@@ -1227,8 +1235,8 @@ sub ants_opt_e {
         carp("CANNOT SET antsApplyTransform  (-e)  file not available yet: $in_file");
         return "";
     }
+=item     # nii only!!
     my @hdr=ants::PrintHeader($in_file);
-    # nii only!!
     if($in_file =~ /[.]nii([.]gz)?/x) {
         my @dim_lines=grep /[\s]+dim\[[0-7]\]/x, @hdr;
         #Data::Dump::dump(\@hdr,\@dim_lines);
@@ -1236,6 +1244,7 @@ sub ants_opt_e {
         sleep_with_countdown(2);
         ($test_dim = $dim_lines[0]) =~ /.*=[\s]*([0-9]+)[\s*]/x;
     }
+=cut
     my @dims=split(' ',get_image_dims($in_file));
     if ($test_dim > 3 && scalar(@dims) > 3) {
         $opt_e_string = ' -e 3 ';
