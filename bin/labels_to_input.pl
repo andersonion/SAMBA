@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 # To keep up with ever improving boiler plate ideas, this exists to capture them
 # Boilerplate code is rarely updated, but often it's a good idea.
-# So this'll exist as a record of the "current standard" maybe, riddled with me 
+# So this'll exist as a record of the "current standard" maybe, riddled with me
 # explaining things to ... me.
-# 
+#
 # Special sha-bang finds default perl. This should be correct most the time from here forward.
 use strict;
 use warnings FATAL => qw(uninitialized);
@@ -28,7 +28,7 @@ BEGIN {
     my @errors;
     use Env @env_vars;
     foreach (@env_vars ) {
-	push(@errors,"ENV missing: $_") if (! defined(eval("\$$_")) );
+        push(@errors,"ENV missing: $_") if (! defined(eval("\$$_")) );
     }
     die "Setup incomplete:\n\t".join("\n\t",@errors)."\n  quitting.\n" if @errors;
 }
@@ -37,16 +37,19 @@ use lib split(':',$RADISH_PERL_LIB);
 use civm_simple_util qw(activity_log printd $debug_val);
 # On the fence about including pipe utils every time
 use pipeline_utilities;
-# pipeline_utilities uses GOODEXIT and BADEXIT, but it doesnt choose for you which you want. 
+# pipeline_utilities uses GOODEXIT and BADEXIT, but it doesnt choose for you which you want.
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 # END BOILER PLATE
 use Headfile;
-use civm_simple_util qw(trim);
+use civm_simple_util qw(file_mod_extreme find_file_by_pattern trim);
 
 # needs to take pre_rigid refspace labels and transform them back through the translator to input space.
 # We may need to re-create our ref image becuase we're running someplace else.
 # Args then are translation tform, "pristine input" ref_image label file
+
+# First pass was coded for img_transform_exec case of half/way okay nii inputs
+# Need to now accomidate NHDR resamply inputs which have an additional step, and don't use img_transform_exec
 
 
 sub main {
@@ -56,19 +59,26 @@ sub main {
 
     # An original dwi
     ${$options->{"translator=s"}}="";
+    # translator use inv
+    ${$options->{"translator_inv"}}=0;
+    #dwi from diffusion directorye exactly OR from appropriate point in samba data handling, generally preprocess.
     ${$options->{"dwi_path=s"}}="";
     # In the off chance our dwi is already a good reference
     ${$options->{"dwi_is_ref"}}=0;
     #
     ${$options->{"runno_base=s"}}="";
-    ${$options->{"dir_work=s"}}="";    
+    ${$options->{"dir_work=s"}}="";
     # If labels, we'll be connectoming. Otherwise we'll just track a TDI
     ${$options->{"labels_in=s"}}="";
     ${$options->{"labels_out=s"}}="";
-    ${$options->{"label_lookup=s"}}="";
-    # label_filename in the output label_subdir ?
+    ${$options->{"labels_lookup=s"}}="";
+    # labels_filename in the output labels_subdir ?
     # re-orient labels from currentorientation,neworientation
     ${$options->{"label_reorient=s"}}="";
+    # Only used some times, currently, when we used custom NHDR files as our input.
+    ${$options->{"samba_inputs=s"}}="";
+    ${$options->{"samba_work=s"}}="";
+
 
     # ugly issue when deref-ing scalars
     # If we want scalar refs, options'll be broken down.
@@ -89,14 +99,19 @@ sub main {
     my $ED=load_engine_deps() || die "Failure to load settings for computer";
     $ED->print("Engine Settings") if $debug_val>=100;
 
-
+    # if newest file is not input, we're done.
+    #  We cant check if newest file is output, becuase it wont exist yet for new work.
+    if(file_mod_extreme([$options->{"labels_in"},$options->{"labels_out"}],"new") ne $options->{"labels_in"}) {
+        printd(5,"Work complete, quiting\n");
+        exit(0);
+    }
 
     #open_log($options->{"dir_work"});
     ###
     # extened opt checking
     my @o_code=split('[ ,-:]+',$options->{"label_reorient"});
     if (scalar(@o_code) != 2 ) {
-	error_out("Bad re-orientation request($options->{label_reorient}), need two comma separated elements!");
+        error_out("Bad re-orientation request($options->{label_reorient}), need two comma separated elements!");
     }
     ###
 
@@ -112,79 +127,112 @@ sub main {
     my @cmds;
     my $ref_dwi="";
     if(! $options->{"dwi_is_ref"} ){
-	if (! -e $options->{"dwi_path"}){
-	    error_out("Missing dwi at ".$options->{"dwi_path"});
-	}
-	
-	$ref_dwi=File::Spec->catfile($options->{"dir_work"},"ref_dwi.nii");
-	my @__args=($options->{"dwi_path"},
-		    trim($o_code[1]),
-		    trim($o_code[0]),
-		    $ref_dwi,
-		    "1",
-		    "1"
-	    );
-	my $mat_args="'".join("', '",@__args)."'";
-	push(@cmds,make_matlab_command_nohf("img_transform_exec",$mat_args,
-					    $options->{"runno_base"}."_dwi_to_".$o_code[0]."_",
-					    $options->{"dir_work"}
-					    ,$ED->get_value("engine_app_matlab")
-					    ,File::Spec->catfile($options->{"dir_work"},$options->{"runno_base"}."_dwi_reorient_matlab.log")
-					    ,$ED->get_value("engine_app_matlab_opts"), 0)
-	    ) if(! -e $ref_dwi);
-	
+        if (! -e $options->{"dwi_path"}){
+            error_out("Missing dwi at ".$options->{"dwi_path"});
+        }
+
+        $ref_dwi=File::Spec->catfile($options->{"dir_work"},"preproces_ref_dwi.nii");
+        my @__args=($options->{"dwi_path"},
+                    trim($o_code[1]),
+                    trim($o_code[0]),
+                    $ref_dwi,
+                    "1",
+                    "1"
+            );
+        my $mat_args="'".join("', '",@__args)."'";
+        push(@cmds,make_matlab_command_nohf("img_transform_exec",$mat_args,
+                                            $options->{"runno_base"}."_dwi_to_".$o_code[0]."_",
+                                            $options->{"dir_work"}
+                                            ,$ED->get_value("engine_app_matlab")
+                                            ,File::Spec->catfile($options->{"dir_work"},$options->{"runno_base"}."_dwi_reorient_matlab.log")
+                                            ,$ED->get_value("engine_app_matlab_opts"), 0)
+            ) if(! -e $ref_dwi);
+
     } else {
-	$ref_dwi=$options->{"dwi_path"};
+        $ref_dwi=$options->{"dwi_path"};
     }
-    
+
 =item ants command to move from analysis to preprocess
     echo "Run ants apply for to translate into preprocess";
     antsApplyTransforms -d 3 -e 0 -o $labels_pre -i $labels -r $pre_refspace -t [$tform,1] --interpolation NearestNeighbor
 =cut
-    my $label_tmp=File::Spec->catfile($options->{"dir_work"},"labels_tmp.nii.gz");
+    my $labels_preprocess=File::Spec->catfile($options->{"dir_work"},"preprocess_labels.nii.gz");
+    my $label=$labels_preprocess;
+    if($o_code[0] eq $o_code[1]){
+    #    $label=$options->{"labels_out"};
+    }
     my $cmd=File::Spec->catfile($ED->get_value('engine_app_ants_dir'),"antsApplyTransforms")
-	." -d 3 -e 0 -o $label_tmp -i $options->{labels_in} -r $ref_dwi -t [$options->{translator},0] --interpolation NearestNeighbor";
-    push(@cmds,$cmd) if (! -e $label_tmp);
-    
+        ." -v -d 3 -e 0 -o $label -i $options->{labels_in} -r $ref_dwi -t [ $options->{translator} ,$options->{translator_inv} ] --interpolation NearestNeighbor";
+    push(@cmds,$cmd) if (! -e $label);
+
+##
+# labels_tmp is now in preprocess space.
+##
+# Depending on samba inputs, this maybe a simple img_transform_exec run,
+# OR it maybe more complicated using, however, the more complicated behavior failed!
+# 1) copy_header preprocess->inputs(conv)
+# 2) resampleiamgebyref inputs(conv)->inputs
+
+# this is only used if we've got the same orientation code forward and backward.
+my $conv_dir=File::Spec->catdir($options->{"samba_inputs"},"conv_nhdr");
 =item bash code to move from preprocess to inputs
-	tform='R:\19.gaj.43\200316-1_1\slicer\SAMBA_temp\VBM_19gaj43_'"${RIGID_ATLAS}"''"${SUFFIX}"'-inputs\PREPROCESS_to_INPUTS.mat';
+        tform='R:\19.gaj.43\200316-1_1\slicer\SAMBA_temp\VBM_19gaj43_'"${RIGID_ATLAS}"''"${SUFFIX}"'-inputs\PREPROCESS_to_INPUTS.mat';
     echo "Run ants apply to reorient back to input";
     antsApplyTransforms  -d 3 -e 0 -o $labels_input -i $labels_pre -r $input_refspace --interpolation NearestNeighbor -t $tform
 =cut
-
-    #% function niiout=img_transform_exec(img,current_vorder,desired_vorder,output_path,write_transform,recenter)
-    my @__args=($label_tmp,
-		trim($o_code[0]),
-		trim($o_code[1]),
-		$options->{"labels_out"},
-		"1",
-		"1"
-	);
-    my $mat_args="'".join("', '",@__args)."'";
-    push(@cmds,make_matlab_command_nohf("img_transform_exec",$mat_args,$options->{"runno_base"}."_label_orient_",
-					$options->{"dir_work"}
-					,$ED->get_value("engine_app_matlab")
-					,File::Spec->catfile($options->{"dir_work"},$options->{"runno_base"}."_label_reorient_matlab.log")
-					,$ED->get_value("engine_app_matlab_opts"), 0)
-	)if(! -e $options->{"labels_out"});
-    
+    if($o_code[0] ne $o_code[1] && ! -e $options->{"labels_out"}){
+        #% function niiout=img_transform_exec(img,current_vorder,desired_vorder,output_path,write_transform,recenter)
+        my @__args=($labels_preprocess,
+                    trim($o_code[0]),
+                    trim($o_code[1]),
+                    $options->{"labels_out"},
+                    "1",
+                    "1"
+            );
+        my $mat_args="'".join("', '",@__args)."'";
+        push(@cmds,make_matlab_command_nohf("img_transform_exec",$mat_args,$options->{"runno_base"}."_labels_orient_",
+                                            $options->{"dir_work"}
+                                            ,$ED->get_value("engine_app_matlab")
+                                            ,File::Spec->catfile($options->{"dir_work"},$options->{"runno_base"}."_label_reorient_matlab.log")
+                                            ,$ED->get_value("engine_app_matlab_opts"), 0)
+            )if(! -e $options->{"labels_out"});
+    }elsif( -e $options->{"samba_inputs"} && -e $options->{"samba_work"}
+            && -d $conv_dir ) {
+        my $labels_conv=File::Spec->catfile($options->{"dir_work"},"conv_labels.nii.gz");
+        # else it should
+        #  $options->{"samba_inputs"}
+        #  $options->{"samba_work"}) {
+        #Usage:  CopyImageHeaderInformation refimage.ext imagetocopyrefimageinfoto.ext imageout.ext   boolcopydirection  boolcopyorigin boolcopyspacing  {bool-Image2-IsTensor}
+        my ($ref) = find_file_by_pattern($conv_dir,$options->{"runno_base"}.".*dwi[.]n.*",1);
+        push(@cmds,"CopyImageHeaderInformation $ref $labels_preprocess $labels_conv 0 1") if ! -e $labels_conv;
+        #error this didnt work!!! we have a1,1 voxel discrepancy from preprocess to conv(when respecting headers!)
+        # To track down error, loaded data headerless, and found.
+        #     label preprocess->conv identical(ImageJSubtraction)
+        #       dwi preproces->>conv identcial(ImageJSubtraction)
+        # IT seems the problem was a missing "copy origin" flag Added that and this process now works as expected!
+        #push(@cmds,"antsApplyTransforms -v -d 3 -e 0 -i $labels_preprocess -o $labels_conv -r $ref --interpolation NearestNeighbor") if ! -e $labels_conv;
+        # a dwi input.
+        ($ref) = find_file_by_pattern($options->{"samba_inputs"},$options->{"runno_base"}.".*dwi[.]n.*",1);
+        push(@cmds,"antsApplyTransforms -v -d 3 -e 0 -i $labels_conv -o $options->{labels_out} -r $ref --interpolation NearestNeighbor") if ! -e $options->{"labels_out"};
+    }
+    #die "TESTING\n\n".join("\n\n",@cmds);
 =item
     if(! execute(! -e $options->{"labels_out"}, @cmds)){
-	error_out("Trouble preparing labels!");
+        error_out("Trouble preparing labels!");
     } else {
-    
+
     }
 =cut
     if(civm_simple_util::can_dump()){
-	Data::Dump::dump(["Commands to run:",\@cmds]);
+        Data::Dump::dump(["Commands to run:",\@cmds]);
     }
     foreach(@cmds){
-	run_and_watch($_);
+        run_and_watch($_);
     }
     if ( -e $options->{"labels_out"} ){
-	printd(5,"Labels ready: $options->{labels_out}\n");
+        printd(5,"Labels ready: $options->{labels_out}\n");
     } else {
-	error_out("Failed to create  $options->{labels_out}\n");
+        error_out("Failed to create  $options->{labels_out}\n");
     }
 
     #open_log($options->{"dir_work"});
