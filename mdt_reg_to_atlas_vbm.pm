@@ -77,8 +77,8 @@ sub mdt_reg_to_atlas_vbm {  # Main code
             headfile_list_handler($Hf,"forward_label_xforms",$f_xform_path,0);
             headfile_list_handler($Hf,"inverse_label_xforms",$i_xform_path,1);
     }
-
-    $Hf->set_value('MDT_to_atlas_JobID',$jobs[0]);
+    my $at_job=$jobs[0];
+    $Hf->set_value('MDT_to_atlas_JobID',$at_job)if(defined $at_job && $at_job ne "" );
 
 
 ## THIS IS COMMENTED OUT BECAUSE WE WANT TO RUN ALL THE COMPARE REGISTRATIONS TO MDT IN PARALLEL TO THIS JOB

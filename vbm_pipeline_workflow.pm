@@ -1022,7 +1022,7 @@ sub add_defined_variables_to_headfile {
     my ($Hf,@variable_names)=@_;
     for my $variable_name (@variable_names) {
         my $variable_value = eval("\$".${variable_name});
-        $Hf->set_value($variable_name,$variable_value) if (defined $variable_value );
+        $Hf->set_value($variable_name,$variable_value) if (defined $variable_value && $variable_value ne '' );
     }
     return;
 }
