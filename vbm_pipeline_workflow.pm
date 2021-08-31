@@ -156,8 +156,13 @@ sub workflow_init {
         printd(5,"Overrideing default mail recipients with env var SAMBA_MAIL_USERS\n");
     }
     if($MAIL_USERS !~ m/$cluster_user/x){
-	printd(25,"I insist you mail yourself as well SAMBA_MAIL_USERS".$ENV{"SAMBA_MAIL_USERS"}."\n");
-	$MAIL_USERS="$pwuid\@duke.edu$MAIL_USERS";
+	printd(25,"I insist you mail yourself as well SAMBA_MAIL_USERS:".$ENV{"SAMBA_MAIL_USERS"}."\n");
+        if($MAIL_USERS !~ m/^[[:space:]]*$/){
+            $MAIL_USERS="$pwuid\@duke.edu,".$MAIL_USERS;
+        } else {
+            $MAIL_USERS="$pwuid\@duke.edu";
+        }
+        printd(25, "\t now: $MAIL_USERS\n");
     }
 }
 
