@@ -248,7 +248,26 @@ sub set_reference_space_Output_check {
             #opendir(DIR, $preprocess_dir);
             #@files_to_check = grep(/(\.nii)+(\.gz)*$/ ,readdir(DIR));# @input_files;
             #@files_to_check=sort(@files_to_check);
-            @files_to_check = find_file_by_pattern($preprocess_dir,".*$valid_formats_string\$",1);
+            # we'll default to old behavior vulnerable to dropped bits.
+            my $vulnerable_to_dropped_bits=1;
+            my($v_r_ok,$complete_runlist)=$Hf->get_value_check("complete_comma_list");
+            my($v_ch_ok, $ch_list )= $Hf->get_value_check('channel_comma_list');
+            $vulnerable_to_dropped_bits=0 if($v_r_ok && $v_ch_ok);
+            if(! $vulnerable_to_dropped_bits){
+                my @runnos=split(",",$complete_runlist);
+                my @channels=split(',',$ch_list);
+                for my $r (@runnos){
+                    for my $c (@channels){
+                        my $f=get_nii_from_inputs($preprocess_dir,$r,$c);
+                        # becuase get_nii overloads output with error messaging, must check its a file.
+                        push(@files_to_check,$f) if $f !~ /\n/ && -e $f;
+                    }
+                }
+            } else {
+                # If mask images fails and leavs both the unmaske and masked data behind,
+                # this will find both and generate replicated bits in the base_images folder!
+                @files_to_check = find_file_by_pattern($preprocess_dir,".*$valid_formats_string\$",1);
+            }
             foreach(@files_to_check){
                 $_=basename $_; }
         } else {
