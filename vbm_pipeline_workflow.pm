@@ -901,7 +901,7 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
                         @current_channel_array=qw(dwi fa);
                     }
 		    #
-		    # 
+		    #
 		    #
                     foreach my $a_contrast (@current_channel_array) {
                         apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
@@ -1156,7 +1156,7 @@ sub image_preview_mail {
     # RELIES ON SOME SAMBA GLOBALS($Hf)
     my($source_dir,$preview_dir,$ex_ref,$MAIL_USERS)=@_;
     if(!${civm_simple_util::IS_MAC} && ! ${civm_simple_util::IS_LINUX}) {
-        print("image_preview_mail cannot run outside linux/mac");
+        print("image_preview_mail cannot run outside linux/mac\n");
         return;
     }
     # Will generate ortho slice previews using civm_bulk_ortho and then
