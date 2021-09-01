@@ -587,7 +587,10 @@ sub warp_atlas_labels_vbm_Init_check {
     my $message_prefix="$PM:\n";
     my $log_msg='';
 
-    my $create_labels = $Hf->get_value('create_labels');
+    (my $c_l_ok, my $create_labels) = $Hf->get_value_check('create_labels');
+    if(! $c_l_ok || ! $create_labels){
+        return("");
+    }
     my $label_atlas_name = $Hf->get_value('label_atlas_name');
     #if (0) { # Code was moved from vbm_pipeline_workflow.pm, and we want to deactivate it for now.
     #if (($create_labels eq 'NO_KEY') && (defined $label_atlas_name)){
@@ -597,8 +600,9 @@ sub warp_atlas_labels_vbm_Init_check {
     #}
     #$Hf->set_value('create_labels',$create_labels);
     #}
-    my $label_space = $Hf->get_value('label_space');
-    if ($label_space eq 'NO_KEY') {
+    (my $use_l_s, my $label_space )= $Hf->get_value_check('label_space');
+    #if ($label_space eq 'NO_KEY') {
+    if(! $use_l_s){
         $label_space = "pre_affine"; # Pre-affine is the tentative default label space.
         $Hf->set_value('label_space',$label_space);
         $log_msg = $log_msg."\tLabel_space has not been specified; using default of ${label_space}.\n";
@@ -698,6 +702,7 @@ sub warp_atlas_labels_vbm_Init_check {
     }
     # Notate which "label type" we're dealing with, (mess|quagmire|labels)
     # Being senstitive to the frequent orientation postfix.
+    # Orientation post fix removed! It makes EVERYTHING HARDER!
     #my ($d1,$n,$d3)=fileparts($label_input_file,2);
     #my @parts = split('_',$n);
     #$label_type = pop(@parts);
@@ -707,7 +712,13 @@ sub warp_atlas_labels_vbm_Init_check {
     # More concisely
     # TAKE CARE WITH THIS REGEX, this is extracting a word, NOT searching and replacing,
     # that moves where the parenthesis belongs!
-    ( $label_type ) = $label_input_file =~ /($samba_label_types)/x;
+    # It is also allowing the word to be found ANYWHERE in the label path!
+    # We treat the final occurance as our label_type.
+    my @LT = $label_input_file =~ /($samba_label_types)/gx;
+    $label_type = $LT[$#LT];
+    if(! defined $label_type){
+        croak("label_input_file:$label_input_file\ndoes not match regex:$samba_label_types");
+    }
     $Hf->set_value('label_type',$label_type);
     # PRECEEDING WAS FORMERLY IN RUNTIME CHECK
     ####
