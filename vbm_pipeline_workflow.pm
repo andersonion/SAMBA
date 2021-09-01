@@ -493,7 +493,10 @@ U_specid U_species_m00 U_code
 ###
 
     print STDOUT " Running the main code of $PM. \n";
-
+    # Use this to reach into pipeline_utilities and force scheduling off.
+    if(${$main::opts->{"deactivate-scheduling"}}){
+        ${pipeline_utilities::deactivate_scheduling}=1;
+    }
     ## Initilization code starts here.
 # Check command line options and report related errors
 # WAFFELED ON FORWARDS OR BACKWARDS:
