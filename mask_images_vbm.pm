@@ -204,24 +204,26 @@ sub mask_images_Output_check {
     my $missing_files_message = '';
 
     #Due to changes in set_ref space we NEED a mask, so we'll always generate one, 
-    # this var will prevent us from bothering the images after taht.
-    my $mask_flip=0;
+    # this var will prevent us from bothering the images after that. 
+    # The mechanism WAS "flip" the do_mask bit when necessary.
+    my $do_not_apply_mask=0;
     if ($case == 1) {
         if ($do_mask) {
             $message_prefix = "  Masked images have been found for the following runno(s) and will not be re-processed:\n";
-	    $do_mask=1;
-	    $mask_flip=1;
         } else {
             $message_prefix = "  Unmasked and properly named images have been found for the following runno(s) and will not be re-processed:\n";
+            $do_mask=1;
+	    $do_not_apply_mask=1;
         }
     } elsif ($case == 2) {
         if ($do_mask) {
             $message_prefix = "  Unable to properly mask images for the following runno(s) and channel(s):\n";
         } else {
             $message_prefix = "  Unable to properly rename the unmasked images for the following runno(s) and channel(s):\n";
+            $do_mask=1;
+	    $do_not_apply_mask=1;
         }
     }   # For Init_check, we could just add the appropriate cases.
-
     foreach my $runno (@array_of_runnos) {
         my $sub_existing_files_message='';
         my $sub_missing_files_message='';
@@ -231,21 +233,41 @@ sub mask_images_Output_check {
             # only one should ever be found ....
             my @infiles;
             my @outfiles;
-            # input files
-            $file_path = "${current_path}/${runno}_${ch}.${out_ext}";
-            push(@infiles,$file_path);
-            push(@infiles,$file_path.'.gz') if $out_ext =~ /[.]nii$/x;
-            if ($do_mask && ! $mask_flip) {
+            # input files are GUESSED THAT IS INSANE!
+            # Trying to envision a scenario where the inputs should be guessed.... and it's not coming up!
+            #$file_path = "${current_path}/${runno}_${ch}${out_ext}";
+            #push(@infiles,$file_path);
+            #push(@infiles,$file_path.'.gz') if $out_ext =~ /[.]nii$/x;
+            my $lookup="${runno}_${ch}[.](?:$valid_formats_string)";
+            my @infiles=find_file_by_pattern($current_path,$lookup,1);
+            if ($do_mask && ! $do_not_apply_mask) {
+                # This is the "normal" we're masking case, case ... 
+                # we're only checking for our output files, not the masks.
+                # That is part of our trouble, we should be checking for masks as well.
                 $file_path = "${current_path}/${runno}_${ch}_masked${out_ext}";
                 push(@outfiles,$file_path.'.gz') if $out_ext =~ /[.]nii$/x;
                 push(@outfiles,$file_path);
+            } else {
+                # we're in our "do not mask" case.
+                if( scalar(@infiles) != 1) {
+                    croak("input find glitch! found:".scalar(@infiles)." $lookup in $current_path");
+                }
+                $file_path=$infiles[0];
             }
 
-            # immediate check for input.
-            my $in_count=data_double_check(@infiles,0);
-            if (scalar(@outfiles)
-                && scalar(@outfiles) == data_double_check(@outfiles,  ( $case-1 && $do_mask ) )
-                || $in_count != scalar(@infiles) ) {
+            # immediate check for input, double check returns count of missing.
+            # we're using this to address the nii vs nii.gz problem by passing one or two element list
+            my $missing_in=data_double_check(@infiles,0);
+            if ( (scalar(@outfiles)
+                && scalar(@outfiles) == data_double_check(@outfiles,  ( $case-1 && $do_mask ) ) )
+                #|| $missing_in != scalar(@infiles) ) {
+                || $missing_in != scalar(@infiles)-1 ) {
+                my $slop="";
+                if( scalar(@outfiles) > 1) {
+                } elsif( scalar(@outfiles) ==0 ) {
+                    $slop=" No files!";
+                }
+                #Data::Dump::dump([\@infiles,\@outfiles,$missing_in]);
                 # Would like to not do slow disk mode when do_mask is 0.
                 # I think just combining case-1 and do_mask will work.
                 $go_hash{$runno}{$ch}=1;
@@ -274,7 +296,7 @@ sub mask_images_Output_check {
     my $error_msg='';
     if (($existing_files_message ne '') && ($case == 1)) {
         $error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
-	$do_mask=0 if $mask_flip;
+	$do_mask=0 if $do_not_apply_mask;
     } elsif (($missing_files_message ne '') && ($case == 2)) {
         $error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
     }
@@ -447,10 +469,10 @@ sub mask_one_image {
         #$apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};";
         $apply_cmd =  "ImageMath ${dims} \${o} m \${i} \${m};";
     }
-    my $im_a_real_tensor = '';
-    if ($centered_path =~ /tensor/){
-        $im_a_real_tensor = '1';
-    }
+    #my $im_a_real_tensor = '';
+    #if ($centered_path =~ /tensor/){
+    #    $im_a_real_tensor = '1';
+    #}
     #my $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};\n";
     #my $copy_hd_cmd = '';#"CopyImageHeaderInformation ${centered_path} ${out_path} ${out_path} 1 1 1 ${im_a_real_tensor};\n"; # 24 Feb 2018, disabling, function seems to be broken and wreaking havoc
     #my $cleanup_cmd = "if [[ -f ${out_path} ]];then\n".
@@ -474,9 +496,11 @@ sub mask_one_image {
         "\tcbatch=\"\$d/unmasked/compresss_\${fn}.bash\";\n".
         "\techo '#!/usr/bin/env bash' > \${cbatch};\n".
         "\techo \"gzip -v \$d/unmasked/\$fn*\" >> \${cbatch};\n".
-        "\t\tmv \${d}/\${fn}* \$d/unmasked/ && if [ -x sbatch ];then sbatch --out=\${d}/unmasked/slurm-%j.out \${cbatch};\n; else bash \${cbatch};\n;fi".
-        "\tfi\n".
-        "fi\n";
+        "\t\tmv \${d}/\${fn}* \$d/unmasked/ && if [ -x sbatch ];\n".
+        "\t\t\t\tthen sbatch --out=\${d}/unmasked/slurm-%j.out \${cbatch};\n".
+        "\t\t\t\telse bash \${cbatch};fi;\n".
+        "\tfi;\n".
+        "fi;\n";
 
     my @cmds;
     push(@cmds,$cmd_vars);
