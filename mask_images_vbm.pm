@@ -66,28 +66,35 @@ sub mask_images_vbm {
             if (($thresh_ref ne "NO_KEY") && ($$thresh_ref{$runno})){
                 $mask_threshold = $$thresh_ref{$runno};
             }
+            my $mask_path = "${mask_dir}/${runno}_${template_contrast}_mask\.mat";
+            # ... why all the guessing!!!!
             # "current" here is probably preprocess
-            my $mask_path = get_nii_from_inputs($current_path,$runno,'mask');
-            if (data_double_check($mask_path,0))  {
-                # try again with segregated masks folder
-                $mask_path = get_nii_from_inputs($mask_dir,$runno,'mask');
+            #my $mask_path = get_nii_from_inputs($current_path,$runno,'mask');
+            #if (data_double_check($mask_path,0))  {
+            #    # try again with segregated masks folder
+            #    $mask_path = get_nii_from_inputs($mask_dir,$runno,'mask');
+            #}
+            #if (data_double_check($mask_path,0))  {
+            #    # no mask available. set specificly mask file
+            #    $mask_path = "${mask_dir}/${runno}_${template_contrast}_mask\.mat";
+            #}
+
+            # switched this to always run, internally it will skip the matlab step if complete.
+            ($job) =  strip_mask_vbm($current_file,$mask_path,$mask_threshold,$runno);
+            if ($job) {
+                push(@jobs,$job);
             }
-            if (data_double_check($mask_path,0))  {
-                # no mask available. set specificly mask file
-                $mask_path = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
-            }
-            if ( (! -e $mask_path) && (! -e $mask_path.".gz")  ){
-                my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
-                if ( (! $port_atlas_mask)
-                     || $port_atlas_mask && (! -e $ported_mask) && (! -e $ported_mask.'.gz') ) {
-                    ($job) =  strip_mask_vbm($current_file,$mask_path,$mask_threshold,$runno);
-                    if ($job) {
-                        push(@jobs,$job);
-                    }
-                }
-            }
+
+            #if ( (! -e $mask_path) && (! -e $mask_path.".gz")  ){
+            #    my $ported_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
+            #    if ( (! $port_atlas_mask)
+            #         || $port_atlas_mask && (! -e $ported_mask) && (! -e $ported_mask.'.gz') ) {
+            #             # RUN strip_mask_vbm function
+            #
+            #    }
+            #}
             if( $out_ext =~ /nhdr/){
-                $mask_path =~ s/(^.+)[.]nii(?:[.]gz)?$/$1.nhdr/;
+                $mask_path =~ s/(^.+)[.](nii(?:[.]gz)?|mat)$/$1.nhdr/;
             }
             $mask_hash{$runno} = $mask_path;
         }
@@ -203,8 +210,8 @@ sub mask_images_Output_check {
     my $existing_files_message = '';
     my $missing_files_message = '';
 
-    #Due to changes in set_ref space we NEED a mask, so we'll always generate one, 
-    # this var will prevent us from bothering the images after that. 
+    #Due to changes in set_ref space we NEED a mask, so we'll always generate one,
+    # this var will prevent us from bothering the images after that.
     # The mechanism WAS "flip" the do_mask bit when necessary.
     my $do_not_apply_mask=0;
     if ($case == 1) {
@@ -213,7 +220,7 @@ sub mask_images_Output_check {
         } else {
             $message_prefix = "  Unmasked and properly named images have been found for the following runno(s) and will not be re-processed:\n";
             $do_mask=1;
-	    $do_not_apply_mask=1;
+            $do_not_apply_mask=1;
         }
     } elsif ($case == 2) {
         if ($do_mask) {
@@ -221,7 +228,7 @@ sub mask_images_Output_check {
         } else {
             $message_prefix = "  Unable to properly rename the unmasked images for the following runno(s) and channel(s):\n";
             $do_mask=1;
-	    $do_not_apply_mask=1;
+            $do_not_apply_mask=1;
         }
     }   # For Init_check, we could just add the appropriate cases.
     foreach my $runno (@array_of_runnos) {
@@ -235,13 +242,15 @@ sub mask_images_Output_check {
             my @outfiles;
             # input files are GUESSED THAT IS INSANE!
             # Trying to envision a scenario where the inputs should be guessed.... and it's not coming up!
+            # The crazy behavior is becuase we MOVE our inputs and maybe we also compress them!
+            # This generates chaos in checking run<->rerun! We should do better!
             #$file_path = "${current_path}/${runno}_${ch}${out_ext}";
             #push(@infiles,$file_path);
             #push(@infiles,$file_path.'.gz') if $out_ext =~ /[.]nii$/x;
             my $lookup="${runno}_${ch}[.](?:$valid_formats_string)";
             my @infiles=find_file_by_pattern($current_path,$lookup,1);
             if ($do_mask && ! $do_not_apply_mask) {
-                # This is the "normal" we're masking case, case ... 
+                # This is the "normal" we're masking case, case ...
                 # we're only checking for our output files, not the masks.
                 # That is part of our trouble, we should be checking for masks as well.
                 $file_path = "${current_path}/${runno}_${ch}_masked${out_ext}";
@@ -261,7 +270,8 @@ sub mask_images_Output_check {
             if ( (scalar(@outfiles)
                 && scalar(@outfiles) == data_double_check(@outfiles,  ( $case-1 && $do_mask ) ) )
                 #|| $missing_in != scalar(@infiles) ) {
-                || $missing_in != scalar(@infiles)-1 ) {
+                || ( scalar(@infiles)>0 && $missing_in != scalar(@infiles)-1 )) {
+                # forcing the infiles check to have at least one input found before we vomit
                 my $slop="";
                 if( scalar(@outfiles) > 1) {
                 } elsif( scalar(@outfiles) ==0 ) {
@@ -292,7 +302,7 @@ sub mask_images_Output_check {
         }
 
     }
-    
+
     my $error_msg='';
     if (($existing_files_message ne '') && ($case == 1)) {
         $error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
@@ -309,27 +319,42 @@ sub mask_images_Output_check {
 sub strip_mask_vbm {
 # ------------------
     my ($input_file,$mask_path,$mask_threshold,$ident) = @_;
-
     my $jid = 0;
     my ($go_message, $stop_message);
-
-    my $matlab_exec_args="${input_file} ${dim_divisor} ${mask_threshold} ${mask_path} ${num_morphs} ${morph_radius} ${status_display_level}";
+    # to avoid "correctly" updating the make_mask command, we're gonna let it save a nii always.
+    # That will be pached via mk_nhdr to avoid the too big file problem,
+    # Finally copyimageheader will be allowed to update the matlab_nhdr.
+    (my $mat_out=$mask_path) =~ s/[.]mat$/matlab.nii/x;
+    (my $old_mat=$mat_out) =~ s/matlab//x;
+    (my $mat_nhdr = $mask_path) =~ s/[.]mat/matlab.nhdr/x;
+    my $matlab_exec_args="${input_file} ${dim_divisor} ${mask_threshold} ${mat_out} ${num_morphs} ${morph_radius} ${status_display_level}";
     $go_message = "$PM: Creating mask from file: ${input_file}\n" ;
     $stop_message = "$PM: Failed to properly create mask from file: ${input_file}\n" ;
-
-
-    my $cmd = "${strip_mask_executable_path} ${matlab_path} ${matlab_exec_args}";
-    if((! ${civm_simple_util::IS_LINUX} && ! ${civm_simple_util::IS_MAC})){
-        my $args="'".join("','",split(" ",$matlab_exec_args))."'";
-        $cmd=make_matlab_command('strip_mask_exec', $args, "mask_image", $Hf,1);
-#        make_matlab_command_nohf('strip_mask_exec', $args, "mask_image", $work_dir, $matlab_app, $stdout_log, $matlab_opts, $verbose);
+    my @cmds;
+    my $cmd;
+    if( ! -e $mat_out){
+        $cmd= "${strip_mask_executable_path} ${matlab_path} ${matlab_exec_args}";
+        if((! ${civm_simple_util::IS_LINUX} && ! ${civm_simple_util::IS_MAC})){
+            my $args="'".join("','",split(" ",$matlab_exec_args))."'";
+            $cmd=make_matlab_command('strip_mask_exec', $args, "mask_image", $Hf,1);
+            # make_matlab_command_nohf('strip_mask_exec', $args, "mask_image", $work_dir, $matlab_app, $stdout_log, $matlab_opts, $verbose);
+        }
     }
-
+    if( -e $old_mat && ! -e $mat_out){
+        $cmd="mv $old_mat $mat_out";
+    }
+    push(@cmds,$cmd) if ! -e $mat_out;
+    $cmd="mk_nhdr -s $mat_out";
+    push(@cmds,$cmd) if ! -e $mat_nhdr;
     if( $out_ext =~ /nhdr/){
-        (my $mout = $mask_path)=~s/(^.+)[.]nii(?:[.]gz)?$/$1.nhdr/;
-        $cmd=$cmd." && "."CopyImageHeaderInformation $input_file $mask_path $mout 1 1 1 0";
+        (my $mout = $mask_path)=~s/(^.+)[.](nii(?:[.]gz)?|mat)$/$1.nhdr/;
+        $cmd="CopyImageHeaderInformation $input_file $mat_nhdr $mout 1 1 1 0";
+        push(@cmds,$cmd) if ! -e $mout;
     }
-    if (cluster_check) {
+    $cmd=join(" && ",@cmds);
+    # if there was no work to do, we skip home early.
+    if(!scalar(@cmds)){return 1;}
+    if (cluster_check()) {
         my @test=(0);
         if (defined $reservation) {
             @test =(0,$reservation);
@@ -352,8 +377,6 @@ sub strip_mask_vbm {
     }
     return($jid);
 }
-
-
 
 
 # ------------------
@@ -484,33 +507,38 @@ sub mask_one_image {
     #"\tfi\n".
     #"fi\n";
 
-    # these gzip commands run in background dont work,
-    # Probably because slurm spots their creation and kills them on job end?
-    # So, we've set up to sbatch them in the background... :D
+    # Once we have been masked, the input is no (very) longer important so we
+    # move it out of the way and compress it.
+    # We dont care how long it takes, so we've set up to sbatch them in the background...
+    # Originally tried to just use & background operation, however job scheduler seems
+    # to have noticed it and stopped the job
     my $cleanup_cmd = "if [[ -f \${o} ]];then\n".
         "\tfn=\$(basename \${i});\n".
         "\tfn=\${fn%%.*};\n".
         "\td=\$(dirname \${i});\n".
         "\tif [[ ! -d \$d/unmasked ]];then mkdir \$d/unmasked;fi;\n".
         "\tif [[ -e \${i} ]];then\n".
-        "\tcbatch=\"\$d/unmasked/compresss_\${fn}.bash\";\n".
-        "\techo '#!/usr/bin/env bash' > \${cbatch};\n".
-        "\techo \"gzip -v \$d/unmasked/\$fn*\" >> \${cbatch};\n".
-        "\t\tmv \${d}/\${fn}* \$d/unmasked/ && if [ -x sbatch ];\n".
-        "\t\t\t\tthen sbatch --out=\${d}/unmasked/slurm-%j.out \${cbatch};\n".
-        "\t\t\t\telse bash \${cbatch};fi;\n".
+        "\t\tcbatch=\"\$d/unmasked/compresss_\${fn}.bash\";\n".
+        "\t\techo '#!/usr/bin/env bash' > \${cbatch};\n".
+        "\t\techo \"gzip -v \$d/unmasked/\$fn*\" >> \${cbatch};\n".
+        "\t\t\tmv \${d}/\${fn}.* \$d/unmasked/ && if [ -x sbatch ];\n".
+        "\t\t\t\t\tthen sbatch --out=\${d}/unmasked/slurm-%j.out \${cbatch};\n".
+        "\t\t\t\t\telse bash \${cbatch};fi;\n".
         "\tfi;\n".
         "fi;\n";
-
     my @cmds;
     push(@cmds,$cmd_vars);
     push(@cmds,$apply_cmd) if ! -e $out_path;
     push(@cmds,$cleanup_cmd);
 
-    my $go_message = "$PM: Applying mask created by ${template_contrast} image of runno $runno" ;
-    my $stop_message = "$PM: could not apply ${template_contrast} mask to ${centered_path}:\n${apply_cmd}\n" ;
+    my $go_message = "$PM: Applying mask to $ch created by ${template_contrast} image of runno $runno" ;
+    my $stop_message = "$PM: could not apply mask to $ch image ${centered_path} from $template_contrast mask:\n" ;
 
     my $cmd = join("\n",@cmds);
+    # if there was no work to do, we skip home early.
+    if( ! -e $centered_path && -e $out_path ){ return 1;}
+    # filter unintentional double newlines
+    $cmd =~ s/\n+/\n/gx;
     my $jid = 0;
     if (cluster_check) {
         my @test = (0);
@@ -523,12 +551,12 @@ sub mask_one_image {
         my $mem_request = 100000; # 12 April 2017, BJA: upped mem req from 60000 because of nii4Ds...may need to even go higher
         $jid = cluster_exec($go,$go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
     } else {
-        if (! execute($go, $go_message, $cmd) ) {
+        if (execute($go, $go_message, $cmd) ) {
             $jid=1;
         }
     }
     if ($go && not $jid) {
-        error_out($stop_message);
+        error_out($stop_message."${cmd}\n");
     }
     print "** $PM expected output: ${out_path}\n";
 
