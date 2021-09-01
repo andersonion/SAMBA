@@ -112,8 +112,8 @@ sub set_reference_space_vbm {  # Main code
         # for all runnos
         for my $runno (keys %runno_hash) {
             # First, create the refspacy transform
-	    # NASTY apply_new_reference_space_vbm REALLY is two functions, 
-	    #   Round 1, it is generate refspace transform, Round 2, is apply respace!
+            # NASTY apply_new_reference_space_vbm REALLY is two functions,
+            #   Round 1, it is generate refspace transform, Round 2, is apply respace!
             my $in_file = $runno_hash{$runno};
             my $out_file = "${work_folder}/translation_xforms/${runno}_";#0DerivedInitialMovingTranslation.mat";
             ($job,my $t) = apply_new_reference_space_vbm($in_file,$ref_file,$out_file);
@@ -122,35 +122,35 @@ sub set_reference_space_vbm {  # Main code
                 push(@jobs,$job);
                 $ref_dep='afterany:'.$job;
             } else {
-		if(! -e $t ){
-		    confess "Transform missing for $in_file,$ref_file,$out_file";
-		}
-	    }
+                if(! -e $t ){
+                    confess "Transform missing for $in_file,$ref_file,$out_file";
+                }
+            }
             # REALLY the ref file should set the out_ext!
             my ($dumdum,$in_name,$in_ext) = fileparts($in_file,2);
             # second, schedule the apply dependent on transformy being done.
-	    # This is too simple in MANY cases causing exotic opaque errors
+            # This is too simple in MANY cases causing exotic opaque errors
             #my @runno_files=grep /${runno}_/,@$array_ref;
-	    #for my $out_file (@runno_files) {
-	    for my $out_file (@$array_ref){
-		# Instead of trying to pre-select using grep, we'll jump past any we don't like
-		# REALLY this is DUMB We should have noted the "input->output" when we did our initial set up of work queue.
-		# CAREFUL HERE! out_ext is an important global, output_ext is a disposeable removal of extension
-		# But REALLY WHAT IN THE HELL ARE WE DOING changing rom the real infile, to not that at all?
+            #for my $out_file (@runno_files) {
+            for my $out_file (@$array_ref){
+                # Instead of trying to pre-select using grep, we'll jump past any we don't like
+                # REALLY this is DUMB We should have noted the "input->output" when we did our initial set up of work queue.
+                # CAREFUL HERE! out_ext is an important global, output_ext is a disposeable removal of extension
+                # But REALLY WHAT IN THE HELL ARE WE DOING changing rom the real infile, to not that at all?
                 my ($dumdum,$out_name,$outfile_ext) = fileparts($out_file,2);
-		if($out_name !~ m/${runno}_/x){
-		    next;
-		}
+                if($out_name !~ m/${runno}_/x){
+                    next;
+                }
                 my $ain_file = "${preprocess_dir}/${out_name}${out_ext}";
-		my $tmp_msg="";
-		$tmp_msg="has $in_file" if -e $in_file;
+                my $tmp_msg="";
+                $tmp_msg="has $in_file" if -e $in_file;
                 $ain_file = "${preprocess_dir}/${out_name}${in_ext}" if ! -e $ain_file;
-		if(! -e $ain_file) {
-		    #Data::Dump::dump(["ref_runno",\%ref_runno_hash,"work_listing:",$work_to_do_HoA,"all:",$array_ref,"select:",\@runno_files,"runno:$runno"]);
-		    #Data::Dump::dump(["ref_runno",\%ref_runno_hash,"all:",$array_ref,"select:",\@runno_files,"runno:$runno"]);
-		    confess "ERROR NO INPUT FILE $ain_file (from $out_file) $tmp_msg" ;
-		}
-		#
+                if(! -e $ain_file) {
+                    #Data::Dump::dump(["ref_runno",\%ref_runno_hash,"work_listing:",$work_to_do_HoA,"all:",$array_ref,"select:",\@runno_files,"runno:$runno"]);
+                    #Data::Dump::dump(["ref_runno",\%ref_runno_hash,"all:",$array_ref,"select:",\@runno_files,"runno:$runno"]);
+                    confess "ERROR NO INPUT FILE $ain_file (from $out_file) $tmp_msg" ;
+                }
+                #
                 ($job) = apply_new_reference_space_vbm($ain_file,$ref_file,$out_file,$ref_dep);
                 if ($job) {
                     push(@jobs,$job);
@@ -263,6 +263,12 @@ sub set_reference_space_Output_check {
                         push(@files_to_check,$f) if $f !~ /\n/ && -e $f;
                     }
                 }
+                ## TRICKY TRICKY becuase we looked for ALL files in the past we snuck the touched atlas through!
+                # Since we're now specific, we need to add it here.
+                my($r_ok,$rigid)=$Hf->get_value_check('rigid_atlas_path');
+                if($r_ok && $rigid ne 'null'){
+                    push(@files_to_check,$rigid);
+                }
             } else {
                 # If mask images fails and leavs both the unmaske and masked data behind,
                 # this will find both and generate replicated bits in the base_images folder!
@@ -291,8 +297,8 @@ sub set_reference_space_Output_check {
                 # In this case, we are looking for an output file (which will ALWAYS be gzipped)
                 # that corresponds to an input file that may or may not be gzipped.
                 $out_file =~ s/(\.gz)?$/\.gz/ if $out_file =~ /nii/x;
-		# Force the desired out_ext
-		$out_file =~ s/[.]nii([.]gz)?$/$out_ext/;
+                # Force the desired out_ext
+                $out_file =~ s/[.]nii([.]gz)?$/$out_ext/;
             } else {
                 $out_file = $file;
             }
@@ -392,7 +398,7 @@ sub apply_new_reference_space_vbm {
     my $do_registration = 1;
 
     my $opt_e_string='';
-    # Something is going wrong with the check only sometimes... idfk why... 
+    # Something is going wrong with the check only sometimes... idfk why...
     # So I've slipped in an exists check, and that kinda sorta resolved the latest trouble, but then it just crashed later ...
     #if (-e $out_file && $out_file =~ m/.*[.]($valid_formats_string)$/x) {
     # Maybe this should instead be not check for affine transform types, *[.](h5|mat) ?
@@ -415,7 +421,7 @@ sub apply_new_reference_space_vbm {
         $interp = "NearestNeighbor";
     }
 
-    # WARNING! cmd is a temp! its not used directly! It will be repopulated with the contents 
+    # WARNING! cmd is a temp! its not used directly! It will be repopulated with the contents
     # of @CMDS(after a join using CMD_SEP)
     my $cmd='';
     # CMD_SEP is a temp measure for conjoining multiple commands in a one liner
@@ -427,7 +433,7 @@ sub apply_new_reference_space_vbm {
 
     #my @TEMP_list = split('/',$in_file); my $short_filename = pop(@TEMP_list);
     my ($_t_inp,$short_filename)=fileparts($in_file,2);
-    
+
     my $go_message =  "$PM: Apply reference space for ${short_filename} to ${ref_file}";
     #print "Test output = ".compare_two_reference_spaces($in_file,$ref_file)."\n\n\n";
     #print "Do registration? ${do_registration}\n\n\n";
@@ -453,10 +459,10 @@ sub apply_new_reference_space_vbm {
                 my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
                 # convert bytes to MiB(not MB)
                 $mem_request=ceil($est_bytes/(2**20));
-		$go_message =  "$PM: Generate reference space tform for ${short_filename} to ${ref_file}";
+                $go_message =  "$PM: Generate reference space tform for ${short_filename} to ${ref_file}";
                 push(@cmds,$cmd);
                 push(@cmds,$remove_cmd);
-		
+
             } else {
                 printd(45,"$translation_transform ready, not regnerating\n");
                 $log_msg="Skipped $cmd && $remove_cmd";
@@ -464,8 +470,8 @@ sub apply_new_reference_space_vbm {
         } else {
             my $affine_identity = $Hf->get_value('affine_identity_matrix');
             $cmd = "ln -s ${affine_identity} ${translation_transform}";
-	    if( ! -e ${translation_transform}){
-		$go_message =  "$PM: linking identity matrix for identical reference space of ${short_filename} and ${ref_file}";
+            if( ! -e ${translation_transform}){
+                $go_message =  "$PM: linking identity matrix for identical reference space of ${short_filename} and ${ref_file}";
                 push(@cmds,$cmd);
             } else {
                 $log_msg="Skipped affine_identity replication $cmd";
@@ -476,48 +482,48 @@ sub apply_new_reference_space_vbm {
             # same_refspace
             $cmd = "ln -s ${in_file} ${out_file}";
             print "Linking $in_file to $out_file\n\n";
-	    if( ! -e $out_file ) {
-		# I THINK this should ALWAYS be true BECAUSE init check is supposed to prevent work checking in function.
-		if ($in_file =~ /[.]n?hdr$/x){
-		    my @c=copy_paired_data($in_file,$out_file,1,1,1);
-		    push(@cmds,@c);
-		} else {
-		    push(@cmds,$cmd);
-		}
-		$go_message =  "$PM: linking images for identical reference space of ${short_filename} and ${ref_file}";
-	    } else {
-		carp("UNEXPECTED CONDITION! Exist check in primary operation should be unnecessary!");
-		$log_msg="Skipped image link $cmd";
-	    }
+            if( ! -e $out_file ) {
+                # I THINK this should ALWAYS be true BECAUSE init check is supposed to prevent work checking in function.
+                if ($in_file =~ /[.]n?hdr$/x){
+                    my @c=copy_paired_data($in_file,$out_file,1,1,1);
+                    push(@cmds,@c);
+                } else {
+                    push(@cmds,$cmd);
+                }
+                $go_message =  "$PM: linking images for identical reference space of ${short_filename} and ${ref_file}";
+            } else {
+                carp("UNEXPECTED CONDITION! Exist check in primary operation should be unnecessary!");
+                $log_msg="Skipped image link $cmd";
+            }
         } else {
             # this code runs when we've already aligned one contrast of a set.
             # it should apply that alignment to the next.
             my $runno;
-	    my $bag_of_garbage=0;
-	    if( ! $bag_of_garbage){
-		($runno=$out_name) =~ s/(_masked)//ix;
-		#$runno =~ s/^([^\._]+)_[^_\.]+.*$/$1/;
-		$runno =~ s/^(.*)_[^_\.]+$/$1/;
-	    } else {
-	    # this handwaving to get runno is a bag of garbage
-		my $gz = '';
-		# save outfile backup in case of errors
-		my $var_bak=$out_file;
-		if ($out_file =~ s/(\.gz)$//) {$gz = '.gz';}
-		
-		my ($out_path,$out_name,$dummy_2) = fileparts($out_file,2);
-		# add .gz to out_file ... if it had it? wtf 
-		$out_file = $out_file.$gz;
-		# remove "_masked" from out_name.... 
-		$out_name =~ s/(_masked)//i;
-		
-		# We are assuming that underscores are not allowed in "specimen/runno" names! 14 June 2016
-		if ($out_name =~ /([^\.]+)_[^_\.]+/) {
-		    $runno = $1;
-		}
-	    }
-	    die "error parsing runno from name:$out_name on $out_file" if ! defined $runno;
-	    $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
+            my $bag_of_garbage=0;
+            if( ! $bag_of_garbage){
+                ($runno=$out_name) =~ s/(_masked)//ix;
+                #$runno =~ s/^([^\._]+)_[^_\.]+.*$/$1/;
+                $runno =~ s/^(.*)_[^_\.]+$/$1/;
+            } else {
+            # this handwaving to get runno is a bag of garbage
+                my $gz = '';
+                # save outfile backup in case of errors
+                my $var_bak=$out_file;
+                if ($out_file =~ s/(\.gz)$//) {$gz = '.gz';}
+
+                my ($out_path,$out_name,$dummy_2) = fileparts($out_file,2);
+                # add .gz to out_file ... if it had it? wtf
+                $out_file = $out_file.$gz;
+                # remove "_masked" from out_name....
+                $out_name =~ s/(_masked)//i;
+
+                # We are assuming that underscores are not allowed in "specimen/runno" names! 14 June 2016
+                if ($out_name =~ /([^\.]+)_[^_\.]+/) {
+                    $runno = $1;
+                }
+            }
+            die "error parsing runno from name:$out_name on $out_file" if ! defined $runno;
+            $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
             # before adding this check some kinda nasty bit was skipping this work, some times.
             # concerned it was a race condition problem, and that it'll haunt me later.
             confess "MISSING $translation_transform" if( ! -e $translation_transform && $dependency eq '');
@@ -549,7 +555,7 @@ sub apply_new_reference_space_vbm {
     if (scalar(@cmds)){
         if (cluster_check) {
             #my ($sbatch_parent,$dummy1,$dummy2) = fileparts($out_file,2);
-	    my $sbatch_parent=$out_path;
+            my $sbatch_parent=$out_path;
             my $Id= "${short_filename}_reference_to_proper_space";
             my $verbose = 1; # Will print log only for work done.
             $jid = cluster_exec($go, $go_message, $cmd, $sbatch_parent, $Id,$verbose,$mem_request,@test);
@@ -641,11 +647,11 @@ sub set_reference_space_vbm_Init_check {
     # It seems to indicate an assumption that vbm space wont be "base_images" space
     $base_images_for_labels = 0;
     if ($create_labels) {
-	# if not defined, or is no_key,blank,same as vbm
+        # if not defined, or is no_key,blank,same as vbm
         #if ( ! defined $refname_hash{'label'}
-	#       || ($refname_hash{'label'} eq ('NO_KEY'
-	#       || ('') 
-	#       || ($refname_hash{'vbm'})))) {
+        #       || ($refname_hash{'label'} eq ('NO_KEY'
+        #       || ('')
+        #       || ($refname_hash{'vbm'})))) {
         if (! $v_ok) {
             $log_msg=$log_msg."\tNo label reference space specified.  Will inherit from VBM reference space.\n";
             $refname_hash{'label'}=$refname_hash{'vbm'};
@@ -657,7 +663,7 @@ sub set_reference_space_vbm_Init_check {
     # debug tattles
     #die "lbl" if ! $create_labels;
     #die "nope bifl : $refname_hash{label}" if ! $base_images_for_labels;
-    
+
     $Hf->set_value('base_images_for_labels',$base_images_for_labels);
     my @ref_spaces;
     @ref_spaces = ("vbm");
@@ -665,7 +671,7 @@ sub set_reference_space_vbm_Init_check {
     #if ($base_images_for_labels) {
         push(@ref_spaces,"label");
     }
-    
+
     foreach my $space (@ref_spaces) {
         my $ref_error='';
         ($input_reference_path_hash{$space},$reference_path_hash{$space},$refname_hash{$space},$ref_error)
@@ -723,9 +729,9 @@ sub set_reference_space_vbm_Init_check {
             # ... {[first vox], [last vox]}, spacing.
             # In theory directionality is also hiding in this.... but we probably don't maintain negative signs correctly.
             # Thought I could be clever and use PrintHeader one time, but it turns out we dont save the hf in time.
-            # Switched to fslhd at one point... but since its not the same as ants 
-	    # internal AND it disagrees with ants, that is bad. Since then invented
-	    # an ants.pm with a caching printheader setup.
+            # Switched to fslhd at one point... but since its not the same as ants
+            # internal AND it disagrees with ants, that is bad. Since then invented
+            # an ants.pm with a caching printheader setup.
             #
             # vox first, last, size
             my ($vx_f,$vx_l,$vx_s) = $bounding_box_and_spacing =~ m/{([^,]+),[ ]([^}]+)}[ ](.+)/;
@@ -800,9 +806,9 @@ sub set_reference_space_vbm_Init_check {
     }
 
     if (($base_images_for_labels) && ($refspace_hash{'vbm'} eq $refspace_hash{'label'})) {
-	#if ($create_labels && ($refspace_hash{'vbm'} eq $refspace_hash{'label'})) {
-	my $space='label';
-	$base_images_for_labels = 0;
+        #if ($create_labels && ($refspace_hash{'vbm'} eq $refspace_hash{'label'})) {
+        my $space='label';
+        $base_images_for_labels = 0;
         $Hf->set_value("${space}_reference_path",$reference_path_hash{'vbm'});
         $Hf->set_value("${space}_refname",$refname_hash{'vbm'});
         $Hf->set_value("${space}_refspace",$refspace_hash{'vbm'});
@@ -811,24 +817,24 @@ sub set_reference_space_vbm_Init_check {
     $Hf->set_value('base_images_for_labels',$base_images_for_labels);
 
     if ($base_images_for_labels) {
-	confess "I bet this never quits";
-	# .... does this EVER exist?
+        confess "I bet this never quits";
+        # .... does this EVER exist?
         my $intermediary_path = "${base_images}/reffed_for_labels";
         my $current_folder;
         my $existence = 1;
         for (my $i=1; $existence == 1; $i++) {
             $current_folder =  "${intermediary_path}/ref_$i";
-	    printd(45,"refspace lookup in $current_folder\n");
+            printd(45,"refspace lookup in $current_folder\n");
             if (! -d "${current_folder}") {
                 $existence = 0;
                 $refspace_folder_hash{'label'} = $current_folder;
                 $log_msg=$log_msg."\tCreating new base images folder for label space \"ref_$i\": ${refspace_folder_hash{'label'}}\n";
-		confess "ALTERNATE LABEL SPACE HANDLING NOT IN ACTIVE USE! PROBABLY BUSTED";
+                confess "ALTERNATE LABEL SPACE HANDLING NOT IN ACTIVE USE! PROBABLY BUSTED";
             } else {
-		# if we have a refspace on disk already, read it... 
-                ($refspace_hash{'existing_label'},$refname_hash{'existing_label'}) 
-		    = read_refspace_txt($current_folder,$split_string);
-		# If that refspace "NAME" (part of the refspace text) is the same as our the current guess
+                # if we have a refspace on disk already, read it...
+                ($refspace_hash{'existing_label'},$refname_hash{'existing_label'})
+                    = read_refspace_txt($current_folder,$split_string);
+                # If that refspace "NAME" (part of the refspace text) is the same as our the current guess
                 if ($refspace_hash{'label'} eq $refspace_hash{'existing_label'}) {
                     $existence = 0;
                     $refspace_folder_hash{'label'} = $current_folder;
@@ -848,8 +854,8 @@ sub set_reference_space_vbm_Init_check {
     #
     (my $v_ok,my $lrn)=$Hf->get_value_check('label_refname');
     if(!$v_ok && ! $rerun_init_check) {
-	Data::Dump::dump(\%refname_hash);
-	error_out("required var label_refname not set");
+        Data::Dump::dump(\%refname_hash);
+        error_out("required var label_refname not set");
     }
 
 
@@ -1339,12 +1345,12 @@ sub refspace_memory_est {
         my @d=split(" ",$refsize);
         $vx_count=1;
         foreach(@d){
-			if($_ =~ m/^[0-9]+$/x) {
-				$vx_count*=$_; 
-			} else {
-				die "Bad refsize $refsize";
-			}
-		}
+                        if($_ =~ m/^[0-9]+$/x) {
+                                $vx_count*=$_;
+                        } else {
+                                die "Bad refsize $refsize";
+                        }
+                }
         # 512 vx @64bit * volumes, in MB for slurm, (NOT MiB);
         # NOTE: on further investigation it appears slurm DOES use MiB,
         # Leaving this in MB for safety margine.
