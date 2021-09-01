@@ -142,13 +142,13 @@ sub set_reference_space_vbm {  # Main code
 		    next;
 		}
                 my $ain_file = "${preprocess_dir}/${out_name}${out_ext}";
-		my $t="";
-		$t="has $in_file" if -e $in_file;
+		my $tmp_msg="";
+		$tmp_msg="has $in_file" if -e $in_file;
                 $ain_file = "${preprocess_dir}/${out_name}${in_ext}" if ! -e $ain_file;
 		if(! -e $ain_file) {
 		    #Data::Dump::dump(["ref_runno",\%ref_runno_hash,"work_listing:",$work_to_do_HoA,"all:",$array_ref,"select:",\@runno_files,"runno:$runno"]);
 		    #Data::Dump::dump(["ref_runno",\%ref_runno_hash,"all:",$array_ref,"select:",\@runno_files,"runno:$runno"]);
-		    confess "ERROR NO INPUT FILE $ain_file (from $out_file) $t" ;
+		    confess "ERROR NO INPUT FILE $ain_file (from $out_file) $tmp_msg" ;
 		}
 		#
                 ($job) = apply_new_reference_space_vbm($ain_file,$ref_file,$out_file,$ref_dep);
@@ -476,8 +476,9 @@ sub apply_new_reference_space_vbm {
             my $runno;
 	    my $bag_of_garbage=0;
 	    if( ! $bag_of_garbage){
-		($runno=$out_name) =~ s/(_masked)//i;
-		$runno =~ s/^([^\._]+)_[^_\.]+.*$/$1/;
+		($runno=$out_name) =~ s/(_masked)//ix;
+		#$runno =~ s/^([^\._]+)_[^_\.]+.*$/$1/;
+		$runno =~ s/^(.*)_[^_\.]+$/$1/;
 	    } else {
 	    # this handwaving to get runno is a bag of garbage
 		my $gz = '';
