@@ -943,10 +943,10 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
         $work_path = $Hf->get_value('dir_work');
         (my $c_ok,$current_path) = $Hf->get_value_check('rigid_work_dir');
         if ($do_rigid) {
-            my $rigid_target=$Hf->get_value('rigid_target');
+            (my $r_ok,my $rigid_target)=$Hf->get_value_check('rigid_target');
             $contrast = $Hf->get_value('rigid_contrast');
             my $updated_rigid_target;
-            if ($rigid_target ne 'NO_KEY') {
+            if ($r_ok) {
                 # wtf... we update it if it's set? ...
                 $updated_rigid_target=get_nii_from_inputs($inputs_dir,$rigid_target,$contrast);
                 if ($updated_rigid_target =~ /[\n]+/) {
