@@ -156,7 +156,7 @@ sub workflow_init {
         printd(5,"Overrideing default mail recipients with env var SAMBA_MAIL_USERS\n");
     }
     if($MAIL_USERS !~ m/$cluster_user/x){
-	printd(25,"I insist you mail yourself as well SAMBA_MAIL_USERS:".$ENV{"SAMBA_MAIL_USERS"}."\n");
+        printd(25,"I insist you mail yourself as well SAMBA_MAIL_USERS:".$ENV{"SAMBA_MAIL_USERS"}."\n");
         if($MAIL_USERS !~ m/^[[:space:]]*$/){
             $MAIL_USERS="$pwuid\@duke.edu,".$MAIL_USERS;
         } else {
@@ -406,7 +406,7 @@ U_specid U_species_m00 U_code
             error_out(" Unable to read current inputs parameter file ${c_input_headfile}.");
             return(0);
         }
-	#engine_[[:alnum:]-_+]
+        #engine_[[:alnum:]-_+]
         my @excluded_keys =qw(engine.*
                              local_group
                              hfpcmt);
@@ -418,11 +418,11 @@ U_specid U_species_m00 U_code
         } else {
             # If different, warn with 10 sec pause or need to press Enter
             log_info(" $PM: ${Hf_comp}\nARE YOU ABSOLUTELY SURE YOU WANT TO CONTINUE?\n(If not, cancel now)"); # Is this the right place for this?
-	    if($debug_val < 100 ){
-		sleep_with_countdown(10);
-	    } else {
-		my $ignore_diff=user_prompt("press enter to proceed");
-	    }
+            if($debug_val < 100 ){
+                sleep_with_countdown(10);
+            } else {
+                my $ignore_diff=user_prompt("press enter to proceed");
+            }
         }
     }
 
@@ -900,32 +900,32 @@ write_individual_stats_exec(runno,label_file,contrast_list,image_dir,output_dir,
                     if ( $qa_only_mdt && $a_label_space =~ /MDT/ ) {
                         @current_channel_array=qw(dwi fa);
                     }
-		    #
-		    #
-		    #
+                    #
+                    #
+                    #
                     foreach my $a_contrast (@current_channel_array) {
                         apply_mdt_warps_vbm($a_contrast,"f",$group_name,$a_label_space); #$PM_code = 64
                     }
-		    #
-		    # measure label stats per individual
-		    #
+                    #
+                    # measure label stats per individual
+                    #
                     if ( ! ( $qa_only_mdt && $a_label_space =~ /MDT/ ) ) {
                         calculate_individual_label_statistics_vbm($a_label_space); #$PM_code = 65
                     } else {
                         calculate_individual_label_statistics_vbm($a_label_space,@current_channel_array); #$PM_code = 65
                     }
-		    #
-		    # join stat files and run group comparisons (mostly depricated)
-		    #
+                    #
+                    # join stat files and run group comparisons (mostly depricated)
+                    #
                     if ($multiple_runnos && $tabulate_statistics){
                         tabulate_label_statistics_by_contrast_vbm($a_label_space,@current_channel_array); #$PM_code = 66
                         if ($multiple_groups) {
                             label_stat_comparisons_between_groups_vbm($a_label_space,@current_channel_array); #$PM_code = 67
                         }
                     }
-		    #
-		    # ecc bvecs
-		    #
+                    #
+                    # ecc bvecs
+                    #
                     if ( $qa_only_mdt && $a_label_space =~ /MDT/ ) {
                         # intentionally skipping bvec if we just quietly insisted on making a bigger mess.
                         next;
@@ -994,7 +994,8 @@ sub collect_small_files {
         if (defined $hf){
             my $n=basename($hf);
             my $o=File::Spec->catfile($Hf->get_value('pristine_input_dir'),$n);
-            push(@cmds,"cp -p $hf ".$Hf->get_value('pristine_input_dir')) if ! -e $o;
+            push(@cmds,"unlink $o") if -l $o;
+            push(@cmds,"cp -Lp $hf ".$Hf->get_value('pristine_input_dir')) if( ! -e $o|| -l $o)
         }
         if( $eddy_current_correction) {
             mkdir $ecc_dir if ! -d $ecc_dir;
@@ -1013,7 +1014,7 @@ sub collect_small_files {
                     push(@m_ecc,$_)if ! -e $o;;
                 }
             }
-            push(@cmds,"cp -p ".join(" ",@m_ecc)." $ecc_dir") if(scalar(@m_ecc));
+            push(@cmds,"cp -Lp ".join(" ",@m_ecc)." $ecc_dir") if(scalar(@m_ecc));
         }
     }
     #Data::Dump::dump(\@cmds);die;
