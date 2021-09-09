@@ -375,7 +375,9 @@ sub create_affine_transform_vbm {
     } else {
         error_out("$PM: create_transform: don't understand xform_code: $xform_code\n");
     }
+    my $completion_status="creating";
     if( -e $transform_path) {
+        $completion_status="existing";
         $cmd="echo $transform_path";
     }
     #my @list = split '/', $atlas_path;
@@ -399,13 +401,9 @@ sub create_affine_transform_vbm {
         my $Id= "${moving_runno}_create_affine_registration";
         my $verbose = 1; # Will print log only for work done.
         $jid = cluster_exec($go, $go_message, $cmd, $home_path, $Id, $verbose, $mem_request, @test);
-        if (not $jid) {
-            #error_out($stop_message);
-        }
     } else {
         if ( execute($go, $go_message, $cmd) ) {
             $jid=1;
-            #error_out($stop_message);
         }
     }
     # my $transform_path = "${result_transform_path_base}Affine.txt"; # From previous version of Ants, perhaps?
@@ -416,7 +414,7 @@ sub create_affine_transform_vbm {
         error_out($stop_message);
         #error_out("$PM: could not start for xform: $transform_path");
     }
-    print "** $PM: create_transform $xform_code creating $transform_path\n";
+    print "** $PM: create_transform $xform_code $completion_status $transform_path\n";
     return($transform_path,$jid);
 }
 
