@@ -353,13 +353,13 @@ sub apply_mdt_warp {
     push(@cmds,$cmd);
     my $mem_request = 75000;#defacto mem request-o
     my $space="vbm";
-	my $vx_count;
+        my $vx_count;
     ($mem_request,$vx_count)=refspace_memory_est($mem_request,$space,$Hf);
-	if(! defined $vx_count){
-		carp "refspace:$space missing, falling back to alternate";
-		$space="label";
-		($mem_request,$vx_count)=refspace_memory_est($mem_request,$space,$Hf);
-	}
+        if(! defined $vx_count){
+                carp "refspace:$space missing, falling back to alternate";
+                $space="label";
+                ($mem_request,$vx_count)=refspace_memory_est($mem_request,$space,$Hf);
+        }
     my ($vx_sc,$est_bytes)=ants::estimate_memory($cmd,$vx_count);
     # convert bytes to MiB(not MiB)
     $mem_request=ceil($est_bytes/(2**20));

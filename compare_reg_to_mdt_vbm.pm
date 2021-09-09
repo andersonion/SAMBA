@@ -297,17 +297,17 @@ sub reg_to_mdt {
         }
         if (cluster_check()) {
             #my $rand_delay="#sleep\n sleep \$[ \( \$RANDOM \% 10 \)  + 5 ]s;\n"; # random sleep of 5-15 seconds
-	    ($mem_request,my $vx_count) = refspace_memory_est($mem_request,"vbm",$Hf);
-	    my ($vx_sc,$est_bytes)=ants::estimate_memory($pairwise_cmd,$vx_count);
-	    # Havnt tested this pilot process.
-	    #my $out=antsRegistration_memory_estimator($pairwise_cmd);
-	    # convert bytes to MiB(not MB)
-	    $mem_request=ceil($est_bytes/(2**20));
-	    $go_message=$go_message." est_memory=$mem_request";
-	    # After checking how slurm mem works, we can request 0 for all mem of a node...
-	    # For now gonna try maximize mem, previously already made this adjustment in interative warp calc.
-	    # It's multi-threaded enough this is probably a okay idea.
-	    $mem_request=0;
+            ($mem_request,my $vx_count) = refspace_memory_est($mem_request,"vbm",$Hf);
+            my ($vx_sc,$est_bytes)=ants::estimate_memory($pairwise_cmd,$vx_count);
+            # Havnt tested this pilot process.
+            #my $out=antsRegistration_memory_estimator($pairwise_cmd);
+            # convert bytes to MiB(not MB)
+            $mem_request=ceil($est_bytes/(2**20));
+            $go_message=$go_message." est_memory=$mem_request";
+            # After checking how slurm mem works, we can request 0 for all mem of a node...
+            # For now gonna try maximize mem, previously already made this adjustment in interative warp calc.
+            # It's multi-threaded enough this is probably a okay idea.
+            $mem_request=0;
             my $cmd=join($CMD_SEP,@cmds);
             my $home_path = $current_path;
             $batch_folder = $home_path.'/sbatch/';

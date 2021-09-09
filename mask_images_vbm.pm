@@ -145,8 +145,8 @@ sub mask_images_vbm {
                 if ($do_mask) {
                     ($job) = mask_one_image($runno,$ch);
                 } else {
-		    carp "do you really want to rename your $runno:$ch?";
-		    sleep_with_countdown(8);
+                    carp "do you really want to rename your $runno:$ch?";
+                    sleep_with_countdown(8);
                     ($job) = rename_one_image($runno,$ch);
                 }
                 if ($job) {
@@ -306,7 +306,7 @@ sub mask_images_Output_check {
     my $error_msg='';
     if (($existing_files_message ne '') && ($case == 1)) {
         $error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
-	$do_mask=0 if $do_not_apply_mask;
+        $do_mask=0 if $do_not_apply_mask;
     } elsif (($missing_files_message ne '') && ($case == 2)) {
         $error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
     }
