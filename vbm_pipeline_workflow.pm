@@ -178,7 +178,6 @@ sub vbm_pipeline_workflow {
     if( ${civm_simple_util::IS_LINUX} || ${civm_simple_util::IS_MAC}){
         $SIG{__DIE__} = \&vbm_signal_DIE;
     }
-
     print "\n\nStart work\n\n";
     # the components could be made responsible for filling this in by passing the array reference to their init routines
     my @variables_to_headfile=qw(
@@ -842,6 +841,7 @@ U_specid U_species_m00 U_code
         }
         if (! $v_ok ) {
             $real_time = vbm_write_stats_for_pm(62,$Hf,$mdt_to_reg_start_time);
+            $real_time = 0 if ! defined $real_time;
         }
         $real_time = 0 if ! defined $real_time;
         print "mdt_reg_to_atlas.pm took ${real_time} seconds to complete.\n";
@@ -1118,7 +1118,6 @@ sub vbm_signal_DIE {
 
     die(@_);
     #&{$FORMER_SIGDIE_HANDLER}(@_);
-
 }
 
 sub mail_user {
