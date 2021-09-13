@@ -13,11 +13,24 @@
 #"R:\18.caron.01\191003-5-1\Slicer\N57647_ad.nhdr"
 
 project_code="19.gaj.43";
-spec_short="190415-2_1";
-runno="N57205NLSAM";
-MDT_name="${runno}Rig";
+#spec_short="190415-2_1";
+#runno="N57205NLSAM";
+# MDT_name not in current use
+#MDT_name="${runno}Rig";
 
-label_nick=RCCF
+
+
+#spec_short="190108-5_1";
+#runno="N58678NLSAM";
+#spec_short="200803-12_1";
+#runno="N58668NLSAM";
+
+
+spec_short=$1
+runno=$2
+
+vox_size="0.015";
+label_nick="RCCF";
 
 # BETTER inputs
 # "input package"
@@ -25,12 +38,17 @@ label_nick=RCCF
 # "curation package"
 
 spec_dir='R:\'"${project_code}"'\'"${spec_short}";
-input_package=$(cygpath -m "$spec_dir"'\Slicer\nhdr');
-out_pack=$(cygpath -m "$spec_dir"'\Slicer');
-out_pack_unmasked=$(cygpath -m "$spec_dir"'\Slicer\unmasked');
+#input_package=$(cygpath -m "$spec_dir"'\Slicer\nhdr');
+input_package=$(cygpath -m "$spec_dir"'\Non-Aligned-Data\nhdr');
+#input_package=$(cygpath -m 'R:\19.gaj.43\190108-5_1\slicer');
+out_pack=$(cygpath -m "$spec_dir"'\Aligned-Data');
+out_pack_unmasked=$(cygpath -m "$spec_dir"'\Non-Aligned-Data\unmasked');
+out_pack_unmasked=$out_pack;
 
 echo "generate $out_pack";
-echo "will leave unmasked in $out_pack_unmasked";
+if [ $out_pack != $out_pack_unmasked ];then
+    echo "will leave unmasked in $out_pack_unmasked";
+fi;
 echo "starting with $input_package";
 
 #Testmode
@@ -39,6 +57,7 @@ echo "starting with $input_package";
 #TEST_M="";
 
 # add ants tools to path(presuming ANTSPATH exists becuase you've got workstation_code set up.)
+# WHICH COMICALLY, DOESN'T SET THIS IN WINDOWS
 PATH="$ANTSPATH:$PATH";
 
 # This is to create a reference image.
@@ -54,7 +73,16 @@ atlas_image='DEFUNCT';
 #tdir=$(cygpath -m 'R:\${project_code}\${spec_short}\Slicer\SAMBA_transforms_and_validation_img\_rigid_WHS_transforms')
 # Before beginning hand crafted the "RAS_to_WHS" transform stack from SAMBA package
 #tdir=$(cygpath -m ${out_pack}'\transforms\RAS_to_WHS')
-tdir=$(cygpath -m 'R:\${project_code}\${spec_short}\slicer\SAMBA_biggus\SAMBA_pack\${runno}\transforms\${runno}_to_symmetric15um');
+
+# WARNING!!!
+# !BLARG! This did the wrong job!!!
+# The mdt-> atlas has scaling in it! blowing us up!
+# New lookup will remove any affines!
+# BUT this is NOT a good transform chain!
+# WARNING!!!
+#tdir=$(cygpath -m 'R:\${project_code}\${spec_short}\slicer\SAMBA_biggus\SAMBA_pack\${runno}\transforms\${runno}_to_symmetric15um');
+tdir=$(cygpath -m '${out_pack}\Other\transforms\${runno}nativenhdr_to_chass_symmetric5');
+
 tdir=$(eval echo $tdir);
 if [ ! -d $out_pack_unmasked ];then mkdir $out_pack_unmasked; fi;
 # set the two specific transforms we need.
@@ -66,22 +94,31 @@ if [ ! -d $out_pack_unmasked ];then mkdir $out_pack_unmasked; fi;
 # get chain the easy way... wait... this includes warps! blergh!!!
 #transform_chain=$(for t in $(ls -r $tdir/_*); do echo "-t $t";done)
 # lets strip warps :D
-transform_chain=$(for t in $(ls -r $tdir/_*|grep -vi warp); do echo "-t $t";done)
+transform_chain=$(for t in $(ls -r $tdir/_*|grep -vie '(warp|affine)'); do echo "-t $t";done)
 
 cd $input_package;
 #
-# Generate atlas ref at appropriate vox size
+# Generate a ref at appropriate vox size(supposing we dont have it yet)
 #
-first_input=$(cygpath -m $(find "$input_package" -iname "*_dwi.nhdr"));
-vox_size="0.015";
+# Need help for "custom ref" support.
+# will use spec_ref bool to use specimen specific reference space
 vx_X2=$(awk "BEGIN{print $vox_size*2}");
 vx_X3=$(awk "BEGIN{print $vox_size*3}");
 vx_0p5=$(awk "BEGIN{print $vox_size/2}");
 vx_0p333=$(awk "BEGIN{print $vox_size/3}");
-# create blank image of atlas, saving as blank.nhdr
+# create blank of atlas, saving as blank.nhdr
 #Usage 1: CreateImage imageDimension referenceImage outputImage constant [random?]
 #${vox_size:3}
-atd=$(dirname $atlas_image);
+first_input=$(cygpath -m $(find "$input_package" -iname "*_dwi.nhdr"));
+if [  -e "$atlas_image" ]; then
+    spec_ref=0;
+    atd=$(dirname $atlas_image);
+else
+    spec_ref=1;
+    atd="$out_pack"
+    atlas_image="$first_input";
+fi;
+
 #blank=$(cygpath -m "$input_package/blank.nhdr");
 blank=$(cygpath -m "$atd/blank.nhdr");
 #ref=$(cygpath -m "$input_package/ref.nhdr");
@@ -91,15 +128,29 @@ refX2=$(cygpath -m "$atd/ref_${vx_0p5//./p}mm.nhdr");
 refX3=$(cygpath -m "$atd/ref_${vx_0p333//./p}mm.nhdr");
 # FIND CUSTOM REFERENCE!
 # Some kinda auto-cropping should be made standard!
-if [ -e $input_package/ref.nhdr ];then
-    ref=$input_package/ref.nhdr;
-    refX2="$input_package/ref_${vx_0p5//./p}mm.nhdr";
-    refX3="$input_package/ref_${vx_0p333//./p}mm.nhdr";
-fi;
+# decided that our custom ref will be placed into "atd"
+# AND THAT atd is outpack for custom ref!
+#if [ -e $input_package/ref.nhdr -o $spec_ref -eq 1 ];then
+#    ref=$input_package/ref.nhdr;
+#    refX2="$input_package/ref_${vx_0p5//./p}mm.nhdr";
+#    refX3="$input_package/ref_${vx_0p333//./p}mm.nhdr";
+#fi;
 
+b_input=$(cygpath -m "$input_package/blank_input.nhdr");
 if [ ! -e "$ref" -a ! -e "$blank" ];then
     echo "Gen blank: $blank";
-    $TEST_M CreateImage 3 $atlas_image "$blank" 0;
+    if [ $spec_ref -eq 0 ];then
+        $TEST_M CreateImage 3 $atlas_image "$blank" 0;
+    else
+        $TEST_M CreateImage 3 $atlas_image "$b_input" 0;
+        #b_orient=$(cygpath -m "$atd/blank_orient.nhdr");
+        d=3;
+        #WarpImageMultitransform $d $b_input $b_orient --use-NN --reslice-by-header  --tightest-bounding-box;
+        # for now we'll do this instead of adding cropping.
+        #WarpImageMultitransform $d $b_input $blank --use-NN --reslice-by-header  --tightest-bounding-box;
+        $TEST_M WarpImageMultitransform $d $b_input $blank $transform_chain --use-NN --tightest-bounding-box;
+        # Could insert ants crop via  ExtractRegionFromImage
+    fi;
 fi;
 # IF using the specimen data "blank" to find comprehensive bounding box, we'd use warpimagemulti
 #WarpImageMultiTransform ImageDimension moving_image output_image  --tightest-bounding-box --use-NN
@@ -122,17 +173,26 @@ fi;
 #
 # clean out the blank we dont need any more.
 #
-if [ ! -z "$blank" -a -e "$blank" ];then
+if [ -e "$ref" -a ! -z "$blank" -a -e "$blank" ];then
     rm -v "$blank" "${blank%.*}.raw";
 fi;
+if [ -e "$ref" -a ! -z "$b_input" -a -e "$b_input" ];then
+    rm -v "$b_input" "${b_input%.*}.raw";
+fi;
+
 
 #
 # Transform all to outdir.
 #
 # Starting with the labels so we can convert it to a mask for remainder.
 #SAMBAlabel=$(cygpath -m 'R:\${project_code}\${spec_short}\Slicer\SAMBA_transforms_and_validation_img\_rigid_WHS_transforms\${runno}_labels\${label_nick}\${runno}_${label_nick}_labels.nii.gz');
-SAMBAlabel=$(cygpath -m 'R:\${project_code}\${spec_short}\slicer\SAMBA_biggus\SAMBA_pack\${runno}\labels\${label_nick}\${runno}_${label_nick}_labels.nhdr');
-SAMBAlabel=$(eval echo $SAMBAlabel)
+#SAMBAlabel=$(cygpath -m 'R:\${project_code}\${spec_short}\slicer\SAMBA_biggus\SAMBA_pack\${runno}\labels\${label_nick}\${runno}_${label_nick}_labels.nhdr');
+#SAMBAlabel=$(eval echo $SAMBAlabel)
+
+# plumbing a samba pack is probably a bad idea... lets hope for labels in our package.
+SAMBAlabel=$(find $input_package -maxdepth 1 -iname "${runno}_${label_nick}_labels.nhdr"|head -n1);
+if [ ! -e "$SAMBAlabel" ];then
+    echo "No label"; exit 1;fi;
 fn=${runno}_${label_nick}_labels.nhdr;
 ld=$out_pack/labels/${label_nick};
 # out file
@@ -149,12 +209,18 @@ fi;
 # create mask
 #
 labels=$of;# transformed labels
+m_input=$out_pack/${runno}_lbl_mask.nhdr;
 mask=$out_pack/${runno}_mask.nhdr;
 maskX2=$out_pack/${runno}_mask${vx_0p5//./p}mm.nhdr;
 maskX3=$out_pack/${runno}_mask${vx_0p333//./p}mm.nhdr;
 if [ ! -e $mask -a -e "$labels" ] ;then
     echo "Gen mask: $mask";
-    $TEST_M ImageMath 3 $mask ReplaceVoxelValue $labels 1 65535 1; fi
+    $TEST_M ImageMath 3 $m_input ReplaceVoxelValue $labels 1 65535 1;
+    $TEST_M ImageMath 3 $mask MD $m_input 5
+    fi
+if [ -e "$mask" -a ! -z "$m_input" -a -e "$m_input" ];then
+    rm -v "$m_input" "${m_input%.*}.raw";
+fi;
 if [ ! -e $maskX2 -a -e "$mask" ] ;then
     echo "Gen maskX2: $maskX2";
     $TEST_M ResampleImageBySpacing 3 $mask $maskX2 ${vx_0p5} ${vx_0p5} ${vx_0p5} 0 0 1; fi
@@ -170,12 +236,24 @@ refX1=$ref;
 maskX1=$mask;
 
 
-for nhdr in $input_package/*tdiX3_color*nhdr; do
+#for nhdr in $input_package/*tdiX3_color*nhdr; do
+for nhdr in $input_package/*nhdr; do
     ref=$refX1
     mask=$maskX1;
     fn=$(basename $nhdr);
     of=$out_pack_unmasked/$fn;
-    skip=$(echo $fn|grep -cE 'ref|template')
+    skip=$(echo $fn|grep -cE 'ref|template|blank')
+    interp="Linear";
+    isLabel=$(echo $fn|grep -icE 'label')
+    isSpecial=$(echo $fn|grep -cE 'tdi|tdi')
+    isColor=$(echo $fn|grep -icE 'color')
+    if [ $isLabel -ge 1 ];then
+        interp="MultiLabel[${vox_size},${vx_X2}]";
+        of=$out_pack/labels/${label_nick}/$fn;
+    fi;
+    if [ $isSpecial -ge 1 -a $isColor -ge 1 ];then
+        echo "Skip $fn"; continue; fi;
+    #interp=NearestNeighbor
     if [ $skip -ge 1 ];then
         echo "#SKIPPING $fn";
         continue;
@@ -201,7 +279,7 @@ for nhdr in $input_package/*tdiX3_color*nhdr; do
     if [ ! -e $of -o $nhdr -nt $of ];then
         if echo $of|grep -c 'color' >& /dev/null;then IM_TYPE=4;bit_depth=uchar; fi;
         echo "#Tform: $fn"
-        $TEST_M eval antsApplyTransforms -d 3 -e $IM_TYPE -i $nhdr -o $of -r $ref -n Linear --float -u $bit_depth $transform_chain -v || break;
+        $TEST_M eval antsApplyTransforms -d 3 -e $IM_TYPE -i $nhdr -o $of -r $ref -n $interp --float -u $bit_depth $transform_chain -v || break;
     fi;
     #
     # cleanup operations
@@ -211,8 +289,6 @@ for nhdr in $input_package/*tdiX3_color*nhdr; do
     IM_DIM=3;
     # normalize "special" images
     # tdi floats need to be noramlized for reasonable display.
-    isSpecial=$(echo $fn|grep -cE 'tdi|tdi')
-    isColor=$(echo $fn|grep -icE 'color')
     if [ $isSpecial -ge 1 -a $isColor -le 0 ];then
         of=$out_pack_unmasked/NORM1_$fn;
         if [ ! -e $of -o $nhdr -nt $of ];then
@@ -230,8 +306,8 @@ for nhdr in $input_package/*tdiX3_color*nhdr; do
     # mask image
     of=$out_pack/$fn;
     OP=m
-    if [ ! -e $of -o $nhdr -nt $of ];then
-        if echo $of|grep -c 'color' >& /dev/null;
+    if [ ! -e $of -o $nhdr -nt $of -a $isLabel -le 0 ];then
+        if [  $isColor -ge 1 ];
         then IM_DIM=4; OP=vm;
             echo "# CANNOT MASK DATA DUE TO IMAGEMATH FAILURES. YOU WILL HAVE TO MASK MANUALLY VIA IMAGEJ(may need to adjust color order too)";
             sleep 5;
