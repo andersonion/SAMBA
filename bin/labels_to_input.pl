@@ -58,17 +58,16 @@ sub main {
     my $options ={};
 
     # An original dwi
-    ${$options->{"translator=s"}}="";
-    # translator use inv
-    ${$options->{"translator_inv"}}=0;
     #dwi from diffusion directorye exactly OR from appropriate point in samba data handling, generally preprocess.
     ${$options->{"dwi_path=s"}}="";
+    ${$options->{"translator=s"}}="";
+    # translator use inv
+    ${$options->{"translator_inv"}}=1;
     # In the off chance our dwi is already a good reference
     ${$options->{"dwi_is_ref"}}=0;
     #
     ${$options->{"runno_base=s"}}="";
     ${$options->{"dir_work=s"}}="";
-    # If labels, we'll be connectoming. Otherwise we'll just track a TDI
     ${$options->{"labels_in=s"}}="";
     ${$options->{"labels_out=s"}}="";
     ${$options->{"labels_lookup=s"}}="";
@@ -156,7 +155,7 @@ sub main {
     echo "Run ants apply for to translate into preprocess";
     antsApplyTransforms -d 3 -e 0 -o $labels_pre -i $labels -r $pre_refspace -t [$tform,1] --interpolation NearestNeighbor
 =cut
-    my $labels_preprocess=File::Spec->catfile($options->{"dir_work"},"preprocess_labels.nii.gz");
+    my $labels_preprocess=File::Spec->catfile($options->{"dir_work"},"preprocess_labels.nii");
     my $label=$labels_preprocess;
     if($o_code[0] eq $o_code[1]){
     #    $label=$options->{"labels_out"};
@@ -198,7 +197,7 @@ my $conv_dir=File::Spec->catdir($options->{"samba_inputs"},"conv_nhdr");
             )if(! -e $options->{"labels_out"});
     }elsif( -e $options->{"samba_inputs"} && -e $options->{"samba_work"}
             && -d $conv_dir ) {
-        my $labels_conv=File::Spec->catfile($options->{"dir_work"},"conv_labels.nii.gz");
+        my $labels_conv=File::Spec->catfile($options->{"dir_work"},"conv_labels.nii");
         # else it should
         #  $options->{"samba_inputs"}
         #  $options->{"samba_work"}) {
@@ -220,7 +219,6 @@ my $conv_dir=File::Spec->catdir($options->{"samba_inputs"},"conv_nhdr");
     if(! execute(! -e $options->{"labels_out"}, @cmds)){
         error_out("Trouble preparing labels!");
     } else {
-
     }
 =cut
     if(civm_simple_util::can_dump()){
