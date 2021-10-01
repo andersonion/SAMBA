@@ -187,28 +187,30 @@ sub calculate_average_mdt_warp {
         $out_file = "${current_path}/MDT_to_${runno}_warp${out_ext}";  #Added ".gz" 2 September 2015
         $dir_string = 'inverse';
     }
-
     $cmd =" AverageImages 3 ${out_file} 0";
-    foreach my $other_runno (@sorted_runnos) {
+    # hold warp file for each run through loop to handle case where there is only one.
+    my $warp_file;
+    for my $runno_from_list (@sorted_runnos) {
         if ($direction eq 'f') {
             $moving = $runno;
-            $fixed = $other_runno;
+            $fixed = $runno_from_list;
         } else {
-            $moving = $other_runno;
+            $moving = $runno_from_list;
             $fixed = $runno;
         }
-
-#       if ($fixed ne $moving) {  # Fixing previous error of self/identity warp omission!
+        $warp_file=File::Spec->catfile(${pairwise_path},"${moving}_to_${fixed}_warp${out_ext}");
         if ($broken && ($fixed eq $moving)) {
+            # This should never be used, which fixes previous error of self/identity warp omission!
             $cmd=$cmd;
         } else {
-            $cmd = $cmd." ${pairwise_path}/${moving}_to_${fixed}_warp${out_ext}";
+            $cmd = $cmd." ".$warp_file;
         }
-
-#       }
+    }
+    # If we're the only thing here, we just link.
+    if(scalar(@sorted_runnos)==1){
+        $cmd="ln -s $warp_file $out_file";
     }
     my @cmds = ($cmd);
-
     my $go_message = "$PM: create ${dir_string} MDT warp for ${runno}";
     my $stop_message="$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n";
     my $jid = 0;
@@ -223,13 +225,9 @@ sub calculate_average_mdt_warp {
         my $verbose = 1; # Will print log only for work done.
         my $mem_request = 60000;  # Added 23 November 2016,  Will need to make this smarter later.
         $jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
-        if (not $jid) {
-            #error_out("$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n");
-        }
     } else {
-        if ( execute($go, "$PM: create ${dir_string} MDT warp for ${runno}", @cmds) ) {
+        if ( execute($go, $go_message, @cmds) ) {
             $jid=1;
-            #error_out("$PM: could not create ${dir_string} MDT warp for  ${runno}:\n${cmd}\n");
         }
     }
     if ($go && (not $jid)) {
