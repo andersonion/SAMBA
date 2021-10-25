@@ -56,6 +56,10 @@ quality metric of masking and missed data. Its non-null volume could be
 seen as a measure of mask error.
 Volume is the volume covered by a label (voxels * voxelsize^3).
 
+All undefined regions in the labelset (poorly duplicated LUT) will
+duplicate all undefined region in the labelset to Exterior volumes. Sort
+remove the "0" to exclude. 
+
 Null columns are voxels with a value of exactly 0. 
 The nulls indicate calculation errors OR data which has been masked out.
 mean/min/max/std exclude any nulls, if you wish to include nulls, you'll 
@@ -568,9 +572,9 @@ if ~strcmp(stat_table.Properties.VariableNames{2},'structure')
             % the space separated file, but not do what we want (RGBA info
             % would be included in the structure name.
             try
-                lookup=readtable(lookup_table_path,'Delimiter',' ','ReadVariableNames',false,'Format','%d64%s%d%d%d%d','CommentStyle','#');
+                lookup=readtable(lookup_table_path,'Delimiter',' ','ReadVariableNames',false,'Format','%f64%s%d%d%d%d','CommentStyle','#');
             catch
-                lookup=readtable(lookup_table_path,'Delimiter','\t','ReadVariableNames',false,'Format','%d64%s%d%d%d%d','CommentStyle','#');
+                lookup=readtable(lookup_table_path,'Delimiter','\t','ReadVariableNames',false,'Format','%f64%s%d%d%d%d','CommentStyle','#');
             end
             
             % This code is bona fide because LOOKUPS should/must have the
@@ -623,8 +627,10 @@ end
 function the_file=sloppy_file_lookup(the_dir,varargin)
 % oh i dont like doing this type of tom foolery guessing filenames, 
 % i'm concerned now that i've made this beast it'll escape !
-begin=sprintf('.*%s',varargin{1:end-1});
-the_pattern=sprintf('%s.*%s$',begin,varargin{end});
+begin=sprintf('.*[._]%s',varargin{1:end-1});
+% WARNING if vararin end doesnt have content this second line will need
+% adjustment
+the_pattern=sprintf('%s[._].*%s$',begin,varargin{end});
 the_file=sprintf('MISSING file matching pattern %s\n\tdir: %s',the_pattern,the_dir);
 MatchingFiles=regexpdir(the_dir, the_pattern, 0);
 if numel(MatchingFiles)>=1
