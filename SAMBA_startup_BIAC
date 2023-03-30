@@ -14,7 +14,8 @@ fi
 export RADISH_PERL_LIB=${PU_path};
 
 #export RADISH_PERL_LIB="${HOME}/SAMBA/local/lib/perl5:${RADISH_PERL_LIB}";
-
+perlbrew switch perl-5.16.3;
+#perl -V | tail -20;
 local_perl="${SPath}/local/lib/perl5";
 if [[ -d "${local_perl}" ]];then
     export RADISH_PERL_LIB="${local_perl}:${RADISH_PERL_LIB}";
@@ -23,6 +24,7 @@ fi
 echo "adjust lib path from $RADISH_PERL_LIB";
 declare -x RADISH_PERL_LIB=$(echo $RADISH_PERL_LIB|sed -E "s:${WORKSTATION_HOME}/+shared/+pipeline_utilities:${SPath}/.pipeline_utilities:g");
 echo "to $RADISH_PERL_LIB";
+PERL5LIB="${RADISH_PERL_LIB}:${PERL5LIB}"; export PERL5LIB;
 echo ${SPath}/vbm_pipeline_start.pl $@
 #sleep 2
 echo " "
@@ -34,7 +36,7 @@ if [[ $sge_test == 1 ]]; then
     if [[ ! -d ${sb_dir} ]];then
 	mkdir -m 775 ${sb_dir};
     fi
-    
+   
     date_tag=$(date --rfc-3339=seconds | tr ' ' '_' | tr ':' '.' | tr -d '-');
     name="SAMBA_pipeline_${date_tag}";
     sbatch_file="${HOME}/SAMBA_sbatch/${name}.bash";

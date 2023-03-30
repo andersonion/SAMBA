@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # vbm_pipeline_start.pl
 # originally created as vbm_pipeline, 2014/11/17 BJ Anderson CIVM
 # vbm_pipeline_start spun off on 2017/03/14 BJ Anderson CIVM
@@ -92,7 +92,7 @@ else {
 	$nodes = $1;
     } else {
 	die "\n\n\n\nINVALID RESERVATION REQUESTED: unable to find reservation \"$reservation\".\n\n\n".
-	    " Maybe your start file($start_file) was not found !"; 
+	    " Maybe your start file($start_file) was not found ! Or maybe $reservation_info doesnt work. It is not equal to /NodeCnt=([0-9]*)/m after all"; 
 	$nodes = 4;
 	# formerly was allowed to continue with reservatoin set failure, 
 	# this generates such a confusing mess that has been deprecated. 

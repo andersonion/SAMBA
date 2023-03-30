@@ -20,6 +20,8 @@ my (%go_hash);
 my $go = 1;
 my ($job,$job_count);
 my ($mem_request,$mem_request_2,$jobs_in_first_batch);
+my $min_mem_request=24000; # 29 October 2020 (Thurs): Need to replace this with ants memory estimator.
+
 
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
@@ -292,7 +294,7 @@ sub reg_to_mdt {
 	if ($job_count > $jobs_in_first_batch){
 	    $mem_request = $mem_request_2;
 	}
-
+	$mem_request=max($mem_request,$min_mem_request); # 29 October 2020, BJA: need to replace with a righteous ants memory estimator. 
 
 	if (defined $reservation) {
 	    @test =(0,$reservation);

@@ -147,6 +147,7 @@ $nodes
 $reservation
 $Hf
 $mdt_to_reg_start_time
+$no_new_inputs
 
 $valid_formats_string
  );

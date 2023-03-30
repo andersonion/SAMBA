@@ -51,7 +51,7 @@ my ($dummy,$error_message);
 my $working_image_orientation;
 my $matlab_path = "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
 #my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
-my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exe.sh";
+my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh";
 
 # ------------------
 sub convert_all_to_nifti_vbm {
@@ -195,8 +195,9 @@ sub convert_all_to_nifti_Output_check {
     } elsif ($case == 2) {
          $message_prefix = "  Unable to properly prepare niftis for the following runnos and channels:\n";
     }   # For Init_check, we could just add the appropriate cases.
-    
+   # my $dir_array_ref = directory_array;
     foreach my $runno (@array_of_runnos) {
+
         my $sub_existing_files_message='';
         my $sub_missing_files_message='';
         foreach my $ch (@channel_array) {
@@ -209,13 +210,15 @@ sub convert_all_to_nifti_Output_check {
             }
 #die "here";
             if ((data_double_check($file_1,$file_1.'.gz') == 2 ) || ((! $pre_masked) && $unfounded &&  ($file_1 !~ /.*masked\.nii/))) { # 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).
+	#	if ( ! -e $file_1 &&  ! -e $file_1.'.gz' ){# || ((! $pre_masked) && $unfounded &&  ($file_1 !~ /.*masked\.nii/))) { # 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).
            # if ((data_double_check($file_1) ) || ((! $do_mask) &&  (($file_1 =~ /.*masked\.nii/) || ($file_1 =~ /.*masked\.nii\.gz/)))) { # 6 January 2016: updated to look for .nii.gz as well.
+        
             $go_hash{$runno}{$ch}=1;
             push(@file_array,$file_1);
             $sub_missing_files_message = $sub_missing_files_message."\t$ch";
             } else {
-            $go_hash{$runno}{$ch}=0;
-            $sub_existing_files_message = $sub_existing_files_message."\t$ch";
+		$go_hash{$runno}{$ch}=0;
+		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
             }
         }
         if (($sub_existing_files_message ne '') && ($case == 1)) {

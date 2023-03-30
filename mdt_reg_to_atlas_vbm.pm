@@ -37,6 +37,7 @@ $affine_suffix = "0GenericAffine.mat";
 
 my $affine = 0;
 
+my $min_mem_request=24000; # 29 October 2020 (Thurs): Need to replace this with ants memory estimator.
 
 #$test_mode=0;
 
@@ -249,6 +250,8 @@ sub mdt_reg_to_atlas {
 	    "if [ -f ${out_affine} ]; then\n\trm ${out_affine};\nfi\n";
 	}
     
+	$mem_request=max($mem_request,$min_mem_request); # 29 October 2020, BJA: need to replace with a righteous ants memory estimator. 
+
 	my $cmd = $pairwise_cmd.$rename_cmd;
 	
 	my $home_path = $current_path;

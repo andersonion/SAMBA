@@ -413,7 +413,7 @@ sub set_reference_space_vbm_Init_check {
 	
 	my $resample_images = $Hf->get_value('resample_images');
 	my $resample_factor = $Hf->get_value('resample_factor');
-	if (($resample_factor ne 'NO_KEY') ||($resample_images ne 'NO_KEY') ) { ## Need to finish fleshing out this logic!
+	if (($resample_factor ne ( 'NO_KEY' | 'UNDEFINED_VALUE' ) ) ||($resample_images ne 'NO_KEY') ) { ## Need to finish fleshing out this logic!
 	    if (($resample_images == 0) || ($resample_images =~ /^(no|off)$/i) ) {
 		$resample_images=0;
 		$resample_factor=1;
@@ -728,7 +728,7 @@ sub set_reference_path_vbm {
     $inputs_dir = $Hf->get_value('inputs_dir');
     my $ref_path='';
     my $input_ref_path;
-    my $error_message;
+    my $error_message='';
     
     my $which_space='vbm';
     if ($for_labels) {

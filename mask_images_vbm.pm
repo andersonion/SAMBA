@@ -772,6 +772,9 @@ sub mask_images_vbm_Runtime_check {
     $ch_runlist = $Hf->get_value('channel_comma_list');
     @channel_array = split(',',$ch_runlist);
 
+    # 21 September 2020, BJA: going to avoid the tricky bits of processing a pre-given mask through masking code...
+    @channel_array = grep {$_ ne 'mask'} @channel_array;
+
     my $case = 1;
     my ($dummy,$skip_message)=mask_images_Output_check($case);
 

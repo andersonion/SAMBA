@@ -47,7 +47,7 @@ $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
 $permissions = 0755;
-my $interval = 0.1; ##Normally 1
+my $interval = 1; ##Normally 1, changed to 0.1, but don't know if non-integers are allowed.
 $valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
 
 $civm_ecosystem = 1; # Begin implementing handling of code that is CIVM-specific
@@ -150,7 +150,7 @@ do_vba  vba_contrast_comma_list vba_analysis_software
 smoothing_comma_list
 nonparametric_permutations fdr_masks tfce_extent tfce_height fsl_cluster_size 
 U_specid U_species_m00 U_code
-stats_file
+stats_file no_new_inputs
 );
 
 if (defined $label_reference) {
@@ -450,8 +450,10 @@ if ( -f ${c_input_headfile}) {
 }
 
 # Save current to inputs and results, renaming on the way
-our ($timestamped_inputs_file) = $log_file =~ s/pipeline_info/input_parameters/;
+$log_file =~ s/pipeline_info/input_parameters/;
+our $timestamped_inputs_file = $log_file;
 $timestamped_inputs_file =~ s/\.txt$/\.headfile/;
+
 `cp -p ${start_file} ${timestamped_inputs_file}`;
 `cp -p ${start_file} ${c_input_headfile}`;
 # caching inputs to common location for all to admire
@@ -592,9 +594,10 @@ if ($nii4D) {
     $Hf->set_value('channel_comma_list',$channel_comma_list);
 }
 # Gather all needed data and put in inputs directory
+if ( ! $no_new_inputs ) {
 convert_all_to_nifti_vbm(); #$PM_code = 12
 sleep($interval);
-
+}
 if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
     push(@channel_array,'rd');
     $channel_comma_list = $channel_comma_list.',rd';
@@ -694,10 +697,11 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
         mask_for_mdt_vbm(); #$PM_code = 45
         sleep($interval);
  
-    	if ($do_vba) {
+	# 4 August 2020, BJA: We may very well want jacobians even if we arent' doing VBA.
+    	#if ($do_vba) {
             calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46) ## BAD code! Don't use this unless you are trying to make a point! #Just kidding its the right thing to do after all--WTH?!?
             sleep($interval);
-        }
+        #}
     }
 
 # Things can get parallel right about here...
@@ -798,17 +802,18 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
                 }
             }
             sleep($interval);
-
+	    
         }   
-    }
-    if ($do_vba) {
+}
 
+    # 4 August 2020, BJA: We may very well want jacobians even if we arent' doing VBA.
+    # if ($do_vba) {
         my $new_contrast = calculate_jacobians_vbm('f','compare'); #$PM_code = 53 
         push(@channel_array,$new_contrast);
         $channel_comma_list = $channel_comma_list.','.$new_contrast;
         $Hf->set_value('channel_comma_list',$channel_comma_list);
         sleep($interval);
-
+if ($do_vba) {
         if ($multiple_groups) {
             vbm_analysis_vbm(); #$PM_code = 72
             sleep($interval);
@@ -826,7 +831,7 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
     my $results_message = "Results are available for your perusal in: ${results_dir}.\n";
     my $time = time;
     my $email_folder = '~/SAMBA_email/';
-    if ( ! -f $email_folder ) {
+    if ( ! -d $email_folder ) {
 	mkdir($email_folder,0777);
     }
     my $email_file="${email_folder}/SAMBA_completion_email_for_${time}.txt";

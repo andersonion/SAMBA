@@ -45,7 +45,10 @@ if (! defined($MATLAB_2015b_PATH)) {
 my $matlab_path = "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
 my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exe.sh";
 
-
+if ( ! -f $img_transform_executable_path ){
+    # 14 October 2021, BJA: Don't understand how we perpetually have to fight the exe/exec way...
+    $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh";
+}
 
 my $current_label_space;
 

@@ -38,6 +38,8 @@ if (! defined $ants_verbosity) {$ants_verbosity = 1;}
 
 my($warp_suffix,$inverse_suffix,$affine_suffix);
 
+my $min_mem_request=24000; # 29 October 2020 (Thurs): Need to replace this with ants memory estimator.
+
 my $cheating = 0;
 if ($cheating) {
     $warp_suffix = "2Warp.nii.gz";
@@ -291,6 +293,7 @@ sub create_iterative_pairwise_warps {
 	if ($job_count > $jobs_in_first_batch){
 	    $mem_request = $mem_request_2;
 	}
+	$mem_request=max($mem_request,$min_mem_request); # 29 October 2020, BJA: need to replace with a righteous ants memory estimator. 
     }
 
 
@@ -416,7 +419,13 @@ sub iterative_pairwise_reg_vbm_Init_check {
 	$diffeo_radius=$Hf->get_value('diffeo_radius');
 	if ($diffeo_radius eq ('' || 'NO_KEY')) {
 	    #$diffeo_radius = $defaults_Hf->get_value('diffeo_radius');
-	    $diffeo_radius = 4;
+	    if ($diffeo_metric eq 'CC') {
+		$diffeo_radius = 4;
+	    } elsif ($diffeo_metric eq ('Mattes' || 'MI')) {
+		$diffeo_radius = 32;
+	    } else {
+		$diffeo_metric='';
+	    }
 	    $log_msg = $log_msg."\tNo diffeomorphic radius specified; using default value of \"${diffeo_radius}\".\n";
 	} elsif ($diffeo_radius =~ /^[0-9\.]+$/) {
 	    # It is assumed that any positive number is righteous.
@@ -782,6 +791,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
 	my $include = 0; # We will exclude certain keys from headfile comparison. Exclude key list getting bloated...may need to switch to include.
 	my @excluded_keys =qw(start_file
                               original_orientation_*
+                              original_study_orientation
                               affine_identity_matrix
                               affine_target_image
                               all_groups_comma_list
@@ -846,6 +856,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               label_atlas_nickname
                               label_input_file
                               stop_after_mdt_creation
+                              skull_strip_contrast
                               number_of_nonparametric_seeds);
 	$max_iterations = $Hf->get_value('mdt_iterations');
 #  we check all letters, and let us know the first match?(or the first valid path after the last non-match)
@@ -860,25 +871,25 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
 	    my $iteration_found = -1; 
         # $iter -1 or 0 before resetting # previously: ($max_iteration-1)(
 	    for (my $iter=$max_iterations; $iter > -1; $iter--) {
-            printd(85,"iter = $letter$iter\n");
-		    $temp_current_path = $mdt_path.'/'.$temp_template_name."_i${iter}/MDT_diffeo" ;
-		    my $current_tempHf = find_temp_headfile_pointer($temp_current_path);
-            my $Hf_comp = '';
-		    if (defined $current_tempHf) { 
-                push(@found_templates,$temp_current_path);
-                $iteration_found = $iter;
-                $Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);		    
-                if ($Hf_comp eq '') {
-                    $template_match = 1;
-                } else {
-                    print " $PM: ${Hf_comp}\n"; # Is this the right place for this?        
-                }
-                last;
+		printd(85,"iter = $letter$iter\n");
+		$temp_current_path = $mdt_path.'/'.$temp_template_name."_i${iter}/MDT_diffeo" ;
+		my $current_tempHf = find_temp_headfile_pointer($temp_current_path);
+		my $Hf_comp = '';
+		if (defined $current_tempHf) { 
+		    push(@found_templates,$temp_current_path);
+		    $iteration_found = $iter;
+		    $Hf_comp = compare_headfiles($Hf,$current_tempHf,$include,@excluded_keys);		    
+		    if ($Hf_comp eq '') {
+			$template_match = 1;
 		    } else {
-                if (-d ${temp_current_path}) {
-                    die "Please remove ${temp_current_path} to restart.";
-                }
-            }
+			print " $PM: ${Hf_comp}\n"; # Is this the right place for this?        
+		    }
+		    last;
+		} else {
+		    if (-d ${temp_current_path}) {
+			die "Please remove ${temp_current_path} to restart.";
+		    }
+		}
 	    } # END FOR LOOP DOING ITERATION CHECK
         # $iteration_found will either be -1 for non found, or highest found(including 0 ; )  )
         # state 1, $template_match=1, iteration_found = any  :: set chosen_template to this one and STOP LOOKING.
@@ -897,7 +908,8 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     Data::Dump::dump(["Previous Templates", @found_templates]) if scalar(@found_templates)>1;
     $template_name=$chosen_template;
     }# end template checkpoint.
-	$Hf->set_value('template_checkpoint_completed',1);
+    $Hf->set_value('template_checkpoint_completed',1);
+    $Hf->set_value('template_name',$template_name);
     if ($template_name ne $original_template_name) {
         # Carp::confess ($template_name.'____'.$current_iteration); # for testing purposes, dont want the auto new set for the time being... .  
         print " At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n";
@@ -926,18 +938,27 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     if ($match_registration_levels_to_iteration) {
         if ($current_iteration < $diffeo_levels) {
             my @iteration_array = split('x',$diffeo_iterations);
+	    my @shrink_array = split('x',$diffeo_shrink_factors);
+	    my @sigma_array = split('x',$diffeo_smoothing_sigmas);
             my @new_iteration_array;
+	    my @new_shrink_array;
+	    my @new_sigma_array;
             for (my $ii = 0; $ii < $diffeo_levels ; $ii++) {
                 if ($ii < $current_iteration) {
                     push(@new_iteration_array,$iteration_array[$ii]);
+		    push(@new_shrink_array,$shrink_array[$ii]);
+		    push(@new_sigma_array,$sigma_array[$ii]);
                 } else {
-                    push(@new_iteration_array,'0');
+		    # 21 September 2020, BJA: Per discussion w/James, commenting this one line of code should save bundles in disk space.
+                    #push(@new_iteration_array,'0');
                 }
+		
             }
             $diffeo_iterations = join('x',@new_iteration_array);
+	    $diffeo_shrink_factors= join('x',@new_shrink_array);
+	    $diffeo_smoothing_sigmas=join('x',@new_sigma_array);
         }
     }
-
 
     ## Generate an identity warp for our general purposes ##
 

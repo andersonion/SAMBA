@@ -345,11 +345,12 @@ sub surfstat_analysis_vbm {
     }
 
     # 4 October 2019, BJA: Crude test for complete set of results.
-    my $do_work_test = `ls ${contrast_path}/*.nii* 2> /dev/null | wc -l `;
+    # 22 July 2020, BJA: Refined test for results, since we might be making more than one comparison from the same pool of smoothed images (current case: Whitson/BrainAMD).
+    my $do_work_test = `ls ${contrast_path}/*_${group_1_name}_gt_${group_2_name}.nii* 2> /dev/null | wc -l `;
     chomp($do_work_test);
-    print "\n\ndo_work_test = x${do_work_test}x\n\n";
-    if ( $do_work_test < 10) {
-	 print "\n\ndo_work_test evaluated to less than 10\n\n";
+    print "\ndo_work_test = x${do_work_test}x\n";
+    if ( $do_work_test < 5) {
+	 print "\n\ndo_work_test evaluated to less than 5\n\n";
 	my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
 	my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
 	my $exec_testing =1;
