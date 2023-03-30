@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 #  calculate_individual_label_statistics_vbm.pm 
 

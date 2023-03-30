@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # mdt_reg_to_atlas_vbm.pm 
 
 

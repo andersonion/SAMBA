@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 #  tabulate_label_statistics_by_contrast_vbm.pm 
 

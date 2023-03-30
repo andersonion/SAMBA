@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # SAMBA_global_variables.pm 
 # Originally written by James Cook & BJ Anderson, CIVM
 package SAMBA_global_variables;

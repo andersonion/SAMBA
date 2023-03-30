@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # apply_warps_to_bvecs.pm 
 # Originally written by BJ Anderson, CIVM
 

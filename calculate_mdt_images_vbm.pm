@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # calculate_mdt_images_vbm.pm 
 
 my $PM = "calculate_mdt_images_vbm.pm";

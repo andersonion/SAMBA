@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # convert_to_nifti_util.pm 
 #
 # created 2009/10/28 Sally Gewalt CIVM

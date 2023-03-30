@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # compare_reg_to_mdt_vbm.pm 
 
 my $PM = "compare_reg_to_mdt_vbm.pm";

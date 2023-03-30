@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 #  label_stat_comparisons_between_groups_vbm.pm 
 

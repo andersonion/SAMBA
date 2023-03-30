@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # apply_mdt_warps_vbm.pm 
 # Originally written by BJ Anderson, CIVM
 

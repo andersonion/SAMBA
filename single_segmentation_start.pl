@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # single_segmentation_start.pl
 # originally created as vbm_pipeline, 2014/11/17 BJ Anderson CIVM
 # single_segmentation_start spun off on 2017/03/14 BJ Anderson CIVM

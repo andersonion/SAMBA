@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # iterative_template_construction_vbm.pm 
 
 my $PM = "iterative_pairwise_reg_vbm.pm";

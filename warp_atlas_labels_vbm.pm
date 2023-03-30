@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # warp_atlas_labels_vbm.pm 
 # Originally written by BJ Anderson, CIVM
 

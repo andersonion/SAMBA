@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # convert_all_to_nifti_vbm.pm 
 

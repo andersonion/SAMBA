@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # vbm_pipeline_workflow.pm
 # vbm_pipeline created 2014/11/17 BJ Anderson CIVM
 # vbm_pipeline_workflow created 2017/03/14 BJ Anderson CIVM

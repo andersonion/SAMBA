@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # calculate_jacobians_vbm.pm 
 # Originally written by BJ Anderson, CIVM
 

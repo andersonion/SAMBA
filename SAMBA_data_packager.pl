@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 # This was created as to help organize warp chains.
 
 # This only creates links, and will only work for the person running the study!
