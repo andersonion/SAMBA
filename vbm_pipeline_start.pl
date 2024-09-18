@@ -15,7 +15,7 @@ my $PM = 'vbm_pipeline_start.pl';
 use strict;
 use warnings;
 
-use Cwd qw(abs_path);
+use Cwd qw(abs_path cwd getcwd);
 use File::Basename;
 use List::MoreUtils qw(uniq);
 
@@ -73,7 +73,15 @@ $start_file=shift(@ARGV);
 if( ! defined $start_file ){
     die "Study_variables mode deprecated! its too messy :P\nPlease create a startup headfile";
 }
+
+if ( ! -f $start_file ){
+    my $current_dir= cwd;
+    $start_file = "${current_dir}/${start_file}";
+    print "$start_file";
+}
+
 if ( ! -f $start_file && $start_file =~ /[^0-9]/ )  {
+    print "Test 2";
     $nodes = $start_file;
     $start_file = '';
 } else {

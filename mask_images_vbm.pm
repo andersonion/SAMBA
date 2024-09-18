@@ -73,7 +73,12 @@ sub mask_images_vbm {
             if (($thresh_ref ne "NO_KEY") && ($$thresh_ref{$runno})){
                 $mask_threshold = $$thresh_ref{$runno};
             } else {
-                $mask_threshold=$default_mask_threshold;
+		# Custom tc, a la original_orientation, added 26 July 2023 (Wed), by RJA
+		my $Hf_key = "threshold_code_${runno}";
+	        ${mask_threshold} = $Hf->get_value($Hf_key);
+                if (${mask_threshold} eq 'NO_KEY') {
+		    $mask_threshold=$default_mask_threshold;
+		}
             }
 
             my $mask_path =  "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
@@ -330,7 +335,7 @@ sub port_atlas_mask_vbm {
    # my $port_mask = $mask_dir.'/'.$runno.'_port_mask.nii';
     my $temp_out_file = $out_prefix."0GenericAffine.mat";
     my ($cmd,$norm_command,$atlas_mask_reg_command,$apply_xform_command,$new_norm_command,$cleanup_command);
-
+    $norm_command='';
     $new_norm_command = "ImageMath 3 $port_mask Normalize $new_mask;\n";
     $cleanup_command=$cleanup_command."if [ -e \"${port_mask}\" ]\nthen\n\tif [ -e \"${new_mask}\" ]\n\tthen\n\t\trm ${new_mask};\n";
     
@@ -344,7 +349,7 @@ sub port_atlas_mask_vbm {
 #		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t translation[0.1] -c [3000x3000x0x0,1.e-8,20] ".
 #		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t rigid[0.1] -c [3000x3000x0x0,1.e-8,20] ".
 		" -m MeanSquares[$atlas_mask,$current_norm_mask,1,32,random,0.3] -t affine[0.1] -c [3000x3000x0x0,1.e-8,20] ". 
-		" -s 4x2x1x0.5vox -f 6x4x2x1 -l 1 -u 1 -z 1 -o $out_prefix;\n";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
+		" -s 4x2x1x0.5vox -f 6x4x2x1 -u 1 -z 1 -o $out_prefix;\n";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
 	
 	    $cleanup_command=$cleanup_command."\t\t\tif [ -e \"${current_norm_mask}\" ]\n\t\t\tthen\n\t\t\t\trm ${current_norm_mask};\n\t\t\tfi\n";
 	    if (! -e $current_norm_mask) {

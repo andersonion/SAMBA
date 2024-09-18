@@ -331,12 +331,12 @@ sub create_affine_transform_vbm {
 		#" -s ${affine_smoothing_sigmas} -f ${affine_shrink_factors}  ". # -s 4x2x1x1vox -f  6x4x2x1 
 		" ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ". 
 		" -s  ${affine_smoothing_sigmas} -f ${affine_shrink_factors} ". # -s 4x2x1x0vox  -f  6x4x2x1 
-		" -u 1 -z 1 -l 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";  # "-z 1" instead of "-z $collapse", as we want rigid + affine together in this case.
+		" -u 1 -z 1 -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";  # "-z 1" instead of "-z $collapse", as we want rigid + affine together in this case.
 	    
 	} else {	  
 	    $cmd = "antsRegistration -v ${ants_verbosity} -d ${dims} ". #-r [$atlas_path,$B_path,1] ".
 		" ${metric_1} ${metric_2} -t affine[${affine_gradient_step}] -c [${affine_iterations},${affine_convergence_thresh},${affine_convergence_window}] ".
-		"-s ${affine_smoothing_sigmas} -f  ${affine_shrink_factors} -l 1 ". # -s 4x2x1x0.5vox-f 6x4x2x1
+		"-s ${affine_smoothing_sigmas} -f  ${affine_shrink_factors} ". # -s 4x2x1x0.5vox-f 6x4x2x1
 		" $q $r -u 1 -z $collapse -o $result_transform_path_base";# --affine-gradient-descent-option 0.05x0.5x1.e-4x1.e-4";
 	}
     } else {

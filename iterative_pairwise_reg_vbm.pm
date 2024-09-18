@@ -839,6 +839,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               stats_file
                               template_name
                               template_work_dir
+			      threshold_code_*
                               threshold_hash_ref
                               vba_analysis_software
                               vba_contrast_comma_list
@@ -857,6 +858,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               label_input_file
                               stop_after_mdt_creation
                               skull_strip_contrast
+			      no_new_inputs
                               number_of_nonparametric_seeds);
 	$max_iterations = $Hf->get_value('mdt_iterations');
 #  we check all letters, and let us know the first match?(or the first valid path after the last non-match)

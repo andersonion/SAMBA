@@ -421,7 +421,8 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               stats_file
                               template_name
                               template_work_dir
-                              threshold_hash_rxef
+			      threshold_code_*
+                              threshold_hash_ref
                               update_step_size
                               vba_analysis_software
                               vba_contrast_comma_list
@@ -443,6 +444,7 @@ sub calculate_mdt_warps_vbm_Runtime_check {
                               force_isotropic_resolution
                               resample_images
                               resample_factor
+			      no_new_inputs
                               number_of_nonparametric_seeds); #
 
 
