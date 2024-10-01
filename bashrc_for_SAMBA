@@ -1,17 +1,38 @@
-#! /bin/bash
-#export MATLAB_2015b_PATH="~/local_MATLAB/v90" # Deactivated 13 August 2019
+##
+# Please set these variables before running SAMBA_setup.bash.
+# Many thanks, --BJ
 
+# SAMBA_APPS_DIR is the parent directory for all SAMBA-related installations
+# It should be readable and executable by all SAMBA users
+SAMBA_APPS_DIR="/home/apps/"
 
-common_code_path="/mnt/clustertmp/common/rja20_dev/"
-export MATLAB_EXEC_PATH="${common_code_path}/matlab_execs_for_SAMBA/"
+# BIGGUS_DISKUS is the folder where SAMBA will create folders and do its work. 
+export BIGGUS_DISKUS=/mnt/newStor/paros/paros_WORK/mouse/
 
-export BIGGUS_DISKUS=/mnt/munin2/Badea/Lab/mouse
-export WORKSTATION_DATA=/mnt/munin2/Badea/Lab/
-export MATLAB_2015b_PATH="${common_code_path}/MATLAB2015b_runtime/v90"
+# WORKSTATION_DATA should be a readable and writable to all SAMBA users
+# SAMBA will look for "atlas" folders here.
+# Also, a folder called 'samba_startup_cache' will be created here, in which SAMBA will make
+# a copy of any startup headfile used to run SAMBA, prepended with ${USER}
+# If the atlas folder is in a non-writable location, make this writable location and create symlink
+# pointing to the atlas location.
+export WORKSTATION_DATA=${PAROS}/paros_WORK/
+
+# Setting MATLAB_JAVA will make opening and saving gzipped file much quicker.
+# But this can be tricky...one needs to know how to compile on the current environment
+# the version of Java that MATLAB2015b requires
+# Examples:
+#export MATLAB_JAVA=/mnt/clustertmp/common/rja20_dev/jres
 #export MATLAB_JAVA=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.191.b12-0.el7_5.x86_64/jre
-export MATLAB_JAVA=/mnt/clustertmp/common/rja20_dev/jres
+
 # Control which version of perl we're using
 perlbrew switch perl-5.16.3
 
-# For email support, need to add
-export NOTIFICATION_EMAIL=${USER}@duke.edu
+# If using the default installation paths, these two variables will not need to be changed.
+export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
+export PATH=${SAMBA_PATH}:${PATH}
+export MATLAB_EXEC_PATH="${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA/"
+export MATLAB_2015b_PATH="${SAMBA_APPS_DIR}/MATLAB2015b_runtime/v90"
+
+
+# For email support, need to update and uncomment:
+# export NOTIFICATION_EMAIL=${USER}@your.org
