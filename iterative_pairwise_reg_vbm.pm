@@ -885,7 +885,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
 		    if ($Hf_comp eq '') {
 			$template_match = 1;
 		    } else {
-			print " $PM: ${Hf_comp}\n"; # Is this the right place for this?        
+			log_info(" $PM: ${Hf_comp}\n"); # Is this the right place for this?        
 		    }
 		    last;
 		} else {
@@ -901,7 +901,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
         if ( $template_match ) {
             $chosen_template = $temp_template_name;
             $current_iteration=$iteration_found;
-            print " Evidence of previous iterations found; starting at highest iteration, Iteration ${current_iteration}.\n";
+            log_info("Evidence of previous iterations found; starting at highest iteration, Iteration ${current_iteration}.\n");
             last; # this is guarded against in the main loop anyway, this is mostly just to make it more clear what we intend.
         } elsif ( $iteration_found>= 0)  {
             $chosen_template=$template_name.$alphabet[$i+1];
