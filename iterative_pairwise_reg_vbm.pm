@@ -915,10 +915,10 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     $Hf->set_value('template_name',$template_name);
     if ($template_name ne $original_template_name) {
         # Carp::confess ($template_name.'____'.$current_iteration); # for testing purposes, dont want the auto new set for the time being... .  
-        print " At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n";
+        log_info(" At least one ambiguously different MDT detected, current MDT is: ${template_name}.\n");
     }
     $template_path = $mdt_path.'/'.$template_name."_i".$current_iteration;
-    print "Current template_path = ${template_path}\n\n";
+    log_info("Current template_path = ${template_path}\n\n");
     if (! -e $template_path) {
         mkdir ($template_path,$permissions);
     }
@@ -933,7 +933,7 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
     }
     $write_path_for_Hf = "${current_path}/${template_name}_temp.headfile";
  
-    print "current_path = ${current_path}\n\n";
+    log_info("current_path = ${current_path}\n\n");
     $old_iteration=($current_iteration - 1);
     $current_target = "${master_template_dir}/${template_name}_i${old_iteration}.nii.gz";
 
