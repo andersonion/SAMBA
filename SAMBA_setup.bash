@@ -14,7 +14,17 @@ if [[ ${profiled_script:0:15} == "/etc/profile.d/" ]];then
 fi
 
 SCRIPTPATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )";
-source ${SCRIPTPATH}/bashrc_for_SAMBA
+
+brc_SAMBA=${SCRIPTPATH}/bashrc_for_SAMBA
+if [[ ! -f ${brc_SAMBA} ]];then
+	echo "CRITICAL ERROR: The file ${brc_SAMBA} does not exist! Let's fix this:"
+	echo " 1) Please make a copy of ${brc_SAMBA}_template named ${brc_SAMBA}."
+	echo "command: \'cp ${brc_SAMBA}_template ${brc_template}\'"
+	echo " 2) Edit and save the variables to match your setup."
+        echo " 3) Rerun SAMBA_setup" && exit 1
+else
+	source ${brc_SAMBA}
+fi
 
 if [[ ! -d ${SAMBA_APPS_DIR} ]];then
 	echo "Environment variable 'SAMBA_APPS_DIR' is set, but does not exist."
@@ -212,3 +222,9 @@ fi
 
 cd ${SAMBA_APPS_DIR}/SAMBA
 carton install
+
+# Add bashrc_for_SAMBA to appropriate file.
+msg="Adding source command for bashrc_for_SAMBA to";
+src_cmd="source ${brc_SAMBA}"
+comment="Adding source command for bashrc_for_SAMBA:"
+append_startup_script "${msg}" "${src_cmd}" "${comment}"
