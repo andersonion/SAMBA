@@ -33,6 +33,14 @@ export PATH=${SAMBA_PATH}:${PATH}
 export MATLAB_EXEC_PATH="${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA/"
 export MATLAB_2015b_PATH="${SAMBA_APPS_DIR}/MATLAB2015b_runtime/v90"
 
+# An alias to make calling samba much less typo-prone.
+function samba-pipe {
+  hf=$1;
+  if [[ "x${hf:0:1}x" != 'x/x' && "x${hf:0:2}x" != 'x~/x'   ]];then
+     hf=${PWD}/${hf};
+  fi
+  ${SAMBA_PATH}/SAMBA_startup_BIAC ${hf};
+}
 
 # For email support, need to update and uncomment:
 # export NOTIFICATION_EMAIL=${USER}@your.org
