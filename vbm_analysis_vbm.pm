@@ -20,7 +20,7 @@ use Scalar::Util qw(looks_like_number);
 $schedule_backup_jobs = 1; # Will probably want to make this universal eventually...
 require Headfile;
 require pipeline_utilities;
-#require convert_to_nifti_util;
+
 
 my $use_Hf;
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$flip_x,$flip_z,$do_mask);

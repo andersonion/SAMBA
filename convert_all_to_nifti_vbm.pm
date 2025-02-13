@@ -26,7 +26,7 @@ use Headfile;
 use pipeline_utilities;
 use pull_civm_tensor_data;
 #use vars used to be here
-#require convert_to_nifti_util;
+
 
 # 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
 

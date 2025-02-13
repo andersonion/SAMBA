@@ -17,7 +17,7 @@ use warnings;
 #use vars used to be here
 require Headfile;
 require pipeline_utilities;
-#require convert_to_nifti_util;
+
 
 
 my ($current_path,$template_contrast,$erode_radius);
