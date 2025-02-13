@@ -608,16 +608,10 @@ sub pairwise_reg_vbm_Runtime_check {
     $id_warp = "${current_path}/identity_warp.nii.gz";
     my $first_runno = $array_of_runnos[0];
     my $first_image = get_nii_from_inputs($inputs_dir,$first_runno,$mdt_contrast);
- 
-    my $portable_code = 1; # Fixed on 11 February 2020, BJA
     if (data_double_check($id_warp)) {
-	if ( $portable_code ) {
 	    my $id_cmd = "antsApplyTransforms -v -d 3 -o [${id_warp},1] -r ${first_image}";
 	    log_info("Creating identity warp: ${id_warp}\n${id_cmd}");
 	    `${id_cmd}`;
-	} else {
-	    make_identity_warp($first_image,$Hf,$current_path);
-	}
     }
     
     ##
