@@ -33,8 +33,8 @@ my $job;
 my $current_checkpoint = 1; # Bound to change! Change here!
 my $number_of_template_runnos;
 my $log_msg="";
-# my @parents = qw(pairwise_reg_vbm);
-# my @children = qw (apply_mdt_warps_vbm);
+
+
 
 
 # ------------------

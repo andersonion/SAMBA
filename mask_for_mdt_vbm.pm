@@ -3,7 +3,7 @@
 # mask_for_mdt_vbm.pm 
 
 
-# Used matlab call for skull stripping that was implemented in mask_images_vbm.pm
+
 # created 2015/02/06 BJ Anderson CIVM
 
 my $PM = "mask_for_mdt_vbm.pm";

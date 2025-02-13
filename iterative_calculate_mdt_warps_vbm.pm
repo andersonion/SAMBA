@@ -26,8 +26,8 @@ my $go = 1;
 my $job;
 my $log_msg="";
 my ($update_step_size,$update_string);
-# my @parents = qw(pairwise_reg_vbm);
-# my @children = qw (apply_mdt_warps_vbm);
+
+
 
 if (! defined $dims) {$dims = 3;}
 

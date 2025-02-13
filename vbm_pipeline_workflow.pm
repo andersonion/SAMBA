@@ -247,7 +247,7 @@ if ( defined $optional_external_inputs_dir) {
     #`ls -artlh  ${optional_external_inputs_dir}`;
     #print "dangling link at ${optional_external_inputs_dir}" if (lstat ${optional_external_inputs_dir});
     #my $OEID =  ${optional_external_inputs_dir} =~ s/[\\]+//g;
-    #print "fuck this shit at ${optional_external_inputs_dir}" if (lstat ${optional_external_inputs_dir});
+
     #die;
     if (( -l ${optional_external_inputs_dir}) || ( -d ${optional_external_inputs_dir}) ){
     #if ( -e "${optional_external_inputs_dir}") {

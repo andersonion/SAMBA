@@ -14,7 +14,7 @@ use lib split(':',$RADISH_PERL_LIB);
 use pipeline_utilities;
 use Headfile;
 
-#use SAMBA_global_variables; 
+
 use civm_simple_util qw(activity_log can_dump load_file_to_array write_array_to_file find_file_by_pattern is_writable round printd whoami whowasi debugloc sleep_with_countdown $debug_val $debug_locator);
 
 my $PM = 'pull_multi.pm';
