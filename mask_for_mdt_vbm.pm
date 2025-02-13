@@ -26,6 +26,17 @@ my ($incumbent_raw_mask, $incumbent_eroded_mask);
 my $go=1;
 
 
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH SAMBA_APPS_DIR);
+if (! defined($MATLAB_EXEC_PATH)) {
+   $MATLAB_EXEC_PATH =  "${SAMBA_APPS_DIR}/matlab_execs";
+}
+
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "${SAMBA_APPS_DIR}/MATLAB/R2015b/";
+}
+my $matlab_path =  "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
+my $strip_mask_executable_path = "${MATLAB_EXEC_PATH}/strip_mask_executable/run_strip_mask_exec.sh";
+
 # ------------------
 sub mask_for_mdt_vbm {
 # ------------------
@@ -53,13 +64,25 @@ sub mask_for_mdt_vbm {
 	    my $morph_radius = 2;
 	    my $dim_divisor = 2;
 	    my $status_display_level=0;
-	    
+	    my ($go_message, $stop_message);
+
+
+	    my $matlab_exec_args="${mask_source} ${dim_divisor} ${mask_threshold} ${raw_mask_path} ${num_morphs} ${morph_radius} ${status_display_level}";
+	    $go_message = "$PM: Creating mask from file: ${input_file}\n" ;
+            $stop_message = "$PM: Failed to properly create mask from file: ${input_file}\n" ;
+	    my $mem_request = '40000';
+	    my $go =1;
+	    my $cmd = "${strip_mask_executable_path} ${matlab_path} ${matlab_exec_args}";
+	    my $home_path = $current_path;
+	    my $Id= "creating_mask_from_contrast_${template_contrast}";
+	    my $verbose = 2; # Will print log only for work done.
 	    if (data_double_check($raw_mask_path)) {
-		$nifti_args ="\'$mask_source\', $dim_divisor, $mask_threshold, \'$raw_mask_path\',$num_morphs , $morph_radius,$status_display_level";
-		$nifti_command = make_matlab_command('strip_mask',$nifti_args,"MDT_${template_contrast}_",$Hf,0); # 'center_nii'
-		execute(1, "Creating mask for MDT using ${template_contrast} channel", $nifti_command);
-		$Hf->set_value('MDT_raw_mask',$raw_mask_path);
+		    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
+	    	    if (not $jid) {
+	                  error_out($stop_message);
+	    	    }  
 	    }
+    	    $Hf->set_value('MDT_raw_mask',$raw_mask_path);	   
 	}
 	
 	($job,$eroded_mask_path) = extract_and_erode_mask($mask_source,$raw_mask_path);	

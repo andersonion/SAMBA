@@ -353,12 +353,10 @@ sub surfstat_analysis_vbm {
 	 print "\n\ndo_work_test evaluated to less than 5\n\n";
 	my $surfstat_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\'";
 	my $surfstat_args_2 ="${contrast} ${average_mask} ${input_path} ${contrast_path} ${group_1_name} ${group_2_name} ${group_1_files} ${group_2_files}";
-	my $exec_testing =1;
+	
 	my $jid = 0;
-	if ($exec_testing) {
+	
 	    my $executable_path = "${MATLAB_EXEC_PATH}/surfstat_executable/run_surfstat_exec.sh"; 
-	    #my $executable_path = "${MATLAB_EXEC_PATH}/surfstat_executable/run_surfstat_for_vbm_pipeline_exec.sh"; # Had to slightly rename after renaming and recompiling on civmcluster. 12 Sep 2019 BJA
-	    # my $executable_path = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/surfstat_executable/AS/run_surfstat_for_vbm_pipeline_exec.sh"; #Trying to rectify the issue of slurm job not terminating...ever
 	    my $go_message = "$PM: Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
 	    my $stop_message = "$PM: Failed to properly run SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"\n" ;
 	    
@@ -397,12 +395,7 @@ sub surfstat_analysis_vbm {
 		    error_out($stop_message);
 		}
 	    }
-	} else {
-	    my $surfstat_command = make_matlab_command('surfstat_for_vbm_pipeline',$surfstat_args,"surfstat_with_${contrast}_for_${predictor_id}_",$Hf,0); # 'center_nii'
-	    print "surfstat command = ${surfstat_command}\n";
-	    my $state = execute(1, "Running SurfStat with contrast: \"${contrast}\" for predictor \"${predictor_id}\"", $surfstat_command);
-	    print "Current state = $state\n";
-	}
+	
 	return($jid);
     } else { 
 	return(0);

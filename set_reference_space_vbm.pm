@@ -909,11 +909,6 @@ sub set_reference_space_vbm_Runtime_check {
 
     	if (data_double_check($outpath)) {
 
-	    
-
-	    # For more portable code, a matlab executable version can be used (8 July 2019, BJA)
-	    my $portable_code = 1; # 0 -> old code using actually calling an instance of matlab
-	    if ($portable_code) {
 		my $original_inpath = $inpath;
 	        if ($inpath =~ s/(\.nii\.gz){1}$/\.tmp\.nii/) {
 		    `gunzip -c ${original_inpath} > ${inpath}`;	    
@@ -939,12 +934,6 @@ sub set_reference_space_vbm_Runtime_check {
 		    `${rm_cmd}`;
 		}
 
- 	    } else {
-		my $name = "centered_mass_for_${refname_hash{$V_or_L}}";
-		my $nifti_args = "\'${inpath}\' , \'${outpath}\'";    
-		my $nifti_command = make_matlab_command('create_centered_mass_from_image_array',$nifti_args,"${name}_",$Hf,0); # 'center_nii'
-		execute(1, "Creating a dummy centered mass for referencing purposes", $nifti_command);
-	    }
     	}
 
         # 4 Feb 2019--use ResampleImageBySpacing here to create up/downsampled working space if desired.
