@@ -10,7 +10,7 @@ slurm_cluster=$(sbatch --help  2>&1 | grep 'command not found' | wc -l | tr -d [
 # This returns '1' if NOT on a cluster, so let's reverse that...
 if ((! ${slurm_cluster}));then
 	cluster=1;
-elif ((! ${SGE_cluster}))
+elif ((! ${SGE_cluster}));then
 	cluster=2;
 	echo "Great News, Everybody! It looks like we're running on a cluster, which should speed things up tremendously!";
 fi
