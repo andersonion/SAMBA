@@ -77,7 +77,7 @@ use lib split(':',$RADISH_PERL_LIB);
 
 # use ...
 use Headfile;
-use civm_simple_util qw(sleep_with_countdown    );
+use SAMBA_pipeline_utilities qw(sleep_with_countdown    );
 use retrieve_archived_data;
 use study_variables_vbm;
 use ssh_call;

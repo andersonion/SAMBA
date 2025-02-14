@@ -32,11 +32,11 @@ use IO qw(Handle File);
 my $VERSION = "181211";
 my $COMMENT = 0;
 
-use civm_simple_util qw($OSNAME);
+use SAMBA_pipeline_utilities qw($OSNAME);
 # This OS check code would be nice to place somewhere common, that has been avoided
 # for now to keep this code as independent as possible.
 #
-# its decided that civm_simple_util is a good catch all for these exceedingly simple helpers.
+# its decided that SAMBA_pipeline_utilities is a good catch all for these exceedingly simple helpers.
 
 #our $OSNAME="$^O\n";
 #our $IS_MAC=0;

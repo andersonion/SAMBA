@@ -959,7 +959,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                 # could/should set the "acceptable" images someplace and use that as part of the regex
                 # some annoying conrtasts may collide... like fa./fa_color.... 
                 # BJ says: this makes it harder to control when all we want to return is runno to use, not the whole file name
-                #my @control_images=civm_simple_util::find_file_by_pattern($inputs_dir, '('.join("|",@controls).').*_'.$contrast.'_masked[.]n.{2,5}$');
+                #my @control_images=SAMBA_pipeline_utilities::find_file_by_pattern($inputs_dir, '('.join("|",@controls).').*_'.$contrast.'_masked[.]n.{2,5}$');
                 
                 my %volume_hash;
                 for my $c_runno (uniq(@controls)) {
@@ -978,7 +978,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                     
                 }
                     use List::Util qw(sum);
-                    use civm_simple_util qw(round);
+                    use SAMBA_pipeline_utilities qw(round);
                     
                     my @sorted_v = sort(keys %volume_hash);
                     my $v_index = round($#sorted_v/2);

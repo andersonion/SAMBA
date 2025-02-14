@@ -665,8 +665,8 @@ sub cluster_wait_for_jobs {
                         if ($throw_error) {
                             my $bad_jobs=join(' ',@bad_jobs);
                             my $missing_file_s=join("\n",@missing_files);
-                            require civm_simple_util;
-                            civm_simple_util->import(qw(whowasi));
+                            require SAMBA_pipeline_utilities;
+                            SAMBA_pipeline_utilities->import(qw(whowasi));
                             my $process = whowasi();
                             my @split = split('::',$process);
                             $process = pop(@split);
@@ -834,7 +834,7 @@ sub compare_two_reference_spaces {
 #---------------------
 sub convert_time_to_seconds {
 #---------------------
-# a more complete solution exists in civm_simple_util
+# a more complete solution exists in SAMBA_pipeline_utilities
     my ($time_and_date_string) = @_;
     my ($days,$hours,$minutes,$seconds);
     my $time_in_seconds = 0;
@@ -1366,7 +1366,7 @@ sub get_nii_from_inputs {
 # ------------------
     #### :D #### 
     #### :D #### 
-    #funct_obsolete('get_nii_from_inputs','civm_simple_util::find_file_by_pattern("dir","regex"');
+    #funct_obsolete('get_nii_from_inputs','SAMBA_pipeline_utilities::find_file_by_pattern("dir","regex"');
     #### :D #### 
     #### :D #### 
 # Update to only return hdr/img/nii/nii.gz formats.
@@ -1400,7 +1400,7 @@ sub get_nii_from_inputs {
 
 # 29 July 2023 --BJA: Turning of James' code since it is behaving poorly
 if (0) {
-    my @found=civm_simple_util::find_file_by_pattern($inputs_dir,$pattern,1);
+    my @found=SAMBA_pipeline_utilities::find_file_by_pattern($inputs_dir,$pattern,1);
     $error_msg="SAMBA_pipeline_utilities function get_nii_from_inputs: Unable to locate file using the input criteria:\n\t\$inputs_dir: ${inputs_dir}\n\t\$runno: $runno\n\t\$contrast: $contrast\n";
     # filter found to masked if(and only if) there are extra
     @found=grep /_masked/ ,@found if (scalar(@found) > 1);
@@ -1607,10 +1607,10 @@ sub load_file_to_array { # (path,array_ref[,debug_val]) loads text to array ref,
     my $array_ref=shift @input; 
     my $old_debug=$debug_val;
     $debug_val = shift @input or $debug_val=$old_debug;
-    civm_simple_util::debugloc();
+    SAMBA_pipeline_utilities::debugloc();
     my @all_lines =();
-    civm_simple_util::whoami();
-    civm_simple_util::printd(30,"Opening file $file.\n");
+    SAMBA_pipeline_utilities::whoami();
+    SAMBA_pipeline_utilities::printd(30,"Opening file $file.\n");
     open my $text_fid, "<", "$file" or confess "could not open $file";
     croak "file <$file> not Text\n" unless -T $text_fid ;
     @all_lines =  <$text_fid> ;
@@ -1998,9 +1998,9 @@ sub write_array_to_file { # (path,array_ref[,debug_val]) writes text to array re
     my $array_ref=shift @input; 
     my $old_debug=$debug_val;
     $debug_val = shift @input or $debug_val=$old_debug;
-    civm_simple_util::debugloc();
-    civm_simple_util::whoami();
-    civm_simple_util::printd(30,"Opening file $file.\n");
+    SAMBA_pipeline_utilities::debugloc();
+    SAMBA_pipeline_utilities::whoami();
+    SAMBA_pipeline_utilities::printd(30,"Opening file $file.\n");
     #use IO::Handle;
     open my $text_fid, ">", "$file" or croak "could not open $file, $!";
     croak "file <$file> not Text\n" unless -T $text_fid ;
@@ -2015,7 +2015,7 @@ sub write_array_to_file { # (path,array_ref[,debug_val]) writes text to array re
     #$text_fid->flush();
     # ITS IMPORTANT CLOSE AND SELECT ARE BACK TO BACK! 
     close $text_fid;  select($old_fid);
-    civm_simple_util::printd(30,"... Closed.\n");
+    SAMBA_pipeline_utilities::printd(30,"... Closed.\n");
     return;
 }
 

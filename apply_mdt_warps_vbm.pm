@@ -15,7 +15,7 @@ use warnings;
 require Headfile;
 require SAMBA_pipeline_utilities;
 
-use civm_simple_util qw(printd $debug_val);
+use SAMBA_pipeline_utilities qw(printd $debug_val);
 use List::Util qw(max);
 
 

@@ -30,7 +30,7 @@ if (! defined($RADISH_PERL_LIB)) {
 use lib split(':',$RADISH_PERL_LIB);
 
 ## Example use of printd
-use civm_simple_util qw(activity_log printd $debug_val);
+use SAMBA_pipeline_utilities qw(activity_log printd $debug_val);
 activity_log();
 use SAMBA_pipeline_utilities;
 use Headfile;
