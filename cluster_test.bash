@@ -12,7 +12,6 @@ if ((! ${slurm_cluster}));then
 	cluster=1;
 elif ((! ${SGE_cluster}));then
 	cluster=2;
-	echo "Great News, Everybody! It looks like we're running on a cluster, which should speed things up tremendously!";
 fi
 
 if [[ ${chatterbox} ]];then
