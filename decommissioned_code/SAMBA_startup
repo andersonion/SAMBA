@@ -1,0 +1,10 @@
+#!/bin/bash
+# Custom SAMBA startup with frozen pipeline code including pipeline_utilities(:D ) shush now
+SPath="/cm/shared/workstation_code_dev/analysis/SAMBA_production";
+echo "frozen dance at ${SPath}";
+echo "adjust lib path from $RADISH_PERL_LIB";
+declare -x RADISH_PERL_LIB=$(echo $RADISH_PERL_LIB|sed -E "s:${WORKSTATION_HOME}/+shared/+pipeline_utilities:${SPath}/.pipeline_utilities:g");
+echo "to $RADISH_PERL_LIB";
+echo ${SPath}/vbm_pipeline_start.pl $@
+sleep 2
+${SPath}/vbm_pipeline_start.pl $@
