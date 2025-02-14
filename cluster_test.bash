@@ -3,10 +3,11 @@
 #Are we on a cluster? Asking for a friend...
 
 chatterbox=$1
+
 if [[ "x${chatterbox}x" == "xx" || "x${chatterbox}x" == "x0x"   ]];then
 	chatterbox=0;
 else
-	chattebox=1;
+	chatterbox=1;
 fi
 
 cluster=0;
@@ -20,7 +21,11 @@ elif ((! ${SGE_cluster}));then
 fi
 
 if ((${chatterbox}));then
-	echo "Great News, Everybody! It looks like we're running on a cluster, which should speed things up tremendously!";
+	if ((${cluster}));then
+		echo "Great News, Everybody! It looks like we're running on a cluster, which should speed things up tremendously!";
+	else
+		echo "Shucks! We're not running on a cluster, which will probably slow things down tremendously.";
+	fi
 fi
 
 echo ${cluster} && exit ${cluster};
