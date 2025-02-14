@@ -49,21 +49,16 @@ if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
 if (! defined $dims) {$dims = 3;}
 
-
-# 18 July 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths                                                                                                                                           
-
-use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH);
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH SAMBA_APPS_DIR);
 if (! defined($MATLAB_EXEC_PATH)) {
-    $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+    $MATLAB_EXEC_PATH =  "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA";
 }
 
 if (! defined($MATLAB_2015b_PATH)) {
-    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+    $MATLAB_2015b_PATH =  "${SAMBA_APPS_DIR}/MATLAB2015b_runtime/v90";
 }
 
-
-my $matlab_path =  "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";                                                                                                                                                          
-#my $matlab_path = '/cm/shared/apps/MATLAB/R2015b/'; #Need to make this more general, i.e. look somewhere else for the proper and/or current version. #Deprecated 22 August 2019
+my $matlab_path =  "${MATLAB_2015b_PATH}";
 
 # ------------------
 sub vbm_analysis_vbm {
@@ -941,63 +936,6 @@ sub make_custom_masks {
     return($jid);
 
 }
-
-# # ------------------
-# sub vbm_analysis_Output_check {
-# # ------------------
-
-#     my ($case) = @_;
-#     my $message_prefix ='';
-#     my ($file_1);
-#     my @file_array=();
-
-#     my $existing_files_message = '';
-#     my $missing_files_message = '';
-
-    
-#     if ($case == 1) {
-# 	$message_prefix = "  Prepared niftis have been found for the following runnos and will not be re-prepared:\n";
-#     } elsif ($case == 2) {
-# 	 $message_prefix = "  Unable to properly prepare niftis for the following runnos and channels:\n";
-#     }   # For Init_check, we could just add the appropriate cases.
-    
-#     foreach my $runno (@array_of_runnos) {
-# 	my $sub_existing_files_message='';
-# 	my $sub_missing_files_message='';
-	
-# 	foreach my $ch (@channel_array) {
-# 	    $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
-# 	    if ((data_double_check($file_1) ) || ((! $do_mask) &&  ($file_1 =~ /.*masked\.nii / ))) {
-# 		$go_hash{$runno}{$ch}=1;
-# 		push(@file_array,$file_1);
-# 		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
-# 	    } else {
-# 		$go_hash{$runno}{$ch}=0;
-# 		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
-# 	    }
-# 	}
-# 	if (($sub_existing_files_message ne '') && ($case == 1)) {
-# 	    $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
-# 	} elsif (($sub_missing_files_message ne '') && ($case == 2)) {
-# 	    $missing_files_message =$missing_files_message. $runno."\t".$sub_missing_files_message."\n";
-# 	}
-#     }
-     
-#     my $error_msg='';
-    
-#     if (($existing_files_message ne '') && ($case == 1)) {
-# 	$error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
-#     } elsif (($missing_files_message ne '') && ($case == 2)) {
-# 	$error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
-#     }
-     
-#     my $file_array_ref = \@file_array;
-#     return($file_array_ref,$error_msg);
-# }
-
-
-
-
 
 
 # ------------------

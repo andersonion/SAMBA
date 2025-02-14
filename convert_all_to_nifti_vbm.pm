@@ -27,15 +27,16 @@ use SAMBA_pipeline_utilities;
 
 # 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
 
-use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH SAMBA_APPS_DIR); 
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH SAMBA_APPS_DIR);
 if (! defined($MATLAB_EXEC_PATH)) {
-   $MATLAB_EXEC_PATH =  "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA";
+    $MATLAB_EXEC_PATH =  "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA";
 }
 
 if (! defined($MATLAB_2015b_PATH)) {
-    $MATLAB_2015b_PATH =  "${SAMBA_APPS_DIR}/MATLAB/R2015b/";
+    $MATLAB_2015b_PATH =  "${SAMBA_APPS_DIR}/MATLAB2015b_runtime/v90";
 }
 
+my $matlab_path =  "${MATLAB_2015b_PATH}";
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$flip_x,$flip_z,$do_mask);
 my (@array_of_runnos,@channel_array);
 my (%go_hash,%go_mask,%mask_hash);
@@ -46,7 +47,6 @@ my ($dummy,$error_message);
 
 
 my $working_image_orientation;
-my $matlab_path = "${MATLAB_2015b_PATH}";
 my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh";
 
 # ------------------

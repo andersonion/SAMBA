@@ -35,16 +35,16 @@ my $PM_code = 67;
 
 # 18 July 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths                                                                                               
 
-use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH);
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH SAMBA_APPS_DIR);
 if (! defined($MATLAB_EXEC_PATH)) {
-    $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+    $MATLAB_EXEC_PATH =  "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA";
 }
 
 if (! defined($MATLAB_2015b_PATH)) {
-    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+    $MATLAB_2015b_PATH =  "${SAMBA_APPS_DIR}/MATLAB2015b_runtime/v90";
 }
 
-my $matlab_path = ${MATLAB_2015b_PATH};
+my $matlab_path =  "${MATLAB_2015b_PATH}";
 #my $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec_v2.sh"; # James renamed on 9 August 2019, removing '_v2'
 my $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec.sh";
 

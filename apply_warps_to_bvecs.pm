@@ -11,12 +11,8 @@ my $NAME = "Application of affine transforms to bvecs.";
 my $DESC = "ants";
 
 
-use SAMBA_pipeline_utilities qw(printd $debug_val);
+use SAMBA_pipeline_utilities #qw(printd $debug_val);
 use List::Util qw(max);
-
-use pull_civm_tensor_data;
-
-
 my ($runlist,$current_path,$write_path_for_Hf);
 my ($pristine_inputs_dir);
 my ($template_name,$label_refname,$label_path);
@@ -28,10 +24,20 @@ my $job;
 my ($orientation,$ALS_to_RAS,$ecc_string,$ecc_affine_xform,$nifti_flip,$scanner_flip);#$native_to_ALS
 my ($results_dir,$final_MDT_results_dir,$almost_results_dir,$almost_MDT_results_dir,$median_images_path, $final_results_dir);
 
-my $matlab_path = "/cm/shared/apps/MATLAB/R2015b/";
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH SAMBA_APPS_DIR);
+if (! defined($MATLAB_EXEC_PATH)) {
+    $MATLAB_EXEC_PATH =  "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA";
+}
+
+if (! defined($MATLAB_2015b_PATH)) {
+    $MATLAB_2015b_PATH =  "${SAMBA_APPS_DIR}/MATLAB2015b_runtime/v90";
+}
+
+my $matlab_path =  "${MATLAB_2015b_PATH}";
+
 #my $bvec_transform_executable_path = "/nas4/rja20/bvec_transform_executable/AM/run_transform_bvecs.sh"; # Updated from 'AL' version, 7 June 2017, BJA
 #my $bvec_transform_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/bvec_transform_executable/20170607_1100/run_transform_bvecs.sh";
-my $bvec_transform_executable_path = "/cm/shared/workstation_code_dev/matlab_execs/transform_bvecs_executable/stable/run_transform_bvecs.sh"; # As of 25 January 2019, 'stable' points to '20190125_1444'
+my $bvec_transform_executable_path = "${MATLAB_EXEC_PATH}/transform_bvecs_executable/run_transform_bvecs.sh"; # As of 25 January 2019, 'stable' points to '20190125_1444'
 my ($current_contrast);
 my $current_label_space;
 
@@ -203,17 +209,11 @@ sub apply_affine_rotation {
     if ( ${original_bvecs} !~ m/b_?table/ ) { 
         $v_ok=0; } 
     if ( ! $v_ok || ! -e ${original_bvecs}) {
-        # On not finding them, try a re-init to fill that in.
-        pull_civm_tensor_data_Init_check();     
+        # On not finding them, try a re-init to fill that in.   
         ($v_ok,$original_bvecs ) = $Hf->get_value_check("original_bvecs_${runno}");
         if ( ${original_bvecs} !~ m/b_?table/ ) { 
             $v_ok=0; }
-        if ( ! $v_ok || ! -e ${original_bvecs}) {
-            # Still missing, or not reasonably set, try to fetch them
-            # (this is for new data... and will fail the pipeline on old data. :( )
-            pull_civm_tensor_data($runno,'b_table');
-            ($v_ok,$original_bvecs ) = $Hf->get_value_check("original_bvecs_${runno}");
-        }
+
         if ( ${original_bvecs} !~ m/b_?table/ ) { 
             $v_ok=0; }
         if ( ! $v_ok || ! -e ${original_bvecs}) {

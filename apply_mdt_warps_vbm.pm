@@ -15,7 +15,7 @@ use warnings;
 require Headfile;
 require SAMBA_pipeline_utilities;
 
-use SAMBA_pipeline_utilities qw(printd $debug_val);
+#use SAMBA_pipeline_utilities qw(printd $debug_val);
 use List::Util qw(max);
 
 
@@ -32,24 +32,18 @@ my $job;
 
 # 4 February 2020, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
 
-use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH SAMBA_APPS_DIR); 
 if (! defined($MATLAB_EXEC_PATH)) {
-   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+   $MATLAB_EXEC_PATH =  "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA";
 }
 
 if (! defined($MATLAB_2015b_PATH)) {
-    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+    $MATLAB_2015b_PATH =  "${SAMBA_APPS_DIR}/MATLAB2015b_runtime/v90";
 }
 
 
-my $matlab_path = "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
-my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exe.sh";
-
-if ( ! -f $img_transform_executable_path ){
-    # 14 October 2021, BJA: Don't understand how we perpetually have to fight the exe/exec way...
-    $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh";
-}
-
+my $matlab_path = "${MATLAB_2015b_PATH}";
+my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh";
 my $current_label_space;
 
 my $convert_images_to_RAS=0;

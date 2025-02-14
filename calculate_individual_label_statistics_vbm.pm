@@ -27,21 +27,19 @@ my $job;
 my $label_type;
 my $PM_code = 65;
 
-my $pipe_home = "/cm/shared/workstation_code_dev/analysis/SAMBA/";
-
 # 18 July 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths                                                                                                                                           
 
-use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH);
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH SAMBA_APPS_DIR);
 if (! defined($MATLAB_EXEC_PATH)) {
-    $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+    $MATLAB_EXEC_PATH =  "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA";
 }
 
 if (! defined($MATLAB_2015b_PATH)) {
-    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+    $MATLAB_2015b_PATH =  "${SAMBA_APPS_DIR}/MATLAB2015b_runtime/v90";
 }
 
 
-my $matlab_path =  "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";                                                                                                                                                          
+my $matlab_path =  "${MATLAB_2015b_PATH}";                                                                                                                                                          
 
 #my $compilation_date = "20180227_1439";#"20170616_2204"; Updated 27 Feb 2018, BJA--will now ignore any voxels with contrast values of zero (assumed to be masked)
 my $compilation_date = "stable";
