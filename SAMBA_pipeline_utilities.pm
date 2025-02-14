@@ -31,7 +31,7 @@ use Scalar::Util qw(looks_like_number);
 our $cluster_type = 1;
 
 
-my $PM="pipeline_utilities";
+my $PM="SAMBA_pipeline_utilities";
 my $VERSION = "250213";
 our $PIPELINE_NAME;
 our $PIPELINE_INFO;
@@ -1401,7 +1401,7 @@ sub get_nii_from_inputs {
 # 29 July 2023 --BJA: Turning of James' code since it is behaving poorly
 if (0) {
     my @found=civm_simple_util::find_file_by_pattern($inputs_dir,$pattern,1);
-    $error_msg="pipeline_utilities function get_nii_from_inputs: Unable to locate file using the input criteria:\n\t\$inputs_dir: ${inputs_dir}\n\t\$runno: $runno\n\t\$contrast: $contrast\n";
+    $error_msg="SAMBA_pipeline_utilities function get_nii_from_inputs: Unable to locate file using the input criteria:\n\t\$inputs_dir: ${inputs_dir}\n\t\$runno: $runno\n\t\$contrast: $contrast\n";
     # filter found to masked if(and only if) there are extra
     @found=grep /_masked/ ,@found if (scalar(@found) > 1);
 
@@ -1464,11 +1464,11 @@ if (0) {
             my $path= $inputs_dir.'/'.$input_file;
             return($path);
         } else {
-            $error_msg="pipeline_utilities function get_nii_from_inputs: Unable to locate file using the input criteria:\n\t\$inputs_dir: ${inputs_dir}\n\t\$runno: $runno\n\t\$contrast: $contrast\n";
+            $error_msg="SAMBA_pipeline_utilities function get_nii_from_inputs: Unable to locate file using the input criteria:\n\t\$inputs_dir: ${inputs_dir}\n\t\$runno: $runno\n\t\$contrast: $contrast\n";
             return($error_msg);
         }
     } else {
-        $error_msg="pipeline_utilities function get_nii_from_inputs: The input directory $inputs_dir does not exist.\n";
+        $error_msg="SAMBA_pipeline_utilities function get_nii_from_inputs: The input directory $inputs_dir does not exist.\n";
         return($error_msg);
     }
     # } # Comment out  if reactivating codeblock above (pairs with if (0) )
