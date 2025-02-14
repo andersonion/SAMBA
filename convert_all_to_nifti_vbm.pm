@@ -16,27 +16,24 @@ my $NAME = "Convert input data into the proper format, flipping x and/or z if ne
 use strict;
 use warnings;
 
-use Env qw(RADISH_PERL_LIB);
-if (! defined($RADISH_PERL_LIB)) {
-    print STDERR "Cannot find good perl directories, quitting\n";
-    exit;
-}
-use lib split(':',$RADISH_PERL_LIB);
+#use Env qw(RADISH_PERL_LIB);
+#if (! defined($RADISH_PERL_LIB)) {
+#    print STDERR "Cannot find good perl directories, quitting\n";
+#    exit;
+#}
+#use lib split(':',$RADISH_PERL_LIB);
 use Headfile;
 use SAMBA_pipeline_utilities;
-use pull_civm_tensor_data;
-#use vars used to be here
-
 
 # 25 June 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
 
-use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH SAMBA_APPS_DIR); 
 if (! defined($MATLAB_EXEC_PATH)) {
-   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+   $MATLAB_EXEC_PATH =  "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA";
 }
 
 if (! defined($MATLAB_2015b_PATH)) {
-    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+    $MATLAB_2015b_PATH =  "${SAMBA_APPS_DIR}/MATLAB/R2015b/";
 }
 
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$flip_x,$flip_z,$do_mask);
@@ -49,8 +46,7 @@ my ($dummy,$error_message);
 
 
 my $working_image_orientation;
-my $matlab_path = "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
-#my $img_transform_executable_path = "/glusterspace/BJ/img_transform_executable/AE/run_img_transform_exe.sh";
+my $matlab_path = "${MATLAB_2015b_PATH}";
 my $img_transform_executable_path ="${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh";
 
 # ------------------
@@ -60,120 +56,81 @@ sub convert_all_to_nifti_vbm {
 # could use image name (suffix) to figure out datatype
     ($skip) = @_;
     if ( ! defined($skip) || (defined($skip) && $skip eq '' )  ) {$skip = 0;}
-    my $start_time = time;
-    my $run_again = 1;  
-    my $second_run=0;  
-    while ($run_again) {
-        convert_all_to_nifti_vbm_Runtime_check();
+    my $start_time = time;   
+	convert_all_to_nifti_vbm_Runtime_check();
 
-        my @nii_cmds;
-        my @nii_files;
+	my @nii_cmds;
+	my @nii_files;
 
 
-        foreach my $runno (@array_of_runnos) {
-            foreach my $ch (@channel_array) {
-                my $go = $go_hash{$runno}{$ch};
-                if ($go) {
-                    my $job;
-                    my $current_file=get_nii_from_inputs($in_folder,$runno,$ch);
-                    my $Hf_key = "original_orientation_${runno}";
-                    #my $Hf_key = "original_orientation_${runno}_${ch}";# May need to evolve to where each image is checked for proper orientation.
-                    my $current_orientation= $Hf->get_value($Hf_key);# Insert orientation finder function here? No, want to out-source, I think.
-                    if ($current_orientation eq 'NO_KEY') {
-                        $Hf_key = "original_study_orientation";
-                        $current_orientation= $Hf->get_value($Hf_key);
-                        if ($current_orientation eq 'NO_KEY') {
-                            if ((defined $flip_x) || ($flip_z)) { # Going to assume that these archaic notions will come in pairs.
-                                if (($flip_x) && ($flip_z)) {
-                                    $current_orientation = 'PLI';
-                                } elsif ($flip_x) {
-                                    $current_orientation = 'PRS';
-                                } elsif ($flip_z) {
-                                    $current_orientation = 'ARI';
-                                } else {
-                                    $current_orientation = 'ALS';
-                                }
-                            } else {
-                                $current_orientation = 'ALS';
-                            }
-                        }
-                    } else {
-                        print "Using custom orientation for runno $runno: $current_orientation.\n\n";
-                    }
+	foreach my $runno (@array_of_runnos) {
+		foreach my $ch (@channel_array) {
+			my $go = $go_hash{$runno}{$ch};
+			if ($go) {
+				my $job;
+				my $current_file=get_nii_from_inputs($in_folder,$runno,$ch);
+				my $Hf_key = "original_orientation_${runno}";
+				#my $Hf_key = "original_orientation_${runno}_${ch}";# May need to evolve to where each image is checked for proper orientation.
+				my $current_orientation= $Hf->get_value($Hf_key);# Insert orientation finder function here? No, want to out-source, I think.
+				if ($current_orientation eq 'NO_KEY') {
+					$Hf_key = "original_study_orientation";
+					$current_orientation= $Hf->get_value($Hf_key);
+					if ($current_orientation eq 'NO_KEY') {
+						if ((defined $flip_x) || ($flip_z)) { # Going to assume that these archaic notions will come in pairs.
+							if (($flip_x) && ($flip_z)) {
+								$current_orientation = 'PLI';
+							} elsif ($flip_x) {
+								$current_orientation = 'PRS';
+							} elsif ($flip_z) {
+								$current_orientation = 'ARI';
+							} else {
+								$current_orientation = 'ALS';
+							}
+						} else {
+							$current_orientation = 'ALS';
+						}
+					}
+				} else {
+					print "Using custom orientation for runno $runno: $current_orientation.\n\n";
+				}
 
 
-                    if ($current_file =~ /[\n]+/) {
-                        print "Unable to find input image for $runno and $ch in folder: ${in_folder}.\n";
-                    } else {
-                        # push(@nii_files,$current_file);
-                        my $please_recenter=1; # Currently, this is stuck "on", as we can't turn it off in our function.
-                        ($job) =  set_center_and_orientation_vbm($current_file,$current_path,$current_orientation,$working_image_orientation,$please_recenter);
-                        if ($job) {
-                            push(@jobs,$job);
-                        }
-                    }
-                }
-            }
-        }
-        # if ($nii_files[0] ne '') {
-        #       my $message="\n$PM:\nThe following files will be prepared by Matlab for the VBM pipeline:\n".
-        #           join("\n",@nii_files)."\n\n";
-        #       print "$message";
-        # }
-        # foreach my $file (@nii_files) {
-        #       recenter_nii_function($file,$current_path,$skip,$Hf);
-        # }
-        
-        if (cluster_check() && (@jobs)) {
-            my $interval = 2;
-            my $verbose = 1;
-            my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-            
-            if ($done_waiting) {
-                print STDOUT  " Reorienting and recentering for all input images is complete; moving on to next step.\n";
-            }
-        }
+				if ($current_file =~ /[\n]+/) {
+					print "Unable to find input image for $runno and $ch in folder: ${in_folder}.\n";
+				} else {
+					# push(@nii_files,$current_file);
+					my $please_recenter=1; # Currently, this is stuck "on", as we can't turn it off in our function.
+					($job) =  set_center_and_orientation_vbm($current_file,$current_path,$current_orientation,$working_image_orientation,$please_recenter);
+					if ($job) {
+						push(@jobs,$job);
+					}
+				}
+			}
+		}
+	}
 
-        my $case = 2;
-        ($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
+	if (cluster_check() && (@jobs)) {
+		my $interval = 2;
+		my $verbose = 1;
+		my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+		
+		if ($done_waiting) {
+			print STDOUT  " Reorienting and recentering for all input images is complete; moving on to next step.\n";
+		}
+	}
 
-        
-        #my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time); #moved outside of while loop.
-        #print "$PM took ${real_time} seconds to complete.\n";
+	my $case = 2;
+	($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
 
-        if (($error_message eq '') || ($second_run)) {
-            $run_again = 0;
-        } else {
-            if ($civm_ecosystem) {
-                print STDOUT " Several jobs have failed, possibly because the input files were not in the right place.\nAttempting to automatically find inputs...\n";
-                # this call to get data is very seriously miss-placed. 
-                # it forced that code to be terribly smart about what was missing or not.
-                # New design goal is to let existing tools do their jobs. 
-                # internally pull_civm_tensor_data relies on pull_many calling puller_simple to decide to do work or not. 
-                pull_civm_tensor_data();
-                $second_run=1;
-            } else {
-                error_out("${error_message}",0);
-            }
-        }
-
-    }
+	if (($error_message eq '')) {
+		error_out("${error_message}",0);
+	}
 
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time);
     print "$PM took ${real_time} seconds to complete.\n";
     if ($error_message ne '') {
         error_out("${error_message}",0);
-    } 
-    # else { # Deprecated with advent of matlab executables. #BJA, 11 August 2017
-    # # Clean up matlab junk
-    #   my $test_string = `ls ${work_dir} `;
-    #   if ($test_string =~ /.m$/) {
-    #       `rm ${work_dir}/*.m`;
-    #   }
-    #   if ($test_string =~ /matlab/) {
-    #       `rm ${work_dir}/*matlab*`;
-    #   }
-    # }
+    }
 }
 
 

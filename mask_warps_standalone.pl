@@ -16,12 +16,12 @@ use warnings;
 use Env qw(ANTSPATH PATH);
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 #use lib dirname(abs_path($0));
-use Env qw(RADISH_PERL_LIB);
-if (! defined($RADISH_PERL_LIB)) {
-    print STDERR "Cannot find good perl directories, quitting\n";
-    exit;
-}
-use lib split(':',$RADISH_PERL_LIB);
+#use Env qw(RADISH_PERL_LIB);
+#if (! defined($RADISH_PERL_LIB)) {
+#    print STDERR "Cannot find good perl directories, quitting\n";
+#    exit;
+#}
+#use lib split(':',$RADISH_PERL_LIB);
 
 require SAMBA_pipeline_utilities;
 
