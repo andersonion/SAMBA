@@ -3,6 +3,11 @@
 #Are we on a cluster? Asking for a friend...
 
 chatterbox=$1
+if [[ "x${chatterbox}x" == "xx" || "x${chatterbox}x" == "x0x"   ]];then
+	chatterbox=0;
+else
+	chattebox=1;
+fi
 
 cluster=0;
 SGE_cluster=$(qstat  2>&1 | grep 'command not found' | wc -l | tr -d [:space:]);
@@ -14,7 +19,7 @@ elif ((! ${SGE_cluster}));then
 	cluster=2;
 fi
 
-if [[ ${chatterbox} ]];then
+if ((${chatterbox}));then
 	echo "Great News, Everybody! It looks like we're running on a cluster, which should speed things up tremendously!";
 fi
 
