@@ -16,13 +16,13 @@ my $NAME = "Convert input data into the proper format, flipping x and/or z if ne
 use strict;
 use warnings;
 
-use Env qw(RADISH_PERL_LIB);
-if (! defined($RADISH_PERL_LIB)) {
-    print STDERR "Cannot find good perl directories, quitting\n";
-    exit;
-}
-use lib split(':',$RADISH_PERL_LIB);
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
+#use Env qw(RADISH_PERL_LIB);
+#if (! defined($RADISH_PERL_LIB)) {
+#    print STDERR "Cannot find good perl directories, quitting\n";
+#    exit;
+#}
+#use lib split(':',$RADISH_PERL_LIB);
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS ATLAS_FOLDER);
 
 use Headfile;
 use SAMBA_pipeline_utilities;
@@ -41,16 +41,15 @@ my ($job);
 
 use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH); 
 if (! defined($MATLAB_EXEC_PATH)) {
-   $MATLAB_EXEC_PATH =  "/cm/shared/workstation_code_dev/matlab_execs";
+   $MATLAB_EXEC_PATH =  "${SAMBA_APPS_DIR}/matlab_execs";
 }
 
 if (! defined($MATLAB_2015b_PATH)) {
-    $MATLAB_2015b_PATH =  "/cm/shared/apps/MATLAB/R2015b/";
+    $MATLAB_2015b_PATH =  "${SAMBA_APPS_DIR}/MATLAB/R2015b/";
 }
 
 
-my $matlab_path =  "${MATLAB_2015b_PATH}";#"/cm/shared/apps/MATLAB/R2015b/";
-#my $strip_mask_executable_path = "${MATLAB_EXEC_PATH}/strip_mask_executable/20170727_1304/run_strip_mask_exec.sh";
+my $matlab_path =  "${MATLAB_2015b_PATH}";
 my $strip_mask_executable_path = "${MATLAB_EXEC_PATH}/strip_mask_executable/run_strip_mask_exec.sh"; 
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
@@ -593,7 +592,7 @@ sub mask_images_vbm_Init_check {
         if (($rigid_contrast eq 'NO_KEY') || ($rigid_contrast eq 'UNDEFINED_VALUE')){
             $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.\n";
         } else {
-            my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
+            my $rigid_atlas_dir   = "${ATLAS_FOLDER}/${rigid_atlas_name}/";
             if (! -d $rigid_atlas_dir) {
                 if ($rigid_atlas_dir =~ s/\/data/\/CIVMdata/) {}
             }
@@ -642,7 +641,7 @@ sub mask_images_vbm_Init_check {
 
     if ($do_mask eq 'NO_KEY') { $do_mask=0;}
         if ($port_atlas_mask eq 'NO_KEY') { $port_atlas_mask=0;}
-        my $default_mask = "${WORKSTATION_DATA}/atlas/chass_symmetric2/chass_symmetric2_mask.nii.gz"; ## Set default mask for porting here!
+        my $default_mask = "${ATLAS_FOLDER}/chass_symmetric2/chass_symmetric2_mask.nii.gz"; ## Set default mask for porting here!
         if (! -f $default_mask) {
             if ($default_mask =~ s/\/data/\/CIVMdata/) {
                 if (! -f $default_mask) {

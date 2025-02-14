@@ -23,26 +23,19 @@ use List::MoreUtils qw(uniq);
 
 use Env qw(HOSTNAME);
 
-use Env qw(RADISH_PERL_LIB);
-if (! defined($RADISH_PERL_LIB)) {
-    print STDERR "Cannot find good perl directories, quitting\n";
-    exit;
-}
-use lib split(':',$RADISH_PERL_LIB);
+#use Env qw(RADISH_PERL_LIB);
+#if (! defined($RADISH_PERL_LIB)) {
+#    print STDERR "Cannot find good perl directories, quitting\n";
+#    exit;
+#}
+#use lib split(':',$RADISH_PERL_LIB);
 
 #use vars used to be here
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME HOME);
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS ATLAS_LIBRARY);
 
 use text_sheet_utils;
 
-## This may be hacky, but I'm sick of trying to point this to the right place. 19 December 2017
-if (! -d $WORKSTATION_DATA) {
-    if ($WORKSTATION_DATA =~ s/\.\.\/data/\.\.\/CIVMdata/) {}
-}
-#print "WORKSTATION_DATA = ${WORKSTATION_DATA}\n\n\n";
-
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
-$ENV{'WORKSTATION_HOME'}="/cm/shared/workstation_code_dev";
 $GOODEXIT = 0;
 $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
@@ -67,21 +60,14 @@ $test_mode = 0;
 umask(002);
 
 use lib dirname(abs_path($0));
-use Env qw(RADISH_PERL_LIB WORKSTATION_DATA);
-if (! defined($RADISH_PERL_LIB)) {
-    print STDERR "Cannot find good perl directories, quitting\n";
-    exit;
-}
-use lib split(':',$RADISH_PERL_LIB);
-
 
 # use ...
 use Headfile;
-use SAMBA_pipeline_utilities qw(sleep_with_countdown    );
-use retrieve_archived_data;
+use SAMBA_pipeline_utilities #qw(sleep_with_countdown  );
+#use retrieve_archived_data;
 use study_variables_vbm;
-use ssh_call;
-use pull_civm_tensor_data;
+#use ssh_call;
+#use pull_civm_tensor_data;
 
 use convert_all_to_nifti_vbm;
 use set_reference_space_vbm;
@@ -383,11 +369,10 @@ $Hf->set_value('number_of_nodes_used',$nodes);
 
 $rigid_transform_suffix='rigid.mat';
 $affine_transform_suffix='affine.mat';
-$affine_identity_matrix="$WORKSTATION_DATA/identity_affine.mat";
+$affine_identity_matrix="${SAMBA_PATH}/identity_affine.mat";
 if (! -f $affine_identity_matrix) {
-    my $SAMBA_PATH = dirname(__FILE__);
-    #$affine_identity_matrix="${HOME}/SAMBA/identity_affine.mat"; # Need better handling of SAMBA directory
-    $affine_identity_matrix="${SAMBA_PATH}/identity_affine.mat"; # Hopefully this is better handling of the SAMBA directory. 3 December 2019, BJA
+    my $EMP_SAMBA_PATH = dirname(__FILE__);
+    $affine_identity_matrix="${EMP_SAMBA_PATH}/identity_affine.mat"; # Hopefully this is better handling of the SAMBA directory. 3 December 2019, BJA
 }
 
 ##
@@ -467,16 +452,16 @@ $timestamped_inputs_file =~ s/\.txt$/\.headfile/;
 {
     my ($p,$n,$e)=fileparts($start_file,3);
     my $u_name=(getpwuid $>)[0];
-    my $cached_path=File::Spec->catfile($WORKSTATION_DATA,'samba_startup_cache',$u_name.'_'.$n.$e);
-    my $cached_folder=File::Spec->catfile($WORKSTATION_DATA,'samba_startup_cache');
+    my $cached_path=File::Spec->catfile(${BIGGUS_DISKUS},'samba_startup_cache',$u_name.'_'.$n.$e);
+    my $cached_folder=File::Spec->catfile(${BIGGUS_DISKU},'samba_startup_cache');
 
     if ( ! -d ${cached_folder} ) {
-	print "Cached folder does not exist. Attempting to create:\n\t${cached_folder}.\n";
-	`mkdir -p -m 775 ${cached_folder}`;
+		print "Cached folder does not exist. Attempting to create:\n\t${cached_folder}.\n";
+		`mkdir -p -m 775 ${cached_folder}`;
     }
     
     if ( ! -d ${cached_folder} ) {
-	print "Unable to create public cached folder: ${cached_folder}.\n\tWill not copy start file ${start_file}.\n";
+		print "Unable to create public cached folder: ${cached_folder}.\n\tWill not copy start file ${start_file}.\n";
     } else {
         `cp -p $start_file $cached_path`;
     }
