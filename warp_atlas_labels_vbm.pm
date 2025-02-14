@@ -235,8 +235,8 @@ sub resolve_transform_chain {
 # ------------------
 
 my ($chain_comma_string,$direction) = @_;
-use Env('WORKSTATION_DATA');
-my $atlases_path="${WORKSTATION_DATA}/atlas";
+use Env('ATLAS_FOLDER');
+my $atlases_path="${ATLAS_FOLDER}";
 if (! defined $direction) {$direction =1;}
 
 my $transform_chain='';
