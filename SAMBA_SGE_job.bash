@@ -1,4 +1,4 @@
-#!/bin/bash
+#! /bin/env bash
 #SBATCH 
 #SBATCH --reservation=
 #SBATCH  --mem=8000 
