@@ -23,6 +23,13 @@ fi
 if ((${chatterbox}));then
 	if ((${cluster}));then
 		echo "Great News, Everybody! It looks like we're running on a cluster, which should speed things up tremendously!";
+		if [[ ${cluster} -eq 1 ]];then
+			echo "Cluster type: SLURM"
+		elif [[ ${cluster} -eq 2 ]];then
+			echo "Cluster type: SGE"
+		else
+			echo "Cluster type: CURRENTLY UNDEFINED"
+		fi
 	else
 		echo "Shucks! We're not running on a cluster, which will probably slow things down tremendously.";
 	fi
