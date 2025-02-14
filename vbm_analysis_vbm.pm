@@ -31,7 +31,7 @@ my ($predictor_id);
 my (@group_1_runnos,@group_2_runnos);
 my (%go_hash,%go_mask,%smooth_pool_hash,%results_dir_hash,%work_dir_hash);
 my $log_msg='';
-my $supported_vbm_software = '(surfstat|spm|ANTsR|fsl|nonparametric)';
+my $supported_vbm_software = '(surfstat|spm|fsl|nonparametric)';
 my $skip=0;
 my ($job);
 my @jobs=();
@@ -122,11 +122,6 @@ sub vbm_analysis_vbm {
 		    }
 		} elsif ($software eq 'spm') {
 		    spm_analysis_vbm($contrast,$smooth_inputs,$software_work_path);
-		} elsif ($software eq 'antsr') {
-		    my @local_jobs =  antsr_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
-		    if (@local_jobs) {
-			push(@all_jobs,@local_jobs);
-		    }
 		} elsif ($software eq 'fsl') {
 		    my (@local_jobs) = fsl_nonparametric_analysis_vbm($contrast,$smooth_inputs,$software_results_path);
 		    if (@local_jobs) {
@@ -161,137 +156,6 @@ sub vbm_analysis_vbm {
     print "$PM took ${real_time} seconds to complete.\n";
     
     
-}
-
-
-# # ------------------
-# sub vbm_analysis_Output_check {
-# # ------------------
-
-#     my ($case) = @_;
-#     my $message_prefix ='';
-#     my ($file_1);
-#     my @file_array=();
-
-#     my $existing_files_message = '';
-#     my $missing_files_message = '';
-
-    
-#     if ($case == 1) {
-# 	$message_prefix = "  Prepared niftis have been found for the following runnos and will not be re-prepared:\n";
-#     } elsif ($case == 2) {
-# 	 $message_prefix = "  Unable to properly prepare niftis for the following runnos and channels:\n";
-#     }   # For Init_check, we could just add the appropriate cases.
-    
-#     foreach my $runno (@array_of_runnos) {
-# 	my $sub_existing_files_message='';
-# 	my $sub_missing_files_message='';
-	
-# 	foreach my $ch (@channel_array) {
-# 	    $file_1 = get_nii_from_inputs($current_path,$runno,$ch);
-# 	    if ((data_double_check($file_1) ) || ((! $do_mask) &&  ($file_1 =~ /.*masked\.nii / ))) {
-# 		$go_hash{$runno}{$ch}=1;
-# 		push(@file_array,$file_1);
-# 		$sub_missing_files_message = $sub_missing_files_message."\t$ch";
-# 	    } else {
-# 		$go_hash{$runno}{$ch}=0;
-# 		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
-# 	    }
-# 	}
-# 	if (($sub_existing_files_message ne '') && ($case == 1)) {
-# 	    $existing_files_message = $existing_files_message.$runno."\t".$sub_existing_files_message."\n";
-# 	} elsif (($sub_missing_files_message ne '') && ($case == 2)) {
-# 	    $missing_files_message =$missing_files_message. $runno."\t".$sub_missing_files_message."\n";
-# 	}
-#     }
-     
-#     my $error_msg='';
-    
-#     if (($existing_files_message ne '') && ($case == 1)) {
-# 	$error_msg =  "$PM:\n${message_prefix}${existing_files_message}\n";
-#     } elsif (($missing_files_message ne '') && ($case == 2)) {
-# 	$error_msg =  "$PM:\n${message_prefix}${missing_files_message}\n";
-#     }
-     
-#     my $file_array_ref = \@file_array;
-#     return($file_array_ref,$error_msg);
-# }
-
-
-# ------------------
-sub antsr_analysis_vbm {
-# ------------------
-    my ($contrast,$input_path,$results_master_path) = @_;
-    my $contrast_path = "${results_master_path}/${contrast}/";
-    if (! -e $contrast_path) {
-	mkdir ($contrast_path,$permissions);
-    }
-
-    my $antsr_args ="\'$contrast\', \'${average_mask}'\, \'${input_path}\', \'${input_path}\', \'${contrast_path}\', \'${group_1_name}\', \'${group_2_name}\',\'${group_1_files}\',\'${group_2_files}\',\'${min_cluster_size}\'";
-
-    my $Id = "ANTsR_VBA_for_${contrast}";
-    my $in_source = "/home/rja20/cluster_code/workstation_code/analysis/vbm_pipe/ANTsR_vba_fx.R";
-    my $function = "ANTsR_vba";
-    my ($stub_path,$R_function,$R_args,$source) = make_R_stub($function,$antsr_args,$Id,$contrast_path,$in_source);
-    my $copy_of_function_command='';
-
-    open(my $fh, '<:encoding(UTF-8)', $source)
-	or die "Could not open file '$source' $!";
-		
-    while (my $row = <$fh>) {
-#	chomp $row;
-	#print "$row\n";
-	$copy_of_function_command = $copy_of_function_command."\## ".$row;
-    }
-    close($fh);
-
-    # if (open SESAME, ">$source") {
-    #   foreach my $line (@msg) {
-    #     print SESAME $line;
-    #   }
-    #   close SESAME;
-    #   print STDERR "  Wrote or re-wrote $filepath.\n";
-    # }
-    # else {
-    #   print STDERR  "ERROR: Cannot open file $filepath, can\'t writeTextFile\n";
-    #   return 0;
-    # }
-
-    my @test = (0);
-    my $go_message = "I guess we're testing out ANTsR vbm analysis here...\n";
-    my $mem_request = '120000';
-    my $antsr_command = "Rscript ${stub_path} --save\n"; 
-    print "ANTsR command = ${antsr_command}\n";
-
-    if (defined $reservation) {
-	@test =(0,$reservation);
-    }
-    
-    my $jid = 0;
-    if (cluster_check) {    
-     	my $cmd = $antsr_command.$copy_of_function_command;
-	my $go = 1;
-     	my $home_path = $contrast_path;
-    	my $batch_folder = $home_path.'/sbatch/';
-#    	my $Id= "${moving_runno}_to_${fixed_runno}_create_pairwise_warp";
-    	my $verbose = 2; # Will print log only for work done.
-    	$jid = cluster_exec($go, $go_message, $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-    	if (not $jid) {
-    	    error_out();
-    	}
-    } # else {
-    # 	my @cmds = ($pairwise_cmd,  "ln -s ${out_warp} ${new_warp}", "ln -s ${out_inverse} ${new_inverse}","rm ${out_affine} ");
-    # 	if (! execute($go, $go_message, @cmds) ) {
-    # 	    error_out($stop_message);
-    # 	}
-    # }
-
-    # if (((!-e $new_warp) | (!-e $new_inverse)) && ($jid == 0)) {
-    # 	error_out($stop_message);
-    # }
-    # print "** $PM expected output: ${new_warp} and ${new_inverse}\n";
-  
-    return($jid);
 }
 
 # ------------------
@@ -1159,17 +1023,12 @@ sub vbm_analysis_vbm_Init_check {
     
     $software_list = '';
     my @temp_software_array;
-    my $cluster_stats=0;
-    
     foreach my $software (@software_array) {
 	if ($software =~ /${supported_vbm_software}/i) {
 	    if ($software =~ /^surfstat$/i) {
 		$software = 'surfstat';
 	    } elsif ($software =~ /^spm$/i) {
 		$software = 'spm';
-	    } elsif ($software =~ /^antsr$/i) {
-		$software = 'antsr';
-		$cluster_stats = 1;
 	    } elsif ($software =~ /^fsl$/i) {
 		$software = 'fsl';
 		$log_msg = $log_msg."\tNon-parametric testing will be performed with: ${software}. \n";
@@ -1237,13 +1096,6 @@ sub vbm_analysis_vbm_Init_check {
     $software_list = join(',',@temp_software_array);
     $Hf->set_value('vba_analysis_software',$software_list);
     $min_cluster_size = $Hf->get_value('minimum_vba_cluster_size');
-    if (($min_cluster_size eq 'NO_KEY') && ($cluster_stats)) {
-	$min_cluster_size = 200; 
-	$Hf->set_value('minimum_vba_cluster_size',$min_cluster_size);
-	$log_msg = $log_msg."\tMinimum cluster size for ANTsR VBA cluster analysis not specified; using default of 200.\n";
-	print "min_cluster_size = ${min_cluster_size}\n";
-    }
-
     $fdr_masks = $Hf->get_value('fdr_masks');
     if ($fdr_masks eq 'NO_KEY') {
 	@fdr_mask_array=();
