@@ -23,7 +23,7 @@ if (! defined($RADISH_PERL_LIB)) {
 }
 use lib split(':',$RADISH_PERL_LIB);
 
-require pipeline_utilities;
+require SAMBA_pipeline_utilities;
 
 
 my ($current_path,$template_contrast,$erode_radius);

@@ -13,7 +13,7 @@ use warnings;
 
 #use vars used to be here
 require Headfile;
-require pipeline_utilities;
+require SAMBA_pipeline_utilities;
 
 use civm_simple_util qw(printd $debug_val);
 use List::Util qw(max);

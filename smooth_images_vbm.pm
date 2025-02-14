@@ -16,7 +16,7 @@ use warnings;
 
 #use vars used to be here
 require Headfile;
-require pipeline_utilities;
+require SAMBA_pipeline_utilities;
 
 if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 

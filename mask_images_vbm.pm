@@ -25,7 +25,7 @@ use lib split(':',$RADISH_PERL_LIB);
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS WORKSTATION_DATA WORKSTATION_HOME PIPELINE_PATH);
 
 use Headfile;
-use pipeline_utilities;
+use SAMBA_pipeline_utilities;
 
 my ($current_path, $work_dir,$runlist,$ch_runlist,$in_folder,$out_folder,$do_mask,$mask_dir,$template_contrast);
 my ($thresh_ref,$mask_threshold,$default_mask_threshold,$num_morphs,$morph_radius,$dim_divisor, $status_display_level);

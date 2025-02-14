@@ -11,7 +11,7 @@ my $NAME = "Calculate label-wide statistics for all contrast, for an individual 
 use strict;
 use warnings;
 require Headfile;
-require pipeline_utilities;
+require SAMBA_pipeline_utilities;
 use List::MoreUtils qw(uniq);
 
 my ($current_path, $image_dir,$work_dir,$runlist,$ch_runlist,$in_folder,$out_folder);

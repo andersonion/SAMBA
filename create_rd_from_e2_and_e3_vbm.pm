@@ -16,7 +16,7 @@ use warnings;
 
 #use vars used to be here
 require Headfile;
-require pipeline_utilities;
+require SAMBA_pipeline_utilities;
 
 
 my ($channel_comma_list,$runlist,$work_path,$current_path,$inputs_dir);

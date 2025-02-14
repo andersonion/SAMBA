@@ -14,7 +14,7 @@ use warnings;
 
 #use vars used to be here
 require Headfile;
-require pipeline_utilities;
+require SAMBA_pipeline_utilities;
 use List::MoreUtils qw(uniq);
 
 my ($current_path,$in_folder,$out_folder);

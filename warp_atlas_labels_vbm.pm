@@ -14,7 +14,7 @@ use strict;
 use warnings;
 
 require Headfile;
-require pipeline_utilities;
+require SAMBA_pipeline_utilities;
 use civm_simple_util qw(find_file_by_pattern);
 use List::Util qw(max);
 

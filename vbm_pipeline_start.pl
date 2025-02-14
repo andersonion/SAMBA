@@ -32,7 +32,7 @@ use lib split(':',$RADISH_PERL_LIB);
 ## Example use of printd
 use civm_simple_util qw(activity_log printd $debug_val);
 activity_log();
-use pipeline_utilities;
+use SAMBA_pipeline_utilities;
 use Headfile;
 
 use lib dirname(abs_path($0));
@@ -117,8 +117,8 @@ if ($reservation) {
 }
 umask(002);
 
-#my $custom_pipeline_utilities_path ="${WORKSTATION_HOME}/shared/cluster_pipeline_utilities/"; #11 April 2017, BJA: I think this was to avoid having to reconcile our pipeline_utility functions. We might be able to delete that whole folder.
-#$RADISH_PERL_LIB=$custom_pipeline_utilities_path.':'.$RADISH_PERL_LIB;
+#my $custom_SAMBA_pipeline_utilities_path ="${WORKSTATION_HOME}/shared/cluster_SAMBA_pipeline_utilities/"; #11 April 2017, BJA: I think this was to avoid having to reconcile our pipeline_utility functions. We might be able to delete that whole folder.
+#$RADISH_PERL_LIB=$custom_SAMBA_pipeline_utilities_path.':'.$RADISH_PERL_LIB;
 
 # require ...
 require study_variables_vbm;
