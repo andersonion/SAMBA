@@ -1,5 +1,5 @@
 #!/bin/env bash  
-
+# 14 February 2025 (Friday), BJ Anderson
 #Are we on a cluster? Asking for a friend...
 
 chatterbox=$1
