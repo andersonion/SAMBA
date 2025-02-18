@@ -57,6 +57,10 @@ sub mask_for_mdt_vbm {
     if ($go) {
 	my $mask_source="${current_path}/MDT_${template_contrast}\.nii.gz";    #.gz added 22 October 2015   
 	my $raw_mask_path = "${current_path}/MDT_mask\.nii.gz";
+	my @test=(0);
+	if (defined $reservation) {
+		@test =(0,$reservation);
+    }
 	
 	if ($mdt_skull_strip) {         
 	    my $mask_threshold = $default_mask_threshold;
