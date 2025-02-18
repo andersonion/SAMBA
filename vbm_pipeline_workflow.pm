@@ -31,9 +31,8 @@ use Env qw(HOSTNAME);
 #use lib split(':',$RADISH_PERL_LIB);
 
 #use vars used to be here
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS ATLAS_LIBRARY);
-
-use text_sheet_utils;
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS ATLAS_LIBRARY SAMBA_CACHE_DIR);
+#use text_sheet_utils;
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 $GOODEXIT = 0;
@@ -451,9 +450,17 @@ $timestamped_inputs_file =~ s/\.txt$/\.headfile/;
 # caching inputs to common location for all to admire
 {
     my ($p,$n,$e)=fileparts($start_file,3);
-    my $u_name=(getpwuid $>)[0];
-    my $cached_path=File::Spec->catfile(${BIGGUS_DISKUS},'samba_startup_cache',$u_name.'_'.$n.$e);
-    my $cached_folder=File::Spec->catfile(${BIGGUS_DISKU},'samba_startup_cache');
+    #my $u_name=(getpwuid $>)[0];
+    #my $cached_path=File::Spec->catfile(${BIGGUS_DISKUS},'samba_startup_cache',$u_name.'_'.$n.$e);
+    #my $cached_folder=File::Spec->catfile(${BIGGUS_DISKU},'samba_startup_cache');
+    
+    my $cached_folder=${SAMBA_CACHE_DIR};
+    if (! defined ${cached_folder} || ! -e ${cached_folders} ) {
+    	cached_folder="${BIGGUS_DISKUS}/samba_startup_cache";
+    }
+    
+    my $u_name=${USER};
+    my $cached_path=File::Spec->catfile(${cached_folder},$u_name.'_'.$n.$e);
 
     if ( ! -d ${cached_folder} ) {
 		print "Cached folder does not exist. Attempting to create:\n\t${cached_folder}.\n";
