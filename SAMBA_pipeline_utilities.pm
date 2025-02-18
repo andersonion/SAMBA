@@ -117,7 +117,6 @@ read_refspace_txt
 round
 run_and_watch
 sleep_with_countdown
-slow_file_check
 symbolic_link_cleanup
 whoami
 whowasi
@@ -243,15 +242,15 @@ sub cluster_exec {
 
     my $default_memory = 24870;#int(154000);# 40960; # This is arbitrarily set at 40 Gb at first, now 150 Gb for Premont study.
     if (! defined $verbose) {$verbose = 1;}
-    if ($test) {
-        #$queue_command = "-p overload";#"-p matlab";#Not sure why switched from overload to matlab...have now switched back.
-        #$time_command = "-t 15"; # -t 180
-        #push(@sbatch_commands,$time_command); 
-        #$queue_command = "-p high_priority";
-        $queue_command = "-p slow_master"; # Trying this for now...otherwise, gets stuck behind CSrecon singleton jobs.
-    } elsif ($custom_q == 1) {
+    #if ($test) {
+    #    #$queue_command = "-p overload";#"-p matlab";#Not sure why switched from overload to matlab...have now switched back.
+    #    #$time_command = "-t 15"; # -t 180
+    #    #push(@sbatch_commands,$time_command); 
+    #    #$queue_command = "-p high_priority";
+    #    $queue_command = "-p slow_master"; # Trying this for now...otherwise, gets stuck behind CSrecon singleton jobs.
+    #} elsif ($custom_q == 1) {
         $queue_command = "-p $my_queue";
-    }
+    #}
     push(@sbatch_commands,$queue_command);
 
    # push(@sbatch_commands,"-m cyclic");    
@@ -930,84 +929,28 @@ sub create_explicit_inverse_of_ants_affine_transform {
 #---------------------
 sub data_double_check { # Checks a list of files; if a file is a link, double checks to make sure that it eventually lands on a real file.
 # ------------------    # Subroutine returns number of files which point to null data; "0" is a successful test.
-# After great soul searching an expected to succeed/slow_disk check has been added.
+
     my (@file_list)=@_;
     require Scalar::Util;
     Scalar::Util->import(qw(looks_like_number));
-    my $slow_disk_mode=0;
+    my $unused_dummy=0;
     my $number_of_bad_files = 0;
     if (looks_like_number($file_list[$#file_list])) {
-       $slow_disk_mode=pop @file_list;
+       $unused_dummy=pop @file_list;
     }
 
-    if (`hostname -s` !~ /civmcluster1/) {
-	$slow_disk_mode=0; # Only active for civmcluster1 for now...
-    } 
- 
     for my $file_to_check (@file_list) {
-    # for (my $file_to_check = shift(@file_list); ($file_to_check ne '') ; $file_to_check = shift(@file_list)) {
-    #for (my $file_to_check = shift(@file_list); (@file_list) ; $file_to_check = shift(@file_list)) {
+
       my ($path,$name,$ext) = fileparts($file_to_check,2);
 #  The following is based on: http://snipplr.com/view/67842/perl-recursive-loop-symbolic-link-final-destination-using-unix-readlink-command/
       if ($file_to_check =~/[\n]+/) {
           $number_of_bad_files++;
       } else {
         my $waited=0;
-        if ( $slow_disk_mode ) { 
-            # use slow_file_check to pause here....
-            $waited=slow_file_check($file_to_check);
-        }
-        if (0) {#print " File to check 1: ${file_to_check}\n";
-# BJ says: James made me remove this, this entire heart of data_double_check
-# on closer inspection it was found that this was to solve relative links, 
-# to which james cried foul and said thats ok let them be relative and just control the pointing to the work directory. 
-# in "normal" operation after running make_process_dirs we have been chdired to the work folder it created. 
-	    while (-l $file_to_check) {
-		my ($path,$file,$ext) = fileparts($file_to_check,2);
-		#print " File to check 2: ${file_to_check}\n";
-		$file_to_check = readlink($file_to_check);
-		if ($file_to_check !~ /^\//) {
-		    $file_to_check = $path.$file_to_check;
-		}
-	    }
-	} 
         if (! -e $file_to_check) {
             #my $msg = `ls -l $file_to_check`;
             #print "$msg\n";
             $number_of_bad_files++;
-	   
-        } elsif ( $slow_disk_mode && $waited>0 ) { 
-	    
-            #we log when:
-            # 1 file is found 
-            # 2 and we wanted it to be found,
-            # 3 and we had to wait.
-            #slow disk log
-            my $sdl=File::Spec->catfile($BIGGUS_DISKUS,'slow_disk.log');
-            my $TERM_SPAM_MODE=0;
-            my $oerr='';
-            open my $text_fid, ">>", "$sdl" 
-                or $oerr=sprintf("could not open $sdl, $!");
-            if($oerr ne '') {
-                cluck $oerr;$TERM_SPAM_MODE=1;
-            }
-            my @sdl_verbose_details;
-            my @sa=stat($file_to_check);
-            for my $s_info (@sa ) {
-		print '7';
-                my $line=sprintf("%s:%i:%s\t\n",$file_to_check,$waited,$s_info);
-                if (! $TERM_SPAM_MODE) {
-                    print $text_fid $line;
-                } else {
-                    print $TERM_SPAM_MODE;
-                }
-            }
-            if (! $TERM_SPAM_MODE) {
-                close $text_fid;
-            } else{
-# Make this code super annoying in the case of a failure to log.... sorry :D
-                sleep_with_countdown(4);
-            }
         }
       }
     }
@@ -1929,26 +1872,6 @@ sub sleep_with_countdown {
     print(" 0.\n");
     select($previous_default);
     return;
-}
-
-# -------------
-sub slow_file_check {
-# -------------
-# a terrible subroutine for when we think a file should exist, but a check of that file takes more than a second. 
-# Returns the number of checks completed, for good file systems that'll be 0
-    my ($file)=@_;
-# seconds to wait until recheck.
-    my $check_interval=1; 
-# number of recheks
-    my $max_check=30;
-# checks completed
-    my $cc=0;
-    while( ! -e $file && $cc < $max_check) { 
-        sleep $check_interval;
-        #print STDERR '.';
-        $cc++;
-    }
-    return $cc;
 }
 
 # ------------------
