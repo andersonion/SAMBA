@@ -31,7 +31,7 @@ use Env qw(HOSTNAME);
 #use lib split(':',$RADISH_PERL_LIB);
 
 #use vars used to be here
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS ATLAS_FOLDER SAMBA_CACHE_DIR);
+use Env qw(ANTSPATH PATH SAMBA_PATH BIGGUS_DISKUS ATLAS_FOLDER SAMBA_CACHE_DIR USER);
 #use text_sheet_utils;
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
@@ -370,6 +370,7 @@ $rigid_transform_suffix='rigid.mat';
 $affine_transform_suffix='affine.mat';
 $affine_identity_matrix="${SAMBA_PATH}/identity_affine.mat";
 if (! -f $affine_identity_matrix) {
+	# EMP => "emperical"
     my $EMP_SAMBA_PATH = dirname(__FILE__);
     $affine_identity_matrix="${EMP_SAMBA_PATH}/identity_affine.mat"; # Hopefully this is better handling of the SAMBA directory. 3 December 2019, BJA
 }
@@ -455,7 +456,7 @@ $timestamped_inputs_file =~ s/\.txt$/\.headfile/;
     #my $cached_folder=File::Spec->catfile(${BIGGUS_DISKU},'samba_startup_cache');
     
     my $cached_folder=${SAMBA_CACHE_DIR};
-    if (! defined ${cached_folder} || ! -e ${cached_folders} ) {
+    if (! defined ${cached_folder} || ! -e ${cached_folder} ) {
     	cached_folder="${BIGGUS_DISKUS}/samba_startup_cache";
     }
     
