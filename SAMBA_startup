@@ -2,7 +2,7 @@
 # SAMBA startup script for running the main pipeline as a cluster job.
 if [[ -d $SAMBA_PATH ]];then
     SPath=${SAMBA_PATH};
-elif [[ -d ${SAMBA_APPS_DIR}/SAMBA ]]
+elif [[ -d ${SAMBA_APPS_DIR}/SAMBA ]];then
     SPath="${SAMBA_APPS_DIR}/SAMBA";
 else
 	SPath="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )";
