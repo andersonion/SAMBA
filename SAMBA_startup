@@ -97,10 +97,10 @@ else
    pb_test=$(which pbcopy 2>&1 | grep 'no pbcopy in' | wc -l);
    if ( [[ "x${pb_test}x" == 'x0x' ]] );then
 	   echo "To stop this instance of SAMBA pipeline please use the following command, and will be automatically copied to your clipboard :";
-	   pbcopy < "${kill_message}";
+	   pbcopy < "${kill_cmd}";
    else 
 	   echo "To stop this instance of SAMBA pipeline please use the following command:";
-	   echo "${kill_message}";
+	   echo "${kill_cmd}";
    fi
    sleep 3;
 
