@@ -17,9 +17,9 @@ export BIGGUS_DISKUS=/mnt/newStor/paros/paros_WORK/mouse/
 # To override the parent directory of the cache folder, uncomment and set SAMBA_CACHE_DIR.
 # export SAMBA_CACHE_DIR=
 
-# ATLAS_DIR should be a readable and writable to all SAMBA users
+# ATLAS_FOLDER should be a readable and writable to all SAMBA users
 # SAMBA will look for atlas-specific subfolders here.
-# export ATLAS_DIR=${PAROS}/paros_WORK/
+# export ATLAS_FOLDER=${PAROS}/paros_WORK/
 
 
 # Setting MATLAB_JAVA will make opening and saving gzipped file much quicker.

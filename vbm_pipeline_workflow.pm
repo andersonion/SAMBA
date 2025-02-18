@@ -31,7 +31,7 @@ use Env qw(HOSTNAME);
 #use lib split(':',$RADISH_PERL_LIB);
 
 #use vars used to be here
-use Env qw(ANTSPATH PATH BIGGUS_DISKUS ATLAS_LIBRARY SAMBA_CACHE_DIR);
+use Env qw(ANTSPATH PATH BIGGUS_DISKUS ATLAS_FOLDER SAMBA_CACHE_DIR);
 #use text_sheet_utils;
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
