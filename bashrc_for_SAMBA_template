@@ -47,5 +47,6 @@ function samba-pipe {
   ${SAMBA_PATH}/SAMBA_startup_BIAC ${hf};
 }
 
-# For email support, need to update and uncomment:
+# For email support, need to update and the following line to YOUR OWN ~/.bashrc file instead.
 # export NOTIFICATION_EMAIL=${USER}@your.org
+# (Add advise any users to do this as well.)
