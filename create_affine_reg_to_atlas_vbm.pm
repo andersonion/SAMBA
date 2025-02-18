@@ -30,7 +30,7 @@ my (%xform_paths,%pipeline_names,%alt_result_path_bases);
 
 if (! defined $dims) {$dims = 3;}
 if (! defined $ants_verbosity) {$ants_verbosity = 1;}
-
+use Env qw(ATLAS_FOLDER);
 # ------------------
 sub create_affine_reg_to_atlas_vbm {  # Main code
 # ------------------
@@ -460,7 +460,7 @@ sub create_affine_reg_to_atlas_vbm_Init_check {
             $label_atlas_name =~ s/_labels$//;
         }
     } else {
-        $label_atlas_dir = "${WORKSTATION_DATA}/atlas/${label_atlas_name}";
+        $label_atlas_dir = "${ATLAS_FOLDER}/${label_atlas_name}";
         if (! -d $label_atlas_dir) {
             if ($label_atlas_dir =~ s/\/data/\/CIVMdata/) {}
         }

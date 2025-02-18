@@ -18,7 +18,7 @@ use List::Util qw(min max);
 
 # 01 July 2019, BJA: Will try to look for ENV variable to set matlab_execs and runtime paths
 
-use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH SAMBA_APPS_DIR);
+use Env qw(MATLAB_EXEC_PATH MATLAB_2015b_PATH SAMBA_APPS_DIR ATLAS_FOLDER);
 if (! defined($MATLAB_EXEC_PATH)) {
     $MATLAB_EXEC_PATH =  "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA";
 }
@@ -663,9 +663,9 @@ sub set_reference_space_vbm_Init_check {
 	if ($rigid_contrast eq 'NO_KEY') {
 	    $init_error_msg=$init_error_msg."No rigid contrast has been specified. Please set this to proceed.\n";
 	} else {
-	    my $rigid_atlas_dir   = "${WORKSTATION_DATA}/atlas/${rigid_atlas_name}/";
+	    my $rigid_atlas_dir   = "${ATLAS_FOLDER}/${rigid_atlas_name}/";
 	    if (! -d $rigid_atlas_dir) {
-		if ($rigid_atlas_dir =~ s/\/data/\/CIVMdata/) {}
+			if ($rigid_atlas_dir =~ s/\/data/\/CIVMdata/) {}
 	    }
 	    my $expected_rigid_atlas_path = "${rigid_atlas_dir}${rigid_atlas_name}_${rigid_contrast}.nii";
 	    #$rigid_atlas_path  = get_nii_from_inputs($rigid_atlas_dir,$rigid_atlas_name,$rigid_contrast);
@@ -776,9 +776,9 @@ sub set_reference_path_vbm {
 	return($input_ref_path,$ref_path,$ref_string,$error_message); #Updated 1 September 2016
     }
     
-    my $atlas_dir_perhaps = "${WORKSTATION_DATA}/atlas/${ref_option}";
+    my $atlas_dir_perhaps = "${ATLAS_FOLDER}/${ref_option}";
     if (! -d $atlas_dir_perhaps) {
-	if ($atlas_dir_perhaps =~ s/\/data/\/CIVMdata/) {}
+		if ($atlas_dir_perhaps =~ s/\/data/\/CIVMdata/) {}
     } 
 
 
