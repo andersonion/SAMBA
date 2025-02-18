@@ -49,13 +49,13 @@ function append_startup_script(){
 	#local c_number='';
 	
 	if [[ "x${external_bash}x" != "xx" ]];then
+		target=${brc_SAMBA};
+	else   
 		if ((${update_bashrc}));then
 			target=~/.bashrc; 
 		else
 			target=${profiled_script};
 		fi
-	else   
-		target=${brc_SAMBA};
 	fi
 	
 	src_test=$(grep "${bashrc_cmd}" ${target} | wc -l);
@@ -198,7 +198,7 @@ else
 	if [[ ${carton_test} -gt 0 ]];then
 		echo "Carton is found and ready to do work."
 	else
-		echo "Carton has not been successfully instaleld;"
+		echo "Carton has not been successfully installed;"
 		echo "Rerunning in debug mode to aid in troubleshooting..."
 	fi
 fi
