@@ -457,7 +457,7 @@ $timestamped_inputs_file =~ s/\.txt$/\.headfile/;
     
     my $cached_folder=${SAMBA_CACHE_DIR};
     if (! defined ${cached_folder} || ! -e ${cached_folder} ) {
-    	cached_folder="${BIGGUS_DISKUS}/samba_startup_cache";
+    	$cached_folder="${BIGGUS_DISKUS}/samba_startup_cache";
     }
     
     my $u_name=${USER};
