@@ -129,6 +129,7 @@ round
 run_and_watch
 sleep_with_countdown
 symbolic_link_cleanup
+timestamp_from_epoc 
 whoami
 whowasi
 write_array_to_file
@@ -1942,6 +1943,17 @@ sub symbolic_link_cleanup {
     if ($log_msg ne '') {
         log_info($log_msg_prefix.$log_msg);
     }
+}
+
+# -------------
+sub timestamp_from_epoc {
+# -------------
+    my($time)=@_;
+    my ($sec, $min, $hour, $day, $month, $year, $wday, $yday, $isdst) = localtime($time);$year+=1900;
+    my $df="%04i%02i%02i%02i%02i.%02i";
+    my $t=sprintf("$df",$year,$month+1,$day,$hour,$min,$sec);
+    #print("Convert sec:$time -> $t\n");
+    return $t;
 }
 
 # ------------------
