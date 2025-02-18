@@ -4,18 +4,23 @@
 
 # SAMBA_APPS_DIR is the parent directory for all SAMBA-related installations
 # It should be readable and executable by all SAMBA users
-SAMBA_APPS_DIR="/home/apps/"
+export SAMBA_APPS_DIR="/home/apps/"
 
-# BIGGUS_DISKUS is the folder where SAMBA will create folders and do its work. 
+# BIGGUS_DISKUS is the folder where SAMBA will create folders and do its work.
 export BIGGUS_DISKUS=/mnt/newStor/paros/paros_WORK/mouse/
 
-# WORKSTATION_DATA should be a readable and writable to all SAMBA users
-# SAMBA will look for "atlas" folders here.
-# Also, a folder called 'samba_startup_cache' will be created here, in which SAMBA will make
-# a copy of any startup headfile used to run SAMBA, prepended with ${USER}
-# If the atlas folder is in a non-writable location, make this writable location and create symlink
-# pointing to the atlas location.
-export WORKSTATION_DATA=${PAROS}/paros_WORK/
+
+# BIGGUS_DISKUS is also the default location where the folder 'samba_startup_cache'
+# will be created, in which upon running, SAMBA will make a copy of any startup headfile
+# used to run SAMBA, prepended with the ${USER} who ran it. In most situations, this is ideally
+# in a location to which all SAMBA users have read/write permissions.
+# To override the parent directory of the cache folder, uncomment and set SAMBA_CACHE_DIR.
+# export SAMBA_CACHE_DIR=
+
+# ATLAS_DIR should be a readable and writable to all SAMBA users
+# SAMBA will look for atlas-specific subfolders here.
+# export ATLAS_DIR=${PAROS}/paros_WORK/
+
 
 # Setting MATLAB_JAVA will make opening and saving gzipped file much quicker.
 # But this can be tricky...one needs to know how to compile on the current environment
