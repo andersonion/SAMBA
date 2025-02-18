@@ -240,8 +240,8 @@ sub cluster_exec {
     # James says: This function interface is ugly, Count the number of inputs here! thats too much!.
     # BJ says: suck it.
     my ($do_it,$annotation,$cmd,$work_dir,$Id,$verbose,$memory,$test,$node,$dependency) = @_;
-   # my $memory=25600;
-
+    # my $memory=25600;
+	# Not sure what the function of $test is, but will leave it in place for now.
     use Env qw(NOTIFICATION_EMAIL);
 
     my @sbatch_commands;

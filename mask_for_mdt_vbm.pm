@@ -68,8 +68,8 @@ sub mask_for_mdt_vbm {
 
 
 	    my $matlab_exec_args="${mask_source} ${dim_divisor} ${mask_threshold} ${raw_mask_path} ${num_morphs} ${morph_radius} ${status_display_level}";
-	    $go_message = "$PM: Creating mask from file: ${input_file}\n" ;
-            $stop_message = "$PM: Failed to properly create mask from file: ${input_file}\n" ;
+	    $go_message = "$PM: Creating mask from file: ${mask_source}\n" ;
+            $stop_message = "$PM: Failed to properly create mask from file: ${mask_source}\n" ;
 	    my $mem_request = '40000';
 	    my $go =1;
 	    my $cmd = "${strip_mask_executable_path} ${matlab_path} ${matlab_exec_args}";
@@ -77,8 +77,8 @@ sub mask_for_mdt_vbm {
 	    my $Id= "creating_mask_from_contrast_${template_contrast}";
 	    my $verbose = 2; # Will print log only for work done.
 	    if (data_double_check($raw_mask_path)) {
-		    $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
-	    	    if (not $jid) {
+		    $job = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);
+	    	    if (not $job) {
 	                  error_out($stop_message);
 	    	    }  
 	    }
