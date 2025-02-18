@@ -66,8 +66,6 @@ use SAMBA_pipeline_utilities; #qw(sleep_with_countdown  );
 #use retrieve_archived_data;
 use study_variables_vbm;
 #use ssh_call;
-#use pull_civm_tensor_data;
-
 use convert_all_to_nifti_vbm;
 use set_reference_space_vbm;
 use create_rd_from_e2_and_e3_vbm;
@@ -511,7 +509,6 @@ print STDOUT " Running the main code of $PM. \n";
 
     my @modules_for_Init_check = qw(
      convert_all_to_nifti_vbm
-     pull_civm_tensor_data
      create_rd_from_e2_and_e3_vbm
      set_reference_space_vbm
      mask_images_vbm
