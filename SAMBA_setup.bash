@@ -9,7 +9,11 @@ if (($DEBUG));then
 fi
 profiled_script=$1;
 update_bashrc=1;
-if [[ ${profiled_script:0:15} == "/etc/profile.d/" ]];then
+# Originally presumed that we had to edi a script in the /etc/profile.d/
+# but since we switched to a symbolic link pointing elsewhere,
+# we want to loosen that restriction for us and others during setup.
+#if [[ ${profiled_script:0:15} == "/etc/profile.d/" ]];then
+if [[ -e ${profiled_script} ]];then
 	update_bashrc=0;
 fi
 
@@ -40,28 +44,29 @@ function append_startup_script(){
 	local msg=$1;
 	local bashrc_cmd=$2;
 	local bashrc_msg=$3;
+	local external_bashrc=$4;
 	#local  __resultvar=$2;
 	#local c_number='';
 	
-	if ((${update_bashrc}));then
-		src_test=$(grep "${bashrc_cmd}" ~/.bashrc | wc -l);
-		if [[ ${src_test} == 0 ]]; then
-			echo ${msg} " ~/.bashrc";
-			if [[ ${bashrc_msg} ]];then
-				echo "# ${bashrc_msg}" >> ~/.bashrc;
-			fi
-			echo ${bashrc_cmd} >> ~/.bashrc;
+	if [[ "x${external_bash}x" != "xx" ]];then
+		if ((${update_bashrc}));then
+			target=~/.bashrc; 
+		else
+			target=${profiled_script};
 		fi
-	else
-		src_test=$(grep "${bashrc_cmd}" ${profiled_script} | wc -l);
-		if [[ ${src_test} == 0 ]]; then
-			echo ${msg} " ${profiled_script}";
-			if [[ ${bashrc_msg} ]];then
-				echo "# ${bashrc_msg}" | sudo tee -a ${profiled_script};
-			fi
-			echo ${bashrc_cmd} | sudo tee -a ${profiled_script};
-		fi   
+	else   
+		target=${brc_SAMBA};
 	fi
+	
+	src_test=$(grep "${bashrc_cmd}" ${target} | wc -l);
+	if [[ ${src_test} == 0 ]]; then
+		echo ${msg} " ${target}";
+		if [[ ${bashrc_msg} ]];then
+			echo "# ${bashrc_msg}" | sudo tee -a ${target};
+		fi
+		echo ${bashrc_cmd} | sudo tee -a ${target};
+	fi
+	
   	#eval $__resultvar="'${c_number}'";
 }
 
@@ -117,34 +122,13 @@ if [[ ${pb_test} == 0 ]];then
 	fi
 fi
 
-	
-
-
 if [[ -f ${src_file} ]];then
 	src_file=$(ls ${src_file});
 	src_cmd="source ${src_file}";
-	
 	msg="Adding local version of perlbrew to";
 	comment="Adding local version of perlbrew:"
-	
 	append_startup_script "${msg}" "${src_cmd}" "${comment}"
-#	if ((${update_bashrc}));then
-#		src_test=$(grep "${src_cmd}" ~/.bashrc | wc -l);
-#		if [[ ${src_test} == 0 ]]; then
-#			echo "Adding local version of perlbrew to ~/.bashrc";
-#			echo "# Adding local version of perlbrew:" >> ~/.bashrc;
-#			echo ${src_cmd} >> ~/.bashrc;
-#		fi
-#	else
-#		src_test=$(grep "${src_cmd}" ${profiled_script} | wc -l);
-#		if [[ ${src_test} == 0 ]]; then
-#			echo "Adding local version of perlbrew to ${profiled_script}";
-#			echo "# Adding local version of perlbrew:" | sudo tee -a ${profiled_script};
-#			echo ${src_cmd} | sudo tee -a ${profiled_script};
-#		fi   
-#	fi
-
-${src_cmd};
+	${src_cmd};
 else
 	echo "Cannot find ${src_file}";
 	echo "Perlbrew installation has appeared to have failed." && exit 1
@@ -227,4 +211,4 @@ carton install
 msg="Adding source command for bashrc_for_SAMBA to";
 src_cmd="source ${brc_SAMBA}"
 comment="Adding source command for bashrc_for_SAMBA:"
-append_startup_script "${msg}" "${src_cmd}" "${comment}"
+append_startup_script "${msg}" "${src_cmd}" "${comment}" 1
