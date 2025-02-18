@@ -49,8 +49,11 @@ my @outheadfile_comments = ();
 our ($HfResult, $BADEXIT, $GOODEXIT);
 $HfResult='unset';
 
-$debug_val=5 unless defined $debug_val;
-our $debug_locator=80;
+our ($debug_val,$debug_locator);
+# we're going to defacto debug_val to 5, that way we can go quieter than 5.
+$debug_val=5;# unless defined $debug_val;
+$debug_locator=80;# unless defined $debug_locator;
+
 # slurm queue handling.
 my $custom_q = 0; # Default is to assume that the cluster queue is not specified.
 my $my_queue = '';
@@ -150,13 +153,6 @@ our %scale_lookup = (
         KiB => 1024,
         k => 1024,
     );
-    
-    
-our ($debug_val,$debug_locator);
-# we're going to defacto debug_val to 5, that way we can go quieter than 5.
-$debug_val=5;# unless defined $debug_val;
-$debug_locator=80;# unless defined $debug_locator;
-
 
 # -------------
 sub activity_log {
