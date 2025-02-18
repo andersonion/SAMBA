@@ -11,7 +11,7 @@ my $NAME = "Application of affine transforms to bvecs.";
 my $DESC = "ants";
 
 
-use SAMBA_pipeline_utilities #qw(printd $debug_val);
+use SAMBA_pipeline_utilities; #qw(printd $debug_val);
 use List::Util qw(max);
 my ($runlist,$current_path,$write_path_for_Hf);
 my ($pristine_inputs_dir);
