@@ -221,10 +221,10 @@ sub cluster_check {
 # so updated to check if slurm is available by looking for srun/sbatch.
 	
 
-	if ( -x "srun" || -x "sbatch" ) {
+	if ( `which sbatch 2>/dev/null | wc -l | tr -d [:space:]` ) {
 		$cluster_type=1;
 	#return(1);
-	} elsif ( `which qsub  2> /dev/null | wc -l` ) {
+	} elsif ( `which qsub  2> /dev/null | wc -l | tr -d [:space:]` ) {
 	  $cluster_type=2;
 	  #return(2);
 	} else {
@@ -480,14 +480,14 @@ sub cluster_exec {
 	    $bash_call_with_visible_options = "qsub -V ${explicit_qsub_options} ${batch_file}";
 	    $bash_call = "qsub -V ${batch_file}";
 	    if ($verbose != 3) {
-		print "qsub command is: ${bash_call_with_visible_options}\n";
+			print "qsub command is: ${bash_call_with_visible_options}\n";
 	    }
 
 	    ($msg,$jid)=`$bash_call 2>&1` =~  /([^0-9]+)([0-9]+)/x;
 	    
 	    my $extra_message='';
 	    if ((! defined $msg ) || ($msg !~  /.*(Your job).*/) ) {
-		$extra_message="SGE failure encountered while try to submit job; Waited 30 seconds to try again once.\n";
+			$extra_message="SGE failure encountered while try to submit job; Waited 30 seconds to try again once.\n";
 		sleep(30);
 		if ( defined $msg && $msg ne "" ) {
 		    $extra_message=$extra_message."output1: ".$msg."\n";
