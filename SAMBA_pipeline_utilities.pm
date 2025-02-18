@@ -75,6 +75,17 @@ our $plain_num=$float_ex;
 our $full_nex ="$float_ex(?:[E]$n_ex$int_ex)?";
 our $num_ex=$full_nex;
 
+
+our $OSNAME="$^O\n";
+our $IS_MAC=0;
+our $IS_LINUX=0;
+if ( $OSNAME =~ /^darwin$/x ) {
+    $IS_MAC=1;
+} elsif( $OSNAME =~ /^linux$/x )  { 
+    $IS_LINUX=1;
+}
+
+
 BEGIN {
     use Exporter;
     our @ISA = qw(Exporter); # perl critic wants this replaced with use base; not sure why yet.
@@ -130,6 +141,9 @@ $debug_locator
 $BADEXIT
 $GOODEXIT
 $PIPELINE_NAME
+$IS_MAC
+$IS_LINUX
+$OSNAME
 ); 
 }
 ########
