@@ -64,8 +64,7 @@ else
 		echo " ";
 		echo " ";
 
-		job_id=$(${sub_cmd} | cut -d ' ' -f 4);
-		$sub_cmd;
+		job_id=$(${cmd} | cut -d ' ' -f 4);
 		kill_cmd="scancel ${job_id}"
 	elif [[ ${cluster_code} == 2 ]]; then
 		echo "#\$ -N ${name}" >> ${sbatch_file};
