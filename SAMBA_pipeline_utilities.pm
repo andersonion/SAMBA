@@ -78,6 +78,7 @@ BEGIN {
     #@EXPORT_OK is prefered, as it markes okay to export, HOWEVER our code is dumb and wants all the pipe utils!
     our @EXPORT = qw(
     
+activity_log
 close_log_on_error
 cluster_check
 cluster_exec
@@ -122,6 +123,8 @@ write_refspace_txt
 
 $schedule_backup_jobs
 $HfResult
+$debug_val
+$debug_locator 
 $BADEXIT
 $GOODEXIT
 $PIPELINE_NAME
@@ -147,7 +150,34 @@ our %scale_lookup = (
         KiB => 1024,
         k => 1024,
     );
+    
+    
+our ($debug_val,$debug_locator);
+# we're going to defacto debug_val to 5, that way we can go quieter than 5.
+$debug_val=5;# unless defined $debug_val;
+$debug_locator=80;# unless defined $debug_locator;
 
+
+# -------------
+sub activity_log {
+# -------------
+    #use POSIX;
+    my $log_file="$ENV{BIGGUS_DISKUS}/activity_log.txt";
+    my $time = scalar localtime;
+    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
+    my $nice_timestamp = sprintf ( "%04d-%02d-%02d_%02d:%02d:%02d",
+                                   $year+1900,$mon+1,$mday,$hour,$min,$sec);
+    # this works because ARGV is preserved, what a great piece of magic that is :D !
+    # that makes us very robust against any fiddly commandline processing.
+    my $args=join(' ',@ARGV);
+    my $log_txt=join("\t",("$nice_timestamp","$ENV{USER}","$0","$args"));
+    open(my $fd, ">>$log_file");
+    print $fd "$log_txt\n";
+    # perpetually resets file permissions to friendly, becuase thats the purpose
+    # of this function. 
+    my $mode = 0666;   chmod $mode, $log_file;
+    return;
+}
 
 # -------------
 sub close_log_on_error  {
@@ -179,22 +209,20 @@ sub cluster_check {
 # Primitive and silly check if our code is on a cluster.
 # Initally just checked hostname, but our code uses slurm to schedule,
 # so updated to check if slurm is available by looking for srun/sbatch.
-   
-  if (`hostname -s` =~ /civmcluster1/
-      || -x "srun" 
-      || -x "sbatch"
-      ) {
-      $cluster_type=1;
-    #return(1);
-  } elsif ( `which qsub  2> /dev/null | wc -l` ) {
-      $cluster_type=2;
-      #return(2);
-  } else {
-      #$cluster_type=1;
-      $cluster_type=0;
-  }
-  return($cluster_type);
-  #return(0);
+	
+
+	if ( -x "srun" || -x "sbatch" ) {
+		$cluster_type=1;
+	#return(1);
+	} elsif ( `which qsub  2> /dev/null | wc -l` ) {
+	  $cluster_type=2;
+	  #return(2);
+	} else {
+	  #$cluster_type=1;
+	  $cluster_type=0;
+	}
+	return($cluster_type);
+	#return(0);
 }
 
 # ------------------

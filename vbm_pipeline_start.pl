@@ -32,13 +32,12 @@ use List::MoreUtils qw(uniq);
 ## Example use of printd
 #use SAMBA_pipeline_utilities qw(activity_log printd $debug_val);
 #use SAMBA_pipeline_utilities qw(printd $debug_val);
-#activity_log();
 use SAMBA_pipeline_utilities;
 use Headfile;
 
 use lib dirname(abs_path($0));
 use SAMBA_global_variables;
-
+activity_log();
 
 $schedule_backup_jobs=1;
 
