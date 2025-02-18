@@ -93,20 +93,18 @@ else
 	echo "JOB ID = ${job_id}";
 	echo "";
 	
-	   pb_test=$(which pbcopy 2>&1 | grep 'no pbcopy in' | wc -l);
-	   if ( [[ "x${pb_test}x" == 'x0x' ]] );then
-		   echo "To stop this instance of SAMBA pipeline please use the following command, and will be automatically copied to your clipboard :";
-		   pbcopy < "${kill_message}";
-	   else 
-		   echo "To stop this instance of SAMBA pipeline please use the following command:";
-		   echo "${kill_message}";
-	   fi
-	   sleep 3;
-	
-	   sb_file="${sb_dir}/slurm-${job_id}.out";
-	   touch ${sb_file}; #Make sure it exists so we can immediately call the tail command without risk of erroring out.
+   pb_test=$(which pbcopy 2>&1 | grep 'no pbcopy in' | wc -l);
+   if ( [[ "x${pb_test}x" == 'x0x' ]] );then
+	   echo "To stop this instance of SAMBA pipeline please use the following command, and will be automatically copied to your clipboard :";
+	   pbcopy < "${kill_message}";
+   else 
+	   echo "To stop this instance of SAMBA pipeline please use the following command:";
+	   echo "${kill_message}";
+   fi
+   sleep 3;
+
+   sb_file="${sb_dir}/slurm-${job_id}.out";
+   touch ${sb_file}; #Make sure it exists so we can immediately call the tail command without risk of erroring out.
 	   tail -f "${sb_file}";
-else
-    ${SPath}/vbm_pipeline_start.pl $@;
 fi
 exit 0;
