@@ -62,7 +62,7 @@ sub convert_all_to_nifti_vbm {
 	my @nii_cmds;
 	my @nii_files;
 
-
+print STDOUT  " Checkpoint 1.\n";
 	foreach my $runno (@array_of_runnos) {
 		foreach my $ch (@channel_array) {
 			my $go = $go_hash{$runno}{$ch};
@@ -108,7 +108,7 @@ sub convert_all_to_nifti_vbm {
 			}
 		}
 	}
-
+print STDOUT  " Checkpoint 2.\n";
 	if (cluster_check() && (@jobs)) {
 		my $interval = 2;
 		my $verbose = 1;
@@ -118,10 +118,10 @@ sub convert_all_to_nifti_vbm {
 			print STDOUT  " Reorienting and recentering for all input images is complete; moving on to next step.\n";
 		}
 	}
-
+print STDOUT  " Checkpoint 3.\n";
 	my $case = 2;
 	($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
-
+print STDOUT  " Checkpoint 4.\n";
 	if (($error_message eq '')) {
 		error_out("${error_message}",0);
 	}
