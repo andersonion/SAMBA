@@ -121,7 +121,7 @@ print STDOUT  " Checkpoint 2.\n";
 print STDOUT  " Checkpoint 3.\n";
 	my $case = 2;
 	($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
-print STDOUT  " Checkpoint 4.\n";
+print STDOUT  " Checkpoint 4. x${error_message}x\n";
 	if (($error_message eq '')) {
 		error_out("${error_message}",0);
 	}
