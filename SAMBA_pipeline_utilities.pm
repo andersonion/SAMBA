@@ -255,7 +255,7 @@ sub cluster_exec {
     my $time_command = '';
     my $dependency_command='';
 
-    my $default_memory = 24870;#int(154000);# 40960; # This is arbitrarily set at 40 Gb at first, now 150 Gb for Premont study.
+    my $default_memory = 24870;#int(154000);
     if (! defined $verbose) {$verbose = 1;}
     #if ($test) {
     #    #$queue_command = "-p overload";#"-p matlab";#Not sure why switched from overload to matlab...have now switched back.
@@ -263,11 +263,12 @@ sub cluster_exec {
     #    #push(@sbatch_commands,$time_command); 
     #    #$queue_command = "-p high_priority";
     #    $queue_command = "-p slow_master"; # Trying this for now...otherwise, gets stuck behind CSrecon singleton jobs.
-    #} elsif ($custom_q == 1) {
+    #} els
+    if ($custom_q == 1) {
         $queue_command = "-p $my_queue";
-    #}
-    push(@sbatch_commands,$queue_command);
-
+    	push(@sbatch_commands,$queue_command);
+	}
+	
    # push(@sbatch_commands,"-m cyclic");    
     my $local_reservation;
     my $reservation_command='';
@@ -285,20 +286,14 @@ sub cluster_exec {
             $reservation_command = "--reservation=${local_reservation}";
             push(@sbatch_commands,$reservation_command);
         } else {
-            if ($node =~ /^(civm)/) {
-                $local_reservation = 0;
-                $node_command = "-w $node";
-                push(@sbatch_commands,$node_command);
-            } else {
-                $local_reservation = $node;
-                ###
-                # Enforced reservation for users who have their ENV var set.
-                ###
-                if ( defined $r ) { $local_reservation=$r;} # james did this
-                ###
-                $reservation_command = "--reservation=${local_reservation}";
-                push(@sbatch_commands,$reservation_command);
-            }
+			$local_reservation = $node;
+			###
+			# Enforced reservation for users who have their ENV var set.
+			###
+			if ( defined $r ) { $local_reservation=$r;} # james did this
+			###
+			$reservation_command = "--reservation=${local_reservation}";
+			push(@sbatch_commands,$reservation_command);
         }
     }
 
@@ -1477,9 +1472,9 @@ sub get_slurm_job_stats {
 	    $MaxRSS_string = $raw_stats[3];
 
 	    if ($Node_string =~ /civmcluster1-0([1-6]{1})G?/) {
-		$node = $1;
+			$node = $1;
 	    } else {
-		$node = 0;
+			$node = 0;
 	    }
         
 	} elsif ($cluster_type = 2) {

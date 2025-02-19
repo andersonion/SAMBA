@@ -21,6 +21,8 @@ export BIGGUS_DISKUS=/mnt/newStor/paros/paros_WORK/mouse/
 # SAMBA will look for atlas-specific subfolders here.
 # export ATLAS_FOLDER=${PAROS}/paros_WORK/
 
+# If there is a specific queue on your cluster which SAMBA should run, you can set that with PIPELINE_QUEUE
+#export PIPELINE_QUEUE=normal
 
 # Setting MATLAB_JAVA will make opening and saving gzipped file much quicker.
 # But this can be tricky...one needs to know how to compile on the current environment

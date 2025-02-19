@@ -166,16 +166,14 @@ sub convert_all_to_nifti_Output_check {
             $unfounded = 1;
             }
 #die "here";
-            if ((data_double_check($file_1,$file_1.'.gz') == 2 ) || ((! $pre_masked) && $unfounded &&  ($file_1 !~ /.*masked\.nii/))) { # 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).
-	#	if ( ! -e $file_1 &&  ! -e $file_1.'.gz' ){# || ((! $pre_masked) && $unfounded &&  ($file_1 !~ /.*masked\.nii/))) { # 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).
-           # if ((data_double_check($file_1) ) || ((! $do_mask) &&  (($file_1 =~ /.*masked\.nii/) || ($file_1 =~ /.*masked\.nii\.gz/)))) { # 6 January 2016: updated to look for .nii.gz as well.
-        
-            $go_hash{$runno}{$ch}=1;
-            push(@file_array,$file_1);
-            $sub_missing_files_message = $sub_missing_files_message."\t$ch";
+		# 15 January 2016: Trying this instead, below fails for mixed masked/pre_masked (phantoms, for example).  
+            if ((data_double_check($file_1,$file_1.'.gz') == 2 ) || ((! $pre_masked) && $unfounded &&  ($file_1 !~ /.*masked\.nii/))) {    
+				$go_hash{$runno}{$ch}=1;
+				push(@file_array,$file_1);
+				$sub_missing_files_message = $sub_missing_files_message."\t$ch";
             } else {
-		$go_hash{$runno}{$ch}=0;
-		$sub_existing_files_message = $sub_existing_files_message."\t$ch";
+				$go_hash{$runno}{$ch}=0;
+				$sub_existing_files_message = $sub_existing_files_message."\t$ch";
             }
         }
         if (($sub_existing_files_message ne '') && ($case == 1)) {
@@ -212,13 +210,11 @@ sub set_center_and_orientation_vbm {
     my $jid = 0;
     my ($go_message, $stop_message);
 
-#    if ($current_orientation eq $desired_orientation) {
-    # Hope to have a function that easily and quickly diddles with the header to recenter it...may incorporate into matlab exec instead, though.
-#    } else {
-        $matlab_exec_args="${input_file} ${current_orientation} ${desired_orientation} ${output_folder}";
-        $go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;
-        $stop_message = "$PM: Failed to properly reorientate to ${desired_orientation} and recenter file: ${input_file}\n" ;
-#    }
+
+	$matlab_exec_args="${input_file} ${current_orientation} ${desired_orientation} ${output_folder}";
+	$go_message = "$PM: Reorienting from ${current_orientation} to ${desired_orientation}, and recentering image: ${input_file}\n" ;
+	$stop_message = "$PM: Failed to properly reorientate to ${desired_orientation} and recenter file: ${input_file}\n" ;
+
     my @test=(0);
     if (defined $reservation) {
         @test =(0,$reservation);
@@ -325,8 +321,6 @@ sub convert_all_to_nifti_vbm_Runtime_check {
 # # Set up work
     $in_folder = $Hf->get_value('pristine_input_dir');
     $work_dir = $Hf->get_value('dir_work');
-#    $work_dir = $Hf->get_value('preprocess_dir');
-#   $current_path = $Hf->get_value('inputs_dir');
     $current_path = $Hf->get_value('preprocess_dir');
 
     $working_image_orientation = $Hf->get_value('working_image_orientation');
@@ -347,13 +341,8 @@ sub convert_all_to_nifti_vbm_Runtime_check {
 
     $do_mask = $Hf->get_value('do_mask');
 
-#    opendir(DIR,$in_folder) or die ("$PM: could not open project inputs folder!";
-#    my @nii_files = grep(/\.nii$/,readdir(DIR));
-
     if ($current_path eq 'NO_KEY') {
-#       $current_path = "${work_dir}/base_images";
         $current_path = "${work_dir}/preprocess";
-#       $Hf->set_value('inputs_dir',$current_path);     
         $Hf->set_value('preprocess_dir',$current_path);
     }
     if (! -e $current_path) {

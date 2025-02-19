@@ -592,8 +592,8 @@ if ($nii4D) {
 }
 # Gather all needed data and put in inputs directory
 if ( ! $no_new_inputs ) {
-convert_all_to_nifti_vbm(); #$PM_code = 12
-sleep($interval);
+	convert_all_to_nifti_vbm(); #$PM_code = 12
+	sleep($interval);
 }
 if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
     push(@channel_array,'rd');
@@ -693,12 +693,10 @@ if (create_rd_from_e2_and_e3_vbm()) { #$PM_code = 13
 
         mask_for_mdt_vbm(); #$PM_code = 45
         sleep($interval);
- 
-	# 4 August 2020, BJA: We may very well want jacobians even if we arent' doing VBA.
-    	#if ($do_vba) {
-            calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46) ## BAD code! Don't use this unless you are trying to make a point! #Just kidding its the right thing to do after all--WTH?!?
-            sleep($interval);
-        #}
+
+		calculate_jacobians_vbm('f','control'); #$PM_code = 47 (or 46) ## BAD code! Don't use this unless you are trying to make a point! #Just kidding its the right thing to do after all--WTH?!?
+		sleep($interval);
+
     }
 
 # Things can get parallel right about here...
