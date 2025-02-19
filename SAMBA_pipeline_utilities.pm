@@ -1467,7 +1467,10 @@ sub get_slurm_job_stats {
     my ($node,$Node_string, $TotalCPU_string,$CPURaw_string,$MaxRSS_string);
     foreach my $job (@jobs) {
         my $out_string='';
-
+	my inverted_sacct_test=`sacct 2>&1 | grep 'is disabled' | wc -l`;
+	if ( $inverted_acct_test ) {
+		return('No_Stats_Accounting_Available');
+	}
 	if ($cluster_type == 1) {
 	    my  $current_stat_string = `sacct -Pan  -j $job.batch -o ${requested_stats}`;
 	    #print "Current_stat_string = ${current_stat_string}\n\n";
@@ -1491,15 +1494,15 @@ sub get_slurm_job_stats {
 	    $MaxRSS_string =`qacct -j $jid | tr -s [:space:] "\n" | grep -A1 ru_maxrss | tail -1`;
 	}
 
-        my $total_cpu_raw = convert_time_to_seconds($TotalCPU_string);
-        my $memory_in_kb = 0;
-        chomp($MaxRSS_string);
-        if ($MaxRSS_string =~ s/K[B]?$//) {
-            $memory_in_kb = $MaxRSS_string; 
-        } 
-        
-        $out_string = "${PM_code},${job},${node},${total_cpu_raw},${CPURaw_string},${memory_in_kb}\n";
-        $stats_string=$stats_string.$out_string;
+	my $total_cpu_raw = convert_time_to_seconds($TotalCPU_string);
+	my $memory_in_kb = 0;
+	chomp($MaxRSS_string);
+	if ($MaxRSS_string =~ s/K[B]?$//) {
+		$memory_in_kb = $MaxRSS_string; 
+	} 
+	
+	$out_string = "${PM_code},${job},${node},${total_cpu_raw},${CPURaw_string},${memory_in_kb}\n";
+	$stats_string=$stats_string.$out_string;
     }
     #print "Stats string:\n${stats_string}\n";
     return($stats_string);
