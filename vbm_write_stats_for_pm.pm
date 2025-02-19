@@ -64,13 +64,14 @@ sub vbm_write_stats_for_pm {
     if ($stats_file ne "NO_KEY") {
 	`echo "${pm_string}" >> ${stats_file}`;
     }
-
-    if  ($#jobs != -1) {
-	my $stats =  get_slurm_job_stats($PM_code,@jobs);
-	chomp($stats);
-	if ($stats_file ne "NO_KEY") {
-	    `echo "$stats" >> ${stats_file}`;
-	}
+    
+	my $inverted_sacct_test=`sacct 2>&1 | grep 'is disabled' | wc -l`;
+    if  (($#jobs != -1) && ( ! $inverted_sacct_test )) {
+		my $stats =  get_slurm_job_stats($PM_code,@jobs);
+		chomp($stats);
+		if ($stats_file ne "NO_KEY") {
+			`echo "$stats" >> ${stats_file}`;
+		}
     }
     return($real_time);
 };
