@@ -442,40 +442,40 @@ sub cluster_exec {
 	    $bash_call_with_visible_options = "sbatch ${explicit_sbatch_options} ${dependency_command} ${batch_file}";
 	    $bash_call = "sbatch ${dependency_command} ${batch_file}";
 	    if ($verbose != 3) {
-		print "sbatch command is: ${bash_call_with_visible_options}\n";
+			print "sbatch command is: ${bash_call_with_visible_options}\n";
 	    }
 	    ($msg,$jid)=`$bash_call 2>&1` =~  /([^0-9]+)([0-9]+)/x;
 	    my $extra_message='';
 	    
 	    if ((! defined $msg ) || ($msg !~  /.*(Submitted batch job).*/) ) {
-		$extra_message="Slurm failure encountered while try to submit job; Waited 30 seconds to try again once.\n";
-		sleep(30);
-		if ( defined $msg && $msg ne "" ) {
-		    $extra_message=$extra_message."output1: ".$msg."\n";
-		}
-		($msg,$jid)=`$bash_call 2>&1` =~  /([^0-9]+)([0-9]+)/x;
-		if ((! defined $msg) || ($msg !~  /.*(Submitted batch job).*/) ) {
-		    $jid = 0;
-		    error_out("${extra_message}Bad batch submit to slurm with output2: $msg\n");
-		    exit;
-		}
+			$extra_message="Slurm failure encountered while try to submit job; Waited 30 seconds to try again once.\n";
+			sleep(30);
+			if ( defined $msg && $msg ne "" ) {
+				$extra_message=$extra_message."output1: ".$msg."\n";
+			}
+			($msg,$jid)=`$bash_call 2>&1` =~  /([^0-9]+)([0-9]+)/x;
+			if ((! defined $msg) || ($msg !~  /.*(Submitted batch job).*/) ) {
+				$jid = 0;
+				error_out("${extra_message}Bad batch submit to slurm with output2: $msg\n");
+				exit;
+			}
 	    } elsif ($schedule_backup_jobs) {
-		if ($dependency_type eq 'singleton') {
-		    $other_name = $batch_path.'/backup_'.$b_file_name;
-		    `cp ${batch_file} ${other_name}`;
-		} else {
-		    $other_name = $batch_file;
-		}
-		
-		my $backup_bash_call = "sbatch --dependency=afternotok:${jid} ${other_name}";
-		($msg,$jid2)=`$backup_bash_call` =~  /([^0-9]+)([0-9]+)/x;
-		$extra_message="Slurm failure encountered while try to submit job; will wait 30 seconds and try again once.\n";
-		
-		if ((! defined $msg) || ($msg !~  /.*(Submitted batch job).*/) ) {
-		    $jid2 = 0;
-		    error_out("${extra_message}Bad batch submit to slurm with output: .$msg\n");
-		    exit;
-		}
+			if ($dependency_type eq 'singleton') {
+				$other_name = $batch_path.'/backup_'.$b_file_name;
+				`cp ${batch_file} ${other_name}`;
+			} else {
+				$other_name = $batch_file;
+			}
+			
+			my $backup_bash_call = "sbatch --dependency=afternotok:${jid} ${other_name}";
+			($msg,$jid2)=`$backup_bash_call` =~  /([^0-9]+)([0-9]+)/x;
+			$extra_message="Slurm failure encountered while try to submit job; will wait 30 seconds and try again once.\n";
+			
+			if ((! defined $msg) || ($msg !~  /.*(Submitted batch job).*/) ) {
+				$jid2 = 0;
+				error_out("${extra_message}Bad batch submit to slurm with output: .$msg\n");
+				exit;
+			}
 	    }
 	} elsif (${cluster_type} == 2) {
 	    $bash_call_with_visible_options = "qsub -V ${explicit_qsub_options} ${batch_file}";

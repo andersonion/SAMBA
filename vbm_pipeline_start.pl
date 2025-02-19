@@ -39,7 +39,7 @@ use lib dirname(abs_path($0));
 use SAMBA_global_variables;
 activity_log();
 
-$schedule_backup_jobs=1;
+$schedule_backup_jobs=0;
 
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS ATLAS_FOLDER);
 
