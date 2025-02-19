@@ -1468,7 +1468,7 @@ sub get_slurm_job_stats {
     foreach my $job (@jobs) {
         my $out_string='';
 	my $inverted_sacct_test=`sacct 2>&1 | grep 'is disabled' | wc -l`;
-	if ( $inverted_sacct_test ) {
+	if ( ! $inverted_sacct_test ) {
 		return('No_Stats_Accounting_Available');
 	}
 	if ($cluster_type == 1) {
