@@ -113,7 +113,7 @@ print STDOUT  " Checkpoint 2.\n";
 		my $interval = 2;
 		my $verbose = 1;
 		my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-		
+		print STDOUT  " Checkpoint 5.\n";
 		if ($done_waiting) {
 			print STDOUT  " Reorienting and recentering for all input images is complete; moving on to next step.\n";
 		}
