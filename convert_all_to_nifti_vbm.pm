@@ -125,8 +125,9 @@ print STDOUT  " Checkpoint 4. x${error_message}x\n";
 	if (($error_message eq '')) {
 		error_out("${error_message}",0);
 	}
-
+print STDOUT  " Checkpoint 5. x${error_message}x\n";
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time);
+    print STDOUT  " Checkpoint 6. x${error_message}x\n";
     print "$PM took ${real_time} seconds to complete.\n";
     if ($error_message ne '') {
         error_out("${error_message}",0);
