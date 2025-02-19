@@ -62,7 +62,6 @@ sub convert_all_to_nifti_vbm {
 	my @nii_cmds;
 	my @nii_files;
 
-print STDOUT  " Checkpoint 1.\n";
 	foreach my $runno (@array_of_runnos) {
 		foreach my $ch (@channel_array) {
 			my $go = $go_hash{$runno}{$ch};
@@ -108,26 +107,25 @@ print STDOUT  " Checkpoint 1.\n";
 			}
 		}
 	}
-print STDOUT  " Checkpoint 2.\n";
+
 	if (cluster_check() && (@jobs)) {
 		my $interval = 2;
 		my $verbose = 1;
 		my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-		print STDOUT  " Checkpoint 5.\n";
+		
 		if ($done_waiting) {
 			print STDOUT  " Reorienting and recentering for all input images is complete; moving on to next step.\n";
 		}
 	}
-print STDOUT  " Checkpoint 3.\n";
+
 	my $case = 2;
 	($dummy,$error_message)=convert_all_to_nifti_Output_check($case);
-print STDOUT  " Checkpoint 4. x${error_message}x\n";
-	if (($error_message eq '')) {
-		error_out("${error_message}",0);
-	}
-print STDOUT  " Checkpoint 5. x${error_message}x\n";
+
+	#if (($error_message eq '')) {
+#		error_out("${error_message}",0);
+#	}
+
     my $real_time = vbm_write_stats_for_pm($PM,$Hf,$start_time);
-    print STDOUT  " Checkpoint 6. x${error_message}x\n";
     print "$PM took ${real_time} seconds to complete.\n";
     if ($error_message ne '') {
         error_out("${error_message}",0);
