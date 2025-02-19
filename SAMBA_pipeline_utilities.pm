@@ -1467,7 +1467,7 @@ sub get_slurm_job_stats {
     my ($node,$Node_string, $TotalCPU_string,$CPURaw_string,$MaxRSS_string);
     foreach my $job (@jobs) {
         my $out_string='';
-	my inverted_sacct_test=`sacct 2>&1 | grep 'is disabled' | wc -l`;
+	my $inverted_sacct_test=`sacct 2>&1 | grep 'is disabled' | wc -l`;
 	if ( $inverted_acct_test ) {
 		return('No_Stats_Accounting_Available');
 	}
