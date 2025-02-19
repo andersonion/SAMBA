@@ -363,13 +363,14 @@ sub convert_all_to_nifti_vbm_Runtime_check {
     $ch_runlist = $Hf->get_value('channel_comma_list');
     @channel_array = split(',',$ch_runlist);
 
-    my $case = 1;
-    my ($dummy,$skip_message)=convert_all_to_nifti_Output_check($case);
+    #my $case = 1;
+    #my ($dummy,$skip_message)=convert_all_to_nifti_Output_check($case);
 
-    if ($skip_message ne '') {
-        print "${skip_message}";
-    }
+    #if ($skip_message ne '') {
+    #    print "${skip_message}";
+    #}
 
+	my $case = 2;
     ($dummy,$skip_message)=convert_all_to_nifti_Output_check($case);
     if ($skip_message ne '') {
         print "${skip_message}";
