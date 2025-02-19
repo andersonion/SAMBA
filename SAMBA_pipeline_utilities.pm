@@ -336,11 +336,17 @@ sub cluster_exec {
     push (@qsub_commands,$name_command);
 
     if ( defined $NOTIFICATION_EMAIL ){
-	my $email_address_command=" -M ${NOTIFICATION_EMAIL} ";
-	push (@qsub_commands,$email_address_command);
-
-	my $email_options_command=" -m ea ";
-	push (@qsub_commands,$email_options_command);
+    	my $email_address_command='';
+    	my $email_options_command='';
+    	if ( $cluster_type == 1 ) {
+			$email_address_command=" --mail-user=${NOTIFICATION_EMAIL} ";
+			$email_options_command=" --mail-type=END,FAIL ";    	
+    	} elsif ( $cluster_type == 2 ){}
+			$email_address_command=" -M ${NOTIFICATION_EMAIL} ";
+			$email_options_command=" -m ea ";
+		}
+		push (@qsub_commands,$email_address_command);
+		push (@qsub_commands,$email_options_command);
     }
 
     if ( $qsub_id =~ /create.*warp/ ) {
