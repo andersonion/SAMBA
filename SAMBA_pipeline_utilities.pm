@@ -341,7 +341,7 @@ sub cluster_exec {
     	if ( $cluster_type == 1 ) {
 			$email_address_command=" --mail-user=${NOTIFICATION_EMAIL} ";
 			$email_options_command=" --mail-type=END,FAIL ";    	
-    	} elsif ( $cluster_type == 2 ){}
+    	} elsif ( $cluster_type == 2 ){
 			$email_address_command=" -M ${NOTIFICATION_EMAIL} ";
 			$email_options_command=" -m ea ";
 		}
@@ -489,16 +489,16 @@ sub cluster_exec {
 	    my $extra_message='';
 	    if ((! defined $msg ) || ($msg !~  /.*(Your job).*/) ) {
 			$extra_message="SGE failure encountered while try to submit job; Waited 30 seconds to try again once.\n";
-		sleep(30);
-		if ( defined $msg && $msg ne "" ) {
-		    $extra_message=$extra_message."output1: ".$msg."\n";
-		}
-		($msg,$jid)=`$bash_call 2>&1` =~  /([^0-9]+)([0-9]+)/x;
-		if ((! defined $msg) || ($msg !~  /.*(Your job).*/) ) {
-		    $jid = 0;
-		    error_out("${extra_message}Bad batch submit to SGE with output2: $msg\n");
-		    exit;
-		}
+			sleep(30);
+			if ( defined $msg && $msg ne "" ) {
+				$extra_message=$extra_message."output1: ".$msg."\n";
+			}
+			($msg,$jid)=`$bash_call 2>&1` =~  /([^0-9]+)([0-9]+)/x;
+			if ((! defined $msg) || ($msg !~  /.*(Your job).*/) ) {
+				$jid = 0;
+				error_out("${extra_message}Bad batch submit to SGE with output2: $msg\n");
+				exit;
+			}
 	    } 
 	}
     }
