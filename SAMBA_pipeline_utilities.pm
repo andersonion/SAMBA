@@ -693,7 +693,7 @@ sub cluster_wait_for_jobs {
 							my $NE=$ENV{NOTIFICATION_EMAIL};
 							if ($NE == '') {
 								my $cluster_user=$ENV{USER} || $ENV{USERNAME};
-								$NE="$cluster_user@duke.edu"
+								$NE="$cluster_user\@duke.edu"
 							}
                             my $email_content = $subject_line.$error_message.$time_stamp;
                             `echo "${email_content}" > ${email_file}`;
