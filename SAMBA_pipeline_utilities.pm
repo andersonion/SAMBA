@@ -1350,7 +1350,7 @@ sub get_nii_from_inputs {
     # Missing from this is the selection order behavior, or protection from substring constrats that include name demarkations.
     # Name demarkations in use are . _ and -, it is expected that contrast is framed by those.
     # TODO: modify both instances of '.*' in the line below to explicitly exclude "color" (this should break as soon as we try to pull tensor_create results--30 April 2019 
-    my $pattern=$runno.".*[._-](".$contrast.'|'.uc($contrast).")[._-].*(".$valid_formats_string.")\$";
+    my $pattern=$runno.".*[._-]{1}(".$contrast.'|'.uc($contrast).")[._-]{1}.*(".$valid_formats_string.")\$";
 
 # 29 July 2023 --BJA: Turning of James' code since it is behaving poorly
 if (0) {
