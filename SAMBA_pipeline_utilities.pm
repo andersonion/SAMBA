@@ -595,11 +595,7 @@ sub cluster_wait_for_jobs {
         sleep_with_countdown(3);
     }
     my $jobs='';
-    #Per James' testing, trying to use srun to wait for jobs to resolve,instead of continually querying with sacct; BJA 25 May 2018
-    my $use_srun=0; 
-    my $slurm_char=',';
-    if ($use_srun ){ $slurm_char=':'; }
-    $jobs = join("$slurm_char",@job_ids);
+    $jobs = join(",",@job_ids);
 
     my $number_of_jobs = scalar(@job_ids); 
     print " Number of independent jobs = ${number_of_jobs}\n";
@@ -607,60 +603,36 @@ sub cluster_wait_for_jobs {
     if ($number_of_jobs) {
         #print STDOUT "SLURM: Waiting for multiple jobs to complete";
         print STDOUT "SLURM: Waiting for jobs $jobs to complete...";    
-        if ($use_srun) {
-            # Using srun, schedule a job to run directly after all jobs we wish to wait on are out of the queue.
-            # the fault with this idea is that the check jobs is stuck behind other processes, Maybe thats perfect?
-            # This fault could have been the way the slow master is configured it has limited slots and they may
-            # be in constant use with our recon gatekeepers...
-            # (it is bad form to have jobs which run forever, we should address that, later...)
-            my $start_in_seconds=`date +"%s"`;
-            # my $srun_call = "srun -d afterany:${jobs} --mem=10 -p slow_master -Q -q -s -i none -e none echo Success,`date +\"%s\"`";
-            my $srun_call = "srun -d afterany:${jobs} --mem=10 -p high_priority -Q -q -s -i none -e none echo Success,`date +\"%s\"`";
-            # my $srun_call = "srun -d afterany:${jobs} --mem=10 -p slow_master -Q -q -s -i none -e none echo Success";
-            # print STDOUT "srun_call = ${srun_call}\n\n"; #####
-            # MaYBE wE sHoUld aLlOw tHis To tRy mULTipLe TimES?
-            my $srun_return =`${srun_call}`; 
-            if ($srun_return =~ s/^\s+|\s+$//g){}
-            print STDOUT "srun_return = ${srun_return}\n\n"; ##### 
-            my ($success,$end_in_seconds) = split(',',$srun_return);
-            if ( $success ne "Success") {
-                error_out("srun_call = ${srun_call}\n\nWhile initializing Waiter Job: Bad batch submit to slurm with output: ${end_in_seconds}\n");
-                exit;
-            } else {
-                my $elapsed_time=${end_in_seconds} - ${start_in_seconds};
-#               if ($elapsed_time =~ s/^\s+|\s+$//g){}
-                my $alt_time=`date +%H:%M:%S -ud @${elapsed_time}`;
-                print STDOUT "....Waiting via srun; work completed in ${alt_time} (${elapsed_time} seconds)....\n"; 
-#               log_msg ( "....Waiting via srun; work completed in ${alt_time} (${elapsed_time} seconds)....");
-#               print STDOUT "....Waiting via srun....${success}...\n";
-            }
-        } else { 
-            while ($completed == 0) {
-                # my $sacct_ended_jobs = `sacct -j $jobs -o JobName%50,State | grep -v '.batch' | grep -cE 'FAIL|CANCEL|COMPLETED|DEADLINE|PREEMPTED|TIMEOUT'`;
-                # 11 November 2016: Changed test condition for whether or not we continue...
-                # 11 November 2016: now we look for the number of jobs that have the "no more work will be done" conditions.
-
+		while ($completed == 0) {
                 my $j_o;
-		my $sacct_ended_jobs;
-		my @job_states;
-		if (${cluster_type} == 1){
-		    $j_o = `sacct -nj $jobs -o JobID,JobName%50,State|grep -v '.batch'`;
-                    #| grep -v '.batch' | grep -cE 'FAIL|CANCEL|COMPLETED|DEADLINE|PREEMPTED|TIMEOUT'`;
-		    chomp($j_o);
-		    @job_states=split("\n",$j_o);
-		    my @ended=grep /FAIL|CANCEL|COMPLETED|DEADLINE|PREEMPTED|TIMEOUT/ ,@job_states;
-		    $sacct_ended_jobs=scalar(@ended);
-		} elsif (${cluster_type} == 2) {
-		    $j_o = `qstat -j $jobs 2>&1| grep '==='  | wc -l`;
-		    $sacct_ended_jobs=$number_of_jobs - $j_o;
-		    #print $j_o;
-		}
-                
-                
+				my $sacct_ended_jobs;
+				my @job_states;
+				if (${cluster_type} == 1){
+					my $simple_way = 1;
+					# Not all slurm clusters have sacct db setup.
+					if ($simple_way) {
+					 	$j_o=`squeue -o "%i,%50j,%T" -h -j $jobs`;
+					 	chomp($j_o);
+					 	@job_states=split("\n",$j_o);
+						my $j_o_num = `squeue -h -j $jobs | wc -l`;
+						$sacct_ended_jobs=$number_of_jobs - $j_o_num;
+					} else {
+						$j_o = `sacct -nj $jobs -o JobID,JobName%50,State|grep -v '.batch'`;
+							#| grep -v '.batch' | grep -cE 'FAIL|CANCEL|COMPLETED|DEADLINE|PREEMPTED|TIMEOUT'`;
+						chomp($j_o);
+						@job_states=split("\n",$j_o);
+						my @ended=grep /FAIL|CANCEL|COMPLETED|DEADLINE|PREEMPTED|TIMEOUT/ ,@job_states;
+						$sacct_ended_jobs=scalar(@ended);
+					}
+				} elsif (${cluster_type} == 2) {
+					$j_o = `qstat -j $jobs 2>&1| grep '==='  | wc -l`;
+					$sacct_ended_jobs=$number_of_jobs - $j_o;
+					#print $j_o;
+				}   
                 if ($sacct_ended_jobs < $number_of_jobs) {
                     if ($verbose) {print STDOUT ".";}
                     my $throw_error=0;
-                    if (($check_for_slurm_out)&&  (${cluster_type} == 1) ) {
+                    if (($check_for_slurm_out) && (${cluster_type} == 1) ) {
                         my $waited_time=0;
                         my $recheck_interval=10;
                         my $max_check_time=300;
@@ -718,11 +690,14 @@ sub cluster_wait_for_jobs {
 
                             my $time_stamp = "Failure time stamp = ${time} seconds since January 1, 1970 (or some equally asinine date).\n";
                             my $subject_line = "Subject: cluster slurm out error.\n";
-
-                            my $cluster_user=$ENV{USER} || $ENV{USERNAME};
+							my $NE=$ENV{NOTIFICATION_EMAIL};
+							if ($NE == '') {
+								my $cluster_user=$ENV{USER} || $ENV{USERNAME};
+								$NE="$cluster_user@duke.edu"
+							}
                             my $email_content = $subject_line.$error_message.$time_stamp;
                             `echo "${email_content}" > ${email_file}`;
-                            `sendmail -f $process.civmcluster1\@dhe.duke.edu $cluster_user\@duke.edu,rja20\@duke.edu < ${email_file}`;
+                            `sendmail -f $process.kea\@dhe.duke.edu $NE < ${email_file}`;
                             `scancel ${bad_jobs}`; #29 Nov 2016: commented out because of delayed slurm-out files causing unwarrented cancellations #9 Dec 2016, trying to mitigate witha 10 second wait, and the cancelling if still no slurm out file
                             log_info($error_message);
                         }
@@ -733,15 +708,11 @@ sub cluster_wait_for_jobs {
                     print STDOUT "\n";
                 }
             }
-        }
     } else {
         $completed = 1;
     }
-
-
-    # my $msg = `sacct -j $in_jobs -o JobName%50,State`;
-    # print "$msg\n";
-    sleep(25);  #James, don't reduce this unless tested and shown to not fail on checking too quickly for files to exist (10 seconds failed)
+    #sleep(25);  #James, don't reduce this unless tested and shown to not fail on checking too quickly for files to exist (10 seconds failed)
+    sleep(10);
     return($completed);
 }
 
