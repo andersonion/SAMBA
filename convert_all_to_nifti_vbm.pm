@@ -99,7 +99,7 @@ sub convert_all_to_nifti_vbm {
 				} else {
 					# push(@nii_files,$current_file);
 					my $please_recenter=1; # Currently, this is stuck "on", as we can't turn it off in our function.
-					($job) =  set_center_and_orientation_vbm($current_file,$current_path,$current_orientation,$working_image_orientation,$please_recenter);
+					($job) =  set_center_and_orientation_vbm($current_file,$current_path,$runno,$ch,$current_orientation,$working_image_orientation,$please_recenter);
 					if ($job) {
 						push(@jobs,$job);
 					}
@@ -197,7 +197,7 @@ sub convert_all_to_nifti_Output_check {
 # ------------------
 sub set_center_and_orientation_vbm {
 # ------------------
-    my ($input_file,$output_folder,$current_orientation,$desired_orientation,$recenter) = @_;
+    my ($input_file,$output_folder,$runno,$ch,$current_orientation,$desired_orientation,$recenter) = @_;
     if (! defined $recenter) {$recenter=1;} # Unused for now.
 
     if ($output_folder !~ /\/$/) {
@@ -226,7 +226,7 @@ sub set_center_and_orientation_vbm {
         my $cmd = "${img_transform_executable_path} ${matlab_path} ${matlab_exec_args}";
         
         my $home_path = $current_path;
-        my $Id= "recentering_and_setting_image_orientation_to_${desired_orientation}";
+        my $Id= "${runno}_${ch}_recentering_and_setting_image_orientation_to_${desired_orientation}";
         my $verbose = 2; # Will print log only for work done.
         $jid = cluster_exec($go,$go_message , $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
         if (not $jid) {
