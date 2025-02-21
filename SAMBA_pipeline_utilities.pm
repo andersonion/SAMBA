@@ -1399,7 +1399,7 @@ if (0) {
         #my @input_files_X= grep(/^.*($runno).*$/i ,readdir(DIR));
         my @input_files_X= readdir(DIR);
         print("Checkpoint 0\n");
-        print(join("\n",@input_files_X),"\n");
+        print join("\n",@input_files_X),"\n" ;
         
         $input_file= $input_files_0[0];
         if ( defined $input_file) { 
