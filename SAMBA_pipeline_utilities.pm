@@ -1395,7 +1395,8 @@ if (0) {
     my $input_file='';
     if (-d $inputs_dir) {
         opendir(DIR, $inputs_dir);
-        my @input_files_0= grep(/^($runno).*(${test_contrast})_masked\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR));
+        #my @input_files_0= grep(/^($runno).*(${test_contrast})_masked\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR));
+        my @input_files_0= grep(/^($runno).*(${test_contrast})_masked\.($valid_formats_string){1}(\.gz)?$/i ,glob ("${inputs_dir}/*"));
         #my @input_files_X= grep(/^.*($runno).*$/i ,readdir(DIR));
         my @input_files= glob ("${inputs_dir}/*"); ;
         print("Checkpoint 0\n");
