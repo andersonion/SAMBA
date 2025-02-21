@@ -1401,6 +1401,7 @@ if (0) {
         print("Checkpoint 0\n");
         print join("\n",@input_files),"\n" ;
         print @input_files ;
+        print "SHUCKKKKKS" ;
         $input_file= $input_files_0[0];
         if ( defined $input_file) { 
         	print("Checkpoint 1\n");
