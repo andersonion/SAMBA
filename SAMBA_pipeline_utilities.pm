@@ -1399,7 +1399,7 @@ if (0) {
 print("Checkpoint 1\n");
         $input_file= $input_files_0[0];
         if ((! defined $input_file) || ($input_file eq '') ) {
-        print("Checkpoint /^($runno).*(${test_contrast})\.($valid_formats_string){1}(\.gz)?$\n");
+        print("Checkpoint /^($runno).*(${test_contrast})\.($valid_formats_string){1}(\.gz)?\$\n");
             my @input_files_1= grep(/^($runno).*(${test_contrast})\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR)); #27 Dec 2016, added "^" because new phantom naming method of prepending (NOT substituting) "P" "Q" etc to beginning of runno results in ambiguous selection of files. Runno "S64944" might return "PS64944" "QS64944" or "S64944".
             
             $input_file = $input_files_1[0];
