@@ -1407,7 +1407,7 @@ if (0) {
             $input_file = $input_files_1[0];
                     if ( defined $input_file) { 
 					print("Checkpoint 2\n");
-					print(join("\n",@input_files_0),"\n");
+					print(join("\n",@input_files_1),"\n");
 				}
             if ((! defined $input_file) || ($input_file eq '')) {
 				
@@ -1416,7 +1416,7 @@ if (0) {
                 $input_file = $input_files_2[0];
                         if ( defined $input_file) { 
 						print("Checkpoint 3\n");
-						print(join("\n",@input_files_0),"\n");
+						print(join("\n",@input_files_2),"\n");
 					}
                 if ((! defined $input_file) || ($input_file eq '') ) {
                     opendir(DIR, $inputs_dir);
@@ -1424,7 +1424,7 @@ if (0) {
                     $input_file = $input_files_3[0];
                             if ( defined $input_file) { 
 							print("Checkpoint 4\n");
-							print(join("\n",@input_files_0),"\n");
+							print(join("\n",@input_files_3),"\n");
 						}
                 }
             }
