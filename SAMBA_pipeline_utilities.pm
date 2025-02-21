@@ -1438,7 +1438,7 @@ if (0) {
         }
         
         if ((defined $input_file) && ($input_file ne '') ) {
-            my $path= $inputs_dir.'/'.$input_file;
+            #my $path= $inputs_dir.'/'.$input_file;
             return($path);
         } else {
             $error_msg="SAMBA_pipeline_utilities function get_nii_from_inputs: Unable to locate file using the input criteria:\n\t\$inputs_dir: ${inputs_dir}\n\t\$runno: $runno\n\t\$contrast: $contrast\n";
