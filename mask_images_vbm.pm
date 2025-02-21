@@ -71,20 +71,20 @@ sub mask_images_vbm {
             if (($thresh_ref ne "NO_KEY") && ($$thresh_ref{$runno})){
                 $mask_threshold = $$thresh_ref{$runno};
             } else {
-		# Custom tc, a la original_orientation, added 26 July 2023 (Wed), by RJA
-		my $Hf_key = "threshold_code_${runno}";
-	        ${mask_threshold} = $Hf->get_value($Hf_key);
-                if (${mask_threshold} eq 'NO_KEY') {
-		    $mask_threshold=$default_mask_threshold;
-		}
+				# Custom tc, a la original_orientation, added 26 July 2023 (Wed), by RJA
+				my $Hf_key = "threshold_code_${runno}";
+				${mask_threshold} = $Hf->get_value($Hf_key);
+				if (${mask_threshold} eq 'NO_KEY') {
+					$mask_threshold=$default_mask_threshold;
+				}
             }
 
             my $mask_path =  "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
             if (data_double_check($mask_path,0))  {
-		$mask_path = get_nii_from_inputs($current_path,$runno,'mask');
-	    }
-
-	    if (data_double_check($mask_path,0))  {
+				$mask_path = get_nii_from_inputs($current_path,$runno,'mask');
+			}
+	
+			if (data_double_check($mask_path,0))  {
                 $mask_path = "${mask_dir}/${runno}_${template_contrast}_mask\.nii";
             }
 
@@ -407,7 +407,7 @@ sub mask_one_image {
     my $apply_cmd = "fslmaths ${centered_path} -mas ${runno_mask} ${out_path} -odt \"input\";"; # 7 March 2016, Switched from ants ImageMath command to fslmaths, as fslmaths should be able to automatically handle color_fa images. (dim =4 instead of 3).
     my $im_a_real_tensor = '';
     if ($centered_path =~ /tensor/){
-	$im_a_real_tensor = '1';
+		$im_a_real_tensor = '1';
     }
    # my $apply_cmd =  "ImageMath ${dims} ${out_path} m ${centered_path} ${runno_mask};\n";
     my $copy_hd_cmd = '';#"CopyImageHeaderInformation ${centered_path} ${out_path} ${out_path} 1 1 1 ${im_a_real_tensor};\n"; # 24 Feb 2018, disabling, function seems to be broken and wreaking havoc
