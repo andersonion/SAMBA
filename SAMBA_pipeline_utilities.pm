@@ -1398,25 +1398,25 @@ if (0) {
         my @input_files_0= grep(/^($runno).*(${test_contrast})_masked\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR));
 print("Checkpoint 1\n");
         $input_file= $input_files_0[0];
-         print($input_file);
+        if ($input_file ne '' ){ print join("Checkpoint 1",@input_files_0),"\n";}
         if ((! defined $input_file) || ($input_file eq '') ) {
         print("Checkpoint /^($runno).*(${test_contrast})\.($valid_formats_string){1}(\.gz)?\$\n");
             my @input_files_1= grep(/^($runno).*(${test_contrast})\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR)); #27 Dec 2016, added "^" because new phantom naming method of prepending (NOT substituting) "P" "Q" etc to beginning of runno results in ambiguous selection of files. Runno "S64944" might return "PS64944" "QS64944" or "S64944".
             
             $input_file = $input_files_1[0];
-             print($input_file);
+            if ($input_file ne '' ){ print join("Checkpoint 2",@input_files_0),"\n";}
             if ((! defined $input_file) || ($input_file eq '')) {
-            print("Checkpoint 3\n");
+				if ($input_file ne '' ){ print join("Checkpoint 3",@input_files_0),"\n";}
                 opendir(DIR, $inputs_dir);
                 my @input_files_2= grep(/^($runno).*(${test_contrast})_.*\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR)); #28 Dec 2016, added "^" like above.
                 $input_file = $input_files_2[0];
-                 print($input_file);
+                print($input_file);
                 if ((! defined $input_file) || ($input_file eq '') ) {
-                print("Checkpoint 4\n");
+					if ($input_file ne '' ){ print join("Checkpoint 4",@input_files_0),"\n";}
                     opendir(DIR, $inputs_dir);
                     my @input_files_3= grep(/^($runno).*(${test_contrast}).*\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR));  #28 Dec 2016, added "^" like above.
                     $input_file = $input_files_3[0];
-                    print($input_file);
+                    if ($input_file ne '' ){ print join("Checkpoint 5",@input_files_0),"\n";}
                 }
             }
         }
