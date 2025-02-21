@@ -1397,10 +1397,10 @@ if (0) {
         opendir(DIR, $inputs_dir);
         my @input_files_0= grep(/^($runno).*(${test_contrast})_masked\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR));
         #my @input_files_X= grep(/^.*($runno).*$/i ,readdir(DIR));
-        my @input_files_X= readdir(DIR);
+        my @input_files= readdir(DIR);
         print("Checkpoint 0\n");
-        print join("\n",@input_files_X),"\n" ;
-        
+        print join("\n",@input_files),"\n" ;
+        print @input_files ;
         $input_file= $input_files_0[0];
         if ( defined $input_file) { 
         	print("Checkpoint 1\n");
