@@ -18,7 +18,7 @@ my $con;
 my $correct_file;
 my $failures=0;
 my $successes=0;
-$test_dir=$SAMBA_PATH/filename_testing/;
+$test_dir = "${SAMBA_PATH}/filename_testing/" ;
 # Anticipated collisions we want to test for:
 # Note: SAMBA is currently case INSENSITIVE
 # Note: SAMBA always will prefer a '_masked' of there is more than one options.
