@@ -75,7 +75,7 @@ $correct_file="${tmp_dir}/QA12345_FA_masked.nii.gz"; $runno='QA12345'; $con='FA'
 
 ##
 
-$correct_file="${tmp_dir}/A12345_f_FA	.nii.gz";
+$correct_file="${tmp_dir}/A12345_f_FA.nii.gz";
 $runno='A12345_f';
 $con='fa';
 ($successes,$failures)=file_test($tmp_dir, $correct_file, $runno, $con, $successes, $failures);
