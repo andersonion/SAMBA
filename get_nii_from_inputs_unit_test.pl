@@ -63,53 +63,28 @@ foreach $tR (@test_runnos) {
 
 # Test cases for 1):
 # A12345, QA12345, A12345_f, A1234501
-$correct_file="${test_dir}/A12345_FA.nii.gz";
+$correct_file="${tmp_dir}/A12345_FA.nii.gz";
 $runno='A12345';
 $con='FA';
-$test_result=get_nii_from_inputs($test_dir, $runno, $con);
-
-if ( $test_result eq $correct_file) {
-	$successes++;
-} else {
-	$failures++;
-}
+($successes,$failures)=get_nii_from_inputs($test_dir, $runno, $con);
 ##
-$correct_file="${test_dir}/QA12345_FA.nii.gz";
+$correct_file="${tmp_dir}/QA12345_FA.nii.gz";
 $runno='QA12345';
 $con='FA';
-$test_result=get_nii_from_inputs($test_dir, $runno, $con);
-
-if ( $test_result eq $correct_file) {
-	$successes++;
-} else {
-	$failures++;
-}
+($successes,$failures)=get_nii_from_inputs($test_dir, $runno, $con);
 
 ##
 
-$correct_file="${test_dir}/A12345_f_FA.nii.gz";
+$correct_file="${tmp_dir}/A12345_f_FA.nii.gz";
 $runno='A12345_f';
 $con='fa';
-$test_result=get_nii_from_inputs($test_dir, $runno, $con);
-
-if ( $test_result eq $correct_file) {
-	$successes++;
-} else {
-	$failures++;
-}
+($successes,$failures)=get_nii_from_inputs($test_dir, $runno, $con);
 ##
 
 $correct_file="${test_dir}/A1234501_FA.nii.gz";
 $runno='A1234501';
 $con='fa';
-$test_result=get_nii_from_inputs($test_dir, $runno, $con);
-
-if ( $test_result eq $correct_file) {
-	$successes++;
-} else {
-	$failures++;
-	print "Failed: $runno , $con , $test_result was not equal to $correct_file.\n";
-}
+($successes,$failures)=get_nii_from_inputs($test_dir, $runno, $con);
 
 # Test cases for 2):
 # T1, T1map, DWI, DWI_stack, color_fa, fa, nqa, qa
@@ -117,15 +92,28 @@ if ( $test_result eq $correct_file) {
 $correct_file="${test_dir}/A12345_FA.nii.gz";
 $runno='A1234501';
 $con='fa';
-$test_result=get_nii_from_inputs($test_dir, $runno, $con);
+($successes,$failures)=get_nii_from_inputs($test_dir, $runno, $con);
 
-if ( $test_result eq $correct_file) {
-	$successes++;
+
+#####
+sub file_test() {
+	my ($t_dir, $t_correct_file, $t_runno, $t_con, $success, $fail) = @_ ;
+	my $test_result=get_nii_from_inputs($t_dir, $t_runno, $t_con);
+
+if ( $test_result eq $t_correct_file) {
+	$success++;
 } else {
-	$failures++
+	$fail++;
+	print "Failed: $t_runno , $t_con , $test_result was not equal to $t_correct_file.\n";
+}
+
+return ($success,$fail);
+
+
 }
 
 
+####
 
 
 # Test cases for 3):
