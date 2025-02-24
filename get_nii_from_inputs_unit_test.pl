@@ -34,7 +34,7 @@ $runno='A12345';
 $con='FA';
 $test_result=get_nii_from_inputs($test_dir, $runno, $con);
 
-if ( $test_result == $correct_file) {
+if ( $test_result eq $correct_file) {
 	$successes++;
 } else {
 	$failures++
@@ -45,7 +45,7 @@ $runno='QA12345';
 $con='FA';
 $test_result=get_nii_from_inputs($test_dir, $runno, $con);
 
-if ( $test_result == $correct_file) {
+if ( $test_result eq $correct_file) {
 	$successes++;
 } else {
 	$failures++
@@ -58,7 +58,7 @@ $runno='A12345_f';
 $con='fa';
 $test_result=get_nii_from_inputs($test_dir, $runno, $con);
 
-if ( $test_result == $correct_file) {
+if ( $test_result eq $correct_file) {
 	$successes++;
 } else {
 	$failures++
@@ -70,7 +70,7 @@ $runno='A1234501';
 $con='fa';
 $test_result=get_nii_from_inputs($test_dir, $runno, $con);
 
-if ( $test_result == $correct_file) {
+if ( $test_result eq $correct_file) {
 	$successes++;
 } else {
 	$failures++
@@ -88,9 +88,9 @@ if ( $test_result == $correct_file) {
 
 
 
-print "Unit test completed.";
-print "Number of successful tests: ${successes}.";
-print "Number of failed tests: $failures}.";
+print "\nUnit test completed!\n";
+print "Number of successful tests: ${successes}.\n";
+print "Number of failed tests: $failures}.\n";
 
 
 
