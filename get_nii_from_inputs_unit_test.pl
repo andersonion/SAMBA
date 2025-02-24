@@ -65,23 +65,23 @@ foreach $tR (@test_runnos) {
 
 # Test cases for 1):
 # A12345, QA12345, A12345_f, A1234501
-$correct_file="${tmp_dir}/A12345_FA.nii.gz";
+$correct_file="${tmp_dir}/A12345_FA_masked.nii.gz";
 $runno='A12345';
 $con='FA';
 ($successes,$failures)=file_test($tmp_dir, $correct_file, $runno, $con, $successes, $failures);
 ##
-$correct_file="${tmp_dir}/QA12345_FA.nii.gz"; $runno='QA12345'; $con='FA';
+$correct_file="${tmp_dir}/QA12345_FA_masked.nii.gz"; $runno='QA12345'; $con='FA';
 ($successes,$failures)=file_test($tmp_dir, $correct_file, $runno, $con, $successes, $failures);
 
 ##
 
-$correct_file="${tmp_dir}/A12345_f_FA.nii.gz";
+$correct_file="${tmp_dir}/A12345_f_FA_masked.nii.gz";
 $runno='A12345_f';
 $con='fa';
 ($successes,$failures)=file_test($tmp_dir, $correct_file, $runno, $con, $successes, $failures);
 ##
 
-$correct_file="${tmp_dir}/A1234501_FA.nii.gz";
+$correct_file="${tmp_dir}/A1234501_FA_masked.nii.gz";
 $runno='A1234501';
 $con='fa';
 ($successes,$failures)=file_test($tmp_dir, $correct_file, $runno, $con, $successes, $failures);
@@ -89,7 +89,7 @@ $con='fa';
 # Test cases for 2):
 # T1, T1map, DWI, DWI_stack, color_fa, fa, nqa, qa
 
-$correct_file="${tmp_dir}/A12345_FA.nii.gz";
+$correct_file="${tmp_dir}/A12345_FA_masked.nii.gz";
 $runno='A1234501';
 $con='fa';
 ($successes,$failures)=file_test($tmp_dir, $correct_file, $runno, $con, $successes, $failures);
