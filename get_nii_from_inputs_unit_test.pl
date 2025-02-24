@@ -45,12 +45,12 @@ foreach $tR (@test_runnos) {
 	foreach $tc (@test_contrasts) {
 		foreach $g1 (@garbage_1) {
 			foreach $g2 (@garbage_2) {
-				my $file = ${tmp_dir}/${g1}${tR}${g2}${tc}.nii.gz;
+				my $file = "${tmp_dir}/${g1}${tR}${g2}${tc}.nii.gz";
 				if ( ! -f $file ) {
 					`touch $file`;
 				}
 				if ( $tc ne 'mask' ) {
-					$file = ${tmp_dir}/${g1}${tR}${g2}${tc}_masked.nii.gz;
+					$file = "${tmp_dir}/${g1}${tR}${g2}${tc}_masked.nii.gz";
 					if ( ! -f $file ) {
 						`touch $file`;
 					}
