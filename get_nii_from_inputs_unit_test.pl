@@ -68,23 +68,21 @@ $runno='A12345';
 $con='FA';
 ($successes,$failures)=get_nii_from_inputs($test_dir, $correct_file, $runno, $con, $successes, $failures);
 ##
-$correct_file="${tmp_dir}/QA12345_FA.nii.gz";
-$runno='QA12345';
-$con='FA';
-($successes,$failures)=get_nii_from_inputs($test_dir, $correct_file, $runno, $con, $successes, $failures);
+$correct_file="${tmp_dir}/QA12345_FA.nii.gz"; $runno='QA12345'; $con='FA';
+($successes,$failures)=file_test($test_dir, $correct_file, $runno, $con, $successes, $failures);
 
 ##
 
 $correct_file="${tmp_dir}/A12345_f_FA.nii.gz";
 $runno='A12345_f';
 $con='fa';
-($successes,$failures)=get_nii_from_inputs($test_dir, $correct_file, $runno, $con, $successes, $failures);
+($successes,$failures)=file_test($test_dir, $correct_file, $runno, $con, $successes, $failures);
 ##
 
 $correct_file="${test_dir}/A1234501_FA.nii.gz";
 $runno='A1234501';
 $con='fa';
-($successes,$failures)=get_nii_from_inputs($test_dir, $correct_file, $runno, $con, $successes, $failures);
+($successes,$failures)=file_test($test_dir, $correct_file, $runno, $con, $successes, $failures);
 
 # Test cases for 2):
 # T1, T1map, DWI, DWI_stack, color_fa, fa, nqa, qa
@@ -92,7 +90,7 @@ $con='fa';
 $correct_file="${test_dir}/A12345_FA.nii.gz";
 $runno='A1234501';
 $con='fa';
-($successes,$failures)=get_nii_from_inputs($test_dir, $correct_file, $runno, $con, $successes, $failures);
+($successes,$failures)=file_test($test_dir, $correct_file, $runno, $con, $successes, $failures);
 
 
 #####
