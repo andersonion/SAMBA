@@ -7,7 +7,7 @@ my $valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
 
 my $test_dir = '/mnt/newStor/paros/paros_WORK/upgraded_gradients_in_vivo_images';
 if ( ! -e ${test_dir}) {
-	$test_dir = "$BIGGUS_DISKUS/upgraded_gradients_in_vivo_images";
+	$test_dir = "/mnt/munin2/Badea/Lab/mouse//upgraded_gradients_in_vivo_images";
 }
 
 my $test_result;
