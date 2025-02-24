@@ -19,6 +19,7 @@ my @cons = ('T1,T1map');
 foreach $runno (@runnos) {
 	foreach $con ($cons) {	
 		$test_result = get_nii_from_inputs($test_dir, $runno, $con);
+		print $test_result;
 	}
 }
 
