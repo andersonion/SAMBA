@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 `perlbrew switch perl-5.16.3`;
-my $cleanup = 0;
+my $cleanup = 1;
 use Carp qw(carp croak cluck confess);
 
 my $valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
