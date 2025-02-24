@@ -49,7 +49,7 @@ foreach $tR (@test_runnos) {
 				if ( ! -f $file ) {
 					`touch $file`;
 				}
-				if ( $tc ne 'mask' ) {
+				if ( $tc ~= '/_mask$/' ) {
 					$file = "${tmp_dir}/${g1}${tR}${g2}${tc}_masked.nii.gz";
 					if ( ! -f $file ) {
 						`touch $file`;
