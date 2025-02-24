@@ -12,6 +12,7 @@ if ( ! -e ${test_dir}) {
 }
 }
 my $home_dir = `ls -d ~/`;
+chomp($home_dir);
 print "xx${home_dir}xx";
 my ${tmp_dir} = "~/tmp_filename_tester/";
 if ( ! -d $tmp_dir ) {
