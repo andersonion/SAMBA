@@ -17,7 +17,7 @@ my @cons = ('T1,T1map');
 #$RUNNO='A22040411';
 #$con='T1';
 foreach $runno (@runnos) {
-	foreach $con ($cons) {	
+	foreach $con (@cons) {	
 		$test_result = get_nii_from_inputs($test_dir, $runno, $con);
 		print $test_result;
 	}
