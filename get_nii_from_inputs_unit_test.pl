@@ -13,6 +13,88 @@ if ( ! -e ${test_dir}) {
 my $test_result;
 my @runnos = ("A22050912","A22050913","A22050914","A22080806","A22080807","A22080808","A22050911","A22060617","A22060618","A23011802","A23011803","A23011720","A22060602","A22060603","A22060604","A22060605","A22060606","A21112226","A21112227","A21112228","A22011008","A22011009","A22011010","A22030709","A22030710");
 my @cons = ('T1','T1map');
+my $runno;
+my $con;
+my $correct_file;
+my $failures=0;
+my $successes=0;
+$test_dir=$SAMBA_PATH/filename_testing/;
+# Anticipated collisions we want to test for:
+# Note: SAMBA is currently case INSENSITIVE
+# Note: SAMBA always will prefer a '_masked' of there is more than one options.
+# 1) Runnos containing substrings of other runnos
+# 2) Contrasts containing substrings of other runnos
+# 3) 'mask' vs. 'masked' --> usually when calling for 'mask' but getting a similarly named image instead
+# 4) Sometimes we'll have some nonsense like 'coreg_${runno}' at the front--but prefer the runno to be the very first thing.
+
+# Test cases for 1):
+# A12345, QA12345, A12345_f, A1234501
+$correct_file="${test_dir}/A12345_FA.nii.gz"
+$runno='A12345';
+$con='FA';
+$test_result=get_nii_from_inputs($test_dir, $runno, $con);
+
+if ( $test_result == $correct_file) {
+	$successes++;
+} else {
+	$failures++
+}
+##
+$correct_file="${test_dir}/QA12345_FA.nii.gz"
+$runno='QA12345';
+$con='FA';
+$test_result=get_nii_from_inputs($test_dir, $runno, $con);
+
+if ( $test_result == $correct_file) {
+	$successes++;
+} else {
+	$failures++
+}
+
+##
+
+$correct_file="${test_dir}/A12345_f_FA.nii.gz"
+$runno='A12345_f';
+$con='fa';
+$test_result=get_nii_from_inputs($test_dir, $runno, $con);
+
+if ( $test_result == $correct_file) {
+	$successes++;
+} else {
+	$failures++
+}
+##
+
+$correct_file="${test_dir}/A1234501_FA.nii.gz"
+$runno='A1234501';
+$con='fa';
+$test_result=get_nii_from_inputs($test_dir, $runno, $con);
+
+if ( $test_result == $correct_file) {
+	$successes++;
+} else {
+	$failures++
+}
+
+# Test cases for 2):
+# T1, T1map, DWI, DWI_stack, color_fa, fa, nqa, qa
+
+# Test cases for 3):
+# A12345_mask, A12345_Fa_masked, A12345_FA
+
+# Test cases for 4):
+# coreg_A12345, A12345
+
+
+
+
+print "Unit test completed.";
+print "Number of successful tests: ${successes}.";
+print "Number of failed tests: $failures}.";
+
+
+
+if (0){
 
 #$RUNNO='A22040411';
 #$con='T1';
@@ -22,7 +104,7 @@ foreach $runno (@runnos) {
 		print $test_result;
 	}
 }
-
+}
 
 
 # ------------------
@@ -152,9 +234,9 @@ if (0) {
         }
         
         if ((defined $input_file) && ($input_file ne '') ) {
-            #my $path= $inputs_dir.'/'.$input_file;
-            #return($path);
-            return($input_file);
+            my $path= $inputs_dir.'/'.$input_file;
+            return($path);
+            
         } else {
             $error_msg="SAMBA_pipeline_utilities function get_nii_from_inputs: Unable to locate file using the input criteria:\n\t\$inputs_dir: ${inputs_dir}\n\t\$runno: $runno\n\t\$contrast: $contrast\n";
             return($error_msg);
