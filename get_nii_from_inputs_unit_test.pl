@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 `perlbrew switch perl-5.16.3`;
-my $cleanup = 1;
+my $cleanup = 0;
 use Carp qw(carp croak cluck confess);
 
 my $valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
@@ -66,7 +66,7 @@ foreach $tR (@test_runnos) {
 $correct_file="${tmp_dir}/A12345_FA.nii.gz";
 $runno='A12345';
 $con='FA';
-($successes,$failures)=get_nii_from_inputs($test_dir, $correct_file, $runno, $con, $successes, $failures);
+($successes,$failures)=file_test($tmp_dir, $correct_file, $runno, $con, $successes, $failures);
 ##
 $correct_file="${tmp_dir}/QA12345_FA.nii.gz"; $runno='QA12345'; $con='FA';
 ($successes,$failures)=file_test($tmp_dir, $correct_file, $runno, $con, $successes, $failures);
