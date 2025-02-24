@@ -102,7 +102,7 @@ sub file_test() {
 	my $cmd ="t_correct_file=${t_correct_file};".'echo ${t_correct_file/\.nii\.gz/_masked\.nii\.gz}';
 	my $alt_file = `${cmd}`;
 	my $string = "(${t_correct_file}|${alt_file})";
-if ( $test_result =~ "/^${string}$/i" ) {
+if ( $test_result =~ /^${string}$/i ) {
 	$success++;
 } else {
 	$fail++;
