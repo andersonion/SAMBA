@@ -50,7 +50,7 @@ foreach $tR (@test_runnos) {
 					`touch $file`;
 				}
 				if ( $tc !~ '/_mask$/i' ) {
-					$file = "${tmp_dir}/${g1}${tR}${g2}${tc}_masked.nii.gz";
+					$file = "${tmp_dir}/${g1}${tR}_${g2}${tc}_masked.nii.gz";
 					if ( ! -f $file ) {
 						`touch $file`;
 					}
