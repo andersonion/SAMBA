@@ -38,14 +38,14 @@ $test_dir = "${SAMBA_PATH}/filename_testing/" ;
 my @test_runnos=('A12345','QA12345','A12345_f','A12345-1','A12345-10');
 my @test_contrasts=('T1', 'T1map', 'DWI', 'DWI_stack', 'dwi_mask', 'fa', 'nqa', 'qa', 'mask');
 my @garbage_1=('','coreg_','denoised_');
-my @garbage_2=('','_RARESpace_','_to_MDT_','_in_T1_space_','_color_');
+my @garbage_2=('','RARESpace_','to_MDT_','in_T1_space_','color_');
 
 
 foreach $tR (@test_runnos) {
 	foreach $tc (@test_contrasts) {
 		foreach $g1 (@garbage_1) {
 			foreach $g2 (@garbage_2) {
-				my $file = "${tmp_dir}/${g1}${tR}${g2}${tc}.nii.gz";
+				my $file = "${tmp_dir}/${g1}_${tR}${g2}${tc}.nii.gz";
 				if ( ! -f $file ) {
 					`touch $file`;
 				}
