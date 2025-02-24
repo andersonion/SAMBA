@@ -13,7 +13,7 @@ if ( ! -e ${test_dir}) {
 }
 
 my ${tmp_dir} = "~/tmp_filename_tester/";
-if ( ! -f $tmp_dir ) {
+if ( ! -d $tmp_dir ) {
 	`mkdir ${tmp_dir}`;
 }
 
@@ -71,7 +71,7 @@ $test_result=get_nii_from_inputs($test_dir, $runno, $con);
 if ( $test_result eq $correct_file) {
 	$successes++;
 } else {
-	$failures++
+	$failures++;
 }
 ##
 $correct_file="${test_dir}/QA12345_FA.nii.gz";
@@ -82,7 +82,7 @@ $test_result=get_nii_from_inputs($test_dir, $runno, $con);
 if ( $test_result eq $correct_file) {
 	$successes++;
 } else {
-	$failures++
+	$failures++;
 }
 
 ##
@@ -95,7 +95,7 @@ $test_result=get_nii_from_inputs($test_dir, $runno, $con);
 if ( $test_result eq $correct_file) {
 	$successes++;
 } else {
-	$failures++
+	$failures++;
 }
 ##
 
@@ -107,7 +107,8 @@ $test_result=get_nii_from_inputs($test_dir, $runno, $con);
 if ( $test_result eq $correct_file) {
 	$successes++;
 } else {
-	$failures++
+	$failures++;
+	print "Failed: $runno , $con , $test_result was not equal to $correct_file.\n'
 }
 
 # Test cases for 2):
