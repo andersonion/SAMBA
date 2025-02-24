@@ -99,7 +99,7 @@ $con='fa';
 sub file_test() {
 	my ($t_dir, $t_correct_file, $t_runno, $t_con, $success, $fail) = @_ ;
 	my $test_result=get_nii_from_inputs($t_dir, $t_runno, $t_con);
-my $alt_file = `echo ${t_correct_file/\.nii\.gz/_masked\.nii\.gz}`
+	my $alt_file = `echo ${t_correct_file/\.nii\.gz/_masked\.nii\.gz}`;
 if ( $test_result =~ "/^(${t_correct_file}|${alt_file})$/i" ) {
 	$success++;
 } else {
