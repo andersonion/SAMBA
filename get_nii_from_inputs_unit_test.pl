@@ -141,6 +141,7 @@ print "Number of successful tests: ${successes}.\n";
 print "Number of failed tests: ${failures}.\n";
 
 if ( $cleanup && ( $tmp_dire ne '' ) ) {
+	print "Cleaning up ${tmp_dir}...";
 	`rm -r $tmp_dir`;	
 }
 
