@@ -101,7 +101,8 @@ sub file_test() {
 	my $test_result=get_nii_from_inputs($t_dir, $t_runno, $t_con);
 	my $cmd ="t_correct_file=${t_correct_file};".'echo ${t_correct_file/\.nii\.gz/_masked\.nii\.gz}';
 	my $alt_file = `${cmd}`;
-if ( $test_result =~ "/^(${t_correct_file}|${alt_file})$/i" ) {
+	my $string = "(${t_correct_file}|${alt_file})";
+if ( $test_result =~ "/^${string}$/i" ) {
 	$success++;
 } else {
 	$fail++;
