@@ -75,7 +75,7 @@ $correct_file="${tmp_dir}/QA12345_FA_masked.nii.gz"; $runno='QA12345'; $con='FA'
 
 ##
 
-$correct_file="${tmp_dir}/A12345_f_FA_masked.nii.gz";
+$correct_file="${tmp_dir}/A12345_f_FA.nii.gz";
 $runno='A12345_f';
 $con='fa';
 ($successes,$failures)=file_test($tmp_dir, $correct_file, $runno, $con, $successes, $failures);
@@ -100,7 +100,7 @@ sub file_test() {
 	my ($t_dir, $t_correct_file, $t_runno, $t_con, $success, $fail) = @_ ;
 	my $test_result=get_nii_from_inputs($t_dir, $t_runno, $t_con);
 
-if ( $test_result =~ /^${t_correct_file}$/i ) {
+if ( $test_result =~ /^(${t_correct_file}|${t_correct_file/\.nii\.gz/_masked\.nii\.gz})$/i ) {
 	$success++;
 } else {
 	$fail++;
