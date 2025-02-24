@@ -45,7 +45,7 @@ foreach $tR (@test_runnos) {
 	foreach $tc (@test_contrasts) {
 		foreach $g1 (@garbage_1) {
 			foreach $g2 (@garbage_2) {
-				my $file = "${tmp_dir}/${g1}_${tR}${g2}${tc}.nii.gz";
+				my $file = "${tmp_dir}/${g1}${tR}_${g2}${tc}.nii.gz";
 				if ( ! -f $file ) {
 					`touch $file`;
 				}
