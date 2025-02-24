@@ -102,7 +102,11 @@ if ( $test_result eq $t_correct_file) {
 	$success++;
 } else {
 	$fail++;
-	print "Failed: $t_runno , $t_con , $test_result was not equal to $t_correct_file.\n";
+	if ( -f $test_result ) {
+		print "Failed: $t_runno , $t_con , $test_result was not equal to $t_correct_file.\n";
+	} else {
+		print "Failed: No file found for $t_runno , $t_con (correct_file = $t_correct_file).\n";
+	}
 }
 
 return ($success,$fail);
