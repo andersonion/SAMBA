@@ -49,7 +49,7 @@ foreach $tR (@test_runnos) {
 				if ( ! -f $file ) {
 					`touch $file`;
 				}
-				if ( $tc =~ '/_mask$/i' ) {
+				if ( $tc !~ '/_mask$/i' ) {
 					$file = "${tmp_dir}/${g1}${tR}${g2}${tc}_masked.nii.gz";
 					if ( ! -f $file ) {
 						`touch $file`;
@@ -98,7 +98,7 @@ sub file_test() {
 	my ($t_dir, $t_correct_file, $t_runno, $t_con, $success, $fail) = @_ ;
 	my $test_result=get_nii_from_inputs($t_dir, $t_runno, $t_con);
 
-if ( $test_result eq $t_correct_file) {
+if ( $test_result =~ /^${t_correct_file}$/i ) {
 	$success++;
 } else {
 	$fail++;
