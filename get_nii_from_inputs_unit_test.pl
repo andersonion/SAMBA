@@ -37,7 +37,7 @@ $test_dir = "${SAMBA_PATH}/filename_testing/" ;
 # 3) 'mask' vs. 'masked' --> usually when calling for 'mask' but getting a similarly named image instead
 # 4) Sometimes we'll have some nonsense like 'coreg_${runno}' at the front--but prefer the runno to be the very first thing.
 
-my @test_runnos=('A12345','QA12345','A12345_f','A12345-1','A12345-10');
+my @test_runnos=('A12345','QA12345','A12345_f','A12345-1','A12345-10','A1234501');
 my @test_contrasts=('T1', 'T1map', 'DWI', 'DWI_stack', 'dwi_mask', 'FA', 'nqa', 'qa', 'mask');
 my @garbage_1=('','coreg_','denoised_');
 my @garbage_2=('','RARESpace_','to_MDT_','in_T1_space_','color_');
@@ -89,8 +89,8 @@ $con='fa';
 # Test cases for 2):
 # T1, T1map, DWI, DWI_stack, color_fa, fa, nqa, qa
 
-$correct_file="${tmp_dir}/A12345_FA_masked.nii.gz";
-$runno='A1234501';
+$correct_file="${tmp_dir}/A12345-1_FA_masked.nii.gz";
+$runno='A12345-1';
 $con='fa';
 ($successes,$failures)=file_test($tmp_dir, $correct_file, $runno, $con, $successes, $failures);
 
@@ -189,7 +189,7 @@ sub get_nii_from_inputs {
     # TODO: modify both instances of '.*' in the line below to explicitly exclude "color" (this should break as soon as we try to pull tensor_create results--30 April 2019 
     my $pattern=$runno.".*[\.\_\-]{1}(".$contrast.'|'.uc($contrast).")[\.\_\-]{1}.*(".$valid_formats_string.")\$";
 
-# 29 July 2023 --BJA: Turning of James' code since it is behaving poorly
+# 29 July 2023 --BJA: Turning off James' code since it is behaving poorly
 if (0) {
     my @found=SAMBA_pipeline_utilities::find_file_by_pattern($inputs_dir,$pattern,1);
     $error_msg="SAMBA_pipeline_utilities function get_nii_from_inputs: Unable to locate file using the input criteria:\n\t\$inputs_dir: ${inputs_dir}\n\t\$runno: $runno\n\t\$contrast: $contrast\n";
