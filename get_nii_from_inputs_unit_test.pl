@@ -11,7 +11,7 @@ if ( ! -e ${test_dir}) {
 	$test_dir = "/mnt/munin2/Badea/Lab/mouse//upgraded_gradients_in_vivo_images";
 }
 }
-my $home_dir = `ls ~/`;
+my $home_dir = `ls -d ~/`;
 my ${tmp_dir} = "$home_dir/tmp_filename_tester/";
 if ( ! -d $tmp_dir ) {
 	`mkdir ${tmp_dir}`;
