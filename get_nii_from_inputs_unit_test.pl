@@ -29,7 +29,7 @@ $test_dir=$SAMBA_PATH/filename_testing/;
 
 # Test cases for 1):
 # A12345, QA12345, A12345_f, A1234501
-$correct_file="${test_dir}/A12345_FA.nii.gz"
+$correct_file="${test_dir}/A12345_FA.nii.gz";
 $runno='A12345';
 $con='FA';
 $test_result=get_nii_from_inputs($test_dir, $runno, $con);
@@ -40,7 +40,7 @@ if ( $test_result == $correct_file) {
 	$failures++
 }
 ##
-$correct_file="${test_dir}/QA12345_FA.nii.gz"
+$correct_file="${test_dir}/QA12345_FA.nii.gz";
 $runno='QA12345';
 $con='FA';
 $test_result=get_nii_from_inputs($test_dir, $runno, $con);
@@ -53,7 +53,7 @@ if ( $test_result == $correct_file) {
 
 ##
 
-$correct_file="${test_dir}/A12345_f_FA.nii.gz"
+$correct_file="${test_dir}/A12345_f_FA.nii.gz";
 $runno='A12345_f';
 $con='fa';
 $test_result=get_nii_from_inputs($test_dir, $runno, $con);
@@ -65,7 +65,7 @@ if ( $test_result == $correct_file) {
 }
 ##
 
-$correct_file="${test_dir}/A1234501_FA.nii.gz"
+$correct_file="${test_dir}/A1234501_FA.nii.gz";
 $runno='A1234501';
 $con='fa';
 $test_result=get_nii_from_inputs($test_dir, $runno, $con);
