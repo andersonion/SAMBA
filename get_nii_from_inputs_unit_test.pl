@@ -1,14 +1,22 @@
 #!/usr/bin/env perl
 `perlbrew switch perl-5.16.3`;
-
+my $cleanup = 1;
 use Carp qw(carp croak cluck confess);
 
 my $valid_formats_string = 'hdr|img|nii|nii.gz|ngz|nhdr|nrrd';
 
+if (0) {
 my $test_dir = '/mnt/newStor/paros/paros_WORK/upgraded_gradients_in_vivo_images';
 if ( ! -e ${test_dir}) {
 	$test_dir = "/mnt/munin2/Badea/Lab/mouse//upgraded_gradients_in_vivo_images";
 }
+}
+
+my ${tmp_dir} = "~/tmp_filename_tester/";
+if ( ! -f $tmp_dir ) {
+	`mkdir ${tmp_dir}`;
+}
+
 
 my $test_result;
 my @runnos = ("A22050912","A22050913","A22050914","A22080806","A22080807","A22080808","A22050911","A22060617","A22060618","A23011802","A23011803","A23011720","A22060602","A22060603","A22060604","A22060605","A22060606","A21112226","A21112227","A21112228","A22011008","A22011009","A22011010","A22030709","A22030710");
@@ -26,6 +34,32 @@ $test_dir = "${SAMBA_PATH}/filename_testing/" ;
 # 2) Contrasts containing substrings of other runnos
 # 3) 'mask' vs. 'masked' --> usually when calling for 'mask' but getting a similarly named image instead
 # 4) Sometimes we'll have some nonsense like 'coreg_${runno}' at the front--but prefer the runno to be the very first thing.
+
+my @test_runnos=('A12345','QA12345','A12345_f','A12345-1','A12345-10');
+my @test_contrasts=('T1', 'T1map', 'DWI', 'DWI_stack', 'dwi_mask', 'fa', 'nqa', 'qa', 'mask');
+my @garbage_1=('','coreg_','denoised_');
+my @garbage_2=('','_RARESpace_','_to_MDT_','_in_T1_space_','_color_');
+
+
+foreach $tR (@test_runnos) {
+	foreach $tc (@test_contrasts) {
+		foreach $g1 (@garbage_1) {
+			foreach $g2 (@garbage_2) {
+				my $file = ${temp_dir}/${g1}${tR}${g2}${tc}.nii.gz;
+				if ( ! -f $file ) {
+					`touch $file`;
+				}
+				if ( $tc ne 'mask' ) {
+					$file = ${temp_dir}/${g1}${tR}${g2}${tc}_masked.nii.gz;
+					if ( ! -f $file ) {
+						`touch $file`;
+					}
+				}
+			}
+		}
+	}
+}
+
 
 # Test cases for 1):
 # A12345, QA12345, A12345_f, A1234501
@@ -79,6 +113,20 @@ if ( $test_result eq $correct_file) {
 # Test cases for 2):
 # T1, T1map, DWI, DWI_stack, color_fa, fa, nqa, qa
 
+$correct_file="${test_dir}/A12345_FA.nii.gz";
+$runno='A1234501';
+$con='fa';
+$test_result=get_nii_from_inputs($test_dir, $runno, $con);
+
+if ( $test_result eq $correct_file) {
+	$successes++;
+} else {
+	$failures++
+}
+
+
+
+
 # Test cases for 3):
 # A12345_mask, A12345_Fa_masked, A12345_FA
 
@@ -90,9 +138,11 @@ if ( $test_result eq $correct_file) {
 
 print "\nUnit test completed!\n";
 print "Number of successful tests: ${successes}.\n";
-print "Number of failed tests: $failures}.\n";
+print "Number of failed tests: ${failures}.\n";
 
-
+if ( $cleanup && ( $tmp_dire ne '' ) ) {
+	`rm -r $tmp_dir`;	
+}
 
 if (0){
 
