@@ -120,7 +120,7 @@ if (0) {
         }
         if ((! defined $input_file) || ($input_file eq '') ) {
             #my @input_files_1= grep(/\/${runno}.*${test_contrast}\.($valid_formats_string)$/i ,glob ("${inputs_dir}/*")); #27 Dec 2016, added "^" because new phantom naming method of prepending (NOT substituting) "P" "Q" etc to beginning of runno results in ambiguous selection of files. Runno "S64944" might return "PS64944" "QS64944" or "S64944".
-            my @input_files_1= grep(/\/${runno}.*${test_contrast}\.($valid_formats_string)$/i ,readdir(DIR));
+            my @input_files_1= grep(^${runno}.*${test_contrast}\.($valid_formats_string)$/i ,readdir(DIR));
             $input_file = $input_files_1[0];
                     if ( defined $input_file) { 
 					print("Checkpoint 2\n");
@@ -130,7 +130,7 @@ if (0) {
 				
                 opendir(DIR, $inputs_dir);
                 #my @input_files_2= grep(/\/($runno).*(${test_contrast})_.*\.($valid_formats_string){1}(\.gz)?$/i ,glob ("${inputs_dir}/*")); #28 Dec 2016, added "^" like above.
-                my @input_files_2=grep(/\/($runno).*(${test_contrast})_.*\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR));
+                my @input_files_2=grep(^($runno).*(${test_contrast})_.*\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR));
                 $input_file = $input_files_2[0];
                         if ( defined $input_file) { 
 						print("Checkpoint 3\n");
@@ -139,7 +139,7 @@ if (0) {
                 if ((! defined $input_file) || ($input_file eq '') ) {
                     opendir(DIR, $inputs_dir);
                     #my @input_files_3= grep(/\/($runno).*(${test_contrast}).*\.($valid_formats_string){1}(\.gz)?$/i ,glob ("${inputs_dir}/*"));  #28 Dec 2016, added "^" like above.
-                    my @input_files_3= grep(/\/($runno).*(${test_contrast}).*\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR)); 
+                    my @input_files_3= grep(^($runno).*(${test_contrast}).*\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR)); 
                     $input_file = $input_files_3[0];
                             if ( defined $input_file) { 
 							print("Checkpoint 4\n");
