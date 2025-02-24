@@ -140,7 +140,7 @@ print "\nUnit test completed!\n";
 print "Number of successful tests: ${successes}.\n";
 print "Number of failed tests: ${failures}.\n";
 
-if ( $cleanup && ( $tmp_dire ne '' ) ) {
+if ( $cleanup && ( $tmp_dir ne '' ) ) {
 	print "Cleaning up ${tmp_dir}...";
 	`rm -r $tmp_dir`;	
 }
