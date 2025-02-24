@@ -108,7 +108,7 @@ if ( $test_result eq $correct_file) {
 	$successes++;
 } else {
 	$failures++;
-	print "Failed: $runno , $con , $test_result was not equal to $correct_file.\n'
+	print "Failed: $runno , $con , $test_result was not equal to $correct_file.\n";
 }
 
 # Test cases for 2):
