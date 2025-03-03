@@ -310,7 +310,10 @@ sub cluster_exec {
     $memory_command =" -l h_vmem=${memory},vf=${memory} ";
     push(@qsub_commands,$memory_command);
  
-
+	# For most SAMBA jobs we would want multithreading
+	my $multi_command = " --hint=multithread ";
+	push(@sbatch_commands,$multi_command);
+	
     #my $verbose_command = " -v 1"; # Oops! Inserted during the week of 24-28 Oct 2016 
     my $verbose_command = " -v"; # However, this fixes an issue with antsRegistration calls, NOT sbatch calls!
     push(@sbatch_commands,$verbose_command);  # It would have been fine without the "1", dammit
@@ -350,13 +353,13 @@ sub cluster_exec {
     }
 
     if ( $qsub_id =~ /create.*warp/ ) {
-	#my $extra_juice_1 = " -pe cores 2:24 ";
-	#my $extra_juice_1 = " -pe cores 12 ";
-	#my $extra_juice_2 = " -binding linear:48 ";
-	my $extra_juice_1 = " -pe cores 4 ";
-	my $extra_juice_2 = " -binding linear:8 ";
-	push (@qsub_commands,$extra_juice_1);
-	push (@qsub_commands,$extra_juice_2);
+		#my $extra_juice_1 = " -pe cores 2:24 ";
+		#my $extra_juice_1 = " -pe cores 12 ";
+		#my $extra_juice_2 = " -binding linear:48 ";
+		my $extra_juice_1 = " -pe cores 4 ";
+		my $extra_juice_2 = " -binding linear:8 ";
+		push (@qsub_commands,$extra_juice_1);
+		push (@qsub_commands,$extra_juice_2);
 
     }
 
