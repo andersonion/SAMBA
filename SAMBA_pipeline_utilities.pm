@@ -640,6 +640,7 @@ sub cluster_wait_for_jobs {
                         my @running=grep /RUNNING/ ,@job_states;
                         # initalize job checks to 0 
                         for my $job_info (@running) {
+							$job_info=~s/,/ /g;# replace commas with one space
                             $job_info=~s/\s+/ /g;# collapse all spaces to one space
                             my ($job,$jobname,$state)=split(" ",$job_info);
                             $job_checkup{$job}=0;
@@ -691,7 +692,7 @@ sub cluster_wait_for_jobs {
                             my $time_stamp = "Failure time stamp = ${time} seconds since January 1, 1970 (or some equally asinine date).\n";
                             my $subject_line = "Subject: cluster slurm out error.\n";
 							my $NE=$ENV{NOTIFICATION_EMAIL};
-							if ($NE == '') {
+							if ( ! defined $NE || $NE == '') {
 								my $cluster_user=$ENV{USER} || $ENV{USERNAME};
 								$NE="$cluster_user\@duke.edu"
 							}

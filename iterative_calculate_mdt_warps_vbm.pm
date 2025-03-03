@@ -104,26 +104,26 @@ sub iterative_calculate_mdt_warps_Output_check {
      $out_file_2 = "${current_path}/average_of_to_template_warps.nii.gz";  
 
      if (data_double_check($out_file_1)) {
-	 if (data_double_check($out_file_1)) {
-	     $go_hash{'shape_update_warp'}=1;
-	     push(@file_array,$out_file_1);
-	     #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-	     $missing_files_message = $missing_files_message."\t${out_file_1}\n";
-	     if (data_double_check($out_file_2)) {
-		 $go_hash{'average_warp'}=1;
-		 push(@file_array,$out_file_2);
-		 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-		 $missing_files_message = $missing_files_message."\t${out_file_2}\n";
-	     } else {
-		 $go_hash{'average_warp'}=0;
-		 $existing_files_message = $existing_files_message."\t${out_file_2}\n";
-	     }
-	     
-	 } else {
-	     $go_hash{'shape_update_warp'}=0;
-	     $go_hash{'average_warp'}=0;
-	     $existing_files_message = $existing_files_message."\t${out_file_1}\n";
-	 }
+		 if (data_double_check($out_file_1)) {
+			 $go_hash{'shape_update_warp'}=1;
+			 push(@file_array,$out_file_1);
+			 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+			 $missing_files_message = $missing_files_message."\t${out_file_1}\n";
+			 if (data_double_check($out_file_2)) {
+				 $go_hash{'average_warp'}=1;
+				 push(@file_array,$out_file_2);
+				 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+				 $missing_files_message = $missing_files_message."\t${out_file_2}\n";
+			 } else {
+				 $go_hash{'average_warp'}=0;
+				 $existing_files_message = $existing_files_message."\t${out_file_2}\n";
+			 }
+			 
+		 } else {
+			 $go_hash{'shape_update_warp'}=0;
+			 $go_hash{'average_warp'}=0;
+			 $existing_files_message = $existing_files_message."\t${out_file_1}\n";
+		 }
      }
 
      if (($existing_files_message ne '') && ($case == 1)) {
