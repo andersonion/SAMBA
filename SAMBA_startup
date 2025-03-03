@@ -16,7 +16,7 @@ fi
 #export RADISH_PERL_LIB=${PU_path};
 
 # Temporarily turning this off...think I'm not installing things correctly.
-#perlbrew switch perl-5.16.3;
+perlbrew switch perl-5.16.3;
 
 #perl -V | tail -20;
 local_perl="${SPath}/local/lib/perl5";
