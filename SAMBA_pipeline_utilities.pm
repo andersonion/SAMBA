@@ -1398,7 +1398,7 @@ if (0) {
         my @input_files_0= grep(/^($runno).*(${test_contrast})_masked\.($valid_formats_string){1}(\.gz)?$/i ,readdir(DIR));
         #my @input_files_0= grep(/^($runno).*(${test_contrast})_masked\.($valid_formats_string){1}(\.gz)?$/i ,glob ("${inputs_dir}/*"));
 
-        $input_file= $input_files_0[0];
+        $input_file = $input_files_0[0];
 
         if ((! defined $input_file) || ($input_file eq '') ) {
 			opendir(DIR, $inputs_dir);
@@ -1424,9 +1424,9 @@ if (0) {
         }
         
         if ((defined $input_file) && ($input_file ne '') ) {
-            #my $path= $inputs_dir.'/'.$input_file;
-            #return($path);
-            return($input_file);
+            my $path= $inputs_dir.'/'.$input_file;
+            return($path);
+            #return($input_file);
         } else {
             $error_msg="SAMBA_pipeline_utilities function get_nii_from_inputs: Unable to locate file using the input criteria:\n\t\$inputs_dir: ${inputs_dir}\n\t\$runno: $runno\n\t\$contrast: $contrast\n";
             return($error_msg);
