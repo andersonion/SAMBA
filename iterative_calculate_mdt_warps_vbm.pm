@@ -103,7 +103,10 @@ sub iterative_calculate_mdt_warps_Output_check {
      $out_file_1 = "${current_path}/shape_update_warp_${update_string}.nii.gz"; 
      $out_file_2 = "${current_path}/average_of_to_template_warps.nii.gz";  
 
+
+	  # We seem to be checking too quickly for these files...always says not there immediately after creation.
 #     if (data_double_check($out_file_1)) {
+		sleep(3);
 		 if (data_double_check($out_file_1)) {
 			 $go_hash{'shape_update_warp'}=1;
 			 push(@file_array,$out_file_1);
