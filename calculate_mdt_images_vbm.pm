@@ -127,46 +127,49 @@ sub calculate_mdt_images_Output_check {
 		if ($case == 2) {
 			print "444444\n";
 			sleep(10);
-			`ls -arlth ${current_path} | tail -3 `;
 		}
-		
-		 if ($out_file =~ s/\.gz$//) {
-		 	print "Three\n";
-			 if (data_double_check($out_file)) {
-print "Two\n";
-				 $go_hash{$contrast}=1;
-				 push(@file_array,$out_file);
-				 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-				 $missing_files_message = $missing_files_message."\t$contrast\n";
-				 if ($mdt_creation_strategy eq 'iterative'){
-					 my $int_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
-					 if (data_double_check($int_file)) {
-						 if ($int_file =~ s/\.gz$//) {
-							 if (data_double_check($int_file)) {
-								 $int_go_hash{$contrast}=1;
-								 push(@file_array,$int_file);
-								 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+		if (data_double_check($out_file)) {
+			 if ($out_file =~ s/\.gz$//) {
+				print "Three\n";
+				 if (data_double_check($out_file)) {
+			print "Two\n";
+					 $go_hash{$contrast}=1;
+					 push(@file_array,$out_file);
+					 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+					 $missing_files_message = $missing_files_message."\t$contrast\n";
+					 if ($mdt_creation_strategy eq 'iterative'){
+						 my $int_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
+						 if (data_double_check($int_file)) {
+							 if ($int_file =~ s/\.gz$//) {
+								 if (data_double_check($int_file)) {
+									 $int_go_hash{$contrast}=1;
+									 push(@file_array,$int_file);
+									 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+								 }
 							 }
 						 }
+					 } else {
+						 $int_go_hash{$contrast}=1;
 					 }
 				 } else {
-					 $int_go_hash{$contrast}=1;
+					 `gzip -f ${out_file}`; #Is -f safe to use?
+					 $go_hash{$contrast}=0;
+					 $existing_files_message = $existing_files_message."\t$contrast\n";
 				 }
-			 } else {
-				 `gzip -f ${out_file}`; #Is -f safe to use?
-				 $go_hash{$contrast}=0;
-				 $existing_files_message = $existing_files_message."\t$contrast\n";
-			 }
-		 }  
+			 } 
+		} else {
+			 $go_hash{$contrast}=0;
+			 $existing_files_message = $existing_files_message."\t$contrast\n";
+		}
      } else {
-	 $go_hash{$contrast}=0;
-	 $existing_files_message = $existing_files_message."\t$contrast\n";
+		 $go_hash{$contrast}=0;
+		 $existing_files_message = $existing_files_message."\t$contrast\n";
      }
 
      if (($existing_files_message ne '') && ($case == 1)) {
-	 $existing_files_message = $existing_files_message."\n";
+		 $existing_files_message = $existing_files_message."\n";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $missing_files_message = $missing_files_message."\n";
+		 $missing_files_message = $missing_files_message."\n";
      }
      
      my $error_msg='';
