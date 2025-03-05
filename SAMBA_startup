@@ -26,6 +26,8 @@ local_perl="${SPath}/local/lib/perl5";
 #PERL5LIB="${RADISH_PERL_LIB}:${PERL5LIB}"; export PERL5LIB;
 PERL5LIB="${local_perl}"; export PERL5LIB;
 
+
+
 echo ${SPath}/vbm_pipeline_start.pl $@
 #sleep 2
 echo " "
