@@ -108,7 +108,7 @@ sub iterative_calculate_mdt_warps_Output_check {
      if (data_double_check($out_file_1)) {
 		if ($case == 2) {
 			sleep(10);
-			`ls -arlth ${out_file_1%\/*}`;
+			`ls -arlth ${current_path} | tail -3 `;
 		}
 		 if (data_double_check($out_file_1)) {
 			 $go_hash{'shape_update_warp'}=1;
