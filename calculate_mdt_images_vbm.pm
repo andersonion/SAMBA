@@ -121,18 +121,18 @@ sub calculate_mdt_images_Output_check {
      
      $out_file = "${current_path}/MDT_${contrast}.nii.gz";
      $int_go_hash{$contrast}=0;
-     #`ls -arlth $current_path`;
-     print "One\n";
      if (data_double_check($out_file)) {
 		if ($case == 2) {
-			print "444444\n";
-			sleep(10);
+			# Stupid check because file system doesn't update quick enough
+			my counter=10;
+			while (data_double_check($out_file) && ($counter gt 0 ) ) {
+				sleep(1);
+				counter--;
+			}
 		}
 		if (data_double_check($out_file)) {
 			 if ($out_file =~ s/\.gz$//) {
-				print "Three\n";
 				 if (data_double_check($out_file)) {
-			print "Two\n";
 					 $go_hash{$contrast}=1;
 					 push(@file_array,$out_file);
 					 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
