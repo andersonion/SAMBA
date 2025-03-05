@@ -107,6 +107,7 @@ sub iterative_calculate_mdt_warps_Output_check {
 	  # We seem to be checking too quickly for these files...always says not there immediately after creation.
      if (data_double_check($out_file_1)) {
 		if ($case == 2) {sleep(3);}
+		`ls -arlth $out_file_1`;
 		 if (data_double_check($out_file_1)) {
 			 $go_hash{'shape_update_warp'}=1;
 			 push(@file_array,$out_file_1);
