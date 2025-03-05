@@ -53,13 +53,13 @@ sub iterative_calculate_mdt_warps_vbm {  # Main code
     }
 
     if (cluster_check() && (scalar @jobs) ) {
-	my $interval = 2;
-	my $verbose = 1;
-	my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
-	
-	if ($done_waiting) {
-	    print STDOUT  "  Update Warp has been created; moving on to next step.\n";
-	}
+		my $interval = 2;
+		my $verbose = 1;
+		my $done_waiting = cluster_wait_for_jobs($interval,$verbose,@jobs);
+		
+		if ($done_waiting) {
+			print STDOUT  "  Update Warp has been created; moving on to next step.\n";
+		}
     }
 
 
@@ -76,7 +76,7 @@ sub iterative_calculate_mdt_warps_vbm {  # Main code
     @jobs=(); # Clear out the job list, since it will remember everything when this module is used iteratively.
 
     if ($error_message ne '') {
-	error_out("${error_message}",0);
+		error_out("${error_message}",0);
     }
 }
 
@@ -108,7 +108,7 @@ sub iterative_calculate_mdt_warps_Output_check {
      if (data_double_check($out_file_1)) {
 		if ($case == 2) {
 			sleep(10);
-			`ls -arlth $out_file_1`;
+			`ls -arlth ${out_file_1%\/*}`;
 		}
 		 if (data_double_check($out_file_1)) {
 			 $go_hash{'shape_update_warp'}=1;
@@ -172,12 +172,12 @@ sub iterative_calculate_average_mdt_warp {
     my $avg_cmd = '';
     my $clean_cmd = '';
     if ($average_warps) {
-	$avg_cmd =" AverageImages ${dims} ${out_file_2} 0";
-	foreach my $runno (@sorted_runnos) {
-	    $avg_cmd = $avg_cmd." ${current_path}/${runno}_to_MDT_warp.nii.gz";
-	}
-	$avg_cmd=$avg_cmd.";\n";
-	# $clean_cmd = "rm $out_file_2;\n"; May want to keep around if trying adjustable gradient step size
+		$avg_cmd =" AverageImages ${dims} ${out_file_2} 0";
+		foreach my $runno (@sorted_runnos) {
+			$avg_cmd = $avg_cmd." ${current_path}/${runno}_to_MDT_warp.nii.gz";
+		}
+		$avg_cmd=$avg_cmd.";\n";
+		# $clean_cmd = "rm $out_file_2;\n"; May want to keep around if trying adjustable gradient step size
     }
 
     $fraction_cmd = "MultiplyImages ${dims} ${out_file_2} -${update_step_size} ${out_file_1};\n";
@@ -194,22 +194,22 @@ sub iterative_calculate_average_mdt_warp {
     my $mem_request = 60000;  # Added 23 November 2016,  Will need to make this smarter later.
 
     if (cluster_check()) {
-	my $home_path = $current_path;
-	my $Id= "create_update_warp";
-	my $verbose = 2; # Will print log only for work done.
-	$jid = cluster_exec($go, "$PM: create update warp}", $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
-	if (not $jid) {
-	    error_out("$PM: could not create update warp:\n${cmd}\n");
-	}
+		my $home_path = $current_path;
+		my $Id= "create_update_warp";
+		my $verbose = 2; # Will print log only for work done.
+		$jid = cluster_exec($go, "$PM: create update warp}", $cmd ,$home_path,$Id,$verbose,$mem_request,@test);     
+		if (not $jid) {
+			error_out("$PM: could not create update warp:\n${cmd}\n");
+		}
     } else {
-	my @cmds = ($cmd);
-	if (! execute($go, "$PM: create update warp", @cmds) ) {
-	    error_out("$PM: could not create update warp:\n${cmd}\n");
-	}
+		my @cmds = ($cmd);
+		if (! execute($go, "$PM: create update warp", @cmds) ) {
+			error_out("$PM: could not create update warp:\n${cmd}\n");
+		}
     }
 
     if ((data_double_check($out_file_1)) && (not $jid)) {
-	error_out("$PM: missing update warp: ${out_file_1}");
+		error_out("$PM: missing update warp: ${out_file_1}");
     }
     print "** $PM expected output: ${out_file_1}\n";
   
