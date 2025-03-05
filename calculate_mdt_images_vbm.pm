@@ -68,9 +68,9 @@ sub calculate_mdt_images_vbm {  # Main code
 	if ($done_waiting) {
 	    my $contrast_string;
 	    if ($mdt_contrast eq ($contrast_list[0] || $contrast_list[2])){
-		$contrast_string = "primary MDT contrast(s) ${mdt_contrast}";
+			$contrast_string = "primary MDT contrast(s) ${mdt_contrast}";
 	    } else {
-		$contrast_string = "all non-MDT contrasts";
+			$contrast_string = "all non-MDT contrasts";
 	    }
 	    print STDOUT  "  Average MDT images have been calculated for ${contrast_string}; moving on to next step.\n";
 	}
@@ -110,9 +110,9 @@ sub calculate_mdt_images_Output_check {
      my ($out_file);
      my @file_array=();
      if ($case == 1) {
-	 $message_prefix = "  Average MDT images already exist for the following contrast and will not be recalculated:\n";
+		 $message_prefix = "  Average MDT images already exist for the following contrast and will not be recalculated:\n";
      } elsif ($case == 2) {
- 	$message_prefix = "  Unable to create average MDT images for contrast:\n";
+		$message_prefix = "  Unable to create average MDT images for contrast:\n";
      }   # For Init_check, we could just add the appropriate cases.
 
      
@@ -121,33 +121,36 @@ sub calculate_mdt_images_Output_check {
      
      $out_file = "${current_path}/MDT_${contrast}.nii.gz";
      $int_go_hash{$contrast}=0;
+     #`ls -arlth $current_path`;
      if (data_double_check($out_file)) {
-	 if ($out_file =~ s/\.gz$//) {
-	     if (data_double_check($out_file)) {
-		 $go_hash{$contrast}=1;
-		 push(@file_array,$out_file);
-		 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-		 $missing_files_message = $missing_files_message."\t$contrast\n";
-		 if ($mdt_creation_strategy eq 'iterative'){
-		     my $int_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
-		     if (data_double_check($int_file)) {
-			 if ($int_file =~ s/\.gz$//) {
-			     if (data_double_check($int_file)) {
-				 $int_go_hash{$contrast}=1;
-				 push(@file_array,$int_file);
+     `ls -arlth $current_path`;
+		 if ($out_file =~ s/\.gz$//) {
+			 if (data_double_check($out_file)) {
+			 #`ls -arlth $current_path`;
+				 $go_hash{$contrast}=1;
+				 push(@file_array,$out_file);
 				 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
-			     }
+				 $missing_files_message = $missing_files_message."\t$contrast\n";
+				 if ($mdt_creation_strategy eq 'iterative'){
+					 my $int_file = "${current_path}/intermediate_MDT_${contrast}.nii.gz";
+					 if (data_double_check($int_file)) {
+						 if ($int_file =~ s/\.gz$//) {
+							 if (data_double_check($int_file)) {
+								 $int_go_hash{$contrast}=1;
+								 push(@file_array,$int_file);
+								 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
+							 }
+						 }
+					 }
+				 } else {
+					 $int_go_hash{$contrast}=1;
+				 }
+			 } else {
+				 `gzip -f ${out_file}`; #Is -f safe to use?
+				 $go_hash{$contrast}=0;
+				 $existing_files_message = $existing_files_message."\t$contrast\n";
 			 }
-		     }
-		 } else {
-		     $int_go_hash{$contrast}=1;
-		 }
-	     } else {
-		 `gzip -f ${out_file}`; #Is -f safe to use?
-		 $go_hash{$contrast}=0;
-		 $existing_files_message = $existing_files_message."\t$contrast\n";
-	     }
-	 }  
+		 }  
      } else {
 	 $go_hash{$contrast}=0;
 	 $existing_files_message = $existing_files_message."\t$contrast\n";
