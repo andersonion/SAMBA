@@ -122,11 +122,14 @@ sub calculate_mdt_images_Output_check {
      $out_file = "${current_path}/MDT_${contrast}.nii.gz";
      $int_go_hash{$contrast}=0;
      #`ls -arlth $current_path`;
+     print 'One';
      if (data_double_check($out_file)) {
-     `ls -arlth $current_path`;
+		print 'Two';
 		 if ($out_file =~ s/\.gz$//) {
+		 	print 'Three';
 			 if (data_double_check($out_file)) {
 				if ($case == 2) {
+					print '444444';
 					sleep(5);
 					`ls -arlth ${current_path} | tail -3 `;
 				}
