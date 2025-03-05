@@ -240,9 +240,9 @@ if ( defined $optional_external_inputs_dir) {
 	if (( $contents == '0' ) || ($contents == 0) ) {
 	    # We don't want to accidentally destroy a linked inputs dir.
 	    if (-l ${pristine_input_dir}) {
-		`rm -f ${pristine_input_dir}`;
+			`rm -f ${pristine_input_dir}`;
 	    } else {
-		`rm -fr ${pristine_input_dir}`;
+			`rm -fr ${pristine_input_dir}`;
 	    }
 	    symlink(${optional_external_inputs_dir}, ${pristine_input_dir});
 	   # `ln -s ${optional_external_inputs_dir} ${pristine_input_dir}`;
@@ -394,14 +394,14 @@ if ((defined $start_file) && ($start_file ne '')) {
         my $temp_orientation = $tempHf->get_value($c_key);
         if (($temp_orientation ne 'NO_KEY')  &&  ($temp_orientation ne 'UNDEFINED_VALUE')) {
             $Hf->set_value($c_key,$temp_orientation);
-	}
-
-	# Added the code above, but for threshold codes, 26 July 2023 (Wed) by BJA
-	my $tc_key = "threshold_code_${c_runno}";
-	my $temp_tc = $tempHf->get_value($tc_key);
-        if (($temp_tc ne 'NO_KEY')  &&  ($temp_tc ne 'UNDEFINED_VALUE')) {
-            $Hf->set_value($tc_key,$temp_tc);
-	} 
+		}
+	
+		# Added the code above, but for threshold codes, 26 July 2023 (Wed) by BJA
+		my $tc_key = "threshold_code_${c_runno}";
+		my $temp_tc = $tempHf->get_value($tc_key);
+			if (($temp_tc ne 'NO_KEY')  &&  ($temp_tc ne 'UNDEFINED_VALUE')) {
+				$Hf->set_value($tc_key,$temp_tc);
+		} 
     }
 }
 

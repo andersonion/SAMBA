@@ -92,9 +92,9 @@ sub iterative_calculate_mdt_warps_Output_check {
 
      my @file_array=();
      if ($case == 1) {
-  	$message_prefix = "Fractional average ${dir_string} warp to current template already exists and will not be recalculated:\n";
+		$message_prefix = "Fractional average ${dir_string} warp to current template already exists and will not be recalculated:\n";
      } elsif ($case == 2) {
- 	$message_prefix = "  Unable to create fractional average ${dir_string} warp to current template:\n";
+		$message_prefix = "  Unable to create fractional average ${dir_string} warp to current template:\n";
      }   # For Init_check, we could just add the appropriate cases.
 
      
@@ -103,7 +103,7 @@ sub iterative_calculate_mdt_warps_Output_check {
      $out_file_1 = "${current_path}/shape_update_warp_${update_string}.nii.gz"; 
      $out_file_2 = "${current_path}/average_of_to_template_warps.nii.gz";  
 
-     if (data_double_check($out_file_1)) {
+#     if (data_double_check($out_file_1)) {
 		 if (data_double_check($out_file_1)) {
 			 $go_hash{'shape_update_warp'}=1;
 			 push(@file_array,$out_file_1);
@@ -124,22 +124,21 @@ sub iterative_calculate_mdt_warps_Output_check {
 			 $go_hash{'average_warp'}=0;
 			 $existing_files_message = $existing_files_message."\t${out_file_1}\n";
 		 }
-     }
+ #    }
 
      if (($existing_files_message ne '') && ($case == 1)) {
-	 $existing_files_message = $existing_files_message."\n";
+		 $existing_files_message = $existing_files_message."\n";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $missing_files_message = $missing_files_message."\n";
+		 $missing_files_message = $missing_files_message."\n";
      }
      
      my $error_msg='';
 
      if (($existing_files_message ne '') && ($case == 1)) {
-	 $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
+		 $error_msg =  "$PM:\n${message_prefix}${existing_files_message}";
      } elsif (($missing_files_message ne '') && ($case == 2)) {
-	 $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
+		 $error_msg =  "$PM:\n${message_prefix}${missing_files_message}";
      }
-
      
      return($error_msg);
  }
