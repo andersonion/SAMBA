@@ -126,7 +126,10 @@ sub calculate_mdt_images_Output_check {
      `ls -arlth $current_path`;
 		 if ($out_file =~ s/\.gz$//) {
 			 if (data_double_check($out_file)) {
-			 #`ls -arlth $current_path`;
+				if ($case == 2) {
+					sleep(5);
+					`ls -arlth ${current_path} | tail -3 `;
+				}
 				 $go_hash{$contrast}=1;
 				 push(@file_array,$out_file);
 				 #push(@files_to_create,$full_file); # This code may be activated for use with Init_check and generating lists of work to be done.
