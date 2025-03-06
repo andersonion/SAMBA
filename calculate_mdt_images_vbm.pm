@@ -124,10 +124,10 @@ sub calculate_mdt_images_Output_check {
      if (data_double_check($out_file)) {
 		if ($case == 2) {
 			# Stupid check because file system doesn't update quick enough
-			my counter=10;
+			my $counter=10;
 			while (data_double_check($out_file) && ($counter gt 0 ) ) {
 				sleep(1);
-				counter--;
+				$counter--;
 			}
 		}
 		if (data_double_check($out_file)) {

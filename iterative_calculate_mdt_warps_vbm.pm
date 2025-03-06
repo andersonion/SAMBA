@@ -108,10 +108,10 @@ sub iterative_calculate_mdt_warps_Output_check {
      if (data_double_check($out_file_1)) {
 		if ($case == 2) {
 			# Stupid check because file system doesn't update quick enough
-			my counter=10;
+			my $counter=10;
 			while (data_double_check($out_file_1) && ($counter gt 0 ) ) {
 				sleep(1);
-				counter--;
+				$counter--;
 			}
 		}
 		 if (data_double_check($out_file_1)) {
