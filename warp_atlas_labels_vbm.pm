@@ -785,7 +785,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
         print "1111: ${local_lookup}\n";
         if ($local_lookup eq 'NO_KEY') {
             #my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup[.].*\$";
-            my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup[.].txt\$";
+            my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup.*.txt\$";
             ($local_lookup) = find_file_by_pattern($current_path,$local_pattern);
             if ((defined $local_lookup) && ( -e $local_lookup) ) {
                 $Hf->set_value("${runno}_${label_atlas_nickname}_${label_type}_lookup_table",$local_lookup);
@@ -794,7 +794,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
                 print "Atlas label path = ${atlas_label_path}";
                 print "atlas_label_dir = ${atlas_label_dir}";
                 if ( -d $atlas_label_dir) {
-                    my $pattern = "^.*lookup[.].txt\$";
+                    my $pattern = "^.*lookup.*.txt\$";
                     my ($source_lookup) = find_file_by_pattern($atlas_label_dir,$pattern);
                     print "source lookup = ${source_lookup}\n";
                     if ((defined $source_lookup) && ( -e $source_lookup)) {
