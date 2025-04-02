@@ -782,14 +782,14 @@ sub warp_atlas_labels_vbm_Runtime_check {
         # 2 April 2025 Going to force it to look for only .txt files.
 
         my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
-        #print "0000: ${local_lookup}\n";
+        print "0000: ${local_lookup}\n";
         if ($local_lookup eq 'NO_KEY') {
-            #my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup[.].*\$";
+            my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup[.].*\$";
             my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup.*.txt\$";
             ($local_lookup) = find_file_by_pattern($current_path,$local_pattern);
-            #print "1111: ${local_lookup}\n";
+            print "1111: ${local_lookup}\n";
             if ((defined $local_lookup) && ( -e $local_lookup) ) {
-				#print "2222: ${local_lookup}\n";
+				print "2222: ${local_lookup}\n";
                 $Hf->set_value("${runno}_${label_atlas_nickname}_label_lookup_table",$local_lookup);
             } else {
                 my ($atlas_label_dir, $dummy_1, $dummy_2) = fileparts($atlas_label_path,2);
@@ -805,7 +805,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
                     }
                     ($local_lookup) = find_file_by_pattern($current_path,$local_pattern);
                     if ((defined $local_lookup) && ( -e $local_lookup) ) {
-						#print "4444: ${local_lookup}\n";
+						print "4444: ${local_lookup}\n";
                         $Hf->set_value("${runno}_${label_atlas_nickname}_label_lookup_table",$local_lookup);
                     }
                 }
