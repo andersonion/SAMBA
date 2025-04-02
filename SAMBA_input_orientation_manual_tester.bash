@@ -106,7 +106,7 @@ input=${tmp_work}${file_name}_down_sampled.nii.gz;
 
 if ((${cluster_code}));then
 	sbatch_folder=${tmp_work}/sbatch;
-	if [[ ! -d ${sbatch_dir} ]];thne
+	if [[ ! -d ${sbatch_dir} ]];then
 		mkdir -m 775 $sbatch_dir;
 	fi
 	cmd_1="ovs_1=$(PrintHeader ${target} 1 | cut -d  'x' -f1);a=$( bc -l <<<\"8*$ovs_1 \" );";
