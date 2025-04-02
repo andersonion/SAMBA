@@ -110,10 +110,10 @@ if [[ ${cluster_code} -gt 0 ]];then
 	if [[ ! -d ${sbatch_folder} ]];then
 		mkdir -m 775 $sbatch_folder;
 	fi
-	cmd_1="ovs_1=\$(PrintHeader ${target} 1 | cut -d  'x' -f1);a=\$( bc -l <<<\"8*$ovs_1 \" );";
-	cmd_2="ovs_2=\$(PrintHeader ${target} 1 | cut -d  'x' -f2);b=\$( bc -l <<<\"8*$ovs_2 \" );";
-	cmd_3="ovs_3=\$(PrintHeader ${target} 1 | cut -d  'x' -f3);c=\$( bc -l <<<\"8*$ovs_3 \" );";
-	cmd_4="if [[ ! -f ${input} ]];then ResampleImageBySpacing 3 ${image} ${input} ${a} ${b} ${c} 0; fi;";
+	cmd_1="ovs_1=\$(PrintHeader ${target} 1 | cut -d  'x' -f1);a=\$( bc -l <<<\"8*\$ovs_1 \" );";
+	cmd_2="ovs_2=\$(PrintHeader ${target} 1 | cut -d  'x' -f2);b=\$( bc -l <<<\"8*\$ovs_2 \" );";
+	cmd_3="ovs_3=\$(PrintHeader ${target} 1 | cut -d  'x' -f3);c=\$( bc -l <<<\"8*\$ovs_3 \" );";
+	cmd_4="if [[ ! -f ${input} ]];then ResampleImageBySpacing 3 ${image} ${input} \${a} \${b} \${c} 0; fi;";
 	cmd_5="if [[ ! -f ${ds_target} ]];then ResampleImageBySpacing 3 ${target_folder}/${target_name} ${ds_target} ${a} ${b} ${c} 0;fi;";
 	
 	cmd="${cmd_1}${cmd_2}${cmd_3}${cmd_4}${cmd_5}";
