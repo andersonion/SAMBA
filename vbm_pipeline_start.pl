@@ -18,34 +18,16 @@ use warnings;
 use Cwd qw(abs_path cwd getcwd);
 use File::Basename;
 use List::MoreUtils qw(uniq);
-
-#use JSON::Parse qw(json_file_to_perl valid_json assert_valid_json);
-
-
-#use Env qw(RADISH_PERL_LIB);
-#if (! defined($RADISH_PERL_LIB)) {
-#    print STDERR "Cannot find good perl directories, quitting\n";
-#    exit;
-#}
-#use lib split(':',$RADISH_PERL_LIB);
-
-## Example use of printd
-#use SAMBA_pipeline_utilities qw(activity_log printd $debug_val);
-#use SAMBA_pipeline_utilities qw(printd $debug_val);
+use lib dirname(abs_path($0));
 use SAMBA_pipeline_utilities;
 use Headfile;
-
-use lib dirname(abs_path($0));
 use SAMBA_global_variables;
 activity_log();
 
 $schedule_backup_jobs=0;
 
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS ATLAS_FOLDER);
-
-
-
-#my $full_pipeline_path = abs_path($0);
+my $full_pipeline_path = dirname(abs_path($0));
 #($pipeline_path, my $dummy1, my $dummy2) = fileparts($full_pipeline_path,2);
 
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
