@@ -150,7 +150,7 @@ for in_code in ${in_codes[@]}; do
 			final_cmd="bash ${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh ${MATLAB_2015b_PATH} ${input} ${in_code} ${out_code} ${out_image}";
 			sub_cmd="${sub_script} ${sbatch_folder} ${job_name} 0 ${prep_jid} ${final_cmd}";
 			job_id=$(${sub_cmd} | tail -1 | cut -d ';' -f1 | cut -d ' ' -f4);
-			echo "JOB ID = ${job_id}; Job Name = ${name}";
+			echo "JOB ID = ${job_id}; Job Name = ${job_name}";
 		else
 			bash ${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh ${MATLAB_2015b_PATH} ${input} ${in_code} ${out_code} ${out_image};
 		fi
