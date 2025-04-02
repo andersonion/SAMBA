@@ -10,9 +10,8 @@ else
         folder=${image%/*}
 fi
 full_file=${folder}/${file_name};
-echo "FULL FILE = ${full_file}"
 if [[ ! -f "${full_file}" ]];then
-	echo "Input file does not appear to exist. Dying now..." && exit 1;
+	echo "Input file '${folder}/${file_name}' does not appear to exist or is not a file. Dying now..." && exit 1;
 fi
 
 # This is actually an inverse test.
