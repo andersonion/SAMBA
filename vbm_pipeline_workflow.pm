@@ -827,7 +827,7 @@ if ($do_vba) {
     my $time = time;
     my $email_folder = '~/SAMBA_email/';
     if ( ! -d $email_folder ) {
-	mkdir($email_folder,0777);
+		mkdir($email_folder,0777);
     }
     my $email_file="${email_folder}/SAMBA_completion_email_for_${time}.txt";
 

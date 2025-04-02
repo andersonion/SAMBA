@@ -789,9 +789,11 @@ sub warp_atlas_labels_vbm_Runtime_check {
             ($local_lookup) = find_file_by_pattern($current_path,$local_pattern);
             print "2222: ${local_lookup}\n";
             if ((defined $local_lookup) && ( -e $local_lookup) ) {
-                $Hf->set_value("${runno}_${label_atlas_nickname}_label_lookup_table",$local_lookup);
+                $Hf->set_value("${runno}_${label_atlas_nickname}_${label_type}_lookup_table",$local_lookup);
             } else {
                 my ($atlas_label_dir, $dummy_1, $dummy_2) = fileparts($atlas_label_path,2);
+                print "Atlas label path = ${atlas_label_path}";
+                print "atlas_label_dir = ${atlas_label_dir}";
                 if ( -d $atlas_label_dir) {
                     my $pattern = "^.*lookup[.].txt\$";
                     my ($source_lookup) = find_file_by_pattern($atlas_label_dir,$pattern);
