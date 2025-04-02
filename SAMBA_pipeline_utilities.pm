@@ -302,9 +302,12 @@ sub cluster_exec {
     } else {
 		if ($memory =~ /(\d+(?:\.\d+)?)\s*([a-zA-Z]*)/i) {
 			#my $raw_mem = $1;
-			my $unit = $2; 
-			print "\$multiplier = %scale_lookup{$unit} / 1024 ";
-			#$memory = $raw_mem * $multiplier;
+			if ($2) {
+				my $raw_mem = $1;
+				my $unit = $2; 
+				$multiplier = %scale_lookup{$unit} / 1024 ;
+				$memory = $raw_mem * $multiplier;
+			}
 		}
         if ($memory >= 239000) {$memory = 239000;}
     }	
