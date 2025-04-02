@@ -788,7 +788,6 @@ sub warp_atlas_labels_vbm_Runtime_check {
             ($local_lookup) = find_file_by_pattern($current_path,$local_pattern);
             if ((defined $local_lookup) && ( -e $local_lookup) ) {
                 $Hf->set_value("${runno}_${label_atlas_nickname}_label_lookup_table",$local_lookup);
-                print "3333: ${local_lookup}\n";
             } else {
                 my ($atlas_label_dir, $dummy_1, $dummy_2) = fileparts($atlas_label_path,2);
                 if ( -d $atlas_label_dir) {
@@ -799,6 +798,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
                         `cp ${source_lookup} ${current_path}/${runno}_${label_atlas_nickname}_${label_type}_lookup${ext}`;
                     }
                     ($local_lookup) = find_file_by_pattern($current_path,$local_pattern);
+                    print "3333: ${local_lookup}\n";
                     if ((defined $local_lookup) && ( -e $local_lookup) ) {
 						print "4444: ${local_lookup}\n";
                         $Hf->set_value("${runno}_${label_atlas_nickname}_${label_type}_lookup_table",$local_lookup);
