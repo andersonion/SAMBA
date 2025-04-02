@@ -16,7 +16,7 @@ fi
 
 # This is actually an inverse test.
 ants_test=$(PrintHeader 2>&1 1>/dev/null | wc -l);
-if [[ $ants_test ]];then
+if [[ $ants_test -gt 0 ]];then
 	echo "Ants command 'PrintHeader' either not found or not functioning;";
 	echo "You may need to switch to an environment where this is installed;"
 	echo "(For example, you may be on a master node, and should be on a child node.)" && exit 2;
