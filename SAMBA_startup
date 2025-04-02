@@ -8,12 +8,6 @@ else
 	SPath="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )";
 fi
 
-## For BIAC:
-#PU_path="${SPath}/../pipeline_utilities";
-#if [[ ! -d "${PU_path}" ]];then
-#    PU_path="${HOME}/pipeline_utilities";
-#fi
-#export RADISH_PERL_LIB=${PU_path};
 
 # Temporarily turning this off...think I'm not installing things correctly.
 #perlbrew switch perl-5.16.3;
@@ -51,7 +45,7 @@ else
 	fi
 	date_tag=$(date --rfc-3339=seconds | tr ' ' '_' | tr ':' '.' | tr -d '-');
 	name="SAMBA_pipeline_${date_tag}";
-	sbatch_file="${HOME}/SAMBA_sbatch/${name}.bash";
+	sbatch_file="${sb_dir}/${name}.bash";
 	outfix="${sb_dir}/slurm-";
 	echo '#! /bin/env bash' > ${sbatch_file}
 	if [[ ${cluster_code} == 1 ]]; then
