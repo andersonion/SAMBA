@@ -301,7 +301,7 @@ sub cluster_exec {
         $memory ="${default_memory}";
     } else {
 		if ($memory =~ /(\d+(?:\.\d+)?)\s*([a-zA-Z]*)/i) {
-			my $raw_mem = $1;
+			#my $raw_mem = $1;
 			my $unit = $2; 
 			print \$multiplier = %scale_lookup{$unit} / 1024;
 			#$memory = $raw_mem * $multiplier;
