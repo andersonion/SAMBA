@@ -10,6 +10,10 @@ else
         folder=${image%/*}
 fi
 
+if [[ ! -e "${folder}/${file_name}"]];then
+	echo "Input file does not appear to exist. Dying now..." && exit 1;
+fi
+
 
 tmp_work=${folder}/${file_name%.nii???}_orientation_tester-work/;
 
@@ -20,6 +24,9 @@ fi
 
 if [[ "x${target}x" == 'xx' ]];then
         target=${BIGGUS_DISKUS}/../atlases//chass_symmetric3/chass_symmetric3_DWI.nii.gz;
+        if [[ ! -e ${target} ]];then
+        	target=${ATLAS_PATH}/chass_symmetric3/chass_symmetric3_DWI.nii.gz;
+		fi
         out_code='ALS';
 fi
 
