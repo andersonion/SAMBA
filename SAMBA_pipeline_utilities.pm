@@ -304,7 +304,7 @@ sub cluster_exec {
 			my $raw_mem = $1;
 			my $unit = $2; 
 			my $multiplier=%scale_lookup{$unit} / 1024;
-			$memory=${raw_mem} * ${multiplier};
+			$memory=$raw_mem * $multiplier;
 		}
         if ($memory >= 239000) {$memory = 239000;}
     }	
