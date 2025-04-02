@@ -9,8 +9,9 @@ else
         file_name=${image##*/};
         folder=${image%/*}
 fi
-
-if [[ ! -e "${folder}/${file_name}" ]];then
+full_file=${folder}/${file_name};
+echo "FULL FILE = ${full_file}"
+if [[ ! -e "${full_file}" ]];then
 	echo "Input file does not appear to exist. Dying now..." && exit 1;
 fi
 
