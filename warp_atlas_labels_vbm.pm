@@ -779,10 +779,12 @@ sub warp_atlas_labels_vbm_Runtime_check {
         # 7 March 2019 Find and copy lookup table, if available (look locally first)
         # Note that ONLY ONE file near source labels/quagmire can have the name *lookup.*
         # Otherwise we make no guarantee to proper behavior
+        # 2 April 2025 Going to force it to look for only .txt files.
 
         my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
         if ($local_lookup eq 'NO_KEY') {
-            my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup[.].*\$"; 
+            #my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup[.].*\$";
+            my $local_pattern="^${runno}_${label_atlas_nickname}_${label_type}_lookup[.].txt\$";
             ($local_lookup) = find_file_by_pattern($current_path,$local_pattern);
             if ((defined $local_lookup) && ( -e $local_lookup) ) {
                 $Hf->set_value("${runno}_${label_atlas_nickname}_label_lookup_table",$local_lookup);
