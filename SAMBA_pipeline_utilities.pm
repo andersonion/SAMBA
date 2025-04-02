@@ -300,6 +300,11 @@ sub cluster_exec {
     if ((! defined $memory) ||($memory eq ''))  { #12 December 2016: Added memory eq '' so we can more easily trigger the default.
         $memory ="${default_memory}";
     } else {
+		if ( $memory =~ '/[a-zA-Z]{1-3}$/' ) {
+			my $raw_mem =~ '/[a-zA-Z]{1-3}$//s';
+			my $multiplier=%scale_lookup{$post_fix}/1024;
+			$memory=${raw_mem} * ${multiplier}
+		}
         if ($memory >= 239000) {$memory = 239000;}
     }	
     $memory_command = " --mem=$memory ";
