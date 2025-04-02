@@ -117,14 +117,18 @@ if [[ ${cluster_code} -gt 0 ]];then
 	cmd_5="if [[ ! -f ${ds_target} ]];then ResampleImageBySpacing 3 ${target_folder}/${target_name} ${ds_target} \${a} \${b} \${c} 0;fi;";
 	
 	cmd="${cmd_1}${cmd_2}${cmd_3}${cmd_4}${cmd_5}";
+	
+	prep_jid=0;
 	name="${i_name}_prep_work";
 	sub_cmd="${sub_script} ${sbatch_folder} ${name} 0 0 ${cmd}";
-	job_id=$(${sub_cmd} | tail -1 | cut -d ';' -f1 | cut -d ' ' -f4);
-	echo "JOB ID = ${job_id}; Job Name = ${name}";
-	prep_jid=0;
-	if ((! $?));then
-		prep_jid=${job_id};
-	fi	
+	if [[ ! -f ${input} || ! -f ${ds_target} ]];then
+		job_id=$(${sub_cmd} | tail -1 | cut -d ';' -f1 | cut -d ' ' -f4);
+		echo "JOB ID = ${job_id}; Job Name = ${name}";
+	
+		if ((! $?));then
+			prep_jid=${job_id};
+		fi
+	fi
 else
 	ovs_1=$(PrintHeader ${target} 1 | cut -d  'x' -f1);
 	ovs_2=$(PrintHeader ${target} 1 | cut -d  'x' -f2);
