@@ -315,7 +315,7 @@ sub cluster_exec {
 
     push(@sbatch_commands,$memory_command);
 
-    if ( $memory =~ s/([0-9]+)$/${1}M/) {}
+    if ( $memory =~ s/(\d+(?:\.\d+)?)$/${1}M/) {}
     $memory_command =" -l h_vmem=${memory},vf=${memory} ";
     push(@qsub_commands,$memory_command);
  
