@@ -120,6 +120,7 @@ if [[ ${cluster_code} -gt 0 ]];then
 	name="${i_name}_prep_work";
 	sub_cmd="${sub_script} ${sbatch_folder} ${name} 0 0 ${cmd}";
 	job_id=$(${sub_cmd} | tail -1 | cut -d ';' -f1 | cut -d ' ' -f4);
+	echo "JOB ID = ${job_id}; Job Name = ${name}";
 	prep_jid=0;
 	if ((! $?));then
 		prep_jid=${job_id};
