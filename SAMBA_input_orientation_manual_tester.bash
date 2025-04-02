@@ -104,10 +104,10 @@ fi
 
 input=${tmp_work}${file_name}_down_sampled.nii.gz;
 
-if ((${cluster_code}));then
+if [[ ${cluster_code} -gt 0 ]];then
 	sbatch_folder=${tmp_work}/sbatch;
-	if [[ ! -d ${sbatch_dir} ]];then
-		mkdir -m 775 $sbatch_dir;
+	if [[ ! -d ${sbatch_folder} ]];then
+		mkdir -m 775 $sbatch_folder;
 	fi
 	cmd_1="ovs_1=$(PrintHeader ${target} 1 | cut -d  'x' -f1);a=$( bc -l <<<\"8*$ovs_1 \" );";
 	cmd_2="ovs_2=$(PrintHeader ${target} 1 | cut -d  'x' -f2);b=$( bc -l <<<\"8*$ovs_2 \" );";
@@ -115,8 +115,8 @@ if ((${cluster_code}));then
 	cmd_4="if [[ ! -f ${input} ]];then ResampleImageBySpacing 3 ${image} ${input} ${a} ${b} ${c} 0; fi;";
 	cmd_5="ds_target=${tmp_work}${target_name%.nii???}_x8_downsampled.nii.gz;if [[ ! -f ${ds_target} ]];then ResampleImageBySpacing 3 ${target_folder}/${target_name} ${ds_target} ${a} ${b} ${c} 0;fi;";
 	
-	cmd="${cmd_1}${cmd_2}${cmd_3}${cmd_4}${cmd_5}"
-	name="${i_name}_prep_work"
+	cmd="${cmd_1}${cmd_2}${cmd_3}${cmd_4}${cmd_5}";
+	name="${i_name}_prep_work";
 	sub_cmd="${sub_script} ${sbatch_folder} ${name} 0 0 ${cmd}";
 	job_id=$(${sub_cmd} | tail -1 | cut -d ';' -f1 | cut -d ' ' -f4);
 	prep_jid=0;
@@ -143,15 +143,16 @@ else
 fi
 
 for in_code in ${in_codes[@]}; do
-        out_image=${tmp_work}${file_name%.nii???}_${in_code}_to_${out_code}.nii.gz;
-        if [[ ! -f ${out_image} ]]; then
-        	if (($cluster_code));then
-        		job_name=${i_name}_img_xform_${in_code}_to_${out_code};
-				final_cmd="bash ${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh ${MATLAB_2015b_PATH} ${input} ${in_code} ${out_code} ${out_image}";
-				sub_cmd="${sub_script} ${sbatch_folder} ${job_name} 0 ${prep_jid} ${final_cmd}";
-				job_id=$(${sub_cmd} | tail -1 | cut -d ';' -f1 | cut -d ' ' -f4);
-				echo "JOB ID = ${job_id}; Job Name = ${name}";
-			else
-                bash ${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh ${MATLAB_2015b_PATH} ${input} ${in_code} ${out_code} ${out_image};
-        fi
+	out_image=${tmp_work}${file_name%.nii???}_${in_code}_to_${out_code}.nii.gz;
+	if [[ ! -f ${out_image} ]]; then
+		if (($cluster_code));then
+			job_name=${i_name}_img_xform_${in_code}_to_${out_code};
+			final_cmd="bash ${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh ${MATLAB_2015b_PATH} ${input} ${in_code} ${out_code} ${out_image}";
+			sub_cmd="${sub_script} ${sbatch_folder} ${job_name} 0 ${prep_jid} ${final_cmd}";
+			job_id=$(${sub_cmd} | tail -1 | cut -d ';' -f1 | cut -d ' ' -f4);
+			echo "JOB ID = ${job_id}; Job Name = ${name}";
+		else
+			bash ${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh ${MATLAB_2015b_PATH} ${input} ${in_code} ${out_code} ${out_image};
+		fi
+	fi
 done
