@@ -305,7 +305,7 @@ sub cluster_exec {
 			if ($2) {
 				my $raw_mem = $1;
 				my $unit = $2; 
-				my $multiplier = %scale_lookup{$unit} / 1024 ;
+				my $multiplier = $scale_lookup{$unit} / 1024 ;
 				$memory = $raw_mem * $multiplier;
 			}
 		}
