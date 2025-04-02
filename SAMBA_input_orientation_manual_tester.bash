@@ -10,7 +10,7 @@ else
         folder=${image%/*}
 fi
 
-if [[ ! -e "${folder}/${file_name}"]];then
+if [[ ! -e "${folder}/${file_name}" ]];then
 	echo "Input file does not appear to exist. Dying now..." && exit 1;
 fi
 
