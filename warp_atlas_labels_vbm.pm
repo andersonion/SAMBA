@@ -797,7 +797,7 @@ sub warp_atlas_labels_vbm_Runtime_check {
                         my ($aa,$bb,$ext)=fileparts($source_lookup,2);
                         print "aa = $aa ";
                         print "bb = $bb ";
-                        print "cc = $cc ";
+                        print "ext = $ext ";
                         `cp ${source_lookup} ${current_path}/${runno}_${label_atlas_nickname}_${label_type}_lookup${ext}`;
                     }
                     ($local_lookup) = find_file_by_pattern($current_path,$local_pattern);
