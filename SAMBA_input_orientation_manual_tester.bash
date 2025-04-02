@@ -79,6 +79,6 @@ fi
 for in_code in ${in_codes[@]}; do
         out_image=${tmp_work}${file_name%.nii???}_${in_code}_to_${out_code}.nii.gz;
         if [[ ! -f ${out_image} ]]; then
-                bash /mnt/clustertmp/common/rja20_dev//matlab_execs_for_SAMBA//img_transform_executable/run_img_transform_exec.sh /mnt/clustertmp/common/rja20_dev//MATLAB2015b_runtime/v90 ${input} ${in_code} ${out_code} ${out_image};
+                bash ${MATLAB_EXEC_PATH}/img_transform_executable/run_img_transform_exec.sh ${MATLAB_2015b_PATH} ${input} ${in_code} ${out_code} ${out_image};
         fi
 done
