@@ -14,6 +14,12 @@ if [[ ! -e "${folder}/${file_name}" ]];then
 	echo "Input file does not appear to exist. Dying now..." && exit 1;
 fi
 
+ants_test=$(PrintHeader 2>&1 1>/dev/null | wc -l);
+if [[ ! $ants_test ]];then
+	echo "Ants command 'PrintHeader' either not found or not functioning;";
+	echo "You may need to switch to an environment where this is installed;"
+	echo "(For example, you may be on a master node, and should be on a child node.)" && exit 2;
+fi
 
 tmp_work=${folder}/${file_name%.nii???}_orientation_tester-work/;
 
