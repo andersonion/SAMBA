@@ -11,7 +11,7 @@ else
 fi
 full_file=${folder}/${file_name};
 echo "FULL FILE = ${full_file}"
-if [[ ! -e "${full_file}" ]];then
+if [[ ! -f "${full_file}" ]];then
 	echo "Input file does not appear to exist. Dying now..." && exit 1;
 fi
 
