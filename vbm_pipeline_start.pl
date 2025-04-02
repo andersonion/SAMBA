@@ -22,14 +22,7 @@ use lib dirname(abs_path($0));
 use SAMBA_pipeline_utilities;
 use Headfile;
 use SAMBA_global_variables;
-activity_log();
-
-$schedule_backup_jobs=0;
-
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS ATLAS_FOLDER);
-my $full_pipeline_path = dirname(abs_path($0));
-#($pipeline_path, my $dummy1, my $dummy2) = fileparts($full_pipeline_path,2);
-
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
 
 $GOODEXIT = 0;
@@ -37,7 +30,9 @@ $BADEXIT  = 1;
 my $ERROR_EXIT=$BADEXIT;
 $permissions = 0755;
 my $interval = 1;
+$schedule_backup_jobs=0;
 
+activity_log();
 
 # a do it again variable, will allow you to pull data from another vbm_run
 #my $import_data = 1;
