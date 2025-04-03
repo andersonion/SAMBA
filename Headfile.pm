@@ -112,14 +112,16 @@ sub new
     if ( $exists ) { 
         #exist= = 1;
 	#$readable = (-r $in_headfile_path); 
-	#open(my $fh, "<","$in_headfile_path") or  $readable = 0; close($fh); 
-	$readable=`if [[ -r ${in_headfile_path} ]]; then echo 1; else echo 0;fi`;
+	#open(my $fh, "<","$in_headfile_path") or  $readable = 0; close($fh);
+	#$readable=`if [[ -r ${in_headfile_path} ]]; then echo 1; else echo 0;fi`;
+	$readable=`if [ -r ${in_headfile_path} ]; then echo 1; else echo 0;fi`;
 	
 	#print "Is $in_headfile_path readable? = ${readable}\n"; #DEBUGGING
 
 	#$writeable = (-w $in_headfile_path);
 	#open(my $fh2, ">","$in_headfile_path") or  $writeable = 0; close($fh2); # This will create a new file just by "checking"--unwanted behaviour!
-	$writeable=`if [[ -w ${in_headfile_path} ]]; then echo 1; else echo 0;fi`;
+	#$writeable=`if [[ -w ${in_headfile_path} ]]; then echo 1; else echo 0;fi`;
+	$writeable=`if [ -w ${in_headfile_path} ]; then echo 1; else echo 0;fi`;
 
 	#print "Is $in_headfile_path writable? = ${writeable}\n"; #DEBUGGING
 
