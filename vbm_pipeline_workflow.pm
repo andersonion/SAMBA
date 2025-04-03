@@ -826,6 +826,7 @@ if ($do_vba) {
     my $results_message = "Results are available for your perusal in: ${results_dir}.\n";
     my $time = time;
     my $email_folder = "~/SAMBA_email/";
+    print "Maybe sh:? SHELL = ENV{'SHELL'} \n";
     if ( ! -d $email_folder ) {
 		mkdir($email_folder,0777);
     }
@@ -840,12 +841,12 @@ if ($do_vba) {
 
 
     my $email_content = $subject_line.$completion_message.$results_message.$local_time_stamp.$time_stamp;
-    `echo "${email_content}" > ${email_file}`;
+    `/bin/bash echo "${email_content}" > ${email_file}`;
     my $pwuid = getpwuid( $< );
     my $pipe_adm="";
     $pipe_adm=",rja20\@duke.edu";
     my $USER_LIST="$pwuid\@duke.edu$pipe_adm";
-    `sendmail -f $process.${HOSTNAME}\@dhe.duke.edu $USER_LIST < ${email_file}`;
+    `/bin/bash sendmail -f $process.${HOSTNAME}\@dhe.duke.edu $USER_LIST < ${email_file}`;
 
 } #end main
 
