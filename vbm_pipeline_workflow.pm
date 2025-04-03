@@ -840,12 +840,12 @@ if ($do_vba) {
 
 
     my $email_content = $subject_line.$completion_message.$results_message.$local_time_stamp.$time_stamp;
-    `/bin/bash echo YOU SONUFABITSCUIT;echo "${email_content}" > ${email_file}`;
+    `/bin/bash -c echo "YOU SONUFABITSCUIT"";echo "${email_content}" > ${email_file}`;
     my $pwuid = getpwuid( $< );
     my $pipe_adm="";
     $pipe_adm=",rja20\@duke.edu";
     my $USER_LIST="$pwuid\@duke.edu$pipe_adm";
-    `/bin/bash sendmail -f $process.${HOSTNAME}\@dhe.duke.edu $USER_LIST < ${email_file}`;
+    `/bin/bash -c sendmail -f $process.${HOSTNAME}\@dhe.duke.edu $USER_LIST < ${email_file}`;
 
 } #end main
 
