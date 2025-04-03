@@ -120,8 +120,8 @@ sub new
 
 	#$writeable = (-w $in_headfile_path);
 	#open(my $fh2, ">","$in_headfile_path") or  $writeable = 0; close($fh2); # This will create a new file just by "checking"--unwanted behaviour!
-	$writeable=`if [[ -w ${in_headfile_path} ]]; then echo 1; else echo 0;fi`;
-	#$writeable=`if [ -w ${in_headfile_path} ]; then echo 1; else echo 0;fi`;
+	#$writeable=`if [[ -w ${in_headfile_path} ]]; then echo 1; else echo 0;fi`;
+	$writeable=`if [ -w ${in_headfile_path} ]; then echo 1; else echo 0;fi`;
 
 	#print "Is $in_headfile_path writable? = ${writeable}\n"; #DEBUGGING
 
