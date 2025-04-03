@@ -858,9 +858,9 @@ sub iterative_pairwise_reg_vbm_Runtime_check {
                               label_input_file
                               stop_after_mdt_creation
                               skull_strip_contrast
-			      no_new_inputs
+							  no_new_inputs
                               pre_masked
-			      number_of_nonparametric_seeds);
+							  number_of_nonparametric_seeds);
 	$max_iterations = $Hf->get_value('mdt_iterations');
 #  we check all letters, and let us know the first match?(or the first valid path after the last non-match)
 # This loops job is to set $current_iteration and $template_name (w/wo letter). 
