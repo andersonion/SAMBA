@@ -24,7 +24,7 @@ use Headfile;
 use SAMBA_global_variables;
 use Env qw(ANTSPATH PATH BIGGUS_DISKUS ATLAS_FOLDER);
 $ENV{'PATH'}=$ANTSPATH.':'.$PATH;
-$ENV{'SHELL'} = '/bin/bash';
+#$ENV{'SHELL'} = '/bin/bash';
 
 $GOODEXIT = 0;
 $BADEXIT  = 1;
