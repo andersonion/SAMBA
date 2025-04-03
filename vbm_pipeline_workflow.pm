@@ -825,7 +825,7 @@ if ($do_vba) {
     my $completion_message ="Congratulations, master scientist. Your SAMBA pipeline process has completed.  Hope you find something interesting.\n";
     my $results_message = "Results are available for your perusal in: ${results_dir}.\n";
     my $time = time;
-    my $email_folder = abs_path("~/SAMBA_email/");
+    my $email_folder = $ENV{'HOME'}."/SAMBA_email/");
     if ( ! -d $email_folder ) {
 		mkdir($email_folder,0777);
     }
@@ -845,7 +845,7 @@ if ($do_vba) {
     my $pipe_adm="";
     $pipe_adm=",rja20\@duke.edu";
     my $USER_LIST="$pwuid\@duke.edu$pipe_adm";
-    `/bin/bash -c sendmail -f $process.${HOSTNAME}\@dhe.duke.edu $USER_LIST < ${email_file}`;
+    `/bin/bash -c 'sendmail -f $process.${HOSTNAME}\@dhe.duke.edu $USER_LIST < ${email_file}'`;
 
 } #end main
 
