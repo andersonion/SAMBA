@@ -113,8 +113,8 @@ sub new
         #exist= = 1;
 	#$readable = (-r $in_headfile_path); 
 	#open(my $fh, "<","$in_headfile_path") or  $readable = 0; close($fh);
-	#$readable=`if [[ -r ${in_headfile_path} ]]; then echo 1; else echo 0;fi`;
-	$readable=`if [ -r ${in_headfile_path} ]; then echo 1; else echo 0;fi`;
+	$readable=`if [[ -r ${in_headfile_path} ]]; then echo 1; else echo 0;fi`;
+	#$readable=`if [ -r ${in_headfile_path} ]; then echo 1; else echo 0;fi`;
 	
 	#print "Is $in_headfile_path readable? = ${readable}\n"; #DEBUGGING
 
