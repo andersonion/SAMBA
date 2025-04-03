@@ -826,7 +826,7 @@ if ($do_vba) {
     my $results_message = "Results are available for your perusal in: ${results_dir}.\n";
     my $time = time;
     my $email_folder = "~/SAMBA_email/";
-    print "Maybe sh:? SHELL = ENV{'SHELL'} \n";
+    print "Maybe sh:? SHELL = $ENV{'SHELL'} \n";
     if ( ! -d $email_folder ) {
 		mkdir($email_folder,0777);
     }
