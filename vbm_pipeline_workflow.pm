@@ -825,7 +825,7 @@ if ($do_vba) {
     my $completion_message ="Congratulations, master scientist. Your SAMBA pipeline process has completed.  Hope you find something interesting.\n";
     my $results_message = "Results are available for your perusal in: ${results_dir}.\n";
     my $time = time;
-    my $email_folder = "~/SAMBA_email/";
+    my $email_folder = abs_path("~/SAMBA_email/");
     if ( ! -d $email_folder ) {
 		mkdir($email_folder,0777);
     }
