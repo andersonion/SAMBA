@@ -65,7 +65,7 @@ sub  calculate_individual_label_statistics_vbm {
 
         my $input_labels = "${work_dir}/${runno}_${label_atlas_nickname}_${label_type}.nii.gz";
         my $local_lookup = $Hf->get_value("${runno}_${label_atlas_nickname}_label_lookup_table");
-        print "local_lookup = ${local_lookup}\n";
+        print "Local_Lookup = ${local_lookup}\n";
         if ($local_lookup eq 'NO_KEY') {
             undef $local_lookup;
         }
