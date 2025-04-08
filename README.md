@@ -6,12 +6,19 @@ SAMBA is an HPC cluster-based pipeline for atlas creation, voxel- and label-base
 This code was designed and tested to function within the data ecosystem of Duke University's Center for In Vivo Microscopy (CIVM), and may need adaptation for local use.  Feel free to download and modify as needed to meet your needs (or even better, generalize and commit those modified parts and lower the bar of entry for other potential users).
 It is hoped that future versions will be able to offer more support for external users.
 
-There is some critical support code that is needed for the pipeline function.  This code can be found at:
-https://github.com/jamesjcook/pipeline_utilities/blob/master/pipeline_utilities.pm
 
-which in turn needs:
+------
+A note about lookup tables associated with atlases:
+This should be a space-delimited text file, and must have the format where first column is ROI number and second is structure/name.  Any columns after this are ignored here.
+The file name needs be "${atlas_name}_labels_lookup.txt"
+BE SURE THAT THE LAST LINE IS TERMINTATED WITH SOME FORM OF NEW LINE--or else structure names will not be added to label statistic files.
+This can be fixed in a bash terminal with this basic command:
+'echo "" >> $lookup_file'.
 
-https://github.com/jamesjcook/pipeline_utilities/blob/master/civm_simple_util.pm
+Also, pretty please keep stupid special characters out of the structure names, ideally limited to underscores and dashes--NO SPACES, as this anything after the space will be lost to the infinite void.
+------
+
+
 
 The pipeline is initiated by running:
 vbm_pipeline_start.pl
