@@ -6,6 +6,8 @@ SAMBA is an HPC cluster-based pipeline for atlas creation, voxel- and label-base
 This code was designed and tested to function within the data ecosystem of Duke University's Center for In Vivo Microscopy (CIVM), and may need adaptation for local use.  Feel free to download and modify as needed to meet your needs (or even better, generalize and commit those modified parts and lower the bar of entry for other potential users).
 It is hoped that future versions will be able to offer more support for external users.
 
+A mouse atlas with 332 labels (L/R for 166 structures/regions) that was co-developed with SAMBA can be downloaded here:
+https://zenodo.org/records/15178373
 
 ------
 A note about lookup tables associated with atlases:
