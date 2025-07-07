@@ -36,7 +36,7 @@ For better idea of the order of processing within the pipeline, please see vbm_p
 
 ## Output Directory: `BIGGUS_DISKUS`
 
-SAMBA writes its outputs to a shared working directory defined by the environment variable `BIGGUS_DISKUS`. This location should be **persistent**, **writable**, and (optionally) **shared between users**.
+SAMBA writes its outputs to a shared working directory defined by the environment variable `BIGGUS_DISKUS`. Ideally, this location should be **persistent**, **writable**, and (optionally) **shared between users**. If you expect to be the only user needing to touch the output data, then the last requirement can be ignored, and using a user-specific folder should be acceptable.
 
 ### How `BIGGUS_DISKUS` is Determined
 
