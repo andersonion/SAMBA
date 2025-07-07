@@ -34,6 +34,8 @@ a valid slurm reservation
 
 For better idea of the order of processing within the pipeline, please see vbm_pipeline_workflow.pm.
 
+# Singularity implementation:
+
 ## Output Directory: `BIGGUS_DISKUS`
 
 SAMBA writes its outputs to a shared working directory defined by the environment variable `BIGGUS_DISKUS`. Ideally, this location should be **persistent**, **writable**, and (optionally) **shared between users**. If you expect to be the only user needing to touch the output data, then the last requirement can be ignored, and using a user-specific folder should be acceptable.
@@ -95,3 +97,63 @@ This ensures that all users in the same group can access and write to SAMBA outp
   ```
   singularity exec --bind /shared/path samba.sif samba-pipe headfile.hf
   ```
+## 
+### 🔧 Installing the `samba-pipe` Launcher
+
+After cloning this repository, run the install script to set up the `samba-pipe` command in your shell environment:
+
+```bash
+git clone https://github.com/your-org/samba-project.git
+cd samba-project
+bash install_samba_pipe.sh
+```
+
+This will:
+
+- Add a `source` line to your `~/.bashrc` that defines the `samba-pipe` command
+- Ensure the script continues to work even if you move or reinstall your container
+
+You’ll need to **restart your terminal** or run:
+
+```bash
+source ~/.bashrc
+```
+
+---
+
+### Usage
+
+Once installed, you can launch SAMBA using:
+
+```bash
+samba-pipe path/to/headfile.hf
+```
+
+If the `.sif` container image is not in one of the known default locations, you can specify it using:
+
+```bash
+export SAMBA_CONTAINER_PATH=/path/to/samba.sif
+samba-pipe my_headfile.hf
+```
+
+You may also want to specify a scratch/work directory for temporary output:
+
+```bash
+export BIGGUS_DISKUS=/path/to/my_scratch_folder
+```
+
+If you don’t set this, `samba-pipe` will try to use `$SCRATCH`, `$WORK`, or fall back to `~/samba_scratch` (as described above).
+
+---
+
+### Where to Put the `.sif` File
+
+The script will try to automatically locate the container in the following locations, in order:
+
+1. `$SAMBA_CONTAINER_PATH` (if set)
+2. `$SINGULARITY_IMAGE_DIR/samba.sif` (if set)
+3. `$HOME/containers/samba.sif`
+4. `/home/apps/singularity/images/samba.sif`
+5. *As a last resort*: it will search your `$HOME` folder using `find`
+
+If you're using a shared cluster, your system administrator may provide the container in a common location. Otherwise, you may download or build it yourself and place it where you prefer.
