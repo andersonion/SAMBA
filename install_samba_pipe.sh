@@ -1,17 +1,24 @@
 #!/usr/bin/env bash
 # File: install_samba_pipe.sh
 
-SRC_PATH="/full/path/to/samba_pipe_src.sh"  # <-- Customize this as needed
-BASHRC="$HOME/.bashrc"
+# Resolve the directory where this script lives
+INSTALL_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-if ! grep -Fxq "source $SRC_PATH" "$BASHRC"; then
-  echo "Adding source line to $BASHRC..."
-  echo "" >> "$BASHRC"
-  echo "# Load SAMBA container launcher" >> "$BASHRC"
-  echo "source $SRC_PATH" >> "$BASHRC"
-else
-  echo "samba-pipe already configured in $BASHRC"
+# Define the full path to the source file
+SAMBA_PIPE_SRC="${INSTALL_DIR}/samba_pipe_src.sh"
+
+# Check that the file exists
+if [[ ! -f "$SAMBA_PIPE_SRC" ]]; then
+    echo "ERROR: Expected samba_pipe_src.sh in the same directory as install script, but not found."
+    exit 1
 fi
 
-echo "To activate now, run:"
-echo "  source $SRC_PATH"
+# Add to ~/.bashrc if not already present
+if ! grep -Fxq "source $SAMBA_PIPE_SRC" ~/.bashrc; then
+    echo "" >> ~/.bashrc
+    echo "# Load SAMBA pipe launcher" >> ~/.bashrc
+    echo "source $SAMBA_PIPE_SRC" >> ~/.bashrc
+    echo "Added source command to ~/.bashrc"
+else
+    echo "samba_pipe_src.sh already sourced in ~/.bashrc"
+fi
