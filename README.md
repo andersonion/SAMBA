@@ -97,6 +97,8 @@ This ensures that all users in the same group can access and write to SAMBA outp
   ```
   singularity exec --bind /shared/path samba.sif samba-pipe headfile.hf
   ```
+  
+Note that this explicit call to singularity should be an edge case only needed in advanced scenario...normally the samba-pipe command called outside of singularity handles the binding, etc. (see below).
 ## 
 ### 🔧 Installing the `samba-pipe` Launcher
 
