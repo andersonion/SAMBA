@@ -33,3 +33,65 @@ or
 a valid slurm reservation
 
 For better idea of the order of processing within the pipeline, please see vbm_pipeline_workflow.pm.
+
+## Output Directory: `BIGGUS_DISKUS`
+
+SAMBA writes its outputs to a shared working directory defined by the environment variable `BIGGUS_DISKUS`. This location should be **persistent**, **writable**, and (optionally) **shared between users**.
+
+### How `BIGGUS_DISKUS` is Determined
+
+When the container starts, `BIGGUS_DISKUS` is set using the following logic:
+
+1. If the `BIGGUS_DISKUS` environment variable is defined, that value is used.
+2. Otherwise, SAMBA tries common cluster workspace variables:
+   - `$SCRATCH` (e.g., `/scratch/users/username`)
+   - `$WORK` (e.g., `/work/projects/projectname`)
+3. If none of those are set, SAMBA falls back to:
+
+   ```
+   $HOME/samba_scratch
+   ```
+
+### How to Override It
+
+To manually set the output directory:
+
+```
+export BIGGUS_DISKUS=/path/to/shared/output
+singularity exec samba.sif samba-pipe headfile.hf
+```
+
+This directory **must exist and be writable** by the user running the container.
+
+---
+
+## Supporting Multi-User Workflows
+
+If multiple users need access to the same SAMBA outputs:
+
+- The parent directory of `BIGGUS_DISKUS` should reside on a **shared filesystem** (e.g., NFS, Lustre, GPFS).
+- It should be **group-owned** by a shared UNIX group:
+
+  ```
+  chgrp -R yourgroup /shared/path
+  chmod -R g+rw /shared/path
+  ```
+
+- Set the `setgid` bit on directories to preserve group ownership:
+
+  ```
+  find /shared/path -type d -exec chmod g+s {} \;
+  ```
+
+This ensures that all users in the same group can access and write to SAMBA output files.
+
+---
+
+## Permissions and Binding Caveats
+
+- If `BIGGUS_DISKUS` defaults to `$HOME`, outputs may be private to the current user unless permissions are manually updated.
+- Running SAMBA in a container does **not** automatically grant write access to host directories unless explicitly mounted. You may need to use the `--bind` flag:
+
+  ```
+  singularity exec --bind /shared/path samba.sif samba-pipe headfile.hf
+  ```
