@@ -62,11 +62,21 @@ function samba-pipe {
 			echo "Found samba.sif at: $SIF_PATH"
 		fi
 	fi
+	
+	# Optional binding for ATLAS_FOLDER
+	BIND_ATLAS=""
+	if [[ -n "$ATLAS_FOLDER" && -d "$ATLAS_FOLDER" ]]; then
+		BIND_ATLAS="--bind $ATLAS_FOLDER:$ATLAS_FOLDER"
+	else
+		echo "Warning: ATLAS_FOLDER not set or does not exist. Proceeding with default mouse atlas data."
+	fi
+
 
 	# Launch the container
 	singularity exec \
 		--bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS" \
 		--bind "$(dirname $hf):$(dirname $hf)" \
+		$BIND_ATLAS \
 		"$SIF_PATH" \
 		bash -c "export BIGGUS_DISKUS=$BIGGUS_DISKUS; samba-pipe $hf"
 }

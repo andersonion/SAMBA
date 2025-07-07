@@ -1,0 +1,187 @@
+Bootstrap: docker
+From: ubuntu:20.04
+
+%labels
+    Maintainer Robert Anderson
+    Version v1.0
+
+%environment
+    # Core SAMBA environment
+    export SAMBA_APPS_DIR=/opt/
+    export BIGGUS_DISKUS=/mnt/newStor/paros/paros_WORK/mouse/
+    export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
+    export PATH=${SAMBA_PATH}:$PATH
+    export MATLAB_EXEC_PATH=${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA/
+    export MATLAB_2015b_PATH=${SAMBA_APPS_DIR}/MATLAB2015b_runtime/v90
+    
+    # Perl setup
+    export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
+    source ${PERLBREW_ROOT}/etc/bashrc || true
+    perlbrew use perl-5.16.3
+
+    # MATLAB MCR runtime linkage
+    export MCRROOT=${MATLAB_2015b_PATH}
+    export LD_LIBRARY_PATH=${MCRROOT}/runtime/glnxa64:${MCRROOT}/bin/glnxa64:${MCRROOT}/sys/os/glnxa64:$LD_LIBRARY_PATH
+
+    # Add alias (only works in bash shells)
+    function samba-pipe {
+      hf=$1
+      if [[ "x${hf:0:1}x" != 'x/x' && "x${hf:0:2}x" != 'x~/x' ]]; then
+        hf=${PWD}/${hf}
+      fi
+      ${SAMBA_PATH}/SAMBA_startup_BIAC ${hf}
+    }
+
+    # Define BIGGUS_DISKUS, the shared working directory for SAMBA outputs.
+	# Priority:
+	# 1. Use user-defined BIGGUS_DISKUS
+	# 2. Use $SCRATCH or $WORK if set
+	# 3. Fallback to $HOME/samba_scratch
+	
+	if [[ -z "$BIGGUS_DISKUS" ]]; then
+		if [[ -n "$SCRATCH" ]]; then
+			export BIGGUS_DISKUS="$SCRATCH"
+		elif [[ -n "$WORK" ]]; then
+			export BIGGUS_DISKUS="$WORK"
+		else
+			export BIGGUS_DISKUS="$HOME/samba_scratch"
+		fi
+	fi
+
+    export ATLAS_FOLDER=/opt/atlases/
+    export MATLAB_JAVA=/opt/samba/java/jre
+
+    # (Optional) # export PIPELINE_QUEUE=normal
+    # (Optional override) # export SAMBA_CACHE_DIR=
+
+%post
+    apt-get update && apt-get install -y \
+        build-essential \
+        curl \
+        git \
+        cmake \
+        libfftw3-dev \
+        liblapacke-dev \
+        perl \
+        libperl-dev \
+        wget \
+        zlib1g-dev \
+        libjpeg-dev \
+        libpng-dev \
+        libtiff5-dev \
+        libexpat1-dev \
+        libxml2-dev \
+        libbz2-dev \
+        libeigen3-dev \
+        bc \
+        unzip
+
+    # Create main directory
+    mkdir -p ${SAMBA_APPS_DIR}
+    cd ${SAMBA_APPS_DIR}
+
+	# === ANTs Install (pinned to dev environment version) ===
+	# echo "Installing ANTs v2.5.0.post18-g0ea8e53..."
+	git clone https://github.com/ANTsX/ANTs.git
+	cd ANTs
+	git checkout 0ea8e53  # Pin to exact commit from your dev system
+	mkdir build && cd build
+	cmake -DCMAKE_INSTALL_PREFIX=/opt/ants ..
+	make -j$(nproc)
+	make install
+
+
+    # === FSL Install (minimal) ===
+	# Install FSL to /opt/fsl/6.0.6
+	mkdir -p /opt/fsl
+	cd /opt/fsl
+	wget https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py
+	python3 fslinstaller.py --version 6.0.6 --prefix /opt/fsl/6.0.6
+
+
+    # === matlab_execs ===
+    # echo "Cloning matlab_execs..."
+    git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git
+    # Install MATLAB MCR R2015b
+	export MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
+	mkdir -p ${MATLAB_2015b_PATH}
+	wget -P /opt/matlab_execs \
+	  http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/MCR_R2015b_glnxa64_installer.zip
+	unzip -d /opt/matlab_execs/temp /opt/matlab_execs/MCR_R2015b_glnxa64_installer.zip
+	/opt/matlab_execs/temp/install -mode silent -agreeToLicense yes -destinationFolder ${MATLAB_2015b_PATH}
+
+	# Install Java required by MATLAB2015b
+	# Define destination path for Java
+	export JAVA_INSTALL_DIR=/opt/java
+	mkdir -p "$JAVA_INSTALL_DIR"
+	
+	# Install OpenJDK 8 into the custom location
+	apt-get update && apt-get install -y openjdk-8-jre-headless
+	
+	# Copy Java runtime to /opt (only the needed JRE portion)
+	cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre "$JAVA_INSTALL_DIR"
+	export MATLAB_JAVA=/opt/samba/java/jre
+
+
+    # Install Perlbrew and Perl 5.16.3
+    export SAMBA_APPS_DIR=/opt/samba
+	export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
+	curl -L https://install.perlbrew.pl | bash
+	source ${PERLBREW_ROOT}/etc/bashrc
+	perlbrew install -n perl-5.16.3
+	perlbrew use perl-5.16.3
+	
+	# Install cpanm and Carton
+	perlbrew install-cpanm
+	cpanm -f Carton
+	
+	# Prepare your project
+	mkdir -p /opt/samba/SAMBA
+	cd /opt/samba/SAMBA
+	touch cpanfile
+	touch cpanfile.snapshot
+	carton install
+
+    
+    # === Download Atlas from Zenodo ===
+    export ATLAS_FOLDER=/opt/atlases/
+
+	# === Settings ===
+	AZ_ID=15178373
+	FILE_NAME=chass_symmetric3.tar.gz
+	DEST_DIR=${ATLAS_FOLDER}
+	CACHE_DIR=/opt/zenodo_cache
+	
+	# === Setup ===
+	mkdir -p "$DEST_DIR" "$CACHE_DIR"
+	cd "$DEST_DIR"
+	
+	# === Check for cached file ===
+	CACHED_TARBALL=${CACHE_DIR}/${FILE_NAME}
+	if [[ -f "$CACHED_TARBALL" ]]; then
+		echo "Using cached atlas from $CACHED_TARBALL"
+		cp "$CACHED_TARBALL" "$FILE_NAME"
+	else
+		echo "Fetching atlas metadata from Zenodo record $AZ_ID..."
+		FILE_URL=$(curl -s https://zenodo.org/api/records/$AZ_ID \
+			| grep -A10 '"key": "'$FILE_NAME'"' \
+			| grep '"links":' -A1 \
+			| grep '"self"' \
+			| sed -E 's/.*"(https[^"]+)".*/\1/')
+	
+		echo "Downloading $FILE_NAME from: $FILE_URL"
+		wget -O "$FILE_NAME" "$FILE_URL"
+	fi
+	
+	# === Extract and verify ===
+	echo "Extracting atlas..."
+	tar -xzf "$FILE_NAME"
+	rm "$FILE_NAME"
+	
+	if [[ ! -d chass_symmetric3 ]]; then
+		echo "ERROR: chass_symmetric3 folder not found after extraction!"
+		exit 1
+	fi
+
+%runscript
+    exec bash

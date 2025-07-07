@@ -23,8 +23,9 @@ Also, pretty please keep stupid special characters out of the structure names, i
 
 
 The pipeline is initiated by running:
-vbm_pipeline_start.pl
-
+```bash
+samba-pipe startup.headfile number_of_cluster_nodes_to_use(optional and mostly depracated)
+```
 Two optional arguments can be accepted, the first is a headfile with the basic input parameters for the pipeline.  If the first option is not an existing file, it will default to starting up based on study_variables.pm (not recommended).  Please see input_parameters_template.headfile for a good starting point.
 
 The second option (or first if no headfile is specified) is one of the following:
@@ -41,8 +42,8 @@ For better idea of the order of processing within the pipeline, please see vbm_p
 After cloning this repository, run the install script to set up the `samba-pipe` command in your shell environment:
 
 ```bash
-git clone https://github.com/your-org/samba-project.git
-cd samba-project
+git clone https://https://github.com/andersonion/SAMBA
+cd SAMBA
 bash install_samba_pipe.sh
 ```
 
@@ -95,6 +96,32 @@ The script will try to automatically locate the container in the following locat
 5. *As a last resort*: it will search your `$HOME` folder using `find`
 
 If you're using a shared cluster, your system administrator may provide the container in a common location. Otherwise, you may download or build it yourself and place it where you prefer.
+
+
+### Atlas Data
+
+SAMBA relies on a mouse brain atlas for many processing steps. A default atlas is included in the container and will be available at:
+
+```
+/opt/atlases
+```
+
+This atlas is downloaded automatically from Zenodo during the image build process:
+
+- Source: https://zenodo.org/records/15178373
+- File: `samba_atlas.tar.gz`
+- License: CC BY 4.0
+
+If you would prefer to use a custom or local atlas, you can set the `ATLAS_FOLDER` environment variable before calling `samba-pipe`.
+Note that `ATLAS_FOLDER` is the parent directory for any atlases you want to use, and you can have multiple atlases there.
+For example:
+
+```bash
+export ATLAS_FOLDER=/path/to/custom_atlas
+samba-pipe my_headfile.hf
+```
+
+If `ATLAS_FOLDER` is defined and points to a valid directory, it will be automatically mounted inside the container at the same path, overriding the default.
 
 
 ## Output Directory: `BIGGUS_DISKUS`
