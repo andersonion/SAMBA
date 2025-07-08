@@ -7,12 +7,15 @@ From: ubuntu:20.04
 
 %environment
     # Core SAMBA environment
-    export SAMBA_APPS_DIR=/opt/
-    export BIGGUS_DISKUS=/mnt/newStor/paros/paros_WORK/mouse/
+	export fsl_version='6.0.6'
+    export SAMBA_APPS_DIR=/opt/samba/
+    #export BIGGUS_DISKUS=/mnt/newStor/paros/paros_WORK/mouse/
     export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
     export PATH=${SAMBA_PATH}:$PATH
     export MATLAB_EXEC_PATH=${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA/
     export MATLAB_2015b_PATH=${SAMBA_APPS_DIR}/MATLAB2015b_runtime/v90
+    export FSLDIR=${SAMBA_APPS_DIR}/fsl/${fsl_version}
+    export ANTSPATH=${SAMBA_APPS_DIR}/ants/bin
     
     # Perl setup
     export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
@@ -48,8 +51,8 @@ From: ubuntu:20.04
 		fi
 	fi
 
-    export ATLAS_FOLDER=/opt/atlases/
-    export MATLAB_JAVA=/opt/samba/java/jre
+    export ATLAS_FOLDER=${SAMBA_APPS_DIR}/atlases/
+    export MATLAB_JAVA=${SAMBA_APPS_DIR}/java/jre
 
     # (Optional) # export PIPELINE_QUEUE=normal
     # (Optional override) # export SAMBA_CACHE_DIR=
@@ -75,44 +78,86 @@ From: ubuntu:20.04
         libeigen3-dev \
         bc \
         unzip
-
+	
+	export SAMBA_APPS_DIR=/opt/samba/
+	export BUILD_DIR=/opt/build/
+    #export BIGGUS_DISKUS=/mnt/newStor/paros/paros_WORK/mouse/
+    export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
+    export PATH=${SAMBA_PATH}:$PATH
+	
     # Create main directory
+    
     mkdir -p ${SAMBA_APPS_DIR}
     cd ${SAMBA_APPS_DIR}
+	git clone https://github.com/andersonion/SAMBA.git
+	# git checkout XXXXXX  # Pin to exact commit from your dev system
+
 
 	# === ANTs Install (pinned to dev environment version) ===
 	# echo "Installing ANTs v2.5.0.post18-g0ea8e53..."
+	export ANTSPATH=${SAMBA_APPS_DIR}/ants/bin
+	cd ${SAMBA_APPS_DIR}
 	git clone https://github.com/ANTsX/ANTs.git
 	cd ANTs
 	git checkout 0ea8e53  # Pin to exact commit from your dev system
 	mkdir build && cd build
-	cmake -DCMAKE_INSTALL_PREFIX=/opt/ants ..
+	cmake -DCMAKE_INSTALL_PREFIX=${SAMBA_APPS_DIR}/ants ..
 	make -j$(nproc)
 	make install
 
 
     # === FSL Install (minimal) ===
-	# Install FSL to /opt/fsl/6.0.6
-	mkdir -p /opt/fsl
-	cd /opt/fsl
+	# Install FSL to /${FSL_DIR}/${version}
+	export fsl_version='6.0.6'
+	export FSLDIR=${SAMBA_APPS_DIR}/fsl/${fsl_version}
+	mkdir -p ${FSLDIR}
+	cd ${FSLDIR}
 	wget https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py
-	python3 fslinstaller.py --version 6.0.6 --prefix /opt/fsl/6.0.6
+	python3 fslinstaller.py --version ${version} --prefix ${FSLDIR}/${fsl_version}
 
 
     # === matlab_execs ===
     # echo "Cloning matlab_execs..."
+	export MATLAB_EXEC_PATH=${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA/
+    cd ${SAMBA_APPS_DIR}
     git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git
+    
     # Install MATLAB MCR R2015b
-	export MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
+	# === Define installation paths ===
+	export MATLAB_2015b_PATH=${SAMBA_APPS_DIR}/MATLAB/MATLAB2015b_runtime/v90
+	INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
+	ME_DIR=${BUILD_DIR}/matlab_execs
+	INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
+	TEMP_DIR=${INSTALLER_PATH}/temp
+	CACHE_PATH=${BUILD_DIR}/matlab_cache/${INSTALLER_NAME}
+	
+	# === Create necessary directories ===
 	mkdir -p ${MATLAB_2015b_PATH}
-	wget -P /opt/matlab_execs \
-	  http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/MCR_R2015b_glnxa64_installer.zip
-	unzip -d /opt/matlab_execs/temp /opt/matlab_execs/MCR_R2015b_glnxa64_installer.zip
-	/opt/matlab_execs/temp/install -mode silent -agreeToLicense yes -destinationFolder ${MATLAB_2015b_PATH}
+	mkdir -p ${ME_DIR}
+	mkdir -p ${TEMP_DIR}
+	
+	# === Retrieve installer ===
+	if [[ -f "$CACHE_PATH" ]]; then
+		echo "Using cached MATLAB Runtime installer from $CACHE_PATH"
+		cp "$CACHE_PATH" "$INSTALLER_PATH"
+	else
+		echo "Downloading MATLAB Runtime installer..."
+		wget -P ${ME_DIR} \
+		  http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}
+	fi
+	
+	# === Install MATLAB Runtime ===
+	unzip -d ${TEMP_DIR} ${INSTALLER_PATH}
+	${TEMP_DIR}/install -mode silent -agreeToLicense yes -destinationFolder ${MATLAB_2015b_PATH}
+	
+	# === Clean up ===
+	rm -f ${INSTALLER_PATH}
+	rm -rf ${TEMP_DIR}
+
 
 	# Install Java required by MATLAB2015b
 	# Define destination path for Java
-	export JAVA_INSTALL_DIR=/opt/java
+	export JAVA_INSTALL_DIR=${SAMBA_APPS_DIR}/java
 	mkdir -p "$JAVA_INSTALL_DIR"
 	
 	# Install OpenJDK 8 into the custom location
@@ -120,11 +165,10 @@ From: ubuntu:20.04
 	
 	# Copy Java runtime to /opt (only the needed JRE portion)
 	cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre "$JAVA_INSTALL_DIR"
-	export MATLAB_JAVA=/opt/samba/java/jre
+	export MATLAB_JAVA=${JAVA_INSTALL_DIR}/jre
 
 
     # Install Perlbrew and Perl 5.16.3
-    export SAMBA_APPS_DIR=/opt/samba
 	export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
 	curl -L https://install.perlbrew.pl | bash
 	source ${PERLBREW_ROOT}/etc/bashrc
@@ -136,21 +180,21 @@ From: ubuntu:20.04
 	cpanm -f Carton
 	
 	# Prepare your project
-	mkdir -p /opt/samba/SAMBA
-	cd /opt/samba/SAMBA
+	mkdir -p ${SAMBA_PATH}
+	cd ${SAMBA_PATH}
 	touch cpanfile
 	touch cpanfile.snapshot
 	carton install
 
     
     # === Download Atlas from Zenodo ===
-    export ATLAS_FOLDER=/opt/atlases/
+    export ATLAS_FOLDER=${SAMBA_APPS_DIR}/atlases/
 
 	# === Settings ===
 	AZ_ID=15178373
 	FILE_NAME=chass_symmetric3.tar.gz
 	DEST_DIR=${ATLAS_FOLDER}
-	CACHE_DIR=/opt/zenodo_cache
+	CACHE_DIR=${SAMBA_APPS_DIR}/zenodo_cache
 	
 	# === Setup ===
 	mkdir -p "$DEST_DIR" "$CACHE_DIR"
@@ -182,6 +226,11 @@ From: ubuntu:20.04
 		echo "ERROR: chass_symmetric3 folder not found after extraction!"
 		exit 1
 	fi
+
+	
+	chmod -R a+rX $(dirname ${MATLAB_2015b_PATH})
+	chmod -R a+rX ${MATLAB_EXEC_PATH}
+
 
 %runscript
     exec bash
