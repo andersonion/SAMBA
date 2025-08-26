@@ -21,6 +21,7 @@ use POSIX qw(strftime :sys_wait_h);
 use Carp qw(carp croak cluck confess);
 use File::Temp qw(tempfile);
 use Scalar::Util qw(looks_like_number);
+use Fcntl qw(O_RDONLY);
 
 ## Multiple cluster type support, 27 June 2019, BJ Anderson
 # Hope to make this automatic!
@@ -122,6 +123,7 @@ log_info
 make_process_dirs
 memory_estimator
 memory_estimator_2
+nifti1_bb_spacing
 open_log
 printd
 read_refspace_txt
@@ -132,6 +134,7 @@ symbolic_link_cleanup
 timestamp_from_epoc 
 whoami
 whowasi
+wrap_in_container
 write_array_to_file
 write_refspace_txt
 
@@ -244,7 +247,7 @@ sub cluster_exec {
     # my $memory=25600;
 	# Not sure what the function of $test is, but will leave it in place for now.
     use Env qw(NOTIFICATION_EMAIL);
-
+	$cmd = wrap_in_container($cmd);
     my @sbatch_commands;
     my @qsub_commands;
 
@@ -916,6 +919,7 @@ sub create_explicit_inverse_of_ants_affine_transform {
         my $dim = 3;
         $invert_cmd = "ComposeMultiTransform ${dim} ${outfile} -i ${transform_to_invert}";
         $convert_cmd = "ConvertTransformFile ${dim} ${outfile} ${outfile} --convertToAffineType";
+        ##### WILL PROBABLY FAIL WITH SINGULARITY!!!!! ######
         $return_msg =`${invert_cmd}; ${convert_cmd}`;
     } else {
         my $error_msg = "File does not appear to be a valid ants affine matrix, and therefore cannot be properly inverted here.\nOffending file: ${transform_to_invert}\n";
@@ -1228,6 +1232,145 @@ sub format_transforms_for_command_line {
     return($command_line_string);
 }
 
+
+
+## Note: the following code wouldn't be so verbose, but ChatterBoxGPT doesn't know how to keep things succint.
+{	# Optional fast gunzip; will fall back to external gzip -dc if missing
+my $HAVE_GUNZIP = eval { require IO::Uncompress::Gunzip; IO::Uncompress::Gunzip->import(qw($GunzipError)); 1 };
+#---------------------
+sub nifti1_bb_spacing {
+#---------------------
+	my ($path) = @_;
+	my $hdr = _read348($path);
+	my $r   = _unpack_hdr($hdr);
+
+	# dims & shape
+	my ($ndim, @shape) = ($r->{dim}[0]||0, @{$r->{dim}}[1..7]);
+	@shape = @shape[0..$ndim-1] if $ndim && $ndim <= @shape;
+
+	# spacings from pixdim: qfac, then dx,dy,dz,dt…
+	my ($qfac, @pd) = @{$r->{pixdim}};
+	my ($dx,$dy,$dz,$dt) = (@pd,0,0,0,0)[0..3];  # guard missing entries
+
+	# Choose transform: sform (sto_xyz) if sform_code>0; else qform; else zeros
+	my ($x0,$y0,$z0) = (0.0,0.0,0.0);
+	if (($r->{sform_code}||0) > 0) {
+		($x0,$y0,$z0) = ($r->{srow_x}[3], $r->{srow_y}[3], $r->{srow_z}[3]);
+	} elsif (($r->{qform_code}||0) > 0) {
+		my ($b,$c,$d) = @{$r}{qw(quatern_b quatern_c quatern_d)};
+		my $a2 = 1.0 - ($b*$b + $c*$c + $d*$d);
+		my $a  = $a2 > 0 ? sqrt($a2) : 0.0;
+		my $signz = ($qfac && $qfac < 0) ? -1.0 : 1.0;
+		my ($sx,$sy,$sz) = ($dx||1, $dy||1, ($dz||1)*$signz);
+		# rotation*scale not needed for bb_0; we only need offsets:
+		($x0,$y0,$z0) = @{$r}{qw(qoffset_x qoffset_y qoffset_z)};
+		# (If you ever need the full rows, compute them; for bb_0 the offsets suffice.)
+	}
+
+	# Match your original loop behavior: use up to first 3 dims
+	my $dim = $ndim; $dim = 3 if $dim > 3; $dim = 1 if $dim < 1;
+
+	my @spacings = (($dx||0), ($dy||0), ($dz||0));
+	my @sizes    = (@shape, (0,0,0))[0..2];
+
+	my @bb0 = ($x0, $y0, $z0);
+	my @bb1 = (
+		$bb0[0] + $sizes[0]*$spacings[0],
+		$bb0[1] + $sizes[1]*$spacings[1],
+		$bb0[2] + $sizes[2]*$spacings[2],
+	);
+
+	my $bb_0 = join(' ', map { _fmt($_) } @bb0[0..$dim-1]);
+	my $bb_1 = join(' ', map { _fmt($_) } @bb1[0..$dim-1]);
+	my $spacing = join('x', map { _fmt($_) } @spacings[0..$dim-1]);
+
+	return ($bb_0, $bb_1, $spacing, $dim);
+}
+
+# ---------- Begin nifti1_bb_spacing internals ----------
+sub _read348 {
+	my ($path) = @_;
+	sysopen(my $fh, $path, O_RDONLY) or die "open $path: $!";
+	binmode($fh);
+	my $sig = '';
+	my $got = read($fh, $sig, 2);
+	die "short read($path)" unless defined $got && $got == 2;
+
+	if ($sig eq "\x1f\x8b") {   # gzip
+		close $fh;
+		if ($HAVE_GUNZIP) {
+			my $z = IO::Uncompress::Gunzip->new($path) or die "gunzip($path): $GunzipError";
+			my $buf=''; my $need=348;
+			while ($need>0) {
+				my $chunk=''; my $n = $z->read($chunk, $need);
+				die "gunzip read error on $path" unless defined $n;
+				last if $n==0; $buf.=$chunk; $need-=$n;
+			}
+			$z->close();
+			die "decompressed header too short in $path" unless length($buf)==348;
+			return $buf;
+		} else {
+			open my $z, "-|", "gzip","-dc","--",$path or die "spawn gzip -dc $path: $!";
+			binmode($z);
+			my $buf=''; my $need=348;
+			while ($need>0) {
+				my $chunk=''; my $n = read($z,$chunk,$need);
+				die "gzip pipe read error on $path" unless defined $n;
+				last if $n==0; $buf.=$chunk; $need-=$n;
+			}
+			close $z;
+			die "decompressed header too short in $path" unless length($buf)==348;
+			return $buf;
+		}
+	} else {
+		sysseek($fh, 0, 0) or die "seek $path: $!";
+		my $hdr=''; my $n = read($fh,$hdr,348);
+		close($fh);
+		die "short header ($n bytes) in $path" unless defined $n && $n==348;
+		return $hdr;
+	}
+}
+
+sub _unpack_hdr {
+	my ($hdr) = @_;
+	my $sz_le = unpack('V', substr($hdr,0,4));
+	my $sz_be = unpack('N', substr($hdr,0,4));
+	my $little = $sz_le == 348 ? 1 : $sz_be == 348 ? 0 : die "Not a NIfTI-1 header";
+	my $s = $little ? 's<' : 's>';   my $l = $little ? 'l<' : 'l>';   my $f = $little ? 'f<' : 'f>';
+	my $tpl = join(' ',
+		$l,'Z10','Z18',$l,$s,'a1','C',
+		$s.'8',($f)x3,$s,$s,$s, $s,
+		$f.'8', $f,$f,$f, $s,'C','C',
+		$f,$f,$f,$f, $l,$l, 'Z80','Z24',
+		$s,$s, ($f)x6, $f.'4',$f.'4',$f.'4', 'Z16','Z4'
+	);
+	my @v = unpack($tpl, $hdr);
+	my %r; my $i=0;
+	$r{sizeof_hdr}=$v[$i++]; $r{data_type}=$v[$i++]; $r{db_name}=$v[$i++];
+	$r{extents}=$v[$i++]; $r{session_error}=$v[$i++]; $r{regular}=$v[$i++]; $r{dim_info}=$v[$i++];
+	$r{dim}=[ @v[$i..$i+7] ]; $i+=8;
+	@r{qw(intent_p1 intent_p2 intent_p3)} = @v[$i..$i+2]; $i+=3;
+	@r{qw(intent_code datatype bitpix slice_start)} = @v[$i..$i+3]; $i+=4;
+	$r{pixdim}=[ @v[$i..$i+7] ]; $i+=8;
+	@r{qw(vox_offset scl_slope scl_inter)} = @v[$i..$i+2]; $i+=3;
+	@r{qw(slice_end slice_code xyzt_units)} = @v[$i..$i+2]; $i+=3;
+	@r{qw(cal_max cal_min slice_duration toffset)} = @v[$i..$i+3]; $i+=4;
+	@r{qw(glmax glmin)} = @v[$i..$i+1]; $i+=2; @r{qw(descrip aux_file)} = @v[$i..$i+1]; $i+=2;
+	@r{qw(qform_code sform_code)} = @v[$i..$i+1]; $i+=2;
+	@r{qw(quatern_b quatern_c quatern_d qoffset_x qoffset_y qoffset_z)} = @v[$i..$i+5]; $i+=6;
+	$r{srow_x}=[ @v[$i..$i+3] ]; $i+=4; $r{srow_y}=[ @v[$i..$i+3] ]; $i+=4; $r{srow_z}=[ @v[$i..$i+3] ]; $i+=4;
+	@r{qw(int}ent_name magic)} = @v[$i..$i+1];
+		return \%r;
+}
+
+sub _fmt {
+	my ($x)=@_;
+	my $s = sprintf("%.10f", $x // 0);
+	$s =~ s/0+$//; $s =~ s/\.$/.0/;
+	return $s;
+}
+# ---------- End nifti1_bb_spacing internals ----------
+
 #---------------------
 sub get_bounding_box_and_spacing_from_header {
 #---------------------
@@ -1237,93 +1380,105 @@ sub get_bounding_box_and_spacing_from_header {
     my ($spacing,$bb_0,$bb_1);
     my $success = 0;
     my $header_output;
-
+	my $system_call = 1;
+	
+	if (! defined $system_call) {
+        $system_call = 0;
+    }
+    
     if (! defined $ants_not_fsl) {
         $ants_not_fsl = 0;
     }
     #$ants_not_fsl = 1;
-    if (! $ants_not_fsl) {
-        my $fsl_cmd = "fslhd $file";
-       
-        $header_output = `${fsl_cmd}`;#`fslhd $file`;
-
-        my $dim = 3;
-        my @spacings;
-        my @bb_0;
-        my @bb_1;
-        my $bb_1_i;
-
-        if ($header_output =~ /^dim0[^0-9]([0-9]{1})/) {
-            $dim = $1;
-
-        }
-        for (my $i = 1;$i<=$dim;$i++) {
-            my $spacing_i;
-            my $bb_0_i;
-            my $array_size_i;
-            my @array_size;
-            if ($header_output =~ /pixdim${i}[\s]*([0-9\.\-]+)/) {
-                $spacing_i = $1;
-                $spacing_i =~ s/([0]+)$//;
-                $spacing_i =~ s/(\.)$/\.0/;
-                $spacings[($i-1)]=$spacing_i;
-            }
-           
-            if ($header_output =~ /sto_xyz\:${i}([\s]*[0-9\.\-]+)+/) {
-                $bb_0_i = $1;
-                $bb_0_i =~ s/([0]+)$//;
-                $bb_0_i =~ s/(\.)$/\.0/;
-                $bb_0_i =~ s/^(\s)+//;
-                $bb_0[($i-1)]=$bb_0_i;
-            } 
-        if  (($bb_0[($i-1)] eq '0.0') || ($bb_0[($i-1)] eq '0')) {
-        if ($header_output =~ /qto_xyz\:${i}([\s]*[0-9\.\-]+)+/) {
-                $bb_0_i = $1;
-                $bb_0_i =~ s/([0]+)$//;
-                $bb_0_i =~ s/(\.)$/\.0/;
-                $bb_0_i =~ s/^(\s)+//;
-                $bb_0[($i-1)]=$bb_0_i;
-        }
-        }
-
-            if ($header_output =~ /dim${i}[\s]*([0-9]+)/) {
-                $array_size_i = $1;
-                $array_size[($i-1)] = $array_size_i;
-            }
-            $bb_1_i= $bb_0[($i-1)]+$array_size[($i-1)]*$spacings[($i-1)];
-            $bb_1_i =~ s/([0]+)$//;
-            $bb_1_i =~ s/(\.)$/\.0/;
-            $bb_1_i =~ s/^(\s)+//;
-            $bb_1[($i-1)]= $bb_1_i;
-        }
-
-        $bb_0 = join(' ',@bb_0);
-        $bb_1 = join(' ',@bb_1);
-        $spacing = join('x',@spacings);
-        
-        $bb_and_spacing = "\{\[${bb_0}\], \[${bb_1}\]\} $spacing"; 
-
-        if ($spacing eq '') {
-            $success = 0;
-        } else {
-            $success = 1;
-        }
-    }
-
-    if ($ants_not_fsl || (! $success)) {
-        #Use ANTs (slow version)
-        my $bounding_box;
-        $header_output = `PrintHeader $file`;
-        if ($header_output =~ /(\{[^}]*\})/) {      $bounding_box = $1;
-            chomp($bounding_box);
-            $success = 1;
-        } else {
-            $bounding_box = 0;
-        }
-        $spacing = `PrintHeader $file 1`;
-        chomp($spacing);
-
-        $bb_and_spacing = join(' ',($bounding_box,$spacing));
+    
+    if ($system_call) {
+    	my ($bb_0, $bb_1, $spacing, $dim) = nifti1_bb_spacing($file);
+		$bb_and_spacing = "{[$bb_0], [$bb_1]} $spacing";
+	} else {
+		
+		if (! $ants_not_fsl) {
+			my $fsl_cmd = "fslhd $file";
+		   
+			$header_output = `${fsl_cmd}`;#`fslhd $file`;
+	
+			my $dim = 3;
+			my @spacings;
+			my @bb_0;
+			my @bb_1;
+			my $bb_1_i;
+	
+			if ($header_output =~ /^dim0[^0-9]([0-9]{1})/) {
+				$dim = $1;
+	
+			}
+			for (my $i = 1;$i<=$dim;$i++) {
+				my $spacing_i;
+				my $bb_0_i;
+				my $array_size_i;
+				my @array_size;
+				if ($header_output =~ /pixdim${i}[\s]*([0-9\.\-]+)/) {
+					$spacing_i = $1;
+					$spacing_i =~ s/([0]+)$//;
+					$spacing_i =~ s/(\.)$/\.0/;
+					$spacings[($i-1)]=$spacing_i;
+				}
+			   
+				if ($header_output =~ /sto_xyz\:${i}([\s]*[0-9\.\-]+)+/) {
+					$bb_0_i = $1;
+					$bb_0_i =~ s/([0]+)$//;
+					$bb_0_i =~ s/(\.)$/\.0/;
+					$bb_0_i =~ s/^(\s)+//;
+					$bb_0[($i-1)]=$bb_0_i;
+				} 
+			if  (($bb_0[($i-1)] eq '0.0') || ($bb_0[($i-1)] eq '0')) {
+				if ($header_output =~ /qto_xyz\:${i}([\s]*[0-9\.\-]+)+/) {
+						$bb_0_i = $1;
+						$bb_0_i =~ s/([0]+)$//;
+						$bb_0_i =~ s/(\.)$/\.0/;
+						$bb_0_i =~ s/^(\s)+//;
+						$bb_0[($i-1)]=$bb_0_i;
+				}
+			}
+	
+				if ($header_output =~ /dim${i}[\s]*([0-9]+)/) {
+					$array_size_i = $1;
+					$array_size[($i-1)] = $array_size_i;
+				}
+				$bb_1_i= $bb_0[($i-1)]+$array_size[($i-1)]*$spacings[($i-1)];
+				$bb_1_i =~ s/([0]+)$//;
+				$bb_1_i =~ s/(\.)$/\.0/;
+				$bb_1_i =~ s/^(\s)+//;
+				$bb_1[($i-1)]= $bb_1_i;
+			}
+	
+			$bb_0 = join(' ',@bb_0);
+			$bb_1 = join(' ',@bb_1);
+			$spacing = join('x',@spacings);
+			
+			$bb_and_spacing = "\{\[${bb_0}\], \[${bb_1}\]\} $spacing"; 
+	
+			if ($spacing eq '') {
+				$success = 0;
+			} else {
+				$success = 1;
+			}
+		}
+	
+		if ($ants_not_fsl || (! $success)) {
+			#Use ANTs (slow version)
+			my $bounding_box;
+			$header_output = `PrintHeader $file`;
+			if ($header_output =~ /(\{[^}]*\})/) {      $bounding_box = $1;
+				chomp($bounding_box);
+				$success = 1;
+			} else {
+				$bounding_box = 0;
+			}
+			$spacing = `PrintHeader $file 1`;
+			chomp($spacing);
+	
+			$bb_and_spacing = join(' ',($bounding_box,$spacing));
+		}
     }
     return($bb_and_spacing);
 }
@@ -1787,6 +1942,7 @@ sub printd {
     return;    
 }
 
+
 #---------------------
 sub read_refspace_txt {
 #---------------------
@@ -1960,6 +2116,26 @@ sub whoami {  return ( caller(1) )[3]; }
 # ------------------
 sub whowasi { return ( caller(2) )[3]; }
 
+
+# ------------------
+sub wrap_in_container {
+# ------------------
+    my ($cmd) = @_;
+
+    # Only wrap if CONTAINER_CMD_PREFIX is defined
+    return $cmd unless $ENV{CONTAINER_CMD_PREFIX};
+
+    # Safely quote the command for use inside bash -c
+    $cmd =~ s/'/'\\''/g;                    # Escape single quotes
+    my $quoted_cmd = "'$cmd'";             # Wrap the entire command in single quotes
+
+    # Construct the full container command
+    my $container_cmd = "$ENV{CONTAINER_CMD_PREFIX} bash -c $quoted_cmd";
+
+    return $container_cmd;
+}
+
+
 # ------------------
 sub write_array_to_file { # (path,array_ref[,debug_val]) writes text to array ref.
 # ------------------
@@ -2009,6 +2185,20 @@ sub write_refspace_txt {
     $contents = [$array];
     write_array_to_file($refspace_file,$contents);
     return(0);
+}
+
+
+{
+    no warnings 'redefine';
+
+    my $original_system = \&CORE::system;
+
+    sub system {
+        my @args = @_;
+        my $cmd = @args > 1 ? join(' ', @args) : $args[0];
+        $cmd = wrap_in_container($cmd);
+        return $original_system->($cmd);
+    }
 }
 
 1;

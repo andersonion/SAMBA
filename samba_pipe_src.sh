@@ -83,12 +83,78 @@ function samba-pipe {
     else
         echo "Warning: ATLAS_FOLDER not set or does not exist. Proceeding with default atlas."
     fi
+    
+    # Export for building $container_cmd in Perl
+	export SAMBA_CONTAINER_RUNTIME="$CONTAINER_CMD";
+	export SAMBA_SIF_PATH="$SIF_PATH";
+	export SAMBA_ATLAS_BIND="$BIND_ATLAS";
+	export SAMBA_BIGGUS_BIND="$BIGGUS_DISKUS:$BIGGUS_DISKUS";
 
-    # Launch the containerized samba-pipe
-    "$CONTAINER_CMD" exec \
-        --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS" \
-        --bind "$(dirname "$hf"):$(dirname "$hf")" \
-        $BIND_ATLAS \
-        "$SIF_PATH" \
-        SAMBA_startup_BIAC "$hf"
-        # explicitly calling the samba-pipe command that is used WITHIN the container to reduce confusion
+	# === Headfile preparation ===
+	
+	# Resolve absolute path to the input headfile
+	if [[ "${hf:0:1}" != "/" && "${hf:0:2}" != "~/" ]]; then
+	  hf="${PWD}/${hf}"
+	fi
+	
+	# Copy to /tmp with a unique name (user-specific and timestamped)
+	hf_basename=$(basename "$hf")
+	hf_tmp="/tmp/${USER}_samba_$(date +%s)_${hf_basename}"
+	cp "$hf" "$hf_tmp"
+	
+	# === Build environment file for passing variables into container ===
+	ENV_FILE=$(mktemp /tmp/samba_env.XXXXXX)
+	
+	# Detect and bind SLURM if available
+	if command -v sbatch &>/dev/null; then
+	  SLURM_BIN_DIR=$(dirname "$(which sbatch)")
+	  BIND_SCHEDULER+=" --bind $SLURM_BIN_DIR:$SLURM_BIN_DIR"
+	
+	  # Handle SLURM_CONF
+	  if [[ -n "$SLURM_CONF" && -f "$SLURM_CONF" ]]; then
+		SLURM_CONF_DIR=$(dirname "$SLURM_CONF")
+		BIND_SCHEDULER+=" --bind $SLURM_CONF_DIR:$SLURM_CONF_DIR"
+		echo "SLURM_CONF=$SLURM_CONF" >> "$ENV_FILE"
+	  elif [[ -f /etc/slurm/slurm.conf ]]; then
+		export SLURM_CONF="/etc/slurm/slurm.conf"
+		BIND_SCHEDULER+=" --bind /etc/slurm:/etc/slurm"
+		echo "SLURM_CONF=$SLURM_CONF" >> "$ENV_FILE"
+	  else
+		echo "Warning: sbatch found but SLURM_CONF not set and default path missing."
+	  fi
+	fi
+
+	# Detect and bind SGE if available
+	if command -v qsub &>/dev/null; then
+	  SGE_BIN_DIR=$(dirname "$(which qsub)")
+	  BIND_SCHEDULER+=" --bind $SGE_BIN_DIR:$SGE_BIN_DIR"
+	
+	  if [[ -n "$SGE_ROOT" && -d "$SGE_ROOT" ]]; then
+		BIND_SCHEDULER+=" --bind $SGE_ROOT:$SGE_ROOT"
+		echo "SGE_ROOT=$SGE_ROOT" >> "$ENV_FILE"
+	  fi
+	fi
+
+
+	# Export CONTAINER_CMD_PREFIX for reuse inside the container
+	CONTAINER_CMD_PREFIX="$CONTAINER_CMD exec \
+	  --env-file \"$ENV_FILE\" \
+	  --bind \"$BIGGUS_DISKUS:$BIGGUS_DISKUS\" \
+	  $BIND_ATLAS \
+	  $BIND_SCHEDULER \
+	  \"$SIF_PATH\""
+	
+	export CONTAINER_CMD_PREFIX
+	
+	# Write all relevant env vars to the env file
+	for var in USER BIGGUS_DISKUS SIF_PATH ATLAS_FOLDER NOTIFICATION_EMAIL PIPELINE_QUEUE SLURM_RESERVATION CONTAINER_CMD_PREFIX; do
+	  val="${!var}"
+	  if [[ -n "$val" ]]; then
+		echo "$var=$val" >> "$ENV_FILE"
+	  fi
+	done
+	
+	# Launch the container with the SAMBA_startup script inside the container
+	# Note: This runs the container's internal SAMBA_startup, not this external samba-pipe function
+	
+	eval $CONTAINER_CMD_PREFIX SAMBA_startup "$hf_tmp"

@@ -971,7 +971,7 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                     my $c_file = get_nii_from_inputs($inputs_dir, $c_runno, "${contrast}${masked_suffix}");
 		    
 		    if ($c_file !~ /[\n]+/) {
-			my $volume = `fslstats ${c_file} -V | cut -d ' ' -f2`;
+			my $volume = system(fslstats ${c_file} -V | cut -d ' ' -f2);
 			chomp($volume);
 			$volume_hash{$volume}=$c_runno;
 		    }

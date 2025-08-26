@@ -275,7 +275,7 @@ sub apply_new_reference_space_vbm {
     my $test_dim = 3;
     my $opt_e_string='';
     if ($out_file =~ /\.nii(\.gz)?/) {
-        $test_dim =  `fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;
+        $test_dim =  system(fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2);
        
         if ($in_file =~ /tensor/) {
             $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
@@ -314,7 +314,7 @@ sub apply_new_reference_space_vbm {
 	    my $excess_transform =  "${out_file}1Translation.mat" ;
 	    if (data_double_check($translation_transform)) {
 
-            my $test_dim =  `PrintHeader ${in_file} 2`;
+            my $test_dim =  system(PrintHeader ${in_file} 2);
             my @dim_array = split('x',$test_dim);
             my $real_dim = $#dim_array +1;
             my $opt_e_string='';
@@ -936,38 +936,39 @@ sub set_reference_space_vbm_Runtime_check {
     	}
 
         # 4 Feb 2019--use ResampleImageBySpacing here to create up/downsampled working space if desired.
-	# 6 Sept 2019--BJA: Also can use this to enforce isotropy
-	$resample_images = $Hf->get_value('resample_images');
+		# 6 Sept 2019--BJA: Also can use this to enforce isotropy
+		$resample_images = $Hf->get_value('resample_images');
         if ($resample_images) {
-	    $resample_factor = $Hf->get_value('resample_factor');
-	    my $bbs = get_bounding_box_and_spacing_from_header(${outpath});
-	    my @ref_array=split( ' ',$bbs);
-	    my $voxel_size=pop(@ref_array);
-	    my @voxel_sizes=split( 'x',$voxel_size);
-	    #print @voxel_sizes; die;
-	    if ($resample_factor eq 'iso') {
-		my $iso_res = min(@voxel_sizes);
-		my $max_res = max(@voxel_sizes);
-
-		if (($inpath =~ /iso\./) && ($outpath =~ /iso\./) ) { # DO NOTHING
-		    print "DOING NUTTIN'!\n\n";
-		} elsif ($iso_res eq $max_res ) {
-		    print "HERE WE ARRRGH! $iso_res"; die;
-		} else {
-		    my $new_ref=$outpath;
-		    if ($new_ref =~ s/\.(.*)(\.gz)?$/_iso\.$1\.$2/) {}
-		    `ResampleImageBySpacing ${dims} $outpath $new_ref ${iso_res} ${iso_res} ${iso_res} 0 0 1`;
-		}
+			$resample_factor = $Hf->get_value('resample_factor');
+			my $bbs = get_bounding_box_and_spacing_from_header(${outpath});
+			my @ref_array=split( ' ',$bbs);
+			my $voxel_size=pop(@ref_array);
+			my @voxel_sizes=split( 'x',$voxel_size);
+			#print @voxel_sizes; die;
+			if ($resample_factor eq 'iso') {
+			my $iso_res = min(@voxel_sizes);
+			my $max_res = max(@voxel_sizes);
+	
+			if (($inpath =~ /iso\./) && ($outpath =~ /iso\./) ) { # DO NOTHING
+				print "DOING NUTTIN'!\n\n";
+			} elsif ($iso_res eq $max_res ) {
+				print "HERE WE ARRRGH! $iso_res"; die;
+			} else {
+				my $new_ref=$outpath;
+				if ($new_ref =~ s/\.(.*)(\.gz)?$/_iso\.$1\.$2/) {}
+				## Need to make this a cluster job! (Though rarely used)
+				`ResampleImageBySpacing ${dims} $outpath $new_ref ${iso_res} ${iso_res} ${iso_res} 0 0 1`;
+			}
 	    } else { 
-		#ResampleImageBySpacing 3 $in_ref $out_ref 0.18 0.18 0.18 0 0 1
-		#my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header(${outpath_ref});
-		
-		#$refspace_hash{$V_or_L} = $bounding_box_and_spacing;
-		#$Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
+			#ResampleImageBySpacing 3 $in_ref $out_ref 0.18 0.18 0.18 0 0 1
+			#my $bounding_box_and_spacing = get_bounding_box_and_spacing_from_header(${outpath_ref});
+			
+			#$refspace_hash{$V_or_L} = $bounding_box_and_spacing;
+			#$Hf->set_value("${V_or_L}_refspace",$refspace_hash{$V_or_L});
 	    }
 	}
-	# write refspace_temp.txt (for human purposes, in case this module fails)
-	write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp")
+		# write refspace_temp.txt (for human purposes, in case this module fails)
+		write_refspace_txt($refspace_hash{$V_or_L},$refname_hash{$V_or_L},$refspace_folder_hash{$V_or_L},$split_string,"refspace.txt.tmp")
     }
 
 ##  2 February 2016: Had "fixed" this code several months ago, however it was sending the re-centered rigid atlas to base_images, and not even 

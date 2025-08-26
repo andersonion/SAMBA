@@ -143,8 +143,8 @@ sub load_SAMBA_parameters {
     my ($param_file) = (@_);
     my $tempHf = new Headfile ('rw', "${param_file}");
     if (! $tempHf->check()) {
-	error_out(" Unable to open SAMBA parameter file ${param_file}.");
-	return(0);
+		error_out(" Unable to open SAMBA parameter file ${param_file}.");
+		return(0);
     }
     if (! $tempHf->read_headfile) {
 	error_out(" Unable to read SAMBA parameter file ${param_file}."); 
@@ -193,8 +193,8 @@ sub assign_parameters {
 
             if ($kevin_spacey =~ /$_/) {
                 if (defined $val) {
-		    $val =~ s/(?<!\\)([\s]+)//g; # 20 February 2020, BJA: First kill any unprotected spaces.
-		    $val =~ s/(\\([\s]){1})/$2/g; # 20 February 2020, BJA: Now make protected spaces literal and hope things don't blow up elsewhere.
+					$val =~ s/(?<!\\)([\s]+)//g; # 20 February 2020, BJA: First kill any unprotected spaces.
+					$val =~ s/(\\([\s]){1})/$2/g; # 20 February 2020, BJA: Now make protected spaces literal and hope things don't blow up elsewhere.
                     eval("\$$_=\'$val\'");
                     print $_." = $val\n";
    
@@ -208,32 +208,32 @@ sub assign_parameters {
         foreach (keys %{ $tempHf }) {
             if ($kevin_spacey =~ /\b$_\b/) {
 
-            #my $val = %{ $tempHf }->{($_)};
-            #print "\n\n$_\n\n"; 
-            die "json mode requires revalidation!!!";
-            my $val;
-            $val = %{ $tempHf ->{$_}}; # Option A: take hash in tempHf and store as scalar
-            $val = $tempHf->{$_};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
-            #my $val = %{ $tempHf }->{$_}; # This is as originally formulated, but not quite right.
-            if ($val ne '') {
-                #print "LOOK HERE TO SEE NOTHING\$val = ${val}\n";
-                if ($val =~ /^ARRAY\(0x[0-9,a-f]{5,}/){
-                    eval("\@$_=\'@$val\'");
-                    print "$_ = @{$_}\n"; 
-                } elsif ($val =~ /^HASH\(0x[0-9,a-f]{5,}/){
-                    eval("\%$_=\'%$val\'");
-                    print "$_ = %{$_}\n"; 
-
-                } else { # It's just a normal scalar.
-                    eval("\$$_=\'$val\'");
-                    print "$_ = ${$_}\n";   
-                    if ($_ eq 'rigid_atlas_name') {
-                        eval("\$tmp_rigid_atlas_name=\'$val\'");
-                    }
-                }
-            }
-        }
-    }
+				#my $val = %{ $tempHf }->{($_)};
+				#print "\n\n$_\n\n"; 
+				die "json mode requires revalidation!!!";
+				my $val;
+				$val = %{ $tempHf ->{$_}}; # Option A: take hash in tempHf and store as scalar
+				$val = $tempHf->{$_};  # Option B (more likely to be right): Store reference (scalar array hash) as val.
+				#my $val = %{ $tempHf }->{$_}; # This is as originally formulated, but not quite right.
+				if ($val ne '') {
+					#print "LOOK HERE TO SEE NOTHING\$val = ${val}\n";
+					if ($val =~ /^ARRAY\(0x[0-9,a-f]{5,}/){
+						eval("\@$_=\'@$val\'");
+						print "$_ = @{$_}\n"; 
+					} elsif ($val =~ /^HASH\(0x[0-9,a-f]{5,}/){
+						eval("\%$_=\'%$val\'");
+						print "$_ = %{$_}\n"; 
+	
+					} else { # It's just a normal scalar.
+						eval("\$$_=\'$val\'");
+						print "$_ = ${$_}\n";   
+						if ($_ eq 'rigid_atlas_name') {
+							eval("\$tmp_rigid_atlas_name=\'$val\'");
+						}
+					}
+				}
+			}
+		}
     }
     my @ps_array;
 
@@ -265,19 +265,19 @@ sub assign_parameters {
     }
 
     if ((! defined ($pre_masked)) && (defined ($do_mask))) {
-	if ($do_mask) {
-	    $pre_masked = 0;
-	} else {
-	    $pre_masked=1;
-	}
+		if ($do_mask) {
+			$pre_masked = 0;
+		} else {
+			$pre_masked=1;
+		}
     }
 
     if ((defined ($pre_masked)) && (! defined ($do_mask))) {
-	if ($pre_masked) {
-	    $do_mask = 0;
-	} else {
-	    $do_mask=1;
-	}
+		if ($pre_masked) {
+			$do_mask = 0;
+		} else {
+			$do_mask=1;
+		}
     }
 
     if (! defined $port_atlas_mask) { $port_atlas_mask = 0;}
@@ -285,15 +285,15 @@ sub assign_parameters {
     if (($test_mode) && ($test_mode eq 'off')) { $test_mode = 0;}
 
     if (defined $channel_comma_list) {
-	my @CCL = split(',',$channel_comma_list);
-	foreach (@CCL) {
-	    if ($_ !~ /(jac|ajax|nii4D)/) {
-		push (@channel_array,$_);
-	    }
-	}
-
-	@channel_array = uniq(@channel_array);
-	$channel_comma_list = join(',',@channel_array);
+		my @CCL = split(',',$channel_comma_list);
+		foreach (@CCL) {
+			if ($_ !~ /(jac|ajax|nii4D)/) {
+			push (@channel_array,$_);
+			}
+		}
+	
+		@channel_array = uniq(@channel_array);
+		$channel_comma_list = join(',',@channel_array);
     }
 
 if (0) { # We want to retire the confusing concept of $atlas_name, when we really mean $rigid_atlas_name
