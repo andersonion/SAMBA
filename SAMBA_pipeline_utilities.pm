@@ -1314,7 +1314,7 @@ sub nifti1_bb_spacing {
     my $bb_1   = join(' ', map { $fmt_bb1->($_) } @bb1[0..$dim-1]);
     my $spacing= join('x', map { $fmt_sp ->($_) } @spacings[0..$dim-1]);
 	
-	my $temp_debug = 0;
+	my $temp_debug = 1;
 	if ($try_legacy && $temp_debug) {
 		my $print_line = "\{\[${bb_0}\], \[${bb_1}\]\} $spacing";
 		print  "Legacy result: ${print_line}\n";
