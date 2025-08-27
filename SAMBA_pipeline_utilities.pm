@@ -1318,6 +1318,11 @@ sub nifti1_bb_spacing {
     my $bb_1   = join(' ', map { $fmt->($_) } @bb1[0..$dim-1]);
     my $spacing= join('x', map { $fmt->($_) } @spacings[0..$dim-1]);
 
+
+	if ($try_legacy) {
+		my $print_line = "\{\[${bb_0}\], \[${bb_1}\]\} $spacing";
+		print  "Legacy result: ${print_line}\n";
+	}
     # Return exactly what your caller expects
     return ($bb_0, $bb_1, $spacing, $dim);
 
