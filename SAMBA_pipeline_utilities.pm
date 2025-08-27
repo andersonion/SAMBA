@@ -864,7 +864,7 @@ sub compare_two_reference_spaces {
     if ($bb_and_sp_1 eq $bb_and_sp_2) {
         $result = 1;
     } else {
-    	if (( $file_1_is_a_ref_space && ! $file_2_is_a_ref_space ) || ($file_2_is_a_ref_space && ! $file_1_is_a_ref_space){
+    	if (( $file_1_is_a_ref_space && ! $file_2_is_a_ref_space ) || ($file_2_is_a_ref_space && ! $file_1_is_a_ref_space)){
     		if ( $file_1_is_a_ref_space ){
     			# Legacy check on $file_2:
     			$bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2,1);
