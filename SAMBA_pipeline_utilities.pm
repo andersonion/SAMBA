@@ -874,8 +874,8 @@ sub compare_two_reference_spaces {
 				# Legacy check on $file_1:
     			$bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1,1);
     		}
-    		$bb_and_sp_1 = _canon_ref_space_str($bb_and_sp_1);
-    		$bb_and_sp_2 = _canon_ref_space_str($bb_and_sp_2);
+    		#$bb_and_sp_1 = _canon_ref_space_str($bb_and_sp_1);
+    		#$bb_and_sp_2 = _canon_ref_space_str($bb_and_sp_2);
 			
 			#if ($bb_and_sp_1 eq $bb_and_sp_2) {
 			if (ref_space_equal($bb_and_sp_1, $bb_and_sp_2)) {
@@ -896,8 +896,6 @@ sub compare_two_reference_spaces {
 # Canonicalize the string form (drop prefixes/suffixes, normalize spaces)
 sub _canon_ref_space_str {
     my ($s) = @_;
-    $s =~ s/^ref_space\s*=\s*//;       # drop leading label
-    $s =~ s/,,,.*$//s;                 # drop trailing decorations
     $s =~ s/\p{Z}/ /g;                 # Unicode spaces -> ASCII space
     $s =~ s/\x{200B}//g;               # remove zero-width space
     $s =~ s/^\s+|\s+$//g;              # trim ends
