@@ -873,7 +873,8 @@ sub compare_two_reference_spaces {
 				# Legacy check on $file_1:
     			$bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1,1);
     		}
-    		
+    		$bb_and_sp_1 = canon_ref_space_str($bb_and_sp_1);
+    		$bb_and_sp_2 = canon_ref_space_str($bb_and_sp_2);
 			if ($bb_and_sp_1 eq $bb_and_sp_2) {
 				$result = 1;
 			}
@@ -882,6 +883,29 @@ sub compare_two_reference_spaces {
 
     return($result);
 }
+
+# Helper Subject
+sub canon_ref_space_str {
+    my ($s) = @_;
+
+    # normalize Unicode spaces (NBSP etc.) to ASCII space
+    $s =~ s/\p{Z}/ /g;       # any Unicode separator -> space
+    $s =~ s/\x{200B}//g;     # remove zero-width space if present
+
+    # trim & collapse
+    $s =~ s/^\s+|\s+$//g;
+    $s =~ s/[ \t]+/ /g;
+
+    # tidy around brackets/commas
+    $s =~ s/\[\s+/\[/g;
+    $s =~ s/\s+\]/\]/g;
+    $s =~ s/\{\s+/{/g;
+    $s =~ s/\s+\}/}/g;
+    $s =~ s/,\s+/, /g;
+
+    return $s;
+}
+
 
 #---------------------
 sub convert_time_to_seconds {
