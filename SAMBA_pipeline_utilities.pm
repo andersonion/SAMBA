@@ -1318,6 +1318,8 @@ sub nifti1_bb_spacing {
 	if ($try_legacy && $temp_debug) {
 		my $print_line = "\{\[${bb_0}\], \[${bb_1}\]\} $spacing";
 		print  "Legacy result: ${print_line}\n";
+		$print_line = visualize_ws(${print_line}) ;
+		print  "Legacy result: ${print_line}\n";
 	}
     # Return exactly what your caller expects
     return ($bb_0, $bb_1, $spacing, $dim);
@@ -1325,6 +1327,17 @@ sub nifti1_bb_spacing {
 }
 
 # ---------- Begin nifti1_bb_spacing internals ----------
+
+sub visualize_ws {
+    my ($s) = @_;
+    # Make invisibles visible
+    $s =~ s/ /␠/g;        # space
+    $s =~ s/\t/␉/g;       # tab
+    $s =~ s/\r/␍/g;       # CR
+    $s =~ s/\n/␊/g;       # LF
+    $s =~ s/\x{A0}/⍽/g;   # NBSP
+    return $s;
+}
 
 sub _read348 {
     my ($path) = @_;
