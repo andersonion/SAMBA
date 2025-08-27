@@ -1295,11 +1295,6 @@ sub nifti1_bb_spacing {
 
 # ---------- Begin nifti1_bb_spacing internals ----------
 
-sub _have_gunzip() {
-    state $flag = eval { require IO::Uncompress::Gunzip; 1 } ? 1 : 0;
-    return $flag;
-}
-
 sub _read348 {
     my ($path) = @_;
     sysopen(my $fh, $path, O_RDONLY) or die "open $path: $!";
