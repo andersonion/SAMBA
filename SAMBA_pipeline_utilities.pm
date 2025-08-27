@@ -23,6 +23,7 @@ use File::Temp qw(tempfile);
 use Scalar::Util qw(looks_like_number);
 use Fcntl qw(O_RDONLY);
 
+
 ## Multiple cluster type support, 27 June 2019, BJ Anderson
 # Hope to make this automatic!
 # Cluster type codes:
@@ -31,6 +32,12 @@ use Fcntl qw(O_RDONLY);
 # 2: SGE
 our $cluster_type = 1;
 
+
+my $HAVE_GUNZIP;
+sub _have_gunzip {
+    return $HAVE_GUNZIP if defined $HAVE_GUNZIP;
+    $HAVE_GUNZIP = eval { require IO::Uncompress::Gunzip; 1 } ? 1 : 0;
+}
 
 my $PM="SAMBA_pipeline_utilities";
 my $VERSION = "250213";
@@ -1235,8 +1242,7 @@ sub format_transforms_for_command_line {
 
 
 ## Note: the following code wouldn't be so verbose, but ChatterBoxGPT doesn't know how to keep things succint.
-{	# Optional fast gunzip; will fall back to external gzip -dc if missing
-my $HAVE_GUNZIP = eval { require IO::Uncompress::Gunzip; IO::Uncompress::Gunzip->import(qw($GunzipError)); 1 };
+
 #---------------------
 sub nifti1_bb_spacing {
 #---------------------
@@ -1288,47 +1294,61 @@ sub nifti1_bb_spacing {
 }
 
 # ---------- Begin nifti1_bb_spacing internals ----------
-sub _read348 {
-	my ($path) = @_;
-	sysopen(my $fh, $path, O_RDONLY) or die "open $path: $!";
-	binmode($fh);
-	my $sig = '';
-	my $got = read($fh, $sig, 2);
-	die "short read($path)" unless defined $got && $got == 2;
 
-	if ($sig eq "\x1f\x8b") {   # gzip
-		close $fh;
-		if ($HAVE_GUNZIP) {
-			my $z = IO::Uncompress::Gunzip->new($path) or die "gunzip($path): $GunzipError";
-			my $buf=''; my $need=348;
-			while ($need>0) {
-				my $chunk=''; my $n = $z->read($chunk, $need);
-				die "gunzip read error on $path" unless defined $n;
-				last if $n==0; $buf.=$chunk; $need-=$n;
-			}
-			$z->close();
-			die "decompressed header too short in $path" unless length($buf)==348;
-			return $buf;
-		} else {
-			open my $z, "-|", "gzip","-dc","--",$path or die "spawn gzip -dc $path: $!";
-			binmode($z);
-			my $buf=''; my $need=348;
-			while ($need>0) {
-				my $chunk=''; my $n = read($z,$chunk,$need);
-				die "gzip pipe read error on $path" unless defined $n;
-				last if $n==0; $buf.=$chunk; $need-=$n;
-			}
-			close $z;
-			die "decompressed header too short in $path" unless length($buf)==348;
-			return $buf;
-		}
-	} else {
-		sysseek($fh, 0, 0) or die "seek $path: $!";
-		my $hdr=''; my $n = read($fh,$hdr,348);
-		close($fh);
-		die "short header ($n bytes) in $path" unless defined $n && $n==348;
-		return $hdr;
-	}
+sub _have_gunzip() {
+    state $flag = eval { require IO::Uncompress::Gunzip; 1 } ? 1 : 0;
+    return $flag;
+}
+
+sub _read348 {
+    my ($path) = @_;
+    sysopen(my $fh, $path, O_RDONLY) or die "open $path: $!";
+    binmode($fh);
+    my $sig = '';
+    my $got = read($fh, $sig, 2);
+    die "short read($path)" unless defined $got && $got == 2;
+
+    if ($sig eq "\x1f\x8b") {   # gzip
+        close $fh;
+        if (_have_gunzip()) {
+            my $z = IO::Uncompress::Gunzip->new($path)
+              or die "gunzip($path): $IO::Uncompress::Gunzip::GunzipError";
+            my $buf = ''; my $need = 348;
+            while ($need > 0) {
+                my $chunk = '';
+                my $n = $z->read($chunk, $need);
+                die "gunzip read error on $path" unless defined $n;
+                last if $n == 0;
+                $buf  .= $chunk;
+                $need -= $n;
+            }
+            $z->close();
+            die "decompressed header too short in $path" unless length($buf) == 348;
+            return $buf;
+        } else {
+            open my $z, "-|", "gzip", "-dc", "--", $path
+              or die "spawn gzip -dc $path: $!";
+            binmode($z);
+            my $buf = ''; my $need = 348;
+            while ($need > 0) {
+                my $chunk = '';
+                my $n = read($z, $chunk, $need);
+                die "gzip pipe read error on $path" unless defined $n;
+                last if $n == 0;
+                $buf  .= $chunk;
+                $need -= $n;
+            }
+            close $z;
+            die "decompressed header too short in $path" unless length($buf) == 348;
+            return $buf;
+        }
+    } else {
+        sysseek($fh, 0, 0) or die "seek $path: $!";
+        my $hdr = ''; my $n = read($fh, $hdr, 348);
+        close($fh);
+        die "short header ($n bytes) in $path" unless defined $n && $n == 348;
+        return $hdr;
+    }
 }
 
 sub _unpack_hdr {
