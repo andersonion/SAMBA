@@ -896,6 +896,8 @@ sub compare_two_reference_spaces {
 # Canonicalize the string form (drop prefixes/suffixes, normalize spaces)
 sub _canon_ref_space_str {
     my ($s) = @_;
+	return '' unless defined $s;          # guard: avoid s/// on undef
+	
     $s =~ s/\p{Z}/ /g;                 # Unicode spaces -> ASCII space
     $s =~ s/\x{200B}//g;               # remove zero-width space
     $s =~ s/^\s+|\s+$//g;              # trim ends
