@@ -861,8 +861,9 @@ sub compare_two_reference_spaces {
 	}
 
     my $result=0;
-
-    if ($bb_and_sp_1 eq $bb_and_sp_2) {
+	
+	#if ($bb_and_sp_1 eq $bb_and_sp_2) {
+    if (ref_space_equal($bb_and_sp_1 eq $bb_and_sp_2)) {
         $result = 1;
     } else {
     	if (( $file_1_is_a_ref_space && ! $file_2_is_a_ref_space ) || ($file_2_is_a_ref_space && ! $file_1_is_a_ref_space)){
@@ -873,9 +874,11 @@ sub compare_two_reference_spaces {
 				# Legacy check on $file_1:
     			$bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1,1);
     		}
-    		$bb_and_sp_1 = canon_ref_space_str($bb_and_sp_1);
-    		$bb_and_sp_2 = canon_ref_space_str($bb_and_sp_2);
-			if ($bb_and_sp_1 eq $bb_and_sp_2) {
+    		$bb_and_sp_1 = _canon_ref_space_str($bb_and_sp_1);
+    		$bb_and_sp_2 = _canon_ref_space_str($bb_and_sp_2);
+			
+			#if ($bb_and_sp_1 eq $bb_and_sp_2) {
+			if (ref_space_equal($bb_and_sp_1, $bb_and_sp_2)) {
 				$result = 1;
 			} else {
 				print visualize_ws($bb_and_sp_1)."\n";
@@ -889,26 +892,39 @@ sub compare_two_reference_spaces {
     return($result);
 }
 
-# Helper Subject
-sub canon_ref_space_str {
+# Helper subs
+# Canonicalize the string form (drop prefixes/suffixes, normalize spaces)
+sub _canon_ref_space_str {
     my ($s) = @_;
+    $s =~ s/^ref_space\s*=\s*//;       # drop leading label
+    $s =~ s/,,,.*$//s;                 # drop trailing decorations
+    $s =~ s/\p{Z}/ /g;                 # Unicode spaces -> ASCII space
+    $s =~ s/\x{200B}//g;               # remove zero-width space
+    $s =~ s/^\s+|\s+$//g;              # trim ends
+    $s =~ s/[ \t]+/ /g;                # collapse internal spaces
+    $s;
+}
 
-    # normalize Unicode spaces (NBSP etc.) to ASCII space
-    $s =~ s/\p{Z}/ /g;       # any Unicode separator -> space
-    $s =~ s/\x{200B}//g;     # remove zero-width space if present
+# Pull out all numbers in order from the canonicalized string
+sub _nums_from_ref_space {
+    my ($s) = @_;
+    $s = _canon_ref_space_str($s);
+    my @nums = ($s =~ /-?\d+(?:\.\d+)?/g);   # 9 numbers: 3 bb0 + 3 bb1 + 3 spacings
+    @nums;
+}
 
-    # trim & collapse
-    $s =~ s/^\s+|\s+$//g;
-    $s =~ s/[ \t]+/ /g;
-
-    # tidy around brackets/commas
-    $s =~ s/\[\s+/\[/g;
-    $s =~ s/\s+\]/\]/g;
-    $s =~ s/\{\s+/{/g;
-    $s =~ s/\s+\}/}/g;
-    $s =~ s/,\s+/, /g;
-
-    return $s;
+# Numeric compare with tolerance (<= eps)
+sub ref_space_equal {
+    my ($a, $b, $eps) = @_;
+    $eps //= 1e-6;  # fits your diffs
+    my @A = _nums_from_ref_space($a);
+    my @B = _nums_from_ref_space($b);
+    return 0 unless @A == 9 && @B == 9;
+    for my $i (0..8) {
+        my ($x, $y) = ($A[$i]+0.0, $B[$i]+0.0);
+        return 0 if abs($x - $y) > $eps;     # use > (not >=) so Δ=1e-6 passes
+    }
+    return 1;
 }
 
 
