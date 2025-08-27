@@ -857,6 +857,7 @@ sub compare_two_reference_spaces {
 		$bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2);
 	} else {
 	   $bb_and_sp_2 = $file_2;
+	   $file_2_is_a_ref_space = 1;
 	}
 
     my $result=0;
