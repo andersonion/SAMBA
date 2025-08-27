@@ -1265,7 +1265,6 @@ sub format_transforms_for_command_line {
 #---------------------
 sub nifti1_bb_spacing {
 #---------------------
-sub get_bounding_box_and_spacing_from_header {
     my ($path, $try_legacy) = @_;
     $try_legacy //= 0;
 
