@@ -1265,60 +1265,55 @@ sub format_transforms_for_command_line {
 #---------------------
 sub nifti1_bb_spacing {
 #---------------------
+sub get_bounding_box_and_spacing_from_header {
     my ($path, $try_legacy) = @_;
     $try_legacy //= 0;
 
     my $hdr = _read348($path);
     my $r   = _unpack_hdr($hdr);
 
-    # dims & shape
     my ($ndim, @shape) = ($r->{dim}[0]||0, @{$r->{dim}}[1..7]);
     @shape = @shape[0..$ndim-1] if $ndim && $ndim <= @shape;
 
-    # spacings from pixdim: qfac, then dx,dy,dz,dt…
     my ($qfac, @pd) = @{$r->{pixdim}};
     my ($dx,$dy,$dz,$dt) = (@pd,0,0,0,0)[0..3];
 
-    # ----- offsets (bb_0) -----
-    my ($ox,$oy,$oz) = (0.0, 0.0, 0.0);
-
+    # pick offsets
+    my ($ox,$oy,$oz) = (0.0,0.0,0.0);
     if (($r->{sform_code}||0) > 0) {
-        # prefer sform
         ($ox,$oy,$oz) = ($r->{srow_x}[3], $r->{srow_y}[3], $r->{srow_z}[3]);
-
-        if ($try_legacy) {
-            # Legacy per-axis fallback: if sto_xyz:i offset is exactly 0, use qto_xyz:i offset
-            if (($r->{qform_code}||0) > 0) {
-                $ox = $r->{qoffset_x} if $ox == 0;
-                $oy = $r->{qoffset_y} if $oy == 0;
-                $oz = $r->{qoffset_z} if $oz == 0;
-            }
+        if ($try_legacy && ($r->{qform_code}||0) > 0) {
+            $ox = $r->{qoffset_x} if $ox == 0;
+            $oy = $r->{qoffset_y} if $oy == 0;
+            $oz = $r->{qoffset_z} if $oz == 0;
         }
     } elsif (($r->{qform_code}||0) > 0) {
         ($ox,$oy,$oz) = ($r->{qoffset_x}, $r->{qoffset_y}, $r->{qoffset_z});
-    } else {
-        ($ox,$oy,$oz) = (0,0,0);
     }
 
-    # match legacy behavior: only first 3 dims for bbox/spacing
     my $dim = $ndim; $dim = 3 if $dim > 3; $dim = 1 if $dim < 1;
 
-    my @spacings = (($dx||0), ($dy||0), ($dz||0));
     my @sizes    = (@shape, (0,0,0))[0..2];
-
-    my @bb0 = ($ox, $oy, $oz);
-    my @bb1 = (
+    my @spacings = (($dx||0), ($dy||0), ($dz||0));
+    my @bb0      = ($ox, $oy, $oz);
+    my @bb1      = (
         $bb0[0] + $sizes[0]*$spacings[0],
         $bb0[1] + $sizes[1]*$spacings[1],
         $bb0[2] + $sizes[2]*$spacings[2],
     );
 
-    my $fmt = $try_legacy ? \&_fmt_legacy_bug : \&_fmt_new;
+    my ($fmt_bb0, $fmt_bb1, $fmt_sp);
+    if ($try_legacy) {
+        $fmt_bb0 = \&_fmt_legacy_from_fsl;   # like fslhd tokens
+        $fmt_bb1 = \&_fmt_legacy_from_calc;  # like legacy computed path
+        $fmt_sp  = \&_fmt_legacy_from_fsl;   # like fslhd tokens
+    } else {
+        $fmt_bb0 = $fmt_bb1 = $fmt_sp = \&_fmt_new;
+    }
 
-    my $bb_0   = join(' ', map { $fmt->($_) } @bb0[0..$dim-1]);
-    my $bb_1   = join(' ', map { $fmt->($_) } @bb1[0..$dim-1]);
-    my $spacing= join('x', map { $fmt->($_) } @spacings[0..$dim-1]);
-
+    my $bb_0   = join(' ', map { $fmt_bb0->($_) } @bb0[0..$dim-1]);
+    my $bb_1   = join(' ', map { $fmt_bb1->($_) } @bb1[0..$dim-1]);
+    my $spacing= join('x', map { $fmt_sp ->($_) } @spacings[0..$dim-1]);
 
 	if ($try_legacy) {
 		my $print_line = "\{\[${bb_0}\], \[${bb_1}\]\} $spacing";
@@ -1421,23 +1416,38 @@ sub _fmt {
 	return $s;
 }
 
+# --- helpers ---
+
+# New, sane formatter (retain if you still want the modern behavior)
 sub _fmt_new {
     my ($x) = @_;
     my $s = sprintf("%.10f", $x // 0);
-    $s =~ s/0+$//;      # drop trailing zeros in fractional part
+    $s =~ s/0+$//;      # drop fractional trailing zeros
     $s =~ s/\.$/.0/;    # ensure trailing .0
     return $s;
 }
-sub _fmt_legacy_bug {
+
+# Legacy: emulate fslhd-style tokens *before* applying the old trims.
+# Use this for values that originally came from fslhd text: bb0 and pixdims.
+sub _fmt_legacy_from_fsl {
     my ($x) = @_;
-    # Emulate legacy string cleanups: "110" -> "11", "110." -> "110.0", keep ints bare
-    my $s = "$x";                 # stringize numeric as-is
-    $s =~ s/([0]+)$//;            # drop ALL trailing 0s (buggy on integers)
-    $s =~ s/(\.)$/\.0/;           # if ends with '.', append 0
-    $s =~ s/^\s+//;               # trim leading ws
-    $s = '0' if $s eq '';         # guard "0" -> "" edge case
-    return $s;
+    my $s = sprintf("%.6f", $x // 0);  # fslhd typically shows 6 decimals
+    $s =~ s/0+$//;                     # legacy bug: drop all trailing zeros
+    $s =~ s/\.$/.0/;                   # fix bare trailing dot
+    return $s eq '' ? '0' : $s;
 }
+
+# Legacy: for computed numbers (bb1), legacy code stringified the perl number
+# and then applied the same buggy trims -> 110 becomes 11.
+sub _fmt_legacy_from_calc {
+    my ($x) = @_;
+    my $s = "$x";                      # default stringification (no forced decimals)
+    $s =~ s/0+$//;                     # legacy bug: drop all trailing zeros
+    $s =~ s/\.$/.0/;                   # fix bare trailing dot
+    $s =~ s/^\s+//;                    # trim leading ws (parity with old)
+    return $s eq '' ? '0' : $s;
+}
+
 # ---------- End nifti1_bb_spacing internals ----------
 
 #---------------------
