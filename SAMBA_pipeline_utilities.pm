@@ -877,7 +877,12 @@ sub compare_two_reference_spaces {
     		$bb_and_sp_2 = canon_ref_space_str($bb_and_sp_2);
 			if ($bb_and_sp_1 eq $bb_and_sp_2) {
 				$result = 1;
+			} else {
+				print "$bb_and_sp_1 \n";
+				print "Is not equal to\n";
+				print "$bb_and_sp_1 \n";
 			}
+			
     	}
     }
 
