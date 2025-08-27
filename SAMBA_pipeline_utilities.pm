@@ -842,7 +842,7 @@ sub compare_two_reference_spaces {
     if (! data_double_check($file_1)){
         $bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1);  # Attempted to make this impervious to the presence or absence of .gz 14 October 2016
     } elsif (! data_double_check($file_1.'.gz')) {
-    	$file_1 = $file_1.'.gz'
+    	$file_1 = $file_1.'.gz';
         $bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1);
     }  else {
         $bb_and_sp_1 = $file_1;
@@ -853,7 +853,7 @@ sub compare_two_reference_spaces {
 	if (! data_double_check($file_2)){
 	   $bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2);
 	} elsif (! data_double_check($file_2.'.gz')) {
-		$file_2 = $file_2.'.gz'
+		$file_2 = $file_2.'.gz';
 		$bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2);
 	} else {
 	   $bb_and_sp_2 = $file_2;
