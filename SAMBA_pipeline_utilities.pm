@@ -878,9 +878,9 @@ sub compare_two_reference_spaces {
 			if ($bb_and_sp_1 eq $bb_and_sp_2) {
 				$result = 1;
 			} else {
-				print "$bb_and_sp_1 \n";
+				print visualize_ws($bb_and_sp_1)."\n";
 				print "Is not equal to\n";
-				print "$bb_and_sp_1 \n";
+				print visualize_ws($bb_and_sp_2)."\n";
 			}
 			
     	}
