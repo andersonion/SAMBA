@@ -1320,7 +1320,7 @@ sub nifti1_bb_spacing {
 
     # Return exactly what your caller expects
     return ($bb_0, $bb_1, $spacing, $dim);
-}
+
 }
 
 # ---------- Begin nifti1_bb_spacing internals ----------
