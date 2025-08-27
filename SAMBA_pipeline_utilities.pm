@@ -836,29 +836,47 @@ sub compare_two_reference_spaces {
     my ($bb_and_sp_1,$bb_and_sp_2);
  #   my ($sp_1,$sp_2);
     
+    my $file_1_is_a_ref_space = 0;
     if ($file_1 =~ s/(\.gz)$//) {}
     
     if (! data_double_check($file_1)){
         $bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1);  # Attempted to make this impervious to the presence or absence of .gz 14 October 2016
     } elsif (! data_double_check($file_1.'.gz')) {
-        $bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1.'.gz');
+    	$file_1 = $file_1.'.gz'
+        $bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1);
     }  else {
         $bb_and_sp_1 = $file_1;
+        $file_1_is_a_ref_space = 1;
     }
-        
-   if ($file_2 =~ s/(\.gz)$//) {}
-   if (! data_double_check($file_2)){
-       $bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2);
-   } elsif (! data_double_check($file_2.'.gz')) {
-       $bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2.'.gz');
-   } else {
-       $bb_and_sp_2 = $file_2;
-   }
+	my $file_2_is_a_ref_space = 0;
+	if ($file_2 =~ s/(\.gz)$//) {}
+	if (! data_double_check($file_2)){
+	   $bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2);
+	} elsif (! data_double_check($file_2.'.gz')) {
+		$file_2 = $file_2.'.gz'
+		$bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2);
+	} else {
+	   $bb_and_sp_2 = $file_2;
+	}
 
     my $result=0;
 
     if ($bb_and_sp_1 eq $bb_and_sp_2) {
         $result = 1;
+    } else {
+    	if (( $file_1_is_a_ref_space && ! $file_2_is_a_ref_space ) || ($file_2_is_a_ref_space && ! $file_1_is_a_ref_space){
+    		if ( $file_1_is_a_ref_space ){
+    			# Legacy check on $file_2:
+    			$bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2,1);
+    		} else {
+				# Legacy check on $file_1:
+    			$bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1,1);
+    		}
+    		
+			if ($bb_and_sp_1 eq $bb_and_sp_2) {
+				$result = 1;
+			}
+    	}
     }
 
     return($result);
@@ -1246,51 +1264,63 @@ sub format_transforms_for_command_line {
 #---------------------
 sub nifti1_bb_spacing {
 #---------------------
-	my ($path) = @_;
-	my $hdr = _read348($path);
-	my $r   = _unpack_hdr($hdr);
+    my ($path, $try_legacy) = @_;
+    $try_legacy //= 0;
 
-	# dims & shape
-	my ($ndim, @shape) = ($r->{dim}[0]||0, @{$r->{dim}}[1..7]);
-	@shape = @shape[0..$ndim-1] if $ndim && $ndim <= @shape;
+    my $hdr = _read348($path);
+    my $r   = _unpack_hdr($hdr);
 
-	# spacings from pixdim: qfac, then dx,dy,dz,dt…
-	my ($qfac, @pd) = @{$r->{pixdim}};
-	my ($dx,$dy,$dz,$dt) = (@pd,0,0,0,0)[0..3];  # guard missing entries
+    # dims & shape
+    my ($ndim, @shape) = ($r->{dim}[0]||0, @{$r->{dim}}[1..7]);
+    @shape = @shape[0..$ndim-1] if $ndim && $ndim <= @shape;
 
-	# Choose transform: sform (sto_xyz) if sform_code>0; else qform; else zeros
-	my ($x0,$y0,$z0) = (0.0,0.0,0.0);
-	if (($r->{sform_code}||0) > 0) {
-		($x0,$y0,$z0) = ($r->{srow_x}[3], $r->{srow_y}[3], $r->{srow_z}[3]);
-	} elsif (($r->{qform_code}||0) > 0) {
-		my ($b,$c,$d) = @{$r}{qw(quatern_b quatern_c quatern_d)};
-		my $a2 = 1.0 - ($b*$b + $c*$c + $d*$d);
-		my $a  = $a2 > 0 ? sqrt($a2) : 0.0;
-		my $signz = ($qfac && $qfac < 0) ? -1.0 : 1.0;
-		my ($sx,$sy,$sz) = ($dx||1, $dy||1, ($dz||1)*$signz);
-		# rotation*scale not needed for bb_0; we only need offsets:
-		($x0,$y0,$z0) = @{$r}{qw(qoffset_x qoffset_y qoffset_z)};
-		# (If you ever need the full rows, compute them; for bb_0 the offsets suffice.)
-	}
+    # spacings from pixdim: qfac, then dx,dy,dz,dt…
+    my ($qfac, @pd) = @{$r->{pixdim}};
+    my ($dx,$dy,$dz,$dt) = (@pd,0,0,0,0)[0..3];
 
-	# Match your original loop behavior: use up to first 3 dims
-	my $dim = $ndim; $dim = 3 if $dim > 3; $dim = 1 if $dim < 1;
+    # ----- offsets (bb_0) -----
+    my ($ox,$oy,$oz) = (0.0, 0.0, 0.0);
 
-	my @spacings = (($dx||0), ($dy||0), ($dz||0));
-	my @sizes    = (@shape, (0,0,0))[0..2];
+    if (($r->{sform_code}||0) > 0) {
+        # prefer sform
+        ($ox,$oy,$oz) = ($r->{srow_x}[3], $r->{srow_y}[3], $r->{srow_z}[3]);
 
-	my @bb0 = ($x0, $y0, $z0);
-	my @bb1 = (
-		$bb0[0] + $sizes[0]*$spacings[0],
-		$bb0[1] + $sizes[1]*$spacings[1],
-		$bb0[2] + $sizes[2]*$spacings[2],
-	);
+        if ($try_legacy) {
+            # Legacy per-axis fallback: if sto_xyz:i offset is exactly 0, use qto_xyz:i offset
+            if (($r->{qform_code}||0) > 0) {
+                $ox = $r->{qoffset_x} if $ox == 0;
+                $oy = $r->{qoffset_y} if $oy == 0;
+                $oz = $r->{qoffset_z} if $oz == 0;
+            }
+        }
+    } elsif (($r->{qform_code}||0) > 0) {
+        ($ox,$oy,$oz) = ($r->{qoffset_x}, $r->{qoffset_y}, $r->{qoffset_z});
+    } else {
+        ($ox,$oy,$oz) = (0,0,0);
+    }
 
-	my $bb_0 = join(' ', map { _fmt($_) } @bb0[0..$dim-1]);
-	my $bb_1 = join(' ', map { _fmt($_) } @bb1[0..$dim-1]);
-	my $spacing = join('x', map { _fmt($_) } @spacings[0..$dim-1]);
+    # match legacy behavior: only first 3 dims for bbox/spacing
+    my $dim = $ndim; $dim = 3 if $dim > 3; $dim = 1 if $dim < 1;
 
-	return ($bb_0, $bb_1, $spacing, $dim);
+    my @spacings = (($dx||0), ($dy||0), ($dz||0));
+    my @sizes    = (@shape, (0,0,0))[0..2];
+
+    my @bb0 = ($ox, $oy, $oz);
+    my @bb1 = (
+        $bb0[0] + $sizes[0]*$spacings[0],
+        $bb0[1] + $sizes[1]*$spacings[1],
+        $bb0[2] + $sizes[2]*$spacings[2],
+    );
+
+    my $fmt = $try_legacy ? \&_fmt_legacy_bug : \&_fmt_new;
+
+    my $bb_0   = join(' ', map { $fmt->($_) } @bb0[0..$dim-1]);
+    my $bb_1   = join(' ', map { $fmt->($_) } @bb1[0..$dim-1]);
+    my $spacing= join('x', map { $fmt->($_) } @spacings[0..$dim-1]);
+
+    # Return exactly what your caller expects
+    return ($bb_0, $bb_1, $spacing, $dim);
+}
 }
 
 # ---------- Begin nifti1_bb_spacing internals ----------
@@ -1384,6 +1414,24 @@ sub _fmt {
 	$s =~ s/0+$//; $s =~ s/\.$/.0/;
 	return $s;
 }
+
+sub _fmt_new {
+    my ($x) = @_;
+    my $s = sprintf("%.10f", $x // 0);
+    $s =~ s/0+$//;      # drop trailing zeros in fractional part
+    $s =~ s/\.$/.0/;    # ensure trailing .0
+    return $s;
+}
+sub _fmt_legacy_bug {
+    my ($x) = @_;
+    # Emulate legacy string cleanups: "110" -> "11", "110." -> "110.0", keep ints bare
+    my $s = "$x";                 # stringize numeric as-is
+    $s =~ s/([0]+)$//;            # drop ALL trailing 0s (buggy on integers)
+    $s =~ s/(\.)$/\.0/;           # if ends with '.', append 0
+    $s =~ s/^\s+//;               # trim leading ws
+    $s = '0' if $s eq '';         # guard "0" -> "" edge case
+    return $s;
+}
 # ---------- End nifti1_bb_spacing internals ----------
 
 #---------------------
@@ -1405,9 +1453,11 @@ sub get_bounding_box_and_spacing_from_header {
         $ants_not_fsl = 0;
     }
     #$ants_not_fsl = 1;
+    # Note: we are using $ants_not_fsl to actually pass the $try_legacy flag to our new code.
+    
     
     if ($system_call) {
-    	my ($bb_0, $bb_1, $spacing, $dim) = nifti1_bb_spacing($file);
+    	my ($bb_0, $bb_1, $spacing, $dim) = nifti1_bb_spacing($file,$ants_not_fsl);
 		$bb_and_spacing = "{[$bb_0], [$bb_1]} $spacing";
 	} else {
 		
