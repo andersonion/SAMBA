@@ -1440,10 +1440,17 @@ sub _fmt_legacy_from_fsl {
 # and then applied the same buggy trims -> 110 becomes 11.
 sub _fmt_legacy_from_calc {
     my ($x) = @_;
-    my $s = "$x";                      # default stringification (no forced decimals)
-    $s =~ s/0+$//;                     # legacy bug: drop all trailing zeros
+    my $s = "$x";                      # Perl's default stringification
+
+    # If it has >6 decimals, TRUNCATE (not round) to 6 places
+    if ($s =~ /^(-?\d+)\.(\d{6})(\d+)/) {
+        $s = "$1.$2";
+    }
+
+    # Legacy cleanup steps (buggy on integers, by design):
+    $s =~ s/0+$//;                     # drop *all* trailing zeros
     $s =~ s/\.$/.0/;                   # fix bare trailing dot
-    $s =~ s/^\s+//;                    # trim leading ws (parity with old)
+    $s =~ s/^\s+//;                    # trim leading ws
     return $s eq '' ? '0' : $s;
 }
 
