@@ -1522,7 +1522,7 @@ sub get_bounding_box_and_spacing_from_header {
     my ($spacing,$bb_0,$bb_1);
     my $success = 0;
     my $header_output;
-	my $system_call = 1;
+	my $system_call = 0;
 	
 	if (! defined $system_call) {
         $system_call = 0;
