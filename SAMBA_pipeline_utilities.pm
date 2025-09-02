@@ -1607,9 +1607,9 @@ sub get_bounding_box_and_spacing_from_header {
 			} else {
 				$success = 1;
 			}
-		}
+		} else {
 	
-		if ($ants_not_fsl || (! $success)) {
+		#if ($ants_not_fsl || (! $success)) {
 			#Use ANTs (slow version)
 			my $bounding_box;
 			$header_output = `PrintHeader $file`;
