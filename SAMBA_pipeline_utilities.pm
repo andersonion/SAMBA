@@ -1474,8 +1474,6 @@ sub _fmt {
 	return $s;
 }
 
-# --- helpers ---
-
 # New, sane formatter (retain if you still want the modern behavior)
 sub _fmt_new {
     my ($x) = @_;
