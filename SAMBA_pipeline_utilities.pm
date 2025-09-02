@@ -1540,7 +1540,8 @@ sub get_bounding_box_and_spacing_from_header {
 		$bb_and_spacing = "{[$bb_0], [$bb_1]} $spacing";
 	} else {
 		
-		if (! $ants_not_fsl) {
+		#if (! $ants_not_fsl) {
+		if (1) {
 			my $fsl_cmd = "fslhd $file";
 		   
 			$header_output = `${fsl_cmd}`;#`fslhd $file`;
