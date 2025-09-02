@@ -1522,7 +1522,7 @@ sub get_bounding_box_and_spacing_from_header {
     my ($spacing,$bb_0,$bb_1);
     my $success = 0;
     my $header_output;
-	my $system_call = 0;
+	my $system_call = 1;
 	
 	if (! defined $system_call) {
         $system_call = 0;
@@ -1540,8 +1540,8 @@ sub get_bounding_box_and_spacing_from_header {
 		$bb_and_spacing = "{[$bb_0], [$bb_1]} $spacing";
 	} else {
 		
-		#if (! $ants_not_fsl) {
-		if (1) {
+		if (! $ants_not_fsl) {
+		#if (1) {
 			my $fsl_cmd = "fslhd $file";
 		   
 			$header_output = `${fsl_cmd}`;#`fslhd $file`;
@@ -1607,9 +1607,9 @@ sub get_bounding_box_and_spacing_from_header {
 			} else {
 				$success = 1;
 			}
-		} else {
+		}
 	
-		#if ($ants_not_fsl || (! $success)) {
+		if ($ants_not_fsl || (! $success)) {
 			#Use ANTs (slow version)
 			my $bounding_box;
 			$header_output = `PrintHeader $file`;
