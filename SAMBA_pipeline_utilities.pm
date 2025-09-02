@@ -1516,115 +1516,19 @@ sub _fmt_legacy_from_calc {
 #---------------------
 sub get_bounding_box_and_spacing_from_header {
 #---------------------
-
-    my ($file,$ants_not_fsl) = @_;
+	# Old method of invoking fslhd has been permanently deprecated as of 2 September 2025
+	# Using custom perl code avoids system call, and has been shown to speed things up ~20x
+    my ($file,$try_legacy) = @_;
     my $bb_and_spacing;
     my ($spacing,$bb_0,$bb_1);
-    my $success = 0;
-    my $header_output;
-	my $system_call = 1;
-	
-	if (! defined $system_call) {
-        $system_call = 0;
-    }
     
-    if (! defined $ants_not_fsl) {
-        $ants_not_fsl = 0;
+    if (! defined $try_legacy) {
+        $try_legacy = 0;
     }
-    #$ants_not_fsl = 1;
-    # Note: we are using $ants_not_fsl to actually pass the $try_legacy flag to our new code.
-    
-    
-    if ($system_call) {
-    	my ($bb_0, $bb_1, $spacing, $dim) = nifti1_bb_spacing($file,$ants_not_fsl);
-		$bb_and_spacing = "{[$bb_0], [$bb_1]} $spacing";
-	} else {
-		
-		if (! $ants_not_fsl) {
-		#if (1) {
-			my $fsl_cmd = "fslhd $file";
-		   
-			$header_output = `${fsl_cmd}`;#`fslhd $file`;
-	
-			my $dim = 3;
-			my @spacings;
-			my @bb_0;
-			my @bb_1;
-			my $bb_1_i;
-	
-			if ($header_output =~ /^dim0[^0-9]([0-9]{1})/) {
-				$dim = $1;
-	
-			}
-			for (my $i = 1;$i<=$dim;$i++) {
-				my $spacing_i;
-				my $bb_0_i;
-				my $array_size_i;
-				my @array_size;
-				if ($header_output =~ /pixdim${i}[\s]*([0-9\.\-]+)/) {
-					$spacing_i = $1;
-					$spacing_i =~ s/([0]+)$//;
-					$spacing_i =~ s/(\.)$/\.0/;
-					$spacings[($i-1)]=$spacing_i;
-				}
-			   
-				if ($header_output =~ /sto_xyz\:${i}([\s]*[0-9\.\-]+)+/) {
-					$bb_0_i = $1;
-					$bb_0_i =~ s/([0]+)$//;
-					$bb_0_i =~ s/(\.)$/\.0/;
-					$bb_0_i =~ s/^(\s)+//;
-					$bb_0[($i-1)]=$bb_0_i;
-				} 
-			if  (($bb_0[($i-1)] eq '0.0') || ($bb_0[($i-1)] eq '0')) {
-				if ($header_output =~ /qto_xyz\:${i}([\s]*[0-9\.\-]+)+/) {
-						$bb_0_i = $1;
-						$bb_0_i =~ s/([0]+)$//;
-						$bb_0_i =~ s/(\.)$/\.0/;
-						$bb_0_i =~ s/^(\s)+//;
-						$bb_0[($i-1)]=$bb_0_i;
-				}
-			}
-	
-				if ($header_output =~ /dim${i}[\s]*([0-9]+)/) {
-					$array_size_i = $1;
-					$array_size[($i-1)] = $array_size_i;
-				}
-				$bb_1_i= $bb_0[($i-1)]+$array_size[($i-1)]*$spacings[($i-1)];
-				$bb_1_i =~ s/([0]+)$//;
-				$bb_1_i =~ s/(\.)$/\.0/;
-				$bb_1_i =~ s/^(\s)+//;
-				$bb_1[($i-1)]= $bb_1_i;
-			}
-	
-			$bb_0 = join(' ',@bb_0);
-			$bb_1 = join(' ',@bb_1);
-			$spacing = join('x',@spacings);
-			
-			$bb_and_spacing = "\{\[${bb_0}\], \[${bb_1}\]\} $spacing"; 
-	
-			if ($spacing eq '') {
-				$success = 0;
-			} else {
-				$success = 1;
-			}
-		}
-	
-		if ($ants_not_fsl || (! $success)) {
-			#Use ANTs (slow version)
-			my $bounding_box;
-			$header_output = `PrintHeader $file`;
-			if ($header_output =~ /(\{[^}]*\})/) {      $bounding_box = $1;
-				chomp($bounding_box);
-				$success = 1;
-			} else {
-				$bounding_box = 0;
-			}
-			$spacing = `PrintHeader $file 1`;
-			chomp($spacing);
-	
-			$bb_and_spacing = join(' ',($bounding_box,$spacing));
-		}
-    }
+
+	my ($bb_0, $bb_1, $spacing, $dim) = nifti1_bb_spacing($file,$try_legacy);
+	$bb_and_spacing = "{[$bb_0], [$bb_1]} $spacing";
+
     return($bb_and_spacing);
 }
 
