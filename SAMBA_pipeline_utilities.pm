@@ -128,8 +128,10 @@ headfile_list_handler
 load_file_to_array
 log_info
 make_process_dirs
+mask_volume_mm3
 memory_estimator
 memory_estimator_2
+nifti_dim4
 nifti1_bb_spacing
 open_log
 printd
@@ -1540,6 +1542,84 @@ sub nifti_dim4 {
     return($d4);
 }
 
+# Fast header parse (dim[], pixdim[]) then stream data and count > 0
+sub mask_volume_mm3 {
+    my ($path) = @_;
+    my $hdr = _read348($path);
+
+    my $sz_le = unpack('V', substr($hdr,0,4));
+    my $little = $sz_le == 348 ? 1 : 0;
+    my @dim    = $little ? unpack('v8', substr($hdr, 40, 16))
+                         : unpack('n8', substr($hdr, 40, 16));
+    my @pix    = unpack(($little?'f<8':'f>8'), substr($hdr, 76, 32));
+
+    my ($nx,$ny,$nz) = @dim[1..3];
+    my $voxel_mm3 = abs($pix[1] * $pix[2] * $pix[3]) || 0;
+
+    # datatype/bitpix/scl for proper thresholding
+    my ($datatype,$bitpix,$slope,$inter) = (
+        ($little?unpack('v',substr($hdr,70,2)):unpack('n',substr($hdr,70,2))),
+        ($little?unpack('v',substr($hdr,72,2)):unpack('n',substr($hdr,72,2))),
+        unpack(($little?'f<':'f>'), substr($hdr,112,4)),
+        unpack(($little?'f<':'f>'), substr($hdr,116,4)),
+    );
+    $slope ||= 1; $inter ||= 0;
+
+    # Determine where image data starts (vox_offset)
+    my $vox_offset = unpack(($little?'f<':'f>'), substr($hdr,108,4));
+    $vox_offset = 352 if $vox_offset < 352;  # typical for .nii
+
+    # Open the file (gunzip transparently if needed)
+    my ($fh, $is_gz);
+    if ($path =~ /\.gz$/i) {
+        require IO::Uncompress::Gunzip;
+        $fh = IO::Uncompress::Gunzip->new($path) or die "gunzip($path): $IO::Uncompress::Gunzip::GunzipError";
+        $is_gz = 1;
+    } else {
+        open($fh, '<:raw', $path) or die "open $path: $!";
+    }
+
+    # Skip to vox_offset
+    if ($is_gz) {
+        my $skip = $vox_offset; my $buf;
+        while ($skip > 0) { my $n = $fh->read($buf, ($skip > 1<<20 ? 1<<20 : $skip)) or last; $skip -= $n; }
+    } else {
+        seek($fh, $vox_offset, 0) or die "seek $path: $!";
+    }
+
+    my $type_tpl = do {
+        # Handle most common types: 2=uint8, 4=int16, 8=int32, 16=float32
+        $datatype == 2  ? 'C*' :
+        $datatype == 4  ? ($little?'s<*':'s>*') :
+        $datatype == 8  ? ($little?'l<*':'l>*') :
+        $datatype == 16 ? ($little?'f<*':'f>*') :
+        die "datatype $datatype not implemented";
+    };
+    my $bytes_per = $bitpix/8;
+
+    my $nvox = $nx*$ny*$nz;
+    my $chunk = 1_000_000;  # elements per chunk
+    my $buf; my $nonzero = 0; my $left = $nvox;
+
+    while ($left > 0) {
+        my $take = $left > $chunk ? $chunk : $left;
+        my $need = $take * $bytes_per;
+        my $read = read($fh, $buf, $need);
+        die "short read image data" unless defined $read && $read == $need;
+
+        my @vals = unpack($type_tpl, $buf);
+        if ($slope != 1 || $inter != 0) {
+            $nonzero += grep { ($slope*$_ + $inter) != 0 } @vals;
+        } else {
+            $nonzero += grep { $_ != 0 } @vals;
+        }
+
+        $left -= $take;
+    }
+    close $fh unless $is_gz;
+
+    return $nonzero * $voxel_mm3;
+}
 
 
 #---------------------

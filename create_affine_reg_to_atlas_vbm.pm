@@ -963,18 +963,17 @@ sub create_affine_reg_to_atlas_vbm_Runtime_check {
                 
                 my %volume_hash;
                 for my $c_runno (uniq(@controls)) {
-		    my $masked_suffix='';
-		    # 29 August 2019, BJA: I shouldn't support this algorithm if images are unmasked, but will for now.
-		    if ($pre_masked || $do_mask) {
-			$masked_suffix = '_masked';
-		    }
+					my $masked_suffix='';
+					# 29 August 2019, BJA: I shouldn't support this algorithm if images are unmasked, but will for now.
+					if ($pre_masked || $do_mask) {
+					$masked_suffix = '_masked';
+					}
                     my $c_file = get_nii_from_inputs($inputs_dir, $c_runno, "${contrast}${masked_suffix}");
-		    
-		    if ($c_file !~ /[\n]+/) {
-			my $volume = system(fslstats ${c_file} -V | cut -d ' ' -f2);
-			chomp($volume);
-			$volume_hash{$volume}=$c_runno;
-		    }
+					
+					if ($c_file !~ /[\n]+/) {
+						my $volume = mask_volume_mm3(${c_file});
+						$volume_hash{$volume}=$c_runno;
+					}
                     
                 }
                     use List::Util qw(sum);
