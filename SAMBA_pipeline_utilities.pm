@@ -1513,6 +1513,35 @@ sub _fmt_legacy_from_calc {
 
 # ---------- End nifti1_bb_spacing internals ----------
 
+
+# Returns the NIfTI dim[4] (time dimension).
+# Uses your existing _read348() to grab exactly 348 bytes and handles .gz.
+# Convention: if dim[0] < 4 but dim[4] is missing/zero, returns 1.
+sub nifti_dim4 {
+    my ($path) = @_;
+    my $hdr = _read348($path);                     # your helper, returns 348 bytes
+
+    # Endianness via sizeof_hdr (bytes 0..3 must be 348)
+    my $sz_le = unpack('V', substr($hdr, 0, 4));
+    my $sz_be = unpack('N', substr($hdr, 0, 4));
+    my $little;
+    if    ($sz_le == 348) { $little = 1 }
+    elsif ($sz_be == 348) { $little = 0 }
+    else { die "Not a valid NIfTI-1 header in $path (sizeof_hdr != 348)" }
+
+    # dim[8] starts at byte 40; read 16 bytes (8 * int16)
+    my $dim_bytes = substr($hdr, 40, 16);
+    my @dim = $little ? unpack('v8', $dim_bytes) : unpack('n8', $dim_bytes);
+    my ($ndim, $d4) = ($dim[0] // 0, $dim[4] // 0);
+
+    # Follow NIfTI convention: if fewer than 4 dims, time dim is 1
+    if ($ndim < 4) { $d4 ||= 1 }
+
+    return($d4);
+}
+
+
+
 #---------------------
 sub get_bounding_box_and_spacing_from_header {
 #---------------------
@@ -1520,7 +1549,7 @@ sub get_bounding_box_and_spacing_from_header {
 	# Using custom perl code avoids system call, and has been shown to speed things up ~20x
     my ($file,$try_legacy) = @_;
     my $bb_and_spacing;
-    my ($spacing,$bb_0,$bb_1);
+    #my ($spacing,$bb_0,$bb_1);
     
     if (! defined $try_legacy) {
         $try_legacy = 0;

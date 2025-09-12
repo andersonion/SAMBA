@@ -275,7 +275,7 @@ sub apply_new_reference_space_vbm {
     my $test_dim = 3;
     my $opt_e_string='';
     if ($out_file =~ /\.nii(\.gz)?/) {
-        $test_dim =  system(fslhd ${in_file} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2);
+        $test_dim =   nifti_dim4(${in_file});
        
         if ($in_file =~ /tensor/) {
             $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
@@ -314,9 +314,7 @@ sub apply_new_reference_space_vbm {
 	    my $excess_transform =  "${out_file}1Translation.mat" ;
 	    if (data_double_check($translation_transform)) {
 
-            my $test_dim =  system(PrintHeader ${in_file} 2);
-            my @dim_array = split('x',$test_dim);
-            my $real_dim = $#dim_array +1;
+            my $real_dim =   nifti_dim4(${in_file});
             my $opt_e_string='';
             if ($real_dim == 4) {
                 $opt_e_string = ' -e 3 ';
