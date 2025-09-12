@@ -1516,12 +1516,16 @@ sub _fmt_legacy_from_calc {
 # ---------- End nifti1_bb_spacing internals ----------
 
 
-# Returns the NIfTI dim[4] (time dimension).
-# Uses your existing _read348() to grab exactly 348 bytes and handles .gz.
-# Convention: if dim[0] < 4 but dim[4] is missing/zero, returns 1.
+# Returns dim[k] from a NIfTI header (default k=4).
+# - k must be 0..7
+# - If k>0 and the file reports fewer than k dimensions, returns 1.
+# - Uses your _read348() helper; no external tools required.
 sub nifti_dim4 {
-    my ($path) = @_;
-    my $hdr = _read348($path);                     # your helper, returns 348 bytes
+    my ($path, $k) = @_;
+    $k = 4 if !defined $k;
+    die "dim index k must be an integer 0..7" if $k !~ /^\d+$/ or $k > 7;
+
+    my $hdr = _read348($path);
 
     # Endianness via sizeof_hdr (bytes 0..3 must be 348)
     my $sz_le = unpack('V', substr($hdr, 0, 4));
@@ -1531,16 +1535,16 @@ sub nifti_dim4 {
     elsif ($sz_be == 348) { $little = 0 }
     else { die "Not a valid NIfTI-1 header in $path (sizeof_hdr != 348)" }
 
-    # dim[8] starts at byte 40; read 16 bytes (8 * int16)
-    my $dim_bytes = substr($hdr, 40, 16);
-    my @dim = $little ? unpack('v8', $dim_bytes) : unpack('n8', $dim_bytes);
-    my ($ndim, $d4) = ($dim[0] // 0, $dim[4] // 0);
+    # dim[8] lives at offset 40..55 (8 * int16)
+    my @dim = $little ? unpack('v8', substr($hdr, 40, 16))
+                      : unpack('n8', substr($hdr, 40, 16));
+    my $ndim = $dim[0] // 0;
 
-    # Follow NIfTI convention: if fewer than 4 dims, time dim is 1
-    if ($ndim < 4) { $d4 ||= 1 }
-
-    return($d4);
+    # k==0: report ndim as-is; otherwise honor NIfTI convention of 1's beyond ndim
+    return $k == 0 ? ($ndim || 0)
+                   : (($ndim >= $k && ($dim[$k] // 0)) ? $dim[$k] : 1);
 }
+
 
 # Fast header parse (dim[], pixdim[]) then stream data and count > 0
 sub mask_volume_mm3 {

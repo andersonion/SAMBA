@@ -210,7 +210,8 @@ sub calculate_average_mdt_image {
         # See nifti standard documentation for explanation of dim0 (this code may not cover certain 2D data situations, etc.
 
         my $dim_test_file = "${mdt_images_path}/${array_of_runnos[0]}_${contrast}_to_MDT.nii.gz";
-        my $test_dim_0 =  system(fslhd ${dim_test_file} | grep dim0 | grep -v pix | xargs | cut -d ' ' -f2);
+        #my $test_dim_0 =  system(fslhd ${dim_test_file} | grep dim0 | grep -v pix | xargs | cut -d ' ' -f2);
+        my $test_dim_0 = nifti_dim4(${dim_test_file},0 );
         my $opt_e_string='';
         if ($dim_test_file =~ /tensor/) {
             $opt_e_string = ' -e 2 -f 0.00007'; # Testing value for -f option, as per https://github.com/ANTsX/ANTs/wiki/Warp-and-reorient-a-diffusion-tensor-image
