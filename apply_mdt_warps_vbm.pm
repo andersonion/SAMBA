@@ -319,14 +319,14 @@ sub apply_mdt_warp {
    # my $warp_train = format_transforms_for_command_line($warp_string,$option_letter,$start,$stop);
 
     if ($warp_train ne '') {
-	$warp_train = $warp_prefix.$warp_train;
+		$warp_train = $warp_prefix.$warp_train;
     }
 
     if (data_double_check($reference_image)) {
-	$reference_image=$reference_image.'.gz';
+		$reference_image=$reference_image.'.gz';
     }
 
-    my $test_dim =  `fslhd ${image_to_warp} | grep dim4 | grep -v pix | xargs | cut -d ' ' -f2`;#`PrintHeader ${image_to_warp} 2`;
+    my $test_dim =  nifti_dim4(${image_to_warp});#`PrintHeader ${image_to_warp} 2`;
     #my @dim_array = split('x',$test_dim);
     #my $real_dim = $#dim_array +1;
     my $opt_e_string='';
@@ -369,13 +369,14 @@ sub apply_mdt_warp {
     #my $input_size = 1024*(stat $image_to_warp)[7];
     my $input_size=1;
     for (my $ii=1; $ii<6; $ii++){
-	my $c_string = `fslhd ${image_to_warp} | grep dim${ii} | grep -v pix`;
-	chomp($c_string);
-	my $c_dim_size = 1;
-	if ($c_string =~ /\s([0-9]+)$/) {
-	    $c_dim_size = $1;
-	} 
-	$input_size = $input_size*$c_dim_size;
+		#my $c_string = `fslhd ${image_to_warp} | grep dim${ii} | grep -v pix`;
+		#chomp($c_string);
+		my $c_string = nifti_dim4(${image_to_warp},${ii})
+		my $c_dim_size = 1;
+		if ($c_string =~ /\s([0-9]+)$/) {
+			$c_dim_size = $1;
+		} 
+		$input_size = $input_size*$c_dim_size;
     }
     my $bytes_per_point = 8; # Going to go with 64-bit depth by default, though float is the usual case;   
     $input_size = $input_size*($bytes_per_point/1024/1024); # Originally just divided by 1024 instead of 1024*1024...was calculating request in kB instead of MB!
