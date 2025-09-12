@@ -656,12 +656,12 @@ sub warp_atlas_labels_vbm_Runtime_check {
     # $predictor_id = $Hf->get_value('predictor_id');
     $template_name = $Hf->get_value('template_name');
 
-    my $header_output = `PrintHeader ${atlas_label_path}`;
-    my $max_label_number;
-    if ($header_output =~ /Range[\s]*\:[\s]*\[[^,]+,[\s]*([0-9\-\.e\+]+)/) {
-        $max_label_number = $1;
-        print "Max_label_number = ${max_label_number}\n"; 
-    }
+    #my $header_output = `PrintHeader ${atlas_label_path}`;
+    my $max_label_number nifti_max_label($atlas_label_path);
+    #if ($header_output =~ /Range[\s]*\:[\s]*\[[^,]+,[\s]*([0-9\-\.e\+]+)/) {
+    #    $max_label_number = $1;
+	print "Max_label_number = ${max_label_number}\n"; 
+    #}
     $do_byte = 0;
     $do_short = 0;
     if ($max_label_number <= 255) {

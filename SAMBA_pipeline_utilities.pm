@@ -133,6 +133,8 @@ memory_estimator
 memory_estimator_2
 nifti_dim4
 nifti1_bb_spacing
+nifti_max_label
+nifti_max_value
 open_log
 printd
 read_refspace_txt
@@ -1623,6 +1625,124 @@ sub mask_volume_mm3 {
     close $fh unless $is_gz;
 
     return $nonzero * $voxel_mm3;
+}
+
+# Returns the maximum voxel value in a NIfTI image (good for label maps).
+# - Works for .nii / .nii.gz, and .hdr/.img (and gzipped pair).
+# - Applies scl_slope/scl_inter if present.
+# - For label maps, you'll usually want int(...) of this.
+sub nifti_max_value {
+    my ($path) = @_;
+
+    my $hdr = _read348($path);  # your helper
+
+    # --- endian + key header fields ---
+    my $is_le = (unpack('V', substr($hdr,0,4)) == 348) ? 1
+             : (unpack('N', substr($hdr,0,4)) == 348) ? 0
+             : die "Not a valid NIfTI-1 header in $path";
+
+    my $u16 = sub { $is_le ? unpack('v', $_[0]) : unpack('n', $_[0]) };
+    my $f32 = sub { $is_le ? unpack('f<', $_[0]) : unpack('f>', $_[0]) };
+
+    my $datatype  = $u16->(substr($hdr, 70, 2));
+    my $bitpix    = $u16->(substr($hdr, 72, 2));
+    my $vox_offset = $f32->(substr($hdr,108, 4));
+    my $scl_slope  = $f32->(substr($hdr,112, 4)) || 1.0;
+    my $scl_inter  = $f32->(substr($hdr,116, 4)) || 0.0;
+
+    # dims
+    my @dim = $is_le ? unpack('v8', substr($hdr, 40, 16))
+                     : unpack('n8', substr($hdr, 40, 16));
+    my ($nx,$ny,$nz) = @dim[1..3];
+    my $nvox = ($nx||0) * ($ny||0) * ($nz||0);
+    die "Zero-dimension image in $path" unless $nvox;
+
+    # Some NIfTI writers set small vox_offset; enforce minimum for .nii
+    $vox_offset = 352 if $vox_offset < 352 && $path =~ /\.nii(\.gz)?$/i;
+
+    # Determine data file (nii vs hdr/img pair)
+    my ($data_path, $prefix_is_gz, $is_pair) = ($path, ($path =~ /\.gz$/i)?1:0, 0);
+    if ($path =~ /\.hdr(\.gz)?$/i) {
+        $is_pair = 1;
+        (my $img = $path) =~ s/\.hdr(\.gz)?$/.img$1/i;
+        $data_path = $img;
+        $vox_offset = 0;  # Analyze/NIfTI pair starts at 0
+    }
+
+    # Open data stream (gz or raw)
+    my ($fh, $is_gz);
+    if ($data_path =~ /\.gz$/i) {
+        require IO::Uncompress::Gunzip;
+        $fh = IO::Uncompress::Gunzip->new($data_path)
+          or die "gunzip($data_path): $IO::Uncompress::Gunzip::GunzipError";
+        $is_gz = 1;
+    } else {
+        open($fh, '<:raw', $data_path) or die "open $data_path: $!";
+        seek($fh, $vox_offset, 0) or die "seek $data_path: $!" if $vox_offset;
+    }
+
+    # For gz streams, skip vox_offset manually
+    if ($is_gz && $vox_offset) {
+        my $to_skip = $vox_offset; my $tmp;
+        while ($to_skip > 0) {
+            my $chunk = $to_skip > 1<<20 ? 1<<20 : $to_skip;
+            my $n = $fh->read($tmp, $chunk);
+            die "short skip in $data_path" unless defined $n && $n == $chunk;
+            $to_skip -= $n;
+        }
+    }
+
+    # Map datatype -> unpack template & element size
+    my ($tpl, $bytes);
+    if    ($datatype == 2)   { $tpl = 'C*';                    $bytes = 1; }         # uint8
+    elsif ($datatype == 4)   { $tpl = $is_le ? 's<*' : 's>*';  $bytes = 2; }         # int16
+    elsif ($datatype == 8)   { $tpl = $is_le ? 'l<*' : 'l>*';  $bytes = 4; }         # int32
+    elsif ($datatype == 16)  { $tpl = $is_le ? 'f<*' : 'f>*';  $bytes = 4; }         # float32
+    elsif ($datatype == 64)  { $tpl = $is_le ? 'd<*' : 'd>*';  $bytes = 8; }         # float64
+    elsif ($datatype == 512) { $tpl = $is_le ? 'S<*' : 'S>*';  $bytes = 2; }         # uint16
+    elsif ($datatype == 768) { $tpl = $is_le ? 'L<*' : 'L>*';  $bytes = 4; }         # uint32
+    else { die "datatype $datatype not implemented in nifti_max_value()" }
+
+    my $left   = $nvox;
+    my $chunkN = 1_000_000;                      # elements per chunk
+    my $buf; my $max = undef;
+
+    while ($left > 0) {
+        my $take = $left > $chunkN ? $chunkN : $left;
+        my $need = $take * $bytes;
+        my $read = read($fh, $buf, $need);
+        die "short read image data from $data_path" unless defined $read && $read == $need;
+
+        my @vals = unpack($tpl, $buf);
+
+        if ($datatype == 16 || $datatype == 64 || $scl_slope != 1.0 || $scl_inter != 0.0) {
+            # apply scaling for real types or when slope/inter set
+            for my $v (@vals) {
+                my $x = $scl_slope * $v + $scl_inter;
+                $max = defined $max ? ($x > $max ? $x : $max) : $x;
+            }
+        } else {
+            # integer types, no scaling
+            for my $x (@vals) {
+                $max = defined $max ? ($x > $max ? $x : $max) : $x;
+            }
+        }
+
+        $left -= $take;
+    }
+    close($fh) unless $is_gz;
+
+    return $max // 0;
+}
+
+# Convenience wrapper for label maps: returns an integer max label
+sub nifti_max_label {
+    my ($path) = @_;
+    my $mx = nifti_max_value($path);
+    # For labels, force to nearest non-negative integer
+    $mx = 0 if !defined $mx;
+    $mx = int($mx + 0.5) if $mx >= 0;
+    return $mx;
 }
 
 
