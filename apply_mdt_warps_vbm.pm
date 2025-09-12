@@ -371,7 +371,7 @@ sub apply_mdt_warp {
     for (my $ii=1; $ii<6; $ii++){
 		#my $c_string = `fslhd ${image_to_warp} | grep dim${ii} | grep -v pix`;
 		#chomp($c_string);
-		my $c_string = nifti_dim4(${image_to_warp},${ii})
+		my $c_string = nifti_dim4(${image_to_warp},${ii});
 		my $c_dim_size = 1;
 		if ($c_string =~ /\s([0-9]+)$/) {
 			$c_dim_size = $1;
