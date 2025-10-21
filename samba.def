@@ -58,14 +58,17 @@ From: ubuntu:20.04
     # (Optional override) # export SAMBA_CACHE_DIR=
 
 %post
+    # POSIX sh (dash) compatible — no pipefail here
+    set -eu
+
     # Make apt fully noninteractive and preseed timezone (prevents tzdata prompts)
-    set -euo pipefail
     export DEBIAN_FRONTEND=noninteractive
     export TZ=Etc/UTC
     ln -fs /usr/share/zoneinfo/$TZ /etc/localtime
     apt-get update
     apt-get install -y --no-install-recommends tzdata
     dpkg-reconfigure -f noninteractive tzdata
+
 
     apt-get update && apt-get install -y \
         build-essential \
