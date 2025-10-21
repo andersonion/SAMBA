@@ -105,17 +105,38 @@ From: ubuntu:20.04
 	# git checkout XXXXXX  # Pin to exact commit from your dev system
 
 
-	# === ANTs Install (pinned to dev environment version) ===
-	# echo "Installing ANTs v2.5.0.post18-g0ea8e53..."
-	export ANTSPATH=${SAMBA_APPS_DIR}/ants/bin
-	cd ${SAMBA_APPS_DIR}
-	git clone https://github.com/ANTsX/ANTs.git
-	cd ANTs
-	git checkout 0ea8e53  # Pin to exact commit from your dev system
-	mkdir build && cd build
-	cmake -DCMAKE_INSTALL_PREFIX=${SAMBA_APPS_DIR}/ants ..
-	make -j$(nproc)
-	make install
+    # === ANTs Install (pinned to your dev environment version) ===
+    echo "Installing ANTs (commit 0ea8e53) into /opt/samba/ants ..."
+    export SAMBA_APPS_DIR=/opt/samba
+    export ANTSPATH=${SAMBA_APPS_DIR}/ants/bin
+
+    # Source location for build artifacts
+    mkdir -p /opt/src && cd /opt/src
+
+    # Clone and build "classic" ANTs (NOT the SuperBuild)
+    git clone https://github.com/ANTsX/ANTs.git ANTs
+    cd ANTs
+    git checkout 0ea8e53
+
+    mkdir -p build && cd build
+
+    cmake \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants" \
+      ..
+
+    cmake --build . -j"$(nproc)"
+    cmake --install .
+
+    # Sanity check
+    if [ ! -x "${ANTSPATH}/antsRegistration" ]; then
+        echo "FATAL: ANTs installation failed — ${ANTSPATH}/antsRegistration not found." >&2
+        exit 1
+    fi
+
+    echo "ANTs installed to ${SAMBA_APPS_DIR}/ants (ANTSPATH=${ANTSPATH})"
+
+
 
 
     # === FSL Install (minimal) ===
