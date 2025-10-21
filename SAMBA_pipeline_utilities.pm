@@ -2417,6 +2417,106 @@ sub wrap_in_container {
     return $container_cmd;
 }
 
+{
+    no warnings 'redefine';
+    *CORE::GLOBAL::readpipe = sub {
+        my ($cmd) = @_;
+        return CORE::readpipe($cmd) if $ENV{SAMBA_WRAP_DISABLE};
+        my $wrapped = wrap_in_container($cmd);
+        return CORE::readpipe($wrapped);
+    };
+}
+
+{
+    no warnings 'redefine';
+
+    my $original_system = \&CORE::system;
+
+    *CORE::GLOBAL::system = sub {
+        my @args = @_;
+
+        # Optional disable-switch for debugging
+        if ($ENV{SAMBA_WRAP_DISABLE}) {
+            return $original_system->(@args);
+        }
+
+        my $cmd = @args > 1 ? join(' ', @args) : $args[0];
+        $cmd = wrap_in_container($cmd);
+
+        return $original_system->($cmd);
+    };
+}
+
+sub _shell_quote {
+    my (@a) = @_;
+    for (@a) { s/'/'\\''/g; $_ = "'$_'"; }
+    return join(' ', @a);
+}
+
+# ---- override CORE::GLOBAL::open for piped opens only ----
+{
+    no warnings 'redefine';
+
+    *CORE::GLOBAL::open = sub {
+        # Kill-switch (do nothing special)
+        if ($ENV{SAMBA_WRAP_DISABLE}) {
+            return CORE::open(@_);
+        }
+
+        # Expect at least a filehandle and one more arg
+        return CORE::open(@_) if @_ < 2;
+
+        my ($fh, @rest) = @_;
+
+        # String-form pipe opens:
+        #   open $fh, "cmd |";
+        #   open $fh, "| cmd";
+        if (@rest == 1 && !ref($rest[0])) {
+            my $expr = $rest[0];
+
+            # Read from command ( ... | )
+            if ($expr =~ /\|\s*$/) {
+                (my $cmd = $expr) =~ s/\|\s*$//;           # strip trailing pipe
+                $cmd =~ s/^\s+|\s+$//g;
+                my $wrapped = wrap_in_container($cmd);
+                my $new = "$wrapped |";
+                return CORE::open($fh, $new);
+            }
+
+            # Write to command ( | ... )
+            if ($expr =~ /^\s*\|/) {
+                (my $cmd = $expr) =~ s/^\s*\|\s*//;        # strip leading pipe
+                $cmd =~ s/^\s+|\s+$//g;
+                my $wrapped = wrap_in_container($cmd);
+                my $new = "| $wrapped";
+                return CORE::open($fh, $new);
+            }
+
+            # Not a pipe open → pass through
+            return CORE::open($fh, @rest);
+        }
+
+        # List-form pipe opens:
+        #   open $fh, "-|", "cmd", @args     # read from command
+        #   open $fh, "|-", "cmd", @args     # write to command
+        if ($rest[0] eq "-|" || $rest[0] eq "|-") {
+            my $mode = shift @rest;          # "-|" or "|-"
+            my $cmd_str = _shell_quote(@rest);
+            my $wrapped = wrap_in_container($cmd_str);
+
+            # Re-express as string-form pipe open via the shell
+            if ($mode eq "-|") {
+                return CORE::open($fh, "$wrapped |");
+            } else { # "|-"
+                return CORE::open($fh, "| $wrapped");
+            }
+        }
+
+        # Anything else (regular file opens, modes, layers) → pass through
+        return CORE::open(@_);
+    };
+}
+
 
 # ------------------
 sub write_array_to_file { # (path,array_ref[,debug_val]) writes text to array ref.
