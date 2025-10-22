@@ -151,11 +151,17 @@ ${MATLAB_2015b_PATH}/sys/os/glnxa64
 EOF
     ldconfig
 
-    # Sanity check: look for a key MCR runtime library instead of version.xml
-    if [ ! -f "${MATLAB_2015b_PATH}/bin/glnxa64/libmwmclmcrrt.so" ]; then
-        echo "FATAL: MATLAB Runtime install appears incomplete (libmwmclmcrrt.so missing)." >&2
-        exit 1
-    fi
+	# Sanity: look for libmwmclmcrrt in either runtime/ or bin/, with or without version suffix
+	if ! ls "${MATLAB_2015b_PATH}/runtime/glnxa64/libmwmclmcrrt.so"* 1>/dev/null 2>&1 \
+	   && ! ls "${MATLAB_2015b_PATH}/bin/glnxa64/libmwmclmcrrt.so"* 1>/dev/null 2>&1; then
+		echo "FATAL: MATLAB Runtime install appears incomplete (libmwmclmcrrt.so* not found)." >&2
+		echo "Contents of runtime dir:" >&2
+		ls -l "${MATLAB_2015b_PATH}/runtime/glnxa64" 2>&1 || true
+		echo "Contents of bin dir:" >&2
+		ls -l "${MATLAB_2015b_PATH}/bin/glnxa64" 2>&1 || true
+		exit 1
+	fi
+
 
     chmod -R a+rX /opt/MATLAB /opt/matlab_execs
 
