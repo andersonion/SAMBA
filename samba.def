@@ -165,30 +165,39 @@ From: ubuntu:20.04
 
 
 
-    # === FSL install (noninteractive, pinned) ===
-    apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3
+    # === FSL install (noninteractive, pinned to 6.0.6) ===
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        python3 ca-certificates wget bzip2
 
     export FSLVER=6.0.6
     export FSLDIR=/opt/samba/fsl/${FSLVER}
+
+    # Nuke pre-existing dir to avoid interactive "overwrite?" prompt
+    if [ -d "$FSLDIR" ]; then
+        rm -rf "$FSLDIR"
+    fi
     mkdir -p "$FSLDIR"
     cd "$FSLDIR"
 
     wget -q https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py
 
-    # Non-interactive install: destination + version + quiet
-    # (Add --accept if your installer requires explicit license acceptance)
+    # Run quietly and non-interactively; --skip_registration avoids prompting on telemetry/license
+    # (If your installer doesn't support --skip_registration, it will simply be ignored.)
     python3 fslinstaller.py \
         -d "$FSLDIR" \
         -V "$FSLVER" \
-        -q
+        -q \
+        --skip_registration || true
 
-    # Basic sanity check (don’t fail the whole build if it’s not there, but warn)
+    # Basic sanity: warn if key binary not present (don’t fail entire build on warning)
     if [ ! -x "$FSLDIR/bin/fslhd" ]; then
         echo "WARNING: FSL install did not produce $FSLDIR/bin/fslhd"
     fi
 
-    # Make world-readable for non-root runtime
+    # Permissions for non-root runtime
     chmod -R a+rX "$FSLDIR"
+
 
 
 
