@@ -163,17 +163,15 @@ From: ubuntu:20.04
     echo "ANTs installed to ${SAMBA_APPS_DIR}/ants (ANTSPATH=${ANTSPATH})"
 
 
-
-
     # === FSL install (noninteractive, pinned to 6.0.6) ===
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         python3 ca-certificates wget bzip2
 
-    export FSLVER=6.0.6
-    export FSLDIR=/opt/samba/fsl/${FSLVER}
+    FSLVER=6.0.6
+    FSLDIR=/opt/samba/fsl/${FSLVER}
 
-    # Nuke pre-existing dir to avoid interactive "overwrite?" prompt
+    # Ensure a clean destination to avoid interactive "overwrite?" prompt
     if [ -d "$FSLDIR" ]; then
         rm -rf "$FSLDIR"
     fi
@@ -182,22 +180,20 @@ From: ubuntu:20.04
 
     wget -q https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py
 
-    # Run quietly and non-interactively; --skip_registration avoids prompting on telemetry/license
-    # (If your installer doesn't support --skip_registration, it will simply be ignored.)
+    # Run quietly and non-interactively; skip registration if supported
+    # If your installer also supports --accept or --no-prompt, add them here.
     python3 fslinstaller.py \
         -d "$FSLDIR" \
         -V "$FSLVER" \
         -q \
-        --skip_registration || true
+        --skip_registration
 
-    # Basic sanity: warn if key binary not present (don’t fail entire build on warning)
+    # Basic sanity (warn, don’t fail entire build)
     if [ ! -x "$FSLDIR/bin/fslhd" ]; then
         echo "WARNING: FSL install did not produce $FSLDIR/bin/fslhd"
     fi
 
-    # Permissions for non-root runtime
     chmod -R a+rX "$FSLDIR"
-
 
 
 
@@ -231,13 +227,45 @@ From: ubuntu:20.04
 		  http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}
 	fi
 	
-	# === Install MATLAB Runtime ===
-	unzip -d ${TEMP_DIR} ${INSTALLER_PATH}
-	${TEMP_DIR}/install -mode silent -agreeToLicense yes -destinationFolder ${MATLAB_2015b_PATH}
-	
-	# === Clean up ===
-	rm -f ${INSTALLER_PATH}
-	rm -rf ${TEMP_DIR}
+    # === MATLAB R2015b Runtime (MCR) — download, install, POSIX-safe ===
+    MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
+    INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
+
+    # Build-time cache & staging
+    BUILD_ROOT=/opt/build
+    ME_DIR=${BUILD_ROOT}/matlab_execs
+    CACHE_DIR=${BUILD_ROOT}/matlab_cache
+    INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
+    TEMP_DIR=${ME_DIR}/temp
+
+    mkdir -p "$MATLAB_2015b_PATH"
+    mkdir -p "$ME_DIR" "$TEMP_DIR" "$CACHE_DIR"
+
+    # If we have a cached copy, use it; otherwise download to ME_DIR
+    if [ -f "${CACHE_DIR}/${INSTALLER_NAME}" ]; then
+        cp -f "${CACHE_DIR}/${INSTALLER_NAME}" "${INSTALLER_PATH}"
+    else
+        echo "Downloading MATLAB Runtime installer..."
+        wget -O "${INSTALLER_PATH}" \
+          "http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}"
+        # populate cache for future builds
+        cp -f "${INSTALLER_PATH}" "${CACHE_DIR}/" || true
+    fi
+
+    # Unzip to a proper temp directory and run noninteractive install
+    unzip -d "${TEMP_DIR}" "${INSTALLER_PATH}"
+    "${TEMP_DIR}/install" -mode silent -agreeToLicense yes -destinationFolder "${MATLAB_2015b_PATH}"
+
+    # Clean staging
+    rm -rf "${TEMP_DIR}"
+
+    # Sanity
+    if [ ! -f "${MATLAB_2015b_PATH}/version.xml" ]; then
+        echo "FATAL: MATLAB Runtime install appears incomplete (version.xml missing)." >&2
+        exit 1
+    fi
+
+    chmod -R a+rX /opt/MATLAB /opt/matlab_execs
 
 
 	# Install Java required by MATLAB2015b
