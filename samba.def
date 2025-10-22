@@ -107,6 +107,12 @@ From: ubuntu:20.04
 	git clone https://github.com/andersonion/SAMBA.git
 	# git checkout XXXXXX  # Pin to exact commit from your dev system
 
+	# === matlab_execs ===
+    # echo "Cloning matlab_execs..."
+	export MATLAB_EXEC_PATH=/opt/matlab_execs
+    cd ${SAMBA_APPS_DIR}
+    git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git
+
     # === MATLAB R2015b Runtime (MCR) — download & install (POSIX sh safe) ===
     MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
     INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
@@ -260,39 +266,7 @@ EOF
     fi
 
     chmod -R a+rX "$FSLDIR"
-
-
-
-    # === matlab_execs ===
-    # echo "Cloning matlab_execs..."
-	    export MATLAB_EXEC_PATH=/opt/matlab_execs
-    cd ${SAMBA_APPS_DIR}
-    git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git
     
-    # Install MATLAB MCR R2015b
-	# === Define installation paths ===
-	    export MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
-	INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
-	ME_DIR=${BUILD_DIR}/matlab_execs
-	INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
-	TEMP_DIR=${INSTALLER_PATH}/temp
-	CACHE_PATH=${BUILD_DIR}/matlab_cache/${INSTALLER_NAME}
-	
-	# === Create necessary directories ===
-	mkdir -p ${MATLAB_2015b_PATH}
-	mkdir -p ${ME_DIR}
-	mkdir -p ${TEMP_DIR}
-	
-	# === Retrieve installer ===
-	if [[ -f "$CACHE_PATH" ]]; then
-		echo "Using cached MATLAB Runtime installer from $CACHE_PATH"
-		cp "$CACHE_PATH" "$INSTALLER_PATH"
-	else
-		echo "Downloading MATLAB Runtime installer..."
-		wget -P ${ME_DIR} \
-		  http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}
-	fi
-
 
 	# Install Java required by MATLAB2015b
 	# Define destination path for Java
