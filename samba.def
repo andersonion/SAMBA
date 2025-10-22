@@ -11,11 +11,13 @@ From: ubuntu:20.04
     export SAMBA_APPS_DIR=/opt/samba/
     #export BIGGUS_DISKUS=/mnt/newStor/paros/paros_WORK/mouse/
     export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
-    export PATH=${SAMBA_PATH}:$PATH
-        export MATLAB_EXEC_PATH=/opt/matlab_execs
-        export MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
+    #export PATH=${SAMBA_PATH}:$PATH
+	export MATLAB_EXEC_PATH=/opt/matlab_execs
+	export MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
     export FSLDIR=${SAMBA_APPS_DIR}/fsl/${fsl_version}
+    export FSLOUTPUTTYPE=NIFTI_GZ
     export ANTSPATH=${SAMBA_APPS_DIR}/ants/bin
+    export PATH=${SAMBA_PATH}:${ANTSPTATH}:${FSLDIR}/bin:$PATH
     
     # Perl setup
     export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
@@ -60,6 +62,7 @@ From: ubuntu:20.04
 %post
     # POSIX sh (dash) compatible — no pipefail here
     set -eu
+	: "${fsl_version:=6.0.6}"   # default if unset
 
     # Make apt fully noninteractive and preseed timezone (prevents tzdata prompts)
     export DEBIAN_FRONTEND=noninteractive
@@ -162,14 +165,31 @@ From: ubuntu:20.04
 
 
 
-    # === FSL Install (minimal) ===
-	# Install FSL to /${FSL_DIR}/${version}
-	export fsl_version='6.0.6'
-	export FSLDIR=${SAMBA_APPS_DIR}/fsl/${fsl_version}
-	mkdir -p ${FSLDIR}
-	cd ${FSLDIR}
-	wget https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py
-	python3 fslinstaller.py --version ${version} --prefix ${FSLDIR}/${fsl_version}
+    # === FSL install (noninteractive, pinned) ===
+    apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3
+
+    export FSLVER=6.0.6
+    export FSLDIR=/opt/samba/fsl/${FSLVER}
+    mkdir -p "$FSLDIR"
+    cd "$FSLDIR"
+
+    wget -q https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py
+
+    # Non-interactive install: destination + version + quiet
+    # (Add --accept if your installer requires explicit license acceptance)
+    python3 fslinstaller.py \
+        -d "$FSLDIR" \
+        -V "$FSLVER" \
+        -q
+
+    # Basic sanity check (don’t fail the whole build if it’s not there, but warn)
+    if [ ! -x "$FSLDIR/bin/fslhd" ]; then
+        echo "WARNING: FSL install did not produce $FSLDIR/bin/fslhd"
+    fi
+
+    # Make world-readable for non-root runtime
+    chmod -R a+rX "$FSLDIR"
+
 
 
     # === matlab_execs ===
