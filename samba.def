@@ -105,35 +105,59 @@ From: ubuntu:20.04
 	# git checkout XXXXXX  # Pin to exact commit from your dev system
 
 
-	# === ANTs Install (pin to 0ea8e53) — CORE BUILD, no SuperBuild ===
-	echo "Installing core ANTs (commit 0ea8e53) into /opt/samba/ants ..."
-	export SAMBA_APPS_DIR=/opt/samba
-	export ANTSPATH=${SAMBA_APPS_DIR}/ants/bin
-	
-	mkdir -p /opt/src && cd /opt/src
-	git clone https://github.com/ANTsX/ANTs.git ANTs
-	cd ANTs
-	git checkout 0ea8e53
-	
-	# IMPORTANT: configure in the ANTs subdirectory, not repo root
-	mkdir -p ANTs/build && cd ANTs/build
-	
-	cmake \
-	  -DCMAKE_BUILD_TYPE=Release \
-	  -DCMAKE_INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants" \
-	  -DBUILD_TESTING=OFF \
-	  ..
-	
-	cmake --build . -j"$(nproc)"
-	cmake --install .
-	
-	# Sanity check
-	if [ ! -x "${ANTSPATH}/antsRegistration" ]; then
-	  echo "FATAL: ANTs core install failed — ${ANTSPATH}/antsRegistration not found." >&2
-	  exit 1
-	fi
-	
-	echo "ANTs installed to ${SAMBA_APPS_DIR}/ants (ANTSPATH=${ANTSPATH})"
+    # === ANTs Install (pinned to your dev environment commit) ===
+    echo "Installing ANTs (commit 0ea8e53) into /opt/samba/ants ..."
+    export SAMBA_APPS_DIR=/opt/samba
+    export ANTSPATH="${SAMBA_APPS_DIR}/ants/bin"
+
+    # Source tree
+    mkdir -p /opt/src && cd /opt/src
+    if [ ! -d ANTs ]; then
+        git clone https://github.com/ANTsX/ANTs.git ANTs
+    fi
+    cd ANTs
+    git fetch --all -q || true
+    git checkout 0ea8e53
+
+    # Build out-of-source from the REPO ROOT but DISABLE the SuperBuild
+    mkdir -p build && cd build
+    cmake \
+      -DSuperBuild=OFF \
+      -DBUILD_TESTING=OFF \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants" \
+      ..
+
+    cmake --build . -j"$(nproc)" || { echo "FATAL: ANTs build failed"; exit 1; }
+
+    # Try a clean install first
+    if cmake --install . 2>/dev/null; then
+        :
+    else
+        echo "Note: cmake --install not available or no install rules; copying binaries as fallback."
+    fi
+
+    # Ensure binaries are present; if not, copy from build output
+    if [ ! -x "${ANTSPATH}/antsRegistration" ]; then
+        echo "antsRegistration not found in ${ANTSPATH}; attempting to locate build output and copy…"
+        # Find a directory that contains antsRegistration from the build tree
+        ANTS_BIN_DIR="$(find . -type f -name antsRegistration -printf '%h\n' -quit)"
+        if [ -n "${ANTS_BIN_DIR}" ] && [ -x "${ANTS_BIN_DIR}/antsRegistration" ]; then
+            install -d "${ANTSPATH}"
+            cp -av "${ANTS_BIN_DIR}/"* "${ANTSPATH}/"
+        else
+            echo "FATAL: Could not locate antsRegistration in build output."
+            exit 1
+        fi
+    fi
+
+    # Final sanity check
+    if [ ! -x "${ANTSPATH}/antsRegistration" ]; then
+        echo "FATAL: ANTs installation failed — ${ANTSPATH}/antsRegistration not found." >&2
+        exit 1
+    fi
+
+    echo "ANTs installed to ${SAMBA_APPS_DIR}/ants (ANTSPATH=${ANTSPATH})"
 
 
 
