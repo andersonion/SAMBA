@@ -143,13 +143,22 @@ From: ubuntu:20.04
     # Clean staging
     rm -rf "${TEMP_DIR}"
 
-    # Sanity check
-    if [ ! -f "${MATLAB_2015b_PATH}/version.xml" ]; then
-        echo "FATAL: MATLAB Runtime install appears incomplete (version.xml missing)." >&2
+    # Wire MCR into the dynamic linker (preferred over LD_LIBRARY_PATH)
+    cat >/etc/ld.so.conf.d/mcr_v90.conf <<EOF
+${MATLAB_2015b_PATH}/runtime/glnxa64
+${MATLAB_2015b_PATH}/bin/glnxa64
+${MATLAB_2015b_PATH}/sys/os/glnxa64
+EOF
+    ldconfig
+
+    # Sanity check: look for a key MCR runtime library instead of version.xml
+    if [ ! -f "${MATLAB_2015b_PATH}/bin/glnxa64/libmwmclmcrrt.so" ]; then
+        echo "FATAL: MATLAB Runtime install appears incomplete (libmwmclmcrrt.so missing)." >&2
         exit 1
     fi
 
     chmod -R a+rX /opt/MATLAB /opt/matlab_execs
+
 
 
 
