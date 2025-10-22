@@ -163,32 +163,37 @@ From: ubuntu:20.04
     echo "ANTs installed to ${SAMBA_APPS_DIR}/ants (ANTSPATH=${ANTSPATH})"
 
 
-    # === FSL install (noninteractive, pinned to 6.0.6) ===
+    # === FSL install (noninteractive, pinned to 6.0.6; POSIX sh safe) ===
     apt-get update
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         python3 ca-certificates wget bzip2
 
     FSLVER=6.0.6
     FSLDIR=/opt/samba/fsl/${FSLVER}
+    FSLPARENT=$(dirname "$FSLDIR")
 
-    # Ensure a clean destination to avoid interactive "overwrite?" prompt
-    if [ -d "$FSLDIR" ]; then
-        rm -rf "$FSLDIR"
-    fi
-    mkdir -p "$FSLDIR"
-    cd "$FSLDIR"
+    # Ensure parent exists; DO NOT create $FSLDIR (installer will create it)
+    mkdir -p "$FSLPARENT"
+    cd "$FSLPARENT"
 
     wget -q https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py
 
-    # Run quietly and non-interactively; skip registration if supported
-    # If your installer also supports --accept or --no-prompt, add them here.
-    python3 fslinstaller.py \
-        -d "$FSLDIR" \
-        -V "$FSLVER" \
-        -q \
-        --skip_registration
+    # Install into a temporary directory to avoid overwrite prompts
+    TMPDST="$(mktemp -d "${FSLPARENT}/.fsl.XXXXXX")"
 
-    # Basic sanity (warn, don’t fail entire build)
+    # Try fully non-interactive first; some versions also accept --no-prompt/--accept
+    if ! python3 fslinstaller.py -d "$TMPDST" -V "$FSLVER" -q --skip_registration; then
+        # Fallback: force "yes" if the installer still prompts for anything
+        yes | python3 fslinstaller.py -d "$TMPDST" -V "$FSLVER" -q --skip_registration
+    fi
+
+    # Replace any existing $FSLDIR atomically
+    if [ -d "$FSLDIR" ]; then
+        rm -rf "$FSLDIR"
+    fi
+    mv "$TMPDST" "$FSLDIR"
+
+    # Sanity (warn only)
     if [ ! -x "$FSLDIR/bin/fslhd" ]; then
         echo "WARNING: FSL install did not produce $FSLDIR/bin/fslhd"
     fi
