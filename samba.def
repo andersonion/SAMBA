@@ -171,7 +171,7 @@ EOF
 		exit 1
 	fi
 	
-	chmod -R a+rX /opt/MATLAB /opt/matlab_execs
+	chmod -R a+rX /opt/MATLAB ${ME_DIR}
 
     # === ANTs Install (pinned to your dev environment commit) ===
     echo "Installing ANTs (commit 0ea8e53) into /opt/samba/ants ..."
