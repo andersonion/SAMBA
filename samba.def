@@ -109,8 +109,11 @@ From: ubuntu:20.04
 
 	# === matlab_execs ===
     # echo "Cloning matlab_execs..."
-	chmod -R a+rX /opt/MATLAB /opt/matlab_execs
-	export MATLAB_EXEC_PATH=/opt/matlab_execs
+    
+    BUILD_ROOT=/opt/build
+    ME_DIR=${BUILD_ROOT}/matlab_execs
+
+	export MATLAB_EXEC_PATH=${ME_DIR}
     cd ${SAMBA_APPS_DIR}
     git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git
 
@@ -118,8 +121,7 @@ From: ubuntu:20.04
     MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
     INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
 
-    BUILD_ROOT=/opt/build
-    ME_DIR=${BUILD_ROOT}/matlab_execs
+
     CACHE_DIR=${BUILD_ROOT}/matlab_cache
     INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
     TEMP_DIR=${ME_DIR}/temp
@@ -168,6 +170,8 @@ EOF
 		ls -l "${MATLAB_2015b_PATH}/bin/glnxa64" 2>&1 || true
 		exit 1
 	fi
+	
+	chmod -R a+rX /opt/MATLAB /opt/matlab_execs
 
     # === ANTs Install (pinned to your dev environment commit) ===
     echo "Installing ANTs (commit 0ea8e53) into /opt/samba/ants ..."
