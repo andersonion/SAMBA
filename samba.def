@@ -17,7 +17,7 @@ From: ubuntu:20.04
     export FSLDIR=${SAMBA_APPS_DIR}/fsl/${fsl_version}
     export FSLOUTPUTTYPE=NIFTI_GZ
     export ANTSPATH=${SAMBA_APPS_DIR}/ants/bin
-    export PATH=${SAMBA_PATH}:${ANTSPTATH}:${FSLDIR}/bin:$PATH
+    export PATH=${SAMBA_PATH}:${ANTSPATH}:${FSLDIR}/bin:$PATH
     
     # Perl setup
     export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
