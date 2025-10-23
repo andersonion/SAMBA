@@ -246,13 +246,6 @@ From: ubuntu:20.04
     # Clean staging
     rm -rf "${TEMP_DIR}"
 
-    # Wire MCR into the dynamic linker (preferred over LD_LIBRARY_PATH)
-    cat >/etc/ld.so.conf.d/mcr_v90.conf <<EOF
-${MATLAB_2015b_PATH}/runtime/glnxa64
-${MATLAB_2015b_PATH}/bin/glnxa64
-${MATLAB_2015b_PATH}/sys/os/glnxa64
-EOF
-    ldconfig
 
 	# Sanity: look for libmwmclmcrrt in either runtime/ or bin/, with or without version suffix
 	if ! ls "${MATLAB_2015b_PATH}/runtime/glnxa64/libmwmclmcrrt.so"* 1>/dev/null 2>&1 \
@@ -343,6 +336,13 @@ EOF
 	
 	chmod -R a+rX /opt/MATLAB /opt/matlab_execs /opt/atlases /opt/zenodo_cache
 
+    # Wire MCR into the dynamic linker (preferred over LD_LIBRARY_PATH)
+    cat >/etc/ld.so.conf.d/mcr_v90.conf <<EOF
+${MATLAB_2015b_PATH}/runtime/glnxa64
+${MATLAB_2015b_PATH}/bin/glnxa64
+${MATLAB_2015b_PATH}/sys/os/glnxa64
+EOF
+    ldconfig
 
 %runscript
     exec bash
