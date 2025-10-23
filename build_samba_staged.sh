@@ -6,14 +6,19 @@ STAGES=("base" "itk" "ants" "fsl_mcr" "final")
 IMAGES=("base.sif" "itk.sif" "ants.sif" "fsl_mcr.sif" "samba.sif")
 
 # Pick a container tool
-if command -v apptainer >/dev/null 2>&1; then
-  CT=apptainer
-elif command -v singularity >/dev/null 2>&1; then
-  CT=singularity
-else
-  echo "ERROR: Neither apptainer nor singularity found in PATH." >&2
+# Prefer Apptainer, else Singularity; capture the actual binary path
+CT=""
+if CT_BIN="$(command -v apptainer 2>/dev/null)"; then
+  CT="$CT_BIN"
+elif CT_BIN="$(command -v singularity 2>/dev/null)"; then
+  CT="$CT_BIN"
+fi
+
+if [ -z "$CT" ]; then
+  echo "ERROR: Neither Apptainer nor Singularity found in PATH." >&2
   exit 1
 fi
+echo "Using container runtime: $CT"
 
 # Flags
 FORCE_FROM="${1:-}"   # usage: ./build_samba_staged.sh [stage-name-to-rebuild-from]
