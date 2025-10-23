@@ -291,7 +291,15 @@ From: ubuntu:20.04
 	touch cpanfile.snapshot
 	carton install
 
-    
+    # In %post, after perlbrew install completes:
+cat >/etc/profile.d/perlbrew.sh <<'EOF'
+export PERLBREW_ROOT=/opt/samba/perl5
+if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
+  . "$PERLBREW_ROOT/etc/bashrc"
+fi
+EOF
+chmod 644 /etc/profile.d/perlbrew.sh
+
     # === Download Atlas from Zenodo ===
         export ATLAS_FOLDER=/opt/atlases
 
