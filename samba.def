@@ -220,16 +220,25 @@ From: ubuntu:20.04
         exit 1
     fi
 
-    # Try install; if not present, copy binaries from the build tree
-    if ! cmake --install . >>"$BUILD_LOG" 2>&1; then
-        echo "No 'install' target; copying ANTs binaries from build output…" >>"$BUILD_LOG"
-        ANTS_BIN_DIR="$(find . -type f -name antsRegistration -printf '%h\n' -quit)"
+    # Try install; if it doesn't place the binaries where we expect, fall back to copying
+    INSTALL_OK=1
+    if ! cmake --install . >/tmp/ants_install.log 2>&1; then
+        INSTALL_OK=0
+    fi
+
+    # If antsRegistration is still missing, locate it in the build tree and copy
+    if [ ! -x "${ANTSPATH}/antsRegistration" ]; then
+        echo "antsRegistration not found in ${ANTSPATH}; attempting fallback copy from build tree…"
+        # Look for an executable named exactly 'antsRegistration'
+        ANTS_BIN_DIR="$(find "$(pwd)" -type f -name antsRegistration -perm -111 -printf '%h\n' -quit)"
         if [ -n "$ANTS_BIN_DIR" ] && [ -x "$ANTS_BIN_DIR/antsRegistration" ]; then
             install -d "${ANTSPATH}"
-            cp -av "${ANTS_BIN_DIR}/"* "${ANTSPATH}/" >>"$BUILD_LOG" 2>&1
+            # copy only files from that dir (avoids dragging build objects)
+            find "$ANTS_BIN_DIR" -maxdepth 1 -type f -exec cp -av {} "${ANTSPATH}/" \;
         else
             echo "FATAL: Could not locate antsRegistration in build output." >&2
-            tail -n 200 "$BUILD_LOG" >&2
+            echo "Hint: tail of build log follows:" >&2
+            tail -n 200 /tmp/ants_build.log 2>/dev/null || true
             exit 1
         fi
     fi
@@ -237,7 +246,6 @@ From: ubuntu:20.04
     # Final sanity check
     if [ ! -x "${ANTSPATH}/antsRegistration" ]; then
         echo "FATAL: ANTs installation failed — ${ANTSPATH}/antsRegistration not found." >&2
-        tail -n 200 "$BUILD_LOG" >&2
         exit 1
     fi
 
