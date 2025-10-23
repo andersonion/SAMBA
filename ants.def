@@ -24,13 +24,15 @@ From: itk.sif
     git checkout 0ea8e53
 
     rm -rf build && mkdir build && cd build
-    cmake -G Ninja \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants" \
-      -DBUILD_TESTING=OFF \
-      -DANTS_SUPERBUILD=OFF -DBUILD_SUPERBUILD=OFF \
-      -DITK_DIR:PATH="${ITK_DIR}" \
-      ..
+	cmake -G Ninja \
+	  -DCMAKE_BUILD_TYPE=Release \
+	  -DCMAKE_INSTALL_PREFIX=/opt/samba/ants \
+	  -DBUILD_TESTING=OFF \
+	  -DBUILD_EXAMPLES=OFF \
+	  -DANTS_SUPERBUILD=OFF -DBUILD_SUPERBUILD=OFF \
+	  -DITK_DIR:PATH="${ITK_DIR}" \
+	  ..
+
     # keep -j low to avoid OOM in builder
     JOBS="$(nproc)"; [ "$JOBS" -gt 4 ] && JOBS=4
     ninja -j "$JOBS" || { echo "ANTs build failed"; exit 1; }
