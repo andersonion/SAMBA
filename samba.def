@@ -364,7 +364,7 @@ From: ubuntu:20.04
     # Install Perlbrew and Perl 5.16.3
 	export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
 	curl -L https://install.perlbrew.pl | bash
-	source ${PERLBREW_ROOT}/etc/bashrc
+	#source ${PERLBREW_ROOT}/etc/bashrc
 	perlbrew install -n perl-5.16.3
 	perlbrew use perl-5.16.3
 	
