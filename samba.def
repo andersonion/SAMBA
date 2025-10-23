@@ -107,71 +107,7 @@ From: ubuntu:20.04
 	git clone https://github.com/andersonion/SAMBA.git
 	# git checkout XXXXXX  # Pin to exact commit from your dev system
 
-	# === matlab_execs ===
-    # echo "Cloning matlab_execs..."
-    
-    BUILD_ROOT=/opt/build
-    ME_DIR=${BUILD_ROOT}/matlab_execs
 
-	export MATLAB_EXEC_PATH=${ME_DIR}
-    cd ${SAMBA_APPS_DIR}
-    git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git
-
-    # === MATLAB R2015b Runtime (MCR) — download & install (POSIX sh safe) ===
-    MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
-    INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
-
-
-    CACHE_DIR=${BUILD_ROOT}/matlab_cache
-    INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
-    TEMP_DIR=${ME_DIR}/temp
-
-    # Prepare directories (do NOT mkdir the installer *file* path)
-    mkdir -p "$MATLAB_2015b_PATH"
-    mkdir -p "$ME_DIR" "$TEMP_DIR" "$CACHE_DIR"
-
-    # If a stale directory exists where the file should go, remove it
-    if [ -d "$INSTALLER_PATH" ]; then
-        rm -rf "$INSTALLER_PATH"
-    fi
-
-    # Prefer cached copy; else download to a *file* with -O
-    if [ -f "${CACHE_DIR}/${INSTALLER_NAME}" ]; then
-        cp -f "${CACHE_DIR}/${INSTALLER_NAME}" "${INSTALLER_PATH}"
-    else
-        echo "Downloading MATLAB Runtime installer..."
-        wget -O "${INSTALLER_PATH}" \
-          "http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}"
-        cp -f "${INSTALLER_PATH}" "${CACHE_DIR}/" || true
-    fi
-
-    # Unzip to temp and install silently
-    unzip -d "${TEMP_DIR}" "${INSTALLER_PATH}"
-    "${TEMP_DIR}/install" -mode silent -agreeToLicense yes -destinationFolder "${MATLAB_2015b_PATH}"
-
-    # Clean staging
-    rm -rf "${TEMP_DIR}"
-
-    # Wire MCR into the dynamic linker (preferred over LD_LIBRARY_PATH)
-    cat >/etc/ld.so.conf.d/mcr_v90.conf <<EOF
-${MATLAB_2015b_PATH}/runtime/glnxa64
-${MATLAB_2015b_PATH}/bin/glnxa64
-${MATLAB_2015b_PATH}/sys/os/glnxa64
-EOF
-    ldconfig
-
-	# Sanity: look for libmwmclmcrrt in either runtime/ or bin/, with or without version suffix
-	if ! ls "${MATLAB_2015b_PATH}/runtime/glnxa64/libmwmclmcrrt.so"* 1>/dev/null 2>&1 \
-	   && ! ls "${MATLAB_2015b_PATH}/bin/glnxa64/libmwmclmcrrt.so"* 1>/dev/null 2>&1; then
-		echo "FATAL: MATLAB Runtime install appears incomplete (libmwmclmcrrt.so* not found)." >&2
-		echo "Contents of runtime dir:" >&2
-		ls -l "${MATLAB_2015b_PATH}/runtime/glnxa64" 2>&1 || true
-		echo "Contents of bin dir:" >&2
-		ls -l "${MATLAB_2015b_PATH}/bin/glnxa64" 2>&1 || true
-		exit 1
-	fi
-	
-	chmod -R a+rX /opt/MATLAB ${ME_DIR}
 
     # === ANTs Install (pinned to your dev environment commit) ===
     echo "Installing ANTs (commit 0ea8e53) into /opt/samba/ants ..."
@@ -265,6 +201,71 @@ EOF
 
     chmod -R a+rX "$FSLDIR"
     
+    	# === matlab_execs ===
+    # echo "Cloning matlab_execs..."
+    
+    BUILD_ROOT=/opt/build
+    ME_DIR=${BUILD_ROOT}/matlab_execs
+
+	export MATLAB_EXEC_PATH=${ME_DIR}
+    cd ${SAMBA_APPS_DIR}
+    git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git
+
+    # === MATLAB R2015b Runtime (MCR) — download & install (POSIX sh safe) ===
+    MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
+    INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
+
+
+    CACHE_DIR=${BUILD_ROOT}/matlab_cache
+    INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
+    TEMP_DIR=${ME_DIR}/temp
+
+    # Prepare directories (do NOT mkdir the installer *file* path)
+    mkdir -p "$MATLAB_2015b_PATH"
+    mkdir -p "$ME_DIR" "$TEMP_DIR" "$CACHE_DIR"
+
+    # If a stale directory exists where the file should go, remove it
+    if [ -d "$INSTALLER_PATH" ]; then
+        rm -rf "$INSTALLER_PATH"
+    fi
+
+    # Prefer cached copy; else download to a *file* with -O
+    if [ -f "${CACHE_DIR}/${INSTALLER_NAME}" ]; then
+        cp -f "${CACHE_DIR}/${INSTALLER_NAME}" "${INSTALLER_PATH}"
+    else
+        echo "Downloading MATLAB Runtime installer..."
+        wget -O "${INSTALLER_PATH}" \
+          "http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}"
+        cp -f "${INSTALLER_PATH}" "${CACHE_DIR}/" || true
+    fi
+
+    # Unzip to temp and install silently
+    unzip -d "${TEMP_DIR}" "${INSTALLER_PATH}"
+    "${TEMP_DIR}/install" -mode silent -agreeToLicense yes -destinationFolder "${MATLAB_2015b_PATH}"
+
+    # Clean staging
+    rm -rf "${TEMP_DIR}"
+
+    # Wire MCR into the dynamic linker (preferred over LD_LIBRARY_PATH)
+    cat >/etc/ld.so.conf.d/mcr_v90.conf <<EOF
+${MATLAB_2015b_PATH}/runtime/glnxa64
+${MATLAB_2015b_PATH}/bin/glnxa64
+${MATLAB_2015b_PATH}/sys/os/glnxa64
+EOF
+    ldconfig
+
+	# Sanity: look for libmwmclmcrrt in either runtime/ or bin/, with or without version suffix
+	if ! ls "${MATLAB_2015b_PATH}/runtime/glnxa64/libmwmclmcrrt.so"* 1>/dev/null 2>&1 \
+	   && ! ls "${MATLAB_2015b_PATH}/bin/glnxa64/libmwmclmcrrt.so"* 1>/dev/null 2>&1; then
+		echo "FATAL: MATLAB Runtime install appears incomplete (libmwmclmcrrt.so* not found)." >&2
+		echo "Contents of runtime dir:" >&2
+		ls -l "${MATLAB_2015b_PATH}/runtime/glnxa64" 2>&1 || true
+		echo "Contents of bin dir:" >&2
+		ls -l "${MATLAB_2015b_PATH}/bin/glnxa64" 2>&1 || true
+		exit 1
+	fi
+	
+	chmod -R a+rX /opt/MATLAB ${ME_DIR}
 
 	# Install Java required by MATLAB2015b
 	# Define destination path for Java
