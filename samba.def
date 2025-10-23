@@ -107,39 +107,38 @@ From: ubuntu:20.04
 	git clone https://github.com/andersonion/SAMBA.git
 	# git checkout XXXXXX  # Pin to exact commit from your dev system
 
-    # === ITK build (needed for core ANTs) ===
-    echo "Building ITK v5.3.0 into /opt/itk ..."
-    mkdir -p /opt/src && cd /opt/src
-    if [ ! -d itk ]; then
-        git clone https://github.com/InsightSoftwareConsortium/ITK.git itk
-    fi
-    cd itk
-    git fetch --all -q || true
-    git checkout v5.3.0
-
-    rm -rf build
-    mkdir -p build && cd build
+	# --- rebuild ITK with LabelGeometry + GenericLabelInterpolator ---
+	echo "Rebuilding ITK v5.3.0 with LabelGeometry and GenericLabelInterpolator…"
+	cd /opt/src/itk || { echo "FATAL: /opt/src/itk missing"; exit 1; }
+	git checkout v5.3.0
+	rm -rf build
+	mkdir -p build && cd build
+	
 	cmake \
 	  -DCMAKE_BUILD_TYPE=Release \
 	  -DCMAKE_INSTALL_PREFIX=/opt/itk \
 	  -DBUILD_TESTING=OFF \
 	  -DBUILD_EXAMPLES=OFF \
 	  -DITK_FORBID_DOWNLOADS=OFF \
+	  -DModule_ITKReview=ON \
 	  -DModule_GenericLabelInterpolator=ON \
-	  -DModule_LabelGeometry=ON \
 	  ..
-
-    cmake --build . -j"$(nproc)"
-    cmake --install .
 	
-	# Locate ITKConfig.cmake and set ITK_DIR to its *directory*
+	cmake --build . -j"$(nproc)"
+	cmake --install .
+	
+	# ITK_DIR pointing to the directory containing ITKConfig.cmake
 	ITK_CONFIG="$(find /opt/itk -name ITKConfig.cmake -print -quit)"
-	if [ -z "$ITK_CONFIG" ] || [ ! -f "$ITK_CONFIG" ]; then
-		echo "FATAL: ITKConfig.cmake not found under /opt/itk" >&2
-		exit 1
+	if [ -z "$ITK_CONFIG" ]; then
+	  echo "FATAL: ITKConfig.cmake not found after install" >&2; exit 1
 	fi
 	ITK_DIR="$(dirname "$ITK_CONFIG")"
 	echo "Using ITK_DIR=$ITK_DIR"
+	
+	# Optional sanity: confirm the needed headers exist
+	if ! grep -q "LabelGeometryImageFilter" "$(find /opt/itk/include -type f -name itkLabelGeometryImageFilter.h -print -quit)"; then
+	  echo "FATAL: itkLabelGeometryImageFilter.h still missing after ITK build" >&2; exit 1
+	fi
 
 
     # === ANTs Install (pinned to your dev environment commit; no SuperBuild) ===
