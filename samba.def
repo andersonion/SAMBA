@@ -107,12 +107,10 @@ From: ubuntu:20.04
 	git clone https://github.com/andersonion/SAMBA.git
 	# git checkout XXXXXX  # Pin to exact commit from your dev system
 
-
-
-    # === ANTs Install (pinned to your dev environment commit) ===
+    # === ANTs Install (pinned to your dev environment commit; no SuperBuild, no ITK remotes) ===
     echo "Installing ANTs (commit 0ea8e53) into /opt/samba/ants ..."
-    export SAMBA_APPS_DIR=/opt/samba
-    export ANTSPATH="${SAMBA_APPS_DIR}/ants/bin"
+    SAMBA_APPS_DIR=/opt/samba
+    ANTSPATH="${SAMBA_APPS_DIR}/ants/bin"
 
     # Source tree
     mkdir -p /opt/src && cd /opt/src
@@ -123,34 +121,36 @@ From: ubuntu:20.04
     git fetch --all -q || true
     git checkout 0ea8e53
 
-    # Build out-of-source from the REPO ROOT but DISABLE the SuperBuild
+    # Fresh build dir (avoid cached SuperBuild configs)
+    rm -rf build
     mkdir -p build && cd build
+
+    # Configure core ANTs (disable SuperBuild and ITK remote downloads)
     cmake \
-      -DSuperBuild=OFF \
-      -DBUILD_TESTING=OFF \
+      -DANTS_SUPERBUILD:BOOL=OFF \
+      -DBUILD_SUPERBUILD:BOOL=OFF \
+      -DBUILD_TESTING:BOOL=OFF \
+      -DITK_FORBID_DOWNLOADS:BOOL=ON \
+      -DModule_GenericLabelInterpolator:BOOL=OFF \
+      -DModule_AdaptiveDenoising:BOOL=OFF \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants" \
       ..
 
+    # Build
     cmake --build . -j"$(nproc)" || { echo "FATAL: ANTs build failed"; exit 1; }
 
-    # Try a clean install first
+    # Install if available, else copy binaries as fallback
     if cmake --install . 2>/dev/null; then
         :
     else
-        echo "Note: cmake --install not available or no install rules; copying binaries as fallback."
-    fi
-
-    # Ensure binaries are present; if not, copy from build output
-    if [ ! -x "${ANTSPATH}/antsRegistration" ]; then
-        echo "antsRegistration not found in ${ANTSPATH}; attempting to locate build output and copy…"
-        # Find a directory that contains antsRegistration from the build tree
+        echo "Note: no install target; copying ANTs binaries from build tree…"
         ANTS_BIN_DIR="$(find . -type f -name antsRegistration -printf '%h\n' -quit)"
-        if [ -n "${ANTS_BIN_DIR}" ] && [ -x "${ANTS_BIN_DIR}/antsRegistration" ]; then
+        if [ -n "$ANTS_BIN_DIR" ] && [ -x "$ANTS_BIN_DIR/antsRegistration" ]; then
             install -d "${ANTSPATH}"
             cp -av "${ANTS_BIN_DIR}/"* "${ANTSPATH}/"
         else
-            echo "FATAL: Could not locate antsRegistration in build output."
+            echo "FATAL: Could not locate antsRegistration in build output." >&2
             exit 1
         fi
     fi
