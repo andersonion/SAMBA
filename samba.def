@@ -205,27 +205,28 @@ From: ubuntu:20.04
       -DITK_DIR:PATH="${ITK_DIR}" \
       ..
 
-    # Use a safe -j to avoid OOM in container builds
-    JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
+        # Use a safe -j to avoid OOM in container builds
+    JOBS="$(nproc)"; [ "$JOBS" -gt 4 ] && JOBS=4
 
-    # Build with log; show tail on failure
-    cmake --build . -j"$JOBS" -- VERBOSE=1 > /tmp/ants_build.log 2>&1
-    rc=$?
-    if [ $rc -ne 0 ]; then
-        echo "ANTs build failed (rc=$rc). Last 200 lines:" >&2
-        tail -n 200 /tmp/ants_build.log >&2
-        exit $rc
+    # Build with a log; if it fails, show the last 200 lines
+    BUILD_LOG=/tmp/ants_build.log
+    : > "$BUILD_LOG"
+    if ! cmake --build . -j"$JOBS" -- VERBOSE=1 >"$BUILD_LOG" 2>&1; then
+        echo "ANTs build failed. Last 200 lines:" >&2
+        tail -n 200 "$BUILD_LOG" >&2
+        exit 1
     fi
 
     # Try install; if not present, copy binaries from the build tree
-    if ! cmake --install . 2>/dev/null; then
-        echo "No 'install' target detected; copying ANTs binaries from build output…"
+    if ! cmake --install . >>"$BUILD_LOG" 2>&1; then
+        echo "No 'install' target; copying ANTs binaries from build output…" >>"$BUILD_LOG"
         ANTS_BIN_DIR="$(find . -type f -name antsRegistration -printf '%h\n' -quit)"
         if [ -n "$ANTS_BIN_DIR" ] && [ -x "$ANTS_BIN_DIR/antsRegistration" ]; then
             install -d "${ANTSPATH}"
-            cp -av "${ANTS_BIN_DIR}/"* "${ANTSPATH}/"
+            cp -av "${ANTS_BIN_DIR}/"* "${ANTSPATH}/" >>"$BUILD_LOG" 2>&1
         else
             echo "FATAL: Could not locate antsRegistration in build output." >&2
+            tail -n 200 "$BUILD_LOG" >&2
             exit 1
         fi
     fi
@@ -233,6 +234,7 @@ From: ubuntu:20.04
     # Final sanity check
     if [ ! -x "${ANTSPATH}/antsRegistration" ]; then
         echo "FATAL: ANTs installation failed — ${ANTSPATH}/antsRegistration not found." >&2
+        tail -n 200 "$BUILD_LOG" >&2
         exit 1
     fi
 
