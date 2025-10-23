@@ -119,15 +119,16 @@ From: ubuntu:20.04
 
     rm -rf build
     mkdir -p build && cd build
-    cmake \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=/opt/itk \
-      -DBUILD_TESTING:BOOL=OFF \
-      -DBUILD_EXAMPLES:BOOL=OFF \
-      -DITK_FORBID_DOWNLOADS:BOOL=ON \
-      -DModule_GenericLabelInterpolator:BOOL=OFF \
-      -DModule_AdaptiveDenoising:BOOL=OFF \
-      ..
+	cmake \
+	  -DCMAKE_BUILD_TYPE=Release \
+	  -DCMAKE_INSTALL_PREFIX=/opt/itk \
+	  -DBUILD_TESTING=OFF \
+	  -DBUILD_EXAMPLES=OFF \
+	  -DITK_FORBID_DOWNLOADS=OFF \
+	  -DModule_GenericLabelInterpolator=ON \
+	  -DModule_LabelGeometry=ON \
+	  ..
+
     cmake --build . -j"$(nproc)"
     cmake --install .
 	
