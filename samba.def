@@ -181,7 +181,7 @@ From: ubuntu:20.04
     fi
 
     # Help CMake find ITK via prefix too (belt & suspenders)
-    export CMAKE_PREFIX_PATH="/opt/itk:${CMAKE_PREFIX_PATH}"
+    export CMAKE_PREFIX_PATH="/opt/itk${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
 
     # Source tree
     mkdir -p /opt/src && cd /opt/src
