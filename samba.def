@@ -107,38 +107,66 @@ From: ubuntu:20.04
 	git clone https://github.com/andersonion/SAMBA.git
 	# git checkout XXXXXX  # Pin to exact commit from your dev system
 
-	# --- rebuild ITK with LabelGeometry + GenericLabelInterpolator ---
-	echo "Rebuilding ITK v5.3.0 with LabelGeometry and GenericLabelInterpolator…"
-	cd /opt/src/itk || { echo "FATAL: /opt/src/itk missing"; exit 1; }
-	git checkout v5.3.0
-	rm -rf build
-	mkdir -p build && cd build
-	
-	cmake \
-	  -DCMAKE_BUILD_TYPE=Release \
-	  -DCMAKE_INSTALL_PREFIX=/opt/itk \
-	  -DBUILD_TESTING=OFF \
-	  -DBUILD_EXAMPLES=OFF \
-	  -DITK_FORBID_DOWNLOADS=OFF \
-	  -DModule_ITKReview=ON \
-	  -DModule_GenericLabelInterpolator=ON \
-	  ..
-	
-	cmake --build . -j"$(nproc)"
-	cmake --install .
-	
-	# ITK_DIR pointing to the directory containing ITKConfig.cmake
-	ITK_CONFIG="$(find /opt/itk -name ITKConfig.cmake -print -quit)"
-	if [ -z "$ITK_CONFIG" ]; then
-	  echo "FATAL: ITKConfig.cmake not found after install" >&2; exit 1
-	fi
-	ITK_DIR="$(dirname "$ITK_CONFIG")"
-	echo "Using ITK_DIR=$ITK_DIR"
-	
-	# Optional sanity: confirm the needed headers exist
-	if ! grep -q "LabelGeometryImageFilter" "$(find /opt/itk/include -type f -name itkLabelGeometryImageFilter.h -print -quit)"; then
-	  echo "FATAL: itkLabelGeometryImageFilter.h still missing after ITK build" >&2; exit 1
-	fi
+    # === ITK v5.3.0 (with LabelGeometry & GenericLabelInterpolator) ===
+    echo "Building ITK v5.3.0 into /opt/itk ..."
+    mkdir -p /opt/src && cd /opt/src
+
+    # Obtain source (prefer git; fall back to tarball if needed)
+    if [ ! -d itk ]; then
+        if command -v git >/dev/null 2>&1; then
+            git clone https://github.com/InsightSoftwareConsortium/ITK.git itk || true
+        fi
+        if [ ! -d itk ]; then
+            echo "git clone failed or unavailable; falling back to tarball"
+            apt-get update
+            DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl
+            curl -L -o /tmp/itk-5.3.0.tar.gz \
+                https://codeload.github.com/InsightSoftwareConsortium/ITK/tar.gz/refs/tags/v5.3.0
+            mkdir -p /opt/src && tar -xzf /tmp/itk-5.3.0.tar.gz -C /opt/src
+            mv -f /opt/src/ITK-5.3.0 /opt/src/itk
+        fi
+    fi
+
+    cd /opt/src/itk || { echo "FATAL: /opt/src/itk missing"; exit 1; }
+    # If we have git, ensure the right tag; ignore if not a git checkout
+    if command -v git >/dev/null 2>&1 && [ -d .git ]; then
+        git fetch --all -q || true
+        git checkout v5.3.0 || true
+    fi
+
+    # Fresh build
+    rm -rf build
+    mkdir -p build && cd build
+
+    # Enable modules required by ANTs headers
+    cmake \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/opt/itk \
+      -DBUILD_TESTING=OFF \
+      -DBUILD_EXAMPLES=OFF \
+      -DITK_FORBID_DOWNLOADS=OFF \
+      -DModule_ITKReview=ON \
+      -DModule_GenericLabelInterpolator=ON \
+      ..
+
+    cmake --build . -j"$(nproc)"
+    cmake --install .
+
+    # Point ANTs at the installed ITKConfig.cmake
+    ITK_CONFIG="$(find /opt/itk -name ITKConfig.cmake -print -quit)"
+    if [ -z "$ITK_CONFIG" ]; then
+        echo "FATAL: ITKConfig.cmake not found under /opt/itk" >&2
+        exit 1
+    fi
+    ITK_DIR="$(dirname "$ITK_CONFIG")"
+    export ITK_DIR
+    echo "Using ITK_DIR=$ITK_DIR"
+
+    # Sanity: required headers should now exist
+    if ! find /opt/itk/include -name itkLabelGeometryImageFilter.h -print -quit | grep -q .; then
+        echo "FATAL: itkLabelGeometryImageFilter.h missing after ITK build" >&2
+        exit 1
+    fi
 
 
     # === ANTs Install (pinned to your dev environment commit; no SuperBuild) ===
