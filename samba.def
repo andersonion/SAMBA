@@ -130,14 +130,16 @@ From: ubuntu:20.04
       ..
     cmake --build . -j"$(nproc)"
     cmake --install .
+	
+	# Locate ITKConfig.cmake and set ITK_DIR to its *directory*
+	ITK_CONFIG="$(find /opt/itk -name ITKConfig.cmake -print -quit)"
+	if [ -z "$ITK_CONFIG" ] || [ ! -f "$ITK_CONFIG" ]; then
+		echo "FATAL: ITKConfig.cmake not found under /opt/itk" >&2
+		exit 1
+	fi
+	ITK_DIR="$(dirname "$ITK_CONFIG")"
+	echo "Using ITK_DIR=$ITK_DIR"
 
-    # Locate ITKConfig.cmake and derive ITK_DIR
-    ITK_DIR="$(dirname "$(dirname "$(find /opt/itk -name ITKConfig.cmake -print -quit)")")"
-    if [ -z "$ITK_DIR" ] || [ ! -f "$ITK_DIR/ITKConfig.cmake" ]; then
-        echo "FATAL: ITKConfig.cmake not found under /opt/itk" >&2
-        exit 1
-    fi
-    echo "Using ITK_DIR=$ITK_DIR"
 
     # === ANTs Install (pinned to your dev environment commit; no SuperBuild) ===
     echo "Installing ANTs (commit 0ea8e53) into /opt/samba/ants ..."
