@@ -1,0 +1,37 @@
+Bootstrap: localimage
+From: base.sif
+
+%labels
+    Stage itk
+
+%post
+    set -eu
+    echo "Building ITK v5.3.0 into /opt/itk ..."
+    cd /opt/src
+    if [ ! -d itk ]; then
+      git clone https://github.com/InsightSoftwareConsortium/ITK.git itk
+    fi
+    cd itk
+    git fetch --all -q || true
+    git checkout v5.3.0
+
+    rm -rf build && mkdir build && cd build
+    cmake -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/opt/itk \
+      -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF \
+      -DITK_FORBID_DOWNLOADS=OFF \
+      -DModule_ITKReview=ON \
+      -DModule_GenericLabelInterpolator=ON \
+      -DModule_ITKNonlocal=ON \
+      ..
+    ninja -j "$(nproc)"
+    ninja install
+
+    ITK_CONFIG="$(find /opt/itk -name ITKConfig.cmake -print -quit)"
+    if [ -z "$ITK_CONFIG" ]; then echo "FATAL: ITKConfig.cmake missing" >&2; exit 1; fi
+    echo "ITK OK: $ITK_CONFIG"
+
+%environment
+    # Help ANTs find ITK
+    export CMAKE_PREFIX_PATH="/opt/itk${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"

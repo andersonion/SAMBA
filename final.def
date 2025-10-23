@@ -1,0 +1,20 @@
+Bootstrap: localimage
+From: fsl_mcr.sif
+
+%labels
+    Stage final
+
+%post
+    set -eu
+    # Pull your SAMBA repo
+    cd /opt/samba
+    if [ ! -d SAMBA ]; then
+      git clone https://github.com/andersonion/SAMBA.git
+    fi
+    # (Optional) pin to a known commit:
+    # cd SAMBA && git checkout <commit> && cd ..
+
+%environment
+    export SAMBA_APPS_DIR=/opt/samba
+    export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
+    export PATH=${SAMBA_PATH}:$PATH

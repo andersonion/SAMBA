@@ -1,0 +1,52 @@
+Bootstrap: localimage
+From: itk.sif
+
+%labels
+    Stage ants
+
+%post
+    set -eu
+    echo "Installing ANTs (commit 0ea8e53) into /opt/samba/ants ..."
+    export SAMBA_APPS_DIR=/opt/samba
+    export ANTSPATH="${SAMBA_APPS_DIR}/ants/bin"
+
+    ITK_DIR="$(dirname "$(find /opt/itk -name ITKConfig.cmake -print -quit)")"
+    if [ -z "$ITK_DIR" ] || [ ! -f "$ITK_DIR/ITKConfig.cmake" ]; then
+      echo "FATAL: ITK_DIR invalid" >&2; exit 1
+    fi
+
+    cd /opt/src
+    if [ ! -d ANTs ]; then
+      git clone https://github.com/ANTsX/ANTs.git ANTs
+    fi
+    cd ANTs
+    git fetch --all -q || true
+    git checkout 0ea8e53
+
+    rm -rf build && mkdir build && cd build
+    cmake -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants" \
+      -DBUILD_TESTING=OFF \
+      -DANTS_SUPERBUILD=OFF -DBUILD_SUPERBUILD=OFF \
+      -DITK_DIR:PATH="${ITK_DIR}" \
+      ..
+    # keep -j low to avoid OOM in builder
+    JOBS="$(nproc)"; [ "$JOBS" -gt 4 ] && JOBS=4
+    ninja -j "$JOBS" || { echo "ANTs build failed"; exit 1; }
+
+    # Try install; if missing, copy binaries
+    if ! ninja install 2>/dev/null; then
+      echo "No install target; copying ANTs binaries…"
+      ANTS_BIN_DIR="$(find "$(pwd)" -type f -name antsRegistration -perm -111 -printf '%h\n' -quit)"
+      [ -n "$ANTS_BIN_DIR" ] || { echo "FATAL: antsRegistration not found"; exit 1; }
+      install -d "${ANTSPATH}"
+      find "$ANTS_BIN_DIR" -maxdepth 1 -type f -exec cp -av {} "${ANTSPATH}/" \;
+    fi
+
+    [ -x "${ANTSPATH}/antsRegistration" ] || { echo "FATAL: antsRegistration missing"; exit 1; }
+    echo "ANTs OK: ${ANTSPATH}/antsRegistration"
+
+%environment
+    export ANTSPATH=/opt/samba/ants/bin
+    export PATH=/opt/samba/ants/bin:$PATH

@@ -1,0 +1,107 @@
+Bootstrap: localimage
+From: ants.sif
+
+%labels
+    Stage fsl_mcr
+
+%post
+    set -eu
+
+    # --- FSL (noninteractive) ---
+    apt-get update
+    apt-get install -y --no-install-recommends python3 ca-certificates wget bzip2
+    FSLVER=6.0.6
+    FSLDIR=/opt/samba/fsl/${FSLVER}
+    mkdir -p "$(dirname "$FSLDIR")"
+    cd "$(dirname "$FSLDIR")"
+    wget -q https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py
+    TMPDST="$(mktemp -d "$(pwd)/.fsl.XXXXXX")"
+    python3 fslinstaller.py -d "$TMPDST" -V "$FSLVER" -q --skip_registration || \
+      yes | python3 fslinstaller.py -d "$TMPDST" -V "$FSLVER" -q --skip_registration
+    rm -rf "$FSLDIR"; mv "$TMPDST" "$FSLDIR"
+    chmod -R a+rX "$FSLDIR"
+    [ -x "$FSLDIR/bin/fslhd" ] || echo "WARNING: $FSLDIR/bin/fslhd not found"
+
+    # --- MATLAB Runtime R2015b (MCR) ---
+    BUILD_ROOT=/opt/build
+    ME_DIR=${BUILD_ROOT}/matlab_execs
+    MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
+    INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
+    CACHE_DIR=${BUILD_ROOT}/matlab_cache
+    INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
+    TEMP_DIR=${ME_DIR}/temp
+    mkdir -p "$MATLAB_2015b_PATH" "$ME_DIR" "$TEMP_DIR" "$CACHE_DIR"
+    [ -d "$INSTALLER_PATH" ] && rm -rf "$INSTALLER_PATH"
+    if [ -f "${CACHE_DIR}/${INSTALLER_NAME}" ]; then
+      cp -f "${CACHE_DIR}/${INSTALLER_NAME}" "${INSTALLER_PATH}"
+    else
+      wget -O "${INSTALLER_PATH}" \
+        "http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}"
+      cp -f "${INSTALLER_PATH}" "${CACHE_DIR}/" || true
+    fi
+    unzip -d "${TEMP_DIR}" "${INSTALLER_PATH}"
+    "${TEMP_DIR}/install" -mode silent -agreeToLicense yes -destinationFolder "${MATLAB_2015b_PATH}"
+    rm -rf "${TEMP_DIR}"
+    ls "${MATLAB_2015b_PATH}"/runtime/glnxa64/libmwmclmcrrt.so* >/dev/null 2>&1 || \
+      ls "${MATLAB_2015b_PATH}"/bin/glnxa64/libmwmclmcrrt.so*  >/dev/null 2>&1 || \
+      { echo "FATAL: MCR libmwmclmcrrt.so* missing"; exit 1; }
+    chmod -R a+rX /opt/MATLAB "$ME_DIR"
+
+    # OpenJDK 8 (MATLAB 2015b compatibility)
+    apt-get update && apt-get install -y openjdk-8-jre-headless
+    mkdir -p /opt/samba/java
+    cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre /opt/samba/java
+
+    # --- Perlbrew (runtime hook only; no 'source' in %post) ---
+    export PERLBREW_ROOT=/opt/samba/perl5
+    curl -L https://install.perlbrew.pl | bash
+    perlbrew install -n perl-5.16.3
+    perlbrew install-cpanm
+    cat >/etc/profile.d/perlbrew.sh <<'EOF'
+export PERLBREW_ROOT=/opt/samba/perl5
+if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
+  . "$PERLBREW_ROOT/etc/bashrc"
+fi
+EOF
+    chmod 644 /etc/profile.d/perlbrew.sh
+
+    # --- Atlas from Zenodo (cached) ---
+    export ATLAS_FOLDER=/opt/atlases
+    mkdir -p /opt/zenodo_cache /opt/atlases
+    AZ_ID=15178373
+    FILE_NAME=chass_symmetric3.tar.gz
+    CACHE="/opt/zenodo_cache/${FILE_NAME}"
+    cd /opt/atlases
+    if [ -f "$CACHE" ]; then
+      cp "$CACHE" "$FILE_NAME"
+    else
+      FILE_URL=$(curl -s https://zenodo.org/api/records/$AZ_ID \
+        | grep -A10 '"key": "'$FILE_NAME'"' | grep '"self"' \
+        | sed -E 's/.*"(https[^"]+)".*/\1/')
+      wget -O "$FILE_NAME" "$FILE_URL"
+      cp "$FILE_NAME" "$CACHE" || true
+    fi
+    tar -xzf "$FILE_NAME" && rm "$FILE_NAME"
+    [ -d chass_symmetric3 ] || { echo "FATAL: atlas folder missing"; exit 1; }
+    chmod -R a+rX /opt/atlases /opt/zenodo_cache
+
+    # Linker config for MCR (do this late)
+    cat >/etc/ld.so.conf.d/mcr_v90.conf <<EOF
+/opt/MATLAB/MATLAB2015b_runtime/v90/runtime/glnxa64
+/opt/MATLAB/MATLAB2015b_runtime/v90/bin/glnxa64
+/opt/MATLAB/MATLAB2015b_runtime/v90/sys/os/glnxa64
+EOF
+    ldconfig
+
+%environment
+    export fsl_version=6.0.6
+    export FSLDIR=/opt/samba/fsl/${fsl_version}
+    export FSLOUTPUTTYPE=NIFTI_GZ
+    export ANTSPATH=/opt/samba/ants/bin
+    export PATH=${ANTSPATH}:${FSLDIR}/bin:$PATH
+    export MATLAB_EXEC_PATH=/opt/build/matlab_execs
+    export MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
+    export MCRROOT=${MATLAB_2015b_PATH}
+    export LD_LIBRARY_PATH=${MCRROOT}/runtime/glnxa64:${MCRROOT}/bin/glnxa64:${MCRROOT}/sys/os/glnxa64:$LD_LIBRARY_PATH
+    export ATLAS_FOLDER=/opt/atlases
+    export MATLAB_JAVA=/opt/samba/java/jre

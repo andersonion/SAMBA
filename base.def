@@ -1,0 +1,31 @@
+Bootstrap: docker
+From: ubuntu:20.04
+
+%labels
+    Maintainer Robert Anderson
+    Stage base
+
+%post
+    set -eu
+    export DEBIAN_FRONTEND=noninteractive
+    export TZ=Etc/UTC
+    ln -fs /usr/share/zoneinfo/$TZ /etc/localtime
+    apt-get update
+    apt-get install -y --no-install-recommends tzdata
+    dpkg-reconfigure -f noninteractive tzdata
+
+    apt-get update && apt-get install -y --no-install-recommends \
+      build-essential git curl ca-certificates wget unzip \
+      cmake ninja-build pkg-config \
+      zlib1g-dev libjpeg-dev libpng-dev libtiff5-dev \
+      libexpat1-dev libxml2-dev libbz2-dev libeigen3-dev \
+      libfftw3-dev liblapacke-dev perl libperl-dev bc \
+      python3
+
+    # Core folders
+    mkdir -p /opt/samba /opt/src /opt/build
+
+%environment
+    export SAMBA_APPS_DIR=/opt/samba
+    export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
+    export PATH=${SAMBA_PATH}:$PATH
