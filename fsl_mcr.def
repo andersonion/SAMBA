@@ -52,11 +52,33 @@ From: ants.sif
     mkdir -p /opt/samba/java
     cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre /opt/samba/java
 
-    # --- Perlbrew (runtime hook only; no 'source' in %post) ---
-    export PERLBREW_ROOT=/opt/samba/perl5
+    # --- Perlbrew + Perl 5.16.3 + cpanm + Carton (POSIX sh safe) ---
+    # Respect your existing variables; set fallbacks if missing
+    SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+    SAMBA_PATH="${SAMBA_PATH:-${SAMBA_APPS_DIR}/SAMBA}"
+
+    # Install perlbrew to a system location
+    export PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
     curl -L https://install.perlbrew.pl | bash
-    perlbrew install -n perl-5.16.3
-    perlbrew install-cpanm
+
+    # Install Perl 5.16.3 (no tests to speed up) and cpanm into perlbrew
+    "${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
+    "${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
+
+    # Install Carton into that perl, then run `carton install` for your project
+    # (Always execute under the perlbrew Perl to avoid host-Perl pollution.)
+    "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 cpanm -n Carton
+
+    # Prepare the project directory and minimal files if they don't exist
+    mkdir -p "${SAMBA_PATH}"
+    [ -f "${SAMBA_PATH}/cpanfile" ] || : > "${SAMBA_PATH}/cpanfile"
+    [ -f "${SAMBA_PATH}/cpanfile.snapshot" ] || : > "${SAMBA_PATH}/cpanfile.snapshot"
+
+    # Install project deps into local/ via Carton using perl-5.16.3
+    ( cd "${SAMBA_PATH}" && \
+      "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 carton install )
+
+    # Provide runtime activation for login shells (no sourcing in %post)
     cat >/etc/profile.d/perlbrew.sh <<'EOF'
 export PERLBREW_ROOT=/opt/samba/perl5
 if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
@@ -64,6 +86,7 @@ if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
 fi
 EOF
     chmod 644 /etc/profile.d/perlbrew.sh
+
 
     # --- Atlas from Zenodo (cached) ---
     export ATLAS_FOLDER=/opt/atlases
@@ -105,3 +128,9 @@ EOF
     export LD_LIBRARY_PATH=${MCRROOT}/runtime/glnxa64:${MCRROOT}/bin/glnxa64:${MCRROOT}/sys/os/glnxa64:$LD_LIBRARY_PATH
     export ATLAS_FOLDER=/opt/atlases
     export MATLAB_JAVA=/opt/samba/java/jre
+        # Perl setup
+    export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
+    export PATH="$PERLBREW_ROOT/bin:$PATH"
+    # In /bin/sh, use dot instead of 'source'
+    . "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+

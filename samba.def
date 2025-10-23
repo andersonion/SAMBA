@@ -21,8 +21,10 @@ From: ubuntu:20.04
     
     # Perl setup
     export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
-    source ${PERLBREW_ROOT}/etc/bashrc || true
-    perlbrew use perl-5.16.3
+    export PATH="$PERLBREW_ROOT/bin:$PATH"
+    # In /bin/sh, use dot instead of 'source'
+    . "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+
 
     # MATLAB MCR runtime linkage
     export MCRROOT=${MATLAB_2015b_PATH}
@@ -361,32 +363,41 @@ From: ubuntu:20.04
 	export MATLAB_JAVA=${JAVA_INSTALL_DIR}/jre
 
 
-    # Install Perlbrew and Perl 5.16.3
-	export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
-	curl -L https://install.perlbrew.pl | bash
-	#source ${PERLBREW_ROOT}/etc/bashrc
-	perlbrew install -n perl-5.16.3
-	perlbrew use perl-5.16.3
-	
-	# Install cpanm and Carton
-	perlbrew install-cpanm
-	cpanm -f Carton
-	
-	# Prepare your project
-	mkdir -p ${SAMBA_PATH}
-	cd ${SAMBA_PATH}
-	touch cpanfile
-	touch cpanfile.snapshot
-	carton install
+    # --- Perlbrew + Perl 5.16.3 + cpanm + Carton (POSIX sh safe) ---
+    # Respect your existing variables; set fallbacks if missing
+    SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+    SAMBA_PATH="${SAMBA_PATH:-${SAMBA_APPS_DIR}/SAMBA}"
 
-    # In %post, after perlbrew install completes:
-cat >/etc/profile.d/perlbrew.sh <<'EOF'
+    # Install perlbrew to a system location
+    export PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
+    curl -L https://install.perlbrew.pl | bash
+
+    # Install Perl 5.16.3 (no tests to speed up) and cpanm into perlbrew
+    "${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
+    "${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
+
+    # Install Carton into that perl, then run `carton install` for your project
+    # (Always execute under the perlbrew Perl to avoid host-Perl pollution.)
+    "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 cpanm -n Carton
+
+    # Prepare the project directory and minimal files if they don't exist
+    mkdir -p "${SAMBA_PATH}"
+    [ -f "${SAMBA_PATH}/cpanfile" ] || : > "${SAMBA_PATH}/cpanfile"
+    [ -f "${SAMBA_PATH}/cpanfile.snapshot" ] || : > "${SAMBA_PATH}/cpanfile.snapshot"
+
+    # Install project deps into local/ via Carton using perl-5.16.3
+    ( cd "${SAMBA_PATH}" && \
+      "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 carton install )
+
+    # Provide runtime activation for login shells (no sourcing in %post)
+    cat >/etc/profile.d/perlbrew.sh <<'EOF'
 export PERLBREW_ROOT=/opt/samba/perl5
 if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
   . "$PERLBREW_ROOT/etc/bashrc"
 fi
 EOF
-chmod 644 /etc/profile.d/perlbrew.sh
+    chmod 644 /etc/profile.d/perlbrew.sh
+
 
     # === Download Atlas from Zenodo ===
         export ATLAS_FOLDER=/opt/atlases
