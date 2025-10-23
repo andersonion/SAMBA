@@ -169,11 +169,21 @@ From: ubuntu:20.04
     fi
 
 
-    # === ANTs Install (pinned to your dev environment commit; no SuperBuild) ===
+    # === ANTs Install (pinned to 0ea8e53; core build, against prebuilt ITK) ===
     echo "Installing ANTs (commit 0ea8e53) into /opt/samba/ants ..."
     SAMBA_APPS_DIR=/opt/samba
     ANTSPATH="${SAMBA_APPS_DIR}/ants/bin"
 
+    # Ensure ITK_DIR is set to the directory that contains ITKConfig.cmake
+    if [ -z "$ITK_DIR" ] || [ ! -f "$ITK_DIR/ITKConfig.cmake" ]; then
+        echo "FATAL: ITK_DIR is not set correctly (need …/ITK-5.3/ITKConfig.cmake)" >&2
+        exit 1
+    fi
+
+    # Help CMake find ITK via prefix too (belt & suspenders)
+    export CMAKE_PREFIX_PATH="/opt/itk:${CMAKE_PREFIX_PATH}"
+
+    # Source tree
     mkdir -p /opt/src && cd /opt/src
     if [ ! -d ANTs ]; then
         git clone https://github.com/ANTsX/ANTs.git ANTs
@@ -182,8 +192,10 @@ From: ubuntu:20.04
     git fetch --all -q || true
     git checkout 0ea8e53
 
+    # Fresh build dir
     rm -rf build
     mkdir -p build && cd build
+
     cmake \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants" \
@@ -191,31 +203,28 @@ From: ubuntu:20.04
       -DANTS_SUPERBUILD:BOOL=OFF \
       -DBUILD_SUPERBUILD:BOOL=OFF \
       -DITK_DIR:PATH="${ITK_DIR}" \
-      -DITK_FORBID_DOWNLOADS:BOOL=ON \
-      -DModule_GenericLabelInterpolator:BOOL=OFF \
-      -DModule_AdaptiveDenoising:BOOL=OFF \
       ..
-    cmake --build . -j"$(nproc)"
 
-    # Install if available; otherwise copy binaries from build tree
+    # Use a safe -j to avoid OOM in container builds
+    JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
+
+    # Build with log; show tail on failure
+    cmake --build . -j"$JOBS" -- VERBOSE=1 > /tmp/ants_build.log 2>&1
+    rc=$?
+    if [ $rc -ne 0 ]; then
+        echo "ANTs build failed (rc=$rc). Last 200 lines:" >&2
+        tail -n 200 /tmp/ants_build.log >&2
+        exit $rc
+    fi
+
+    # Try install; if not present, copy binaries from the build tree
     if ! cmake --install . 2>/dev/null; then
-        echo "No install target detected; copying ANTs binaries from build output…"
+        echo "No 'install' target detected; copying ANTs binaries from build output…"
         ANTS_BIN_DIR="$(find . -type f -name antsRegistration -printf '%h\n' -quit)"
         if [ -n "$ANTS_BIN_DIR" ] && [ -x "$ANTS_BIN_DIR/antsRegistration" ]; then
             install -d "${ANTSPATH}"
             cp -av "${ANTS_BIN_DIR}/"* "${ANTSPATH}/"
         else
-            echo "FATAL: Could not locate antsRegistration in build output." >&2
-            exit 1
-        fi
-    fi
-
-    # Final sanity check
-    if [ ! -x "${ANTSPATH}/antsRegistration" ]; then
-        echo "FATAL: ANTs installation failed — ${ANTSPATH}/antsRegistration not found." >&2
-        exit 1
-    fi
-    echo "ANTs installed to ${SAMBA_APPS_DIR}/ants (ANTSPATH=${ANTSPATH})"
             echo "FATAL: Could not locate antsRegistration in build output." >&2
             exit 1
         fi
