@@ -158,7 +158,7 @@ From: ubuntu:20.04
     fi
 
     # ---- Build selected tools ----
-	# ---- Build only the CLI executables we care about (by output file) ----
+	# ---- Build only the CLI executables we care about (CMake-resolved targets) ----
 	JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
 	BUILD_LOG=/tmp/ants_build.log; : > "$BUILD_LOG"
 	
@@ -182,17 +182,43 @@ From: ubuntu:20.04
 	  ConvertTransformFile
 	"
 	
-	# In this repo layout/commit, the executables are produced at Examples/<name>
-	OUTS=""
+	# Gather available targets from BOTH CMake and Ninja, normalize names
+	AVAIL=$(
+	  {
+		cmake --build . --target help 2>/dev/null || true
+		ninja -t targets all 2>/dev/null || true
+	  } \
+	  | sed 's/^[[:space:]]\{0,3\}\.\{3\}[[:space:]]*//' \
+	  | sed 's/:.*$//' \
+	  | awk '{print $1}' \
+	  | sort -u
+	)
+	
+	# Map wanted tool names to actual build targets (accept exact or l_<name>)
+	RESOLVED_TARGET_ARGS=""
 	for t in $WANTED; do
-	  OUTS="$OUTS Examples/$t"
+	  if printf '%s\n' "$AVAIL" | grep -qx "$t"; then
+		RESOLVED_TARGET_ARGS="$RESOLVED_TARGET_ARGS --target $t"
+	  elif printf '%s\n' "$AVAIL" | grep -qx "l_$t"; then
+		RESOLVED_TARGET_ARGS="$RESOLVED_TARGET_ARGS --target l_$t"
+	  fi
 	done
 	
-	echo "Building outputs:$OUTS"
-	if ! ninja -j "$JOBS" $OUTS >"$BUILD_LOG" 2>&1; then
-	  echo "ANTs build failed. Last 200 lines:" >&2
-	  tail -n 200 "$BUILD_LOG" >&2
-	  exit 1
+	if [ -n "$RESOLVED_TARGET_ARGS" ]; then
+	  echo "CMake targets resolved:$RESOLVED_TARGET_ARGS"
+	  # Build just those targets (CMake drives Ninja; pass -j via '--')
+	  if ! cmake --build . $RESOLVED_TARGET_ARGS -- -j "$JOBS" >"$BUILD_LOG" 2>&1; then
+		echo "ANTs build failed. Last 200 lines:" >&2
+		tail -n 200 "$BUILD_LOG" >&2
+		exit 1
+	  fi
+	else
+	  echo "Note: none of the requested tools found as targets; building full tree once..." >&2
+	  if ! cmake --build . -- -j "$JOBS" >"$BUILD_LOG" 2>&1; then
+		echo "ANTs full build failed. Last 200 lines:" >&2
+		tail -n 200 "$BUILD_LOG" >&2
+		exit 1
+	  fi
 	fi
 	
 	# ---- Install (or copy if no install rules) ----
@@ -200,12 +226,16 @@ From: ubuntu:20.04
 	if ! cmake --install . --prefix "${INSTALL_PREFIX}" ; then
 	  echo "Note: No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
 	  mkdir -p "${INSTALL_PREFIX}/bin"
+	  # Try both direct path and CMake/Ninja query for each tool
 	  for t in $WANTED; do
+		# 1) common output location
 		if [ -f "Examples/$t" ]; then
-		  cp -fv "Examples/$t" "${INSTALL_PREFIX}/bin/"
-		  continue
+		  cp -fv "Examples/$t" "${INSTALL_PREFIX}/bin/"; continue
 		fi
-		out="$(ninja -t query "Examples/$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+		# 2) if we resolved a target, ask ninja for its output
+		#    (check l_<name> first, then <name>)
+		out="$(ninja -t query "l_$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+		[ -z "$out" ] && out="$(ninja -t query "$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
 		[ -n "$out" ] && [ -f "$out" ] && cp -fv "$out" "${INSTALL_PREFIX}/bin/" || true
 	  done
 	fi
@@ -213,11 +243,11 @@ From: ubuntu:20.04
 	# ---- Final sanity check ----
 	if [ ! -x "${INSTALL_PREFIX}/bin/antsRegistration" ]; then
 	  echo "FATAL: ANTs installation failed — ${INSTALL_PREFIX}/bin/antsRegistration not found." >&2
+	  echo "Built targets were: $RESOLVED_TARGET_ARGS" >&2
 	  # show a few outputs for debugging
 	  find "${INSTALL_PREFIX}/bin" -maxdepth 1 -type f -printf '%f\n' | sort | head -n 50 >&2 || true
 	  exit 1
 	fi
-	
 	chmod -R a+rX "${INSTALL_PREFIX}"
 
 
