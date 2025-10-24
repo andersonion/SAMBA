@@ -2,135 +2,84 @@ Bootstrap: localimage
 From: ants.sif
 
 %labels
-    Stage fsl_mcr
+    Stage "FSL (NeuroDebian minimal/core) on top of ants.sif"
+
+%environment
+    export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+    # Keep ANTSPATH consistent
+    export ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
+    export PATH="${ANTSPATH}:$PATH"
+
+    # FSL defaults to living under SAMBA_APPS_DIR via symlink we create in %post
+    export FSLDIR="${FSLDIR:-${SAMBA_APPS_DIR}/fsl}"
+    export FSLOUTPUTTYPE="${FSLOUTPUTTYPE:-NIFTI_GZ}"
+    export PATH="${FSLDIR}/bin:$PATH"
 
 %post
     set -eu
-
-    # --- FSL (noninteractive) ---
-    apt-get update
-    apt-get install -y --no-install-recommends python3 ca-certificates wget bzip2
-    FSLVER=6.0.6
-    FSLDIR=/opt/samba/fsl/${FSLVER}
-    mkdir -p "$(dirname "$FSLDIR")"
-    cd "$(dirname "$FSLDIR")"
-    wget -q https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py
-    TMPDST="$(mktemp -d "$(pwd)/.fsl.XXXXXX")"
-    python3 fslinstaller.py -d "$TMPDST" -V "$FSLVER" -q --skip_registration || \
-      yes | python3 fslinstaller.py -d "$TMPDST" -V "$FSLVER" -q --skip_registration
-    rm -rf "$FSLDIR"; mv "$TMPDST" "$FSLDIR"
-    chmod -R a+rX "$FSLDIR"
-    [ -x "$FSLDIR/bin/fslhd" ] || echo "WARNING: $FSLDIR/bin/fslhd not found"
-
-    # --- MATLAB Runtime R2015b (MCR) ---
-    BUILD_ROOT=/opt/build
-    ME_DIR=${BUILD_ROOT}/matlab_execs
-    MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
-    INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
-    CACHE_DIR=${BUILD_ROOT}/matlab_cache
-    INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
-    TEMP_DIR=${ME_DIR}/temp
-    mkdir -p "$MATLAB_2015b_PATH" "$ME_DIR" "$TEMP_DIR" "$CACHE_DIR"
-    [ -d "$INSTALLER_PATH" ] && rm -rf "$INSTALLER_PATH"
-    if [ -f "${CACHE_DIR}/${INSTALLER_NAME}" ]; then
-      cp -f "${CACHE_DIR}/${INSTALLER_NAME}" "${INSTALLER_PATH}"
-    else
-      wget -O "${INSTALLER_PATH}" \
-        "http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}"
-      cp -f "${INSTALLER_PATH}" "${CACHE_DIR}/" || true
-    fi
-    unzip -d "${TEMP_DIR}" "${INSTALLER_PATH}"
-    "${TEMP_DIR}/install" -mode silent -agreeToLicense yes -destinationFolder "${MATLAB_2015b_PATH}"
-    rm -rf "${TEMP_DIR}"
-    ls "${MATLAB_2015b_PATH}"/runtime/glnxa64/libmwmclmcrrt.so* >/dev/null 2>&1 || \
-      ls "${MATLAB_2015b_PATH}"/bin/glnxa64/libmwmclmcrrt.so*  >/dev/null 2>&1 || \
-      { echo "FATAL: MCR libmwmclmcrrt.so* missing"; exit 1; }
-    chmod -R a+rX /opt/MATLAB "$ME_DIR"
-
-    # OpenJDK 8 (MATLAB 2015b compatibility)
-    apt-get update && apt-get install -y openjdk-8-jre-headless
-    mkdir -p /opt/samba/java
-    cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre /opt/samba/java
-
-    # --- Perlbrew + Perl 5.16.3 + cpanm + Carton (POSIX sh safe) ---
-    # Respect your existing variables; set fallbacks if missing
     SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-    SAMBA_PATH="${SAMBA_PATH:-${SAMBA_APPS_DIR}/SAMBA}"
 
-    # Install perlbrew to a system location
-    export PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
-    curl -L https://install.perlbrew.pl | bash
-
-    # Install Perl 5.16.3 (no tests to speed up) and cpanm into perlbrew
-    "${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
-    "${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
-
-    # Install Carton into that perl, then run `carton install` for your project
-    # (Always execute under the perlbrew Perl to avoid host-Perl pollution.)
-    "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 cpanm -n Carton
-
-    # Prepare the project directory and minimal files if they don't exist
-    mkdir -p "${SAMBA_PATH}"
-    [ -f "${SAMBA_PATH}/cpanfile" ] || : > "${SAMBA_PATH}/cpanfile"
-    [ -f "${SAMBA_PATH}/cpanfile.snapshot" ] || : > "${SAMBA_PATH}/cpanfile.snapshot"
-
-    # Install project deps into local/ via Carton using perl-5.16.3
-    ( cd "${SAMBA_PATH}" && \
-      "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 carton install )
-
-    # Provide runtime activation for login shells (no sourcing in %post)
-    cat >/etc/profile.d/perlbrew.sh <<'EOF'
-export PERLBREW_ROOT=/opt/samba/perl5
-if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
-  . "$PERLBREW_ROOT/etc/bashrc"
-fi
-EOF
-    chmod 644 /etc/profile.d/perlbrew.sh
-
-
-    # --- Atlas from Zenodo (cached) ---
-    export ATLAS_FOLDER=/opt/atlases
-    mkdir -p /opt/zenodo_cache /opt/atlases
-    AZ_ID=15178373
-    FILE_NAME=chass_symmetric3.tar.gz
-    CACHE="/opt/zenodo_cache/${FILE_NAME}"
-    cd /opt/atlases
-    if [ -f "$CACHE" ]; then
-      cp "$CACHE" "$FILE_NAME"
+    if command -v apt-get >/dev/null 2>&1; then
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends ca-certificates curl gnupg
+      # Add NeuroDebian list for Ubuntu 22.04 (jammy); change region if you prefer
+      curl -fsSL https://neuro.debian.net/lists/jammy.us-nh.full \
+        -o /etc/apt/sources.list.d/neurodebian.sources.list
+      apt-get update
+      apt-get install -y --no-install-recommends neurodebian-keyring
+      apt-get update
+      # Minimal FSL bits (core tools & templates)
+      apt-get install -y --no-install-recommends fsl-core fsl-mni152-templates
+      apt-get clean; rm -rf /var/lib/apt/lists/*
     else
-      FILE_URL=$(curl -s https://zenodo.org/api/records/$AZ_ID \
-        | grep -A10 '"key": "'$FILE_NAME'"' | grep '"self"' \
-        | sed -E 's/.*"(https[^"]+)".*/\1/')
-      wget -O "$FILE_NAME" "$FILE_URL"
-      cp "$FILE_NAME" "$CACHE" || true
+      echo "ERROR: apt-get not found; FSL install method expects Debian/Ubuntu base." >&2
+      exit 1
     fi
-    tar -xzf "$FILE_NAME" && rm "$FILE_NAME"
-    [ -d chass_symmetric3 ] || { echo "FATAL: atlas folder missing"; exit 1; }
-    chmod -R a+rX /opt/atlases /opt/zenodo_cache
 
-    # Linker config for MCR (do this late)
-    cat >/etc/ld.so.conf.d/mcr_v90.conf <<EOF
-/opt/MATLAB/MATLAB2015b_runtime/v90/runtime/glnxa64
-/opt/MATLAB/MATLAB2015b_runtime/v90/bin/glnxa64
-/opt/MATLAB/MATLAB2015b_runtime/v90/sys/os/glnxa64
-EOF
-    ldconfig
+    # Detect FSL dir installed by packages
+    REAL_FSLDIR=""
+    for p in /usr/share/fsl/6.* /usr/lib/fsl/6.*; do
+      if [ -d "$p" ]; then REAL_FSLDIR="$p"; break; fi
+    done
+    if [ -z "$REAL_FSLDIR" ]; then
+      echo "ERROR: Could not locate FSL install dir after apt install." >&2
+      exit 1
+    fi
 
-%environment
-    export fsl_version=6.0.6
-    export FSLDIR=/opt/samba/fsl/${fsl_version}
-    export FSLOUTPUTTYPE=NIFTI_GZ
-    export ANTSPATH=/opt/samba/ants/bin
-    export PATH=${ANTSPATH}:${FSLDIR}/bin:$PATH
-    export MATLAB_EXEC_PATH=/opt/build/matlab_execs
-    export MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
-    export MCRROOT=${MATLAB_2015b_PATH}
-    export LD_LIBRARY_PATH=${MCRROOT}/runtime/glnxa64:${MCRROOT}/bin/glnxa64:${MCRROOT}/sys/os/glnxa64:$LD_LIBRARY_PATH
-    export ATLAS_FOLDER=/opt/atlases
-    export MATLAB_JAVA=/opt/samba/java/jre
-        # Perl setup
-    export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
-    export PATH="$PERLBREW_ROOT/bin:$PATH"
-    # In /bin/sh, use dot instead of 'source'
-    . "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+    # Make SAMBA_APPS_DIR/fsl point to the real FSL dir so FSLDIR can default there
+    mkdir -p "${SAMBA_APPS_DIR}"
+    ln -sfn "$REAL_FSLDIR" "${SAMBA_APPS_DIR}/fsl"
 
+    # Provide wrapper env for non-login shells at runtime
+    echo "export FSLDIR=${SAMBA_APPS_DIR}/fsl" > /etc/profile.d/99-fsl-samba.sh
+    echo 'export FSLOUTPUTTYPE=${FSLOUTPUTTYPE:-NIFTI_GZ}' >> /etc/profile.d/99-fsl-samba.sh
+    echo 'export PATH="${FSLDIR}/bin:$PATH"' >> /etc/profile.d/99-fsl-samba.sh
+    
+    # --- Perlbrew + Perl 5.16.3 + cpanm + Carton (no project install here) ---
+	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+	PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
+	
+	curl -L https://install.perlbrew.pl | bash
+	"${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
+	"${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
+	"${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 cpanm -n Carton
+	
+	cat >/etc/profile.d/perlbrew.sh <<'EOF'
+	export PERLBREW_ROOT=/opt/samba/perl5
+	if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
+	  . "$PERLBREW_ROOT/etc/bashrc"
+	fi
+	EOF
+	chmod 644 /etc/profile.d/perlbrew.sh
+
+
+%test
+    set -eu
+    FSLDIR="${FSLDIR:-${SAMBA_APPS_DIR:-/opt/samba}/fsl}"
+    [ -x "${FSLDIR}/bin/fslmaths" ]
+    "${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || true
+    echo "FSL present at ${FSLDIR}"
+
+%runscript
+    exec /bin/sh -c "$@"

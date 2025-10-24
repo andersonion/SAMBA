@@ -1,20 +1,98 @@
 Bootstrap: localimage
-From: fsl_mcr.sif
+From: fsl_mmcr.sif
 
 %labels
-    Stage final
+    Stage "SAMBA app env (perlbrew + Carton) on top of fsl_mmcr.sif"
+
+%environment
+    export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+    export ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
+    export PATH="${ANTSPATH}:$PATH"
+
+    export PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
+    export PATH="${PERLBREW_ROOT}/bin:$PATH"
+
+    export SRC_ROOT="${SRC_ROOT:-/opt/src}"
+    export SAMBA_REPO="${SAMBA_REPO:-https://github.com/your-org/SAMBA.git}"
+    export SAMBA_REF="${SAMBA_REF:-main}"
+    export SAMBA_SRC_DIR="${SAMBA_SRC_DIR:-${SRC_ROOT}/SAMBA}"
+
+    export SAMBA_CARTON_PATH="${SAMBA_CARTON_PATH:-${SAMBA_APPS_DIR}/perl5libs}"
 
 %post
     set -eu
-    # Pull your SAMBA repo
-    cd /opt/samba
-    if [ ! -d SAMBA ]; then
-      git clone https://github.com/andersonion/SAMBA.git
-    fi
-    # (Optional) pin to a known commit:
-    # cd SAMBA && git checkout <commit> && cd ..
+    SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+    PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
+    SRC_ROOT="${SRC_ROOT:-/opt/src}"
+    SAMBA_REPO="${SAMBA_REPO:-https://github.com/andersonion/SAMBA.git}"
+    SAMBA_REF="${SAMBA_REF:-main}"
+    SAMBA_SRC_DIR="${SAMBA_SRC_DIR:-${SRC_ROOT}/SAMBA}"
+    SAMBA_CARTON_PATH="${SAMBA_CARTON_PATH:-${SAMBA_APPS_DIR}/perl5libs}"
 
-%environment
-    export SAMBA_APPS_DIR=/opt/samba
-    export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
-    export PATH=${SAMBA_PATH}:$PATH
+    if command -v apt-get >/dev/null 2>&1; then
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends \
+        build-essential curl git ca-certificates \
+        zlib1g-dev libssl-dev libreadline-dev \
+        libncurses5-dev libncursesw5-dev libffi-dev make
+      apt-get clean; rm -rf /var/lib/apt/lists/*
+    fi
+
+    # Clone SAMBA FIRST so cpanfile exists for Carton
+    mkdir -p "${SRC_ROOT}"
+    if [ ! -d "${SAMBA_SRC_DIR}" ]; then
+      git clone "${SAMBA_REPO}" "${SAMBA_SRC_DIR}"
+    fi
+    cd "${SAMBA_SRC_DIR}"
+    git fetch --all --tags
+    git checkout --detach "${SAMBA_REF}" || true
+    if [ ! -f "${SAMBA_SRC_DIR}/cpanfile" ]; then
+      echo "ERROR: cpanfile not found in ${SAMBA_SRC_DIR}" >&2; exit 1
+    fi
+
+	# --- Strict Carton install for the project (fatal on missing/failed) ---
+
+	SAMBA_PATH="${SAMBA_PATH:-${SAMBA_APPS_DIR}/SAMBA}"
+	
+	# Sanity: perlbrew must exist from prior stage
+	if [ ! -x "${PERLBREW_ROOT}/bin/perlbrew" ]; then
+	  echo "FATAL: perlbrew not found at ${PERLBREW_ROOT}/bin/perlbrew (did you build fsl_mcr stage?)" >&2
+	  exit 1
+	fi
+	
+	# Repo must be present now
+	cd "${SAMBA_PATH}" || { echo "FATAL: ${SAMBA_PATH} missing"; exit 1; }
+	
+	if [ ! -f "cpanfile" ]; then
+	  echo "FATAL: cpanfile is missing in ${SAMBA_PATH}"; exit 1
+	fi
+	
+	# Remove empty snapshot if present
+	if [ -f "cpanfile.snapshot" ] && [ ! -s "cpanfile.snapshot" ]; then
+	  rm -f "cpanfile.snapshot"
+	fi
+	
+	CARTON_LOG=/tmp/carton_install.log
+	: > "$CARTON_LOG"
+	if [ -s "cpanfile.snapshot" ]; then
+	  CARTON_CMD="carton install --deployment"
+	else
+	  CARTON_CMD="carton install"
+	fi
+	
+	if ! "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 $CARTON_CMD >>"$CARTON_LOG" 2>&1; then
+	  echo "FATAL: Carton install failed. Last 100 lines:" >&2
+	  tail -n 100 "$CARTON_LOG" >&2
+	  exit 1
+	fi
+	echo "Carton dependencies installed."
+
+%test
+    set -eu
+    [ -f "${SAMBA_SRC_DIR:-/opt/src/SAMBA}/cpanfile" ]
+    [ -d "${SAMBA_CARTON_PATH:-/opt/samba/perl5libs}" ]
+    echo "SAMBA Perl deps installed under ${SAMBA_CARTON_PATH}"
+
+%runscript
+    exec /bin/sh -c "$@"
