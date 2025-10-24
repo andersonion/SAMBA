@@ -111,38 +111,104 @@ From: ubuntu:20.04
     ITK_DIR="$(dirname "$ITK_CONFIG")"; export ITK_DIR
     echo "Using ITK_DIR=$ITK_DIR"
 
-    # =====================================================================
-    # ANTs (commit 0ea8e53) — installed at /opt/samba/ants
-    # =====================================================================
-    echo "Building ANTs (0ea8e53) into /opt/samba/ants ..."
-    cd /opt/src
-    if [ ! -d ANTs ]; then git clone https://github.com/ANTsX/ANTs.git ANTs; fi
-    cd ANTs && git fetch --all -q || true && git checkout 0ea8e53
+    set -eu
 
-    rm -rf build && mkdir build && cd build
-    # Build ANTs *against* ITK we just installed. No SuperBuild. No examples.
-    cmake -G Ninja \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=/opt/samba/ants \
-      -DBUILD_TESTING=OFF \
-      -DBUILD_EXAMPLES=OFF \
-      -DITK_DIR:PATH="${ITK_DIR}" \
-      ..
+    # -- Paths/inputs --
+    ITK_DIR=/opt/itk/lib/cmake/ITK-5.3
+    INSTALL_PREFIX=/opt/samba/ants
+    SRC=/opt/src/ANTs
+    BUILD=${SRC}/build
+    LOG=/tmp/ants_cmake.log
 
-    # Cap parallelism a bit for memory safety
+    mkdir -p /opt/src
+    if [ ! -d "$SRC" ]; then
+      git clone https://github.com/ANTsX/ANTs.git "$SRC"
+    fi
+    cd "$SRC"
+    git fetch --all -q || true
+    git checkout 0ea8e53
+
+    # Fresh build directory
+    rm -rf "$BUILD"
+    mkdir -p "$BUILD"
+    cd "$BUILD"
+
+    # ---- Configure (Option A: SuperBuild OFF) ----
+    : > "$LOG"
+    if ! cmake -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
+        -DBUILD_TESTING=OFF \
+        -DBUILD_EXAMPLES=ON \
+        -DSuperBuild=OFF \
+        -DITK_DIR="$ITK_DIR" \
+        .. >>"$LOG" 2>&1 ; then
+      echo "FATAL: CMake configure failed. Last 200 lines:" >&2
+      tail -n 200 "$LOG" >&2
+      # Print CMake diagnostic logs if present
+      [ -f CMakeFiles/CMakeError.log ]  && { echo "--- CMakeError.log ---";  tail -n 200 CMakeFiles/CMakeError.log; }
+      [ -f CMakeFiles/CMakeOutput.log ] && { echo "--- CMakeOutput.log ---"; tail -n 200 CMakeFiles/CMakeOutput.log; }
+      exit 1
+    fi
+
+    # Ensure generator actually created build.ninja
+    if [ ! -f build.ninja ]; then
+      echo "FATAL: build.ninja was not generated (generator or configure issue)." >&2
+      exit 1
+    fi
+
+    # ---- Build selected tools ----
     JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
-    BUILD_LOG=/tmp/ants_build.log; : > "$BUILD_LOG"
-    if ! ninja -j "$JOBS" >"$BUILD_LOG" 2>&1; then
-      echo "ANTs build failed. Last 200 lines:" >&2
-      tail -n 200 "$BUILD_LOG" >&2
-      exit 1
-    fi
-    cmake --install .
+    TARGETS="
+      antsRegistration
+      antsApplyTransforms
+      N4BiasFieldCorrection
+      Atropos
+      ImageMath
+      ResampleImageBySpacing
+      ResampleImage
+      SmoothImage
+      MultiplyImages
+      ThresholdImage
+      PrintHeader
+      ConvertImage
+      ConvertImagePixelType
+      SetOrigin
+      SetSpacing
+      ConvertTransformFile
+    "
+    # compact TARGETS into a single line
+    TARGETS="$(echo $TARGETS)"
 
-    if [ ! -x /opt/samba/ants/bin/antsRegistration ]; then
-      echo "FATAL: ANTs install missing /opt/samba/ants/bin/antsRegistration" >&2
+    if ! ninja -j "$JOBS" $TARGETS ; then
+      echo "FATAL: Ninja build failed. Dumping last 200 lines of build output is not available here." >&2
       exit 1
     fi
+
+    # ---- Install (or copy binaries if no install rules) ----
+    if ! cmake --install . ; then
+      echo "Note: No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
+      mkdir -p "${INSTALL_PREFIX}/bin"
+      # Find and copy executables we just built
+      for t in $TARGETS ; do
+        p="$(command -v "$t" 2>/dev/null || true)"
+        if [ -n "$p" ] && [ -x "$p" ]; then
+          cp -fv "$p" "${INSTALL_PREFIX}/bin/"
+        else
+          # search under build tree when command -v doesn’t find it
+          found="$(find . -type f -name "$t" -perm -111 -print -quit || true)"
+          [ -n "$found" ] && cp -fv "$found" "${INSTALL_PREFIX}/bin/" || true
+        fi
+      done
+    fi
+
+    # ---- Final sanity check ----
+    if [ ! -x "${INSTALL_PREFIX}/bin/antsRegistration" ]; then
+      echo "FATAL: ANTs installation failed — ${INSTALL_PREFIX}/bin/antsRegistration not found." >&2
+      exit 1
+    fi
+    chmod -R a+rX "${INSTALL_PREFIX}"
+
 
     # =====================================================================
     # FSL 6.0.6 (non-interactive conda-based installer)
