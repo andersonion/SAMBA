@@ -12,82 +12,104 @@ From: itk.sif
     export ANTS_TARGETS="${ANTS_TARGETS:-antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage}"
 
 %post
-    # /bin/sh-safe
     set -eu
-    SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-    ITK_DIR="${ITK_DIR:-/opt/itk/lib/cmake/ITK-5.3}"
-    SRC_ROOT="${SRC_ROOT:-/opt/src}"
-    ANTS_REF="${ANTS_REF:-0ea8e53}"
-    ANTS_TARGETS="${ANTS_TARGETS:-antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage}"
 
-    if [ ! -f "${ITK_DIR}/ITKConfig.cmake" ]; then
-        echo "ERROR: ITK_DIR='${ITK_DIR}' missing ITKConfig.cmake." >&2; exit 1
+    # -- Paths/inputs --
+    ITK_DIR=/opt/itk/lib/cmake/ITK-5.3
+    INSTALL_PREFIX=/opt/samba/ants
+    SRC=/opt/src/ANTs
+    BUILD=${SRC}/build
+    LOG=/tmp/ants_cmake.log
+
+    mkdir -p /opt/src
+    if [ ! -d "$SRC" ]; then
+      git clone https://github.com/ANTsX/ANTs.git "$SRC"
+    fi
+    cd "$SRC"
+    git fetch --all -q || true
+    git checkout 0ea8e53
+
+    # Fresh build directory
+    rm -rf "$BUILD"
+    mkdir -p "$BUILD"
+    cd "$BUILD"
+
+    # ---- Configure (Option A: SuperBuild OFF) ----
+    : > "$LOG"
+    if ! cmake -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
+        -DBUILD_TESTING=OFF \
+        -DBUILD_EXAMPLES=ON \
+        -DSuperBuild=OFF \
+        -DITK_DIR="$ITK_DIR" \
+        .. >>"$LOG" 2>&1 ; then
+      echo "FATAL: CMake configure failed. Last 200 lines:" >&2
+      tail -n 200 "$LOG" >&2
+      # Print CMake diagnostic logs if present
+      [ -f CMakeFiles/CMakeError.log ]  && { echo "--- CMakeError.log ---";  tail -n 200 CMakeFiles/CMakeError.log; }
+      [ -f CMakeFiles/CMakeOutput.log ] && { echo "--- CMakeOutput.log ---"; tail -n 200 CMakeFiles/CMakeOutput.log; }
+      exit 1
     fi
 
-    if command -v apt-get >/dev/null 2>&1; then
-      export DEBIAN_FRONTEND=noninteractive
-      apt-get update
-      apt-get install -y --no-install-recommends \
-        build-essential cmake ninja-build git \
-        zlib1g-dev libpng-dev libtiff-dev libjpeg-dev \
-        libexpat1-dev ca-certificates
-      apt-get clean; rm -rf /var/lib/apt/lists/*
+    # Ensure generator actually created build.ninja
+    if [ ! -f build.ninja ]; then
+      echo "FATAL: build.ninja was not generated (generator or configure issue)." >&2
+      exit 1
     fi
 
-    export CMAKE_PREFIX_PATH="/opt/itk${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+    # ---- Build selected tools ----
+    JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
+    TARGETS="
+      antsRegistration
+      antsApplyTransforms
+      N4BiasFieldCorrection
+      Atropos
+      ImageMath
+      ResampleImageBySpacing
+      ResampleImage
+      SmoothImage
+      MultiplyImages
+      ThresholdImage
+      PrintHeader
+      ConvertImage
+      ConvertImagePixelType
+      SetOrigin
+      SetSpacing
+      ConvertTransformFile
+    "
+    # compact TARGETS into a single line
+    TARGETS="$(echo $TARGETS)"
 
-    mkdir -p "${SRC_ROOT}"
-    cd "${SRC_ROOT}"
-    if [ ! -d ANTs ]; then
-      git clone https://github.com/ANTsX/ANTs.git
+    if ! ninja -j "$JOBS" $TARGETS ; then
+      echo "FATAL: Ninja build failed. Dumping last 200 lines of build output is not available here." >&2
+      exit 1
     fi
-    cd ANTs
-    git fetch --all --tags
-    # 🔒 checkout exactly the commit (override-able via ANTS_REF if you really want)
-    git checkout --detach "${ANTS_REF}"
 
-    rm -rf build
-    mkdir -p build
-    cd build
-
-    INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
-
-	# Cap parallelism a bit for memory safety
-	JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
-	BUILD_LOG=/tmp/ants_build.log; : > "$BUILD_LOG"
-	
-	# Build only the core tools SAMBA uses (no umbrella 'all', so Examples don't flood in)
-	# Add/remove targets here as needed without touching the rest of the file.
-	ANTS_TARGETS="
-	  antsRegistration
-	  antsApplyTransforms
-	  N4BiasFieldCorrection
-	  Atropos
-	  ImageMath
-	  ResampleImageBySpacing
-	  ResampleImage
-	  SmoothImage
-	  MultiplyImages
-	  ThresholdImage
-	  PrintHeader
-	  ConvertImage
-	  ConvertImagePixelType
-	  SetOrigin
-	  SetSpacing
-	  ConvertTransformFile
-	"
-	
-	if ! ninja -j "$JOBS" $ANTS_TARGETS >"$BUILD_LOG" 2>&1; then
-	  echo "ANTs build failed. Last 200 lines:" >&2
-	  tail -n 200 "$BUILD_LOG" >&2
-	  exit 1
-	fi
-
-    cmake --install . --prefix "${INSTALL_PREFIX}"
-
-    if command -v strip >/dev/null 2>&1; then
-      find "${INSTALL_PREFIX}/bin" -type f -perm -111 -exec strip --strip-unneeded {} + 2>/dev/null || true
+    # ---- Install (or copy binaries if no install rules) ----
+    if ! cmake --install . ; then
+      echo "Note: No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
+      mkdir -p "${INSTALL_PREFIX}/bin"
+      # Find and copy executables we just built
+      for t in $TARGETS ; do
+        p="$(command -v "$t" 2>/dev/null || true)"
+        if [ -n "$p" ] && [ -x "$p" ]; then
+          cp -fv "$p" "${INSTALL_PREFIX}/bin/"
+        else
+          # search under build tree when command -v doesn’t find it
+          found="$(find . -type f -name "$t" -perm -111 -print -quit || true)"
+          [ -n "$found" ] && cp -fv "$found" "${INSTALL_PREFIX}/bin/" || true
+        fi
+      done
     fi
+
+    # ---- Final sanity check ----
+    if [ ! -x "${INSTALL_PREFIX}/bin/antsRegistration" ]; then
+      echo "FATAL: ANTs installation failed — ${INSTALL_PREFIX}/bin/antsRegistration not found." >&2
+      exit 1
+    fi
+    chmod -R a+rX "${INSTALL_PREFIX}"
+
 
 %test
     set -eu
