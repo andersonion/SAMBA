@@ -60,11 +60,11 @@ From: itk.sif
 
     # ---- Build selected tools ----
 
-	# We are already in the ANTs build dir.
-	
+	# ---- Build only the CLI executables we care about (CMake-resolved targets) ----
 	JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
 	BUILD_LOG=/tmp/ants_build.log; : > "$BUILD_LOG"
 	
+	# Logical list of ANTs tools we actually want
 	WANTED="
 	  antsRegistration
 	  antsApplyTransforms
@@ -84,61 +84,69 @@ From: itk.sif
 	  ConvertTransformFile
 	"
 	
-	# ---- discover actual ninja targets (strip trailing colon) ----
-	EXISTING="$(ninja -t targets all 2>/dev/null | cut -d: -f1)"
-	# (optional debug) show a few targets in the log
-	ninja -t targets all | head -n 20 1>&2 || true
+	# Gather available targets from BOTH CMake and Ninja, normalize names
+	AVAIL=$(
+	  {
+		cmake --build . --target help 2>/dev/null || true
+		ninja -t targets all 2>/dev/null || true
+	  } \
+	  | sed 's/^[[:space:]]\{0,3\}\.\{3\}[[:space:]]*//' \
+	  | sed 's/:.*$//' \
+	  | awk '{print $1}' \
+	  | sort -u
+	)
 	
-	RESOLVED=""
+	# Map wanted tool names to actual build targets (accept exact or l_<name>)
+	RESOLVED_TARGET_ARGS=""
 	for t in $WANTED; do
-	  if printf '%s\n' "$EXISTING" | grep -qx "$t"; then
-		RESOLVED="$RESOLVED $t"
-	  elif printf '%s\n' "$EXISTING" | grep -qx "l_$t"; then
-		RESOLVED="$RESOLVED l_$t"
+	  if printf '%s\n' "$AVAIL" | grep -qx "$t"; then
+		RESOLVED_TARGET_ARGS="$RESOLVED_TARGET_ARGS --target $t"
+	  elif printf '%s\n' "$AVAIL" | grep -qx "l_$t"; then
+		RESOLVED_TARGET_ARGS="$RESOLVED_TARGET_ARGS --target l_$t"
 	  fi
 	done
 	
-	if [ -n "$RESOLVED" ]; then
-	  echo "Building targets:$RESOLVED"
-	  if ! ninja -j "$JOBS" $RESOLVED >"$BUILD_LOG" 2>&1; then
+	if [ -n "$RESOLVED_TARGET_ARGS" ]; then
+	  echo "CMake targets resolved:$RESOLVED_TARGET_ARGS"
+	  # Build just those targets (CMake drives Ninja; pass -j via '--')
+	  if ! cmake --build . $RESOLVED_TARGET_ARGS -- -j "$JOBS" >"$BUILD_LOG" 2>&1; then
 		echo "ANTs build failed. Last 200 lines:" >&2
 		tail -n 200 "$BUILD_LOG" >&2
 		exit 1
 	  fi
 	else
-	  echo "Note: none of the requested targets matched; doing a full build (once) ..." >&2
-	  if ! ninja -j "$JOBS" >"$BUILD_LOG" 2>&1; then
+	  echo "Note: none of the requested tools found as targets; building full tree once..." >&2
+	  if ! cmake --build . -- -j "$JOBS" >"$BUILD_LOG" 2>&1; then
 		echo "ANTs full build failed. Last 200 lines:" >&2
 		tail -n 200 "$BUILD_LOG" >&2
 		exit 1
 	  fi
 	fi
 	
-	# ---- install (or copy if no install rules) ----
+	# ---- Install (or copy if no install rules) ----
 	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
 	if ! cmake --install . --prefix "${INSTALL_PREFIX}" ; then
 	  echo "Note: No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
 	  mkdir -p "${INSTALL_PREFIX}/bin"
-	  for t in $RESOLVED; do
-		out="$(ninja -t query "$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
-		if [ -n "$out" ] && [ -f "$out" ]; then
-		  cp -fv "$out" "${INSTALL_PREFIX}/bin/"
-		  continue
+	  # Try both direct path and CMake/Ninja query for each tool
+	  for t in $WANTED; do
+		# 1) common output location
+		if [ -f "Examples/$t" ]; then
+		  cp -fv "Examples/$t" "${INSTALL_PREFIX}/bin/"; continue
 		fi
-		p="$(command -v "$t" 2>/dev/null || true)"
-		if [ -n "$p" ] && [ -x "$p" ]; then
-		  cp -fv "$p" "${INSTALL_PREFIX}/bin/"; continue
-		fi
-		found="$(find . -type f -name "$t" -perm -111 -print -quit 2>/dev/null || true)"
-		[ -n "$found" ] && cp -fv "$found" "${INSTALL_PREFIX}/bin/" || true
+		# 2) if we resolved a target, ask ninja for its output
+		#    (check l_<name> first, then <name>)
+		out="$(ninja -t query "l_$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+		[ -z "$out" ] && out="$(ninja -t query "$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+		[ -n "$out" ] && [ -f "$out" ] && cp -fv "$out" "${INSTALL_PREFIX}/bin/" || true
 	  done
 	fi
 	
-	# ---- final sanity ----
+	# ---- Final sanity check ----
 	if [ ! -x "${INSTALL_PREFIX}/bin/antsRegistration" ]; then
 	  echo "FATAL: ANTs installation failed — ${INSTALL_PREFIX}/bin/antsRegistration not found." >&2
-	  echo "Built targets were: $RESOLVED" >&2
-	  # show a few known outputs for debugging
+	  echo "Built targets were: $RESOLVED_TARGET_ARGS" >&2
+	  # show a few outputs for debugging
 	  find "${INSTALL_PREFIX}/bin" -maxdepth 1 -type f -printf '%f\n' | sort | head -n 50 >&2 || true
 	  exit 1
 	fi
