@@ -158,56 +158,98 @@ From: ubuntu:20.04
     fi
 
     # ---- Build selected tools ----
-    JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
-    TARGETS="
-      antsRegistration
-      antsApplyTransforms
-      N4BiasFieldCorrection
-      Atropos
-      ImageMath
-      ResampleImageBySpacing
-      ResampleImage
-      SmoothImage
-      MultiplyImages
-      ThresholdImage
-      PrintHeader
-      ConvertImage
-      ConvertImagePixelType
-      SetOrigin
-      SetSpacing
-      ConvertTransformFile
-    "
-    # compact TARGETS into a single line
-    TARGETS="$(echo $TARGETS)"
-
-    if ! ninja -j "$JOBS" $TARGETS ; then
-      echo "FATAL: Ninja build failed. Dumping last 200 lines of build output is not available here." >&2
-      exit 1
-    fi
-
-    # ---- Install (or copy binaries if no install rules) ----
-    if ! cmake --install . ; then
-      echo "Note: No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
-      mkdir -p "${INSTALL_PREFIX}/bin"
-      # Find and copy executables we just built
-      for t in $TARGETS ; do
-        p="$(command -v "$t" 2>/dev/null || true)"
-        if [ -n "$p" ] && [ -x "$p" ]; then
-          cp -fv "$p" "${INSTALL_PREFIX}/bin/"
-        else
-          # search under build tree when command -v doesn’t find it
-          found="$(find . -type f -name "$t" -perm -111 -print -quit || true)"
-          [ -n "$found" ] && cp -fv "$found" "${INSTALL_PREFIX}/bin/" || true
-        fi
-      done
-    fi
-
-    # ---- Final sanity check ----
-    if [ ! -x "${INSTALL_PREFIX}/bin/antsRegistration" ]; then
-      echo "FATAL: ANTs installation failed — ${INSTALL_PREFIX}/bin/antsRegistration not found." >&2
-      exit 1
-    fi
-    chmod -R a+rX "${INSTALL_PREFIX}"
+	# We are already in the ANTs build dir and build.ninja exists.
+	
+	JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
+	BUILD_LOG=/tmp/ants_build.log; : > "$BUILD_LOG"
+	
+	# The tools you want (logical names)
+	WANTED="
+	  antsRegistration
+	  antsApplyTransforms
+	  N4BiasFieldCorrection
+	  Atropos
+	  ImageMath
+	  ResampleImageBySpacing
+	  ResampleImage
+	  SmoothImage
+	  MultiplyImages
+	  ThresholdImage
+	  PrintHeader
+	  ConvertImage
+	  ConvertImagePixelType
+	  SetOrigin
+	  SetSpacing
+	  ConvertTransformFile
+	"
+	
+	# Discover actual ninja target names that exist in this tree
+	EXISTING="$(ninja -t targets all | awk '{print $1}')"
+	RESOLVED=""
+	for t in $WANTED; do
+	  if printf '%s\n' "$EXISTING" | grep -qx "$t"; then
+		RESOLVED="$RESOLVED $t"
+	  elif printf '%s\n' "$EXISTING" | grep -qx "l_$t"; then
+		# some CLIs are exposed as l_<name>
+		RESOLVED="$RESOLVED l_$t"
+	  fi
+	done
+	
+	if [ -n "$RESOLVED" ]; then
+	  echo "Building targets:$RESOLVED"
+	  if ! ninja -j "$JOBS" $RESOLVED >"$BUILD_LOG" 2>&1; then
+		echo "ANTs build failed. Last 200 lines:" >&2
+		tail -n 200 "$BUILD_LOG" >&2
+		exit 1
+	  fi
+	else
+	  echo "Note: none of the requested targets found; doing a full build (once) ..."
+	  if ! ninja -j "$JOBS" >"$BUILD_LOG" 2>&1; then
+		echo "ANTs full build failed. Last 200 lines:" >&2
+		tail -n 200 "$BUILD_LOG" >&2
+		exit 1
+	  fi
+	fi
+	
+	# then your existing install step (keep it):
+	cmake --install . --prefix "${INSTALL_PREFIX}"
+	
+	
+	# ---- Install (or copy binaries if no install rules) ----
+	# Prefer an explicit prefix just in case:
+	if ! cmake --install . --prefix "${INSTALL_PREFIX}" ; then
+	  echo "Note: No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
+	  mkdir -p "${INSTALL_PREFIX}/bin"
+	
+	  # Use the resolved ninja targets we actually built
+	  for t in $RESOLVED ; do
+		# Ask ninja which file this target outputs (more reliable than guessing name)
+		out="$(ninja -t query "$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+		if [ -n "$out" ] && [ -f "$out" ]; then
+		  cp -fv "$out" "${INSTALL_PREFIX}/bin/"
+		  continue
+		fi
+	
+		# Fallback 1: see if it's on PATH already (rare during build shells)
+		p="$(command -v "$t" 2>/dev/null || true)"
+		if [ -n "$p" ] && [ -x "$p" ]; then
+		  cp -fv "$p" "${INSTALL_PREFIX}/bin/"
+		  continue
+		fi
+	
+		# Fallback 2: search the build tree for an executable matching the target
+		found="$(find . -type f -name "$t" -perm -111 -print -quit 2>/dev/null || true)"
+		[ -n "$found" ] && cp -fv "$found" "${INSTALL_PREFIX}/bin/" || true
+	  done
+	fi
+	
+	# ---- Final sanity check ----
+	if [ ! -x "${INSTALL_PREFIX}/bin/antsRegistration" ]; then
+	  echo "FATAL: ANTs installation failed — ${INSTALL_PREFIX}/bin/antsRegistration not found." >&2
+	  echo "Built targets were: $RESOLVED" >&2
+	  exit 1
+	fi
+	chmod -R a+rX "${INSTALL_PREFIX}"
 
 
     # =====================================================================
