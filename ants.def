@@ -51,16 +51,38 @@ From: itk.sif
     cd build
 
     INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
-    JOBS="$(nproc)"; [ "$JOBS" -gt 4 ] && JOBS=4
 
-    cmake -G Ninja \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
-      -DBUILD_TESTING=OFF \
-      -DITK_DIR:PATH="${ITK_DIR}" \
-      ..
+	# Cap parallelism a bit for memory safety
+	JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
+	BUILD_LOG=/tmp/ants_build.log; : > "$BUILD_LOG"
+	
+	# Build only the core tools SAMBA uses (no umbrella 'all', so Examples don't flood in)
+	# Add/remove targets here as needed without touching the rest of the file.
+	ANTS_TARGETS="
+	  antsRegistration
+	  antsApplyTransforms
+	  N4BiasFieldCorrection
+	  Atropos
+	  ImageMath
+	  ResampleImageBySpacing
+	  ResampleImage
+	  SmoothImage
+	  MultiplyImages
+	  ThresholdImage
+	  PrintHeader
+	  ConvertImage
+	  ConvertImagePixelType
+	  SetOrigin
+	  SetSpacing
+	  ConvertTransformFile
+	"
+	
+	if ! ninja -j "$JOBS" $ANTS_TARGETS >"$BUILD_LOG" 2>&1; then
+	  echo "ANTs build failed. Last 200 lines:" >&2
+	  tail -n 200 "$BUILD_LOG" >&2
+	  exit 1
+	fi
 
-    ninja -j "$JOBS" ${ANTS_TARGETS}
     cmake --install . --prefix "${INSTALL_PREFIX}"
 
     if command -v strip >/dev/null 2>&1; then
