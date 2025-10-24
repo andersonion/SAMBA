@@ -2,64 +2,82 @@ Bootstrap: localimage
 From: itk.sif
 
 %labels
-    Stage "ANTs build stage (no Examples) on top of itk.sif"
-    Maintainer "you"
+    Stage "ANTs build (no Examples) on top of itk.sif"
+    Maintainer Robert Anderson
 
 %environment
-    # Your layout (unchanged)
-    export ANTSPATH=/opt/samba/ants/bin
-    export PATH="$ANTSPATH:$PATH"
+    # Single source of truth for all install paths:
+    export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
 
-    # Reuse ITK from itk.sif stage (override at build if needed)
-    export ITK_DIR=${ITK_DIR:-/opt/samba/itk/lib/cmake/ITK-5.3}
+    # ANTSPATH must match samba.def exactly:
+    export ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
+    export PATH="${ANTSPATH}:$PATH"
 
-    # Allow pinning ANTs version & targets without editing the file
+    # ITK location produced by your itk stage (can override if needed):
+    export ITK_DIR="${ITK_DIR:-${SAMBA_APPS_DIR}/itk/lib/cmake/ITK-5.3}"
+
+    # Where to place sources (only affects checkout location, not installs):
+    export SRC_ROOT="${SRC_ROOT:-/opt/src}"
+
+    # Allow pinning ANTs version and build targets without editing the file:
     export ANTS_REF="${ANTS_REF:-master}"
     export ANTS_TARGETS="${ANTS_TARGETS:-antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage}"
 
 %post
-    set -euo pipefail
+    # POSIX /bin/sh safe
+    set -eu
 
-    # --- sanity: ITK must be present in the base image ---
+    # Re-export env for this non-login shell
+    SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+    ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
+    ITK_DIR="${ITK_DIR:-${SAMBA_APPS_DIR}/itk/lib/cmake/ITK-5.3}"
+    SRC_ROOT="${SRC_ROOT:-/opt/src}"
+    ANTS_REF="${ANTS_REF:-master}"
+    ANTS_TARGETS="${ANTS_TARGETS:-antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage}"
+
+    # Sanity: ITK must exist in base image
     if [ ! -f "${ITK_DIR}/ITKConfig.cmake" ]; then
-        echo "ERROR: ITK_DIR '${ITK_DIR}' missing ITKConfig.cmake. The base itk.sif should provide it." >&2
+        echo "ERROR: ITK_DIR='${ITK_DIR}' missing ITKConfig.cmake (build itk.sif first or set ITK_DIR)" >&2
         exit 1
     fi
 
-    # --- build deps (should already be present in itk.sif, but ensure) ---
+    # Ensure minimal build deps (idempotent)
     if command -v apt-get >/dev/null 2>&1; then
-      export DEBIAN_FRONTEND=noninteractive
-      apt-get update
-      apt-get install -y --no-install-recommends \
-        build-essential cmake ninja-build git \
-        zlib1g-dev libpng-dev libtiff-dev libjpeg-dev \
-        libexpat1-dev ca-certificates
-      apt-get clean
-      rm -rf /var/lib/apt/lists/*
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build git \
+            zlib1g-dev libpng-dev libtiff-dev libjpeg-dev \
+            libexpat1-dev ca-certificates
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
     fi
 
-    # --- fetch ANTs source (this answers "where the code comes from") ---
-    mkdir -p /opt/src
-    cd /opt/src
-    git config --global advice.detachedHead false
+    # Fetch ANTs (explicit source of truth; no hidden staging)
+    mkdir -p "${SRC_ROOT}"
+    cd "${SRC_ROOT}"
     if [ ! -d ANTs ]; then
-        echo "Cloning ANTs @ ${ANTS_REF}"
         git clone https://github.com/ANTsX/ANTs.git
     fi
     cd ANTs
     git fetch --all --tags
+    # detached checkout to requested ref (tag/branch/SHA)
     git checkout --detach "${ANTS_REF}" || true
 
-    # --- clean build to avoid stale cache resurrecting Examples ---
+    # Clean build to avoid stale cache (prevents Examples from sneaking back)
     rm -rf build
     mkdir -p build
     cd build
 
-    JOBS="$(nproc)"; [ "${JOBS}" -gt 4 ] && JOBS=4
+    # Install prefix derives from SAMBA_APPS_DIR
+    INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
+
+    # Cap cores for reproducibility
+    JOBS="$(nproc)"; if [ "$JOBS" -gt 4 ]; then JOBS=4; fi
 
     cmake -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=/opt/samba/ants \
+      -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
       -DBUILD_TESTING=OFF \
       -DBUILD_EXAMPLES=OFF \
       -DANTS_SUPERBUILD=OFF -DBUILD_SUPERBUILD=OFF \
@@ -69,32 +87,38 @@ From: itk.sif
     echo "Building ANTs targets: ${ANTS_TARGETS}"
     ninja -j "${JOBS}" ${ANTS_TARGETS}
 
-    cmake --install . --prefix /opt/samba/ants
+    cmake --install . --prefix "${INSTALL_PREFIX}"
 
-    # make sure subsequent steps can see ANTs
-    export PATH="/opt/samba/ants/bin:$PATH"
-
-    # optional: slim binaries
+    # Optional: strip to slim; ignore failures if strip isn't available
     if command -v strip >/dev/null 2>&1; then
-        find /opt/samba/ants/bin -type f -executable -exec strip --strip-unneeded {} + || true
+        find "${INSTALL_PREFIX}/bin" -type f -perm -111 -exec strip --strip-unneeded {} + 2>/dev/null || true
     fi
 
 %test
-    set -e
-    [ -x /opt/samba/ants/bin/antsRegistration ]
-    [ -x /opt/samba/ants/bin/antsApplyTransforms ]
-    [ -x /opt/samba/ants/bin/N4BiasFieldCorrection ]
-    echo "ANTs core tools present."
+    set -eu
+    # Use ANTSPATH derived from SAMBA_APPS_DIR
+    SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+    ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
+    [ -x "${ANTSPATH}/antsRegistration" ]
+    [ -x "${ANTSPATH}/antsApplyTransforms" ]
+    [ -x "${ANTSPATH}/N4BiasFieldCorrection" ]
+    echo "ANTs core tools present in ${ANTSPATH}"
 
 %runscript
-    # pass-through; ANTs on PATH via %environment
-    exec /bin/bash -lc "$@"
+    # Pass-through; ANTs already on PATH via %environment
+    exec /bin/sh -c "$@"
 
 %help
-    Builds ANTs on top of itk.sif (ITK in /opt/samba/itk), installs to /opt/samba/ants.
-    No Examples are built.
+    Builds ANTs on top of itk.sif without Examples.
+    All paths derive from SAMBA_APPS_DIR (default /opt/samba).
 
-    Env overrides:
-      ITK_DIR      : path to ITKConfig.cmake (default /opt/samba/itk/lib/cmake/ITK-5.3)
-      ANTS_REF     : tag/branch/SHA to checkout (default master)
-      ANTS_TARGETS : space-separated targets (default core tools listed above)
+    Key envs (override at build time if desired):
+      SAMBA_APPS_DIR  : base install root (default /opt/samba)
+      ANTSPATH        : ${SAMBA_APPS_DIR}/ants/bin (derived if not set)
+      ITK_DIR         : ${SAMBA_APPS_DIR}/itk/lib/cmake/ITK-5.3 (derived if not set)
+      SRC_ROOT        : /opt/src (checkout location only)
+      ANTS_REF        : master (set tag/branch/SHA, e.g., tags/v2.5.3)
+      ANTS_TARGETS    : space-separated targets to build
+
+    Example:
+      SAMBA_APPS_DIR=/opt/samba apptainer build ants.sif ants.def
