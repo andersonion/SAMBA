@@ -59,12 +59,12 @@ From: itk.sif
     fi
 
     # ---- Build selected tools ----
-	# We are already in the ANTs build dir and build.ninja exists.
+
+	# We are already in the ANTs build dir.
 	
 	JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
 	BUILD_LOG=/tmp/ants_build.log; : > "$BUILD_LOG"
 	
-	# The tools you want (logical names)
 	WANTED="
 	  antsRegistration
 	  antsApplyTransforms
@@ -84,14 +84,16 @@ From: itk.sif
 	  ConvertTransformFile
 	"
 	
-	# Discover actual ninja target names that exist in this tree
-	EXISTING="$(ninja -t targets all | awk '{print $1}')"
+	# ---- discover actual ninja targets (strip trailing colon) ----
+	EXISTING="$(ninja -t targets all 2>/dev/null | cut -d: -f1)"
+	# (optional debug) show a few targets in the log
+	ninja -t targets all | head -n 20 1>&2 || true
+	
 	RESOLVED=""
 	for t in $WANTED; do
 	  if printf '%s\n' "$EXISTING" | grep -qx "$t"; then
 		RESOLVED="$RESOLVED $t"
 	  elif printf '%s\n' "$EXISTING" | grep -qx "l_$t"; then
-		# some CLIs are exposed as l_<name>
 		RESOLVED="$RESOLVED l_$t"
 	  fi
 	done
@@ -104,7 +106,7 @@ From: itk.sif
 		exit 1
 	  fi
 	else
-	  echo "Note: none of the requested targets found; doing a full build (once) ..."
+	  echo "Note: none of the requested targets matched; doing a full build (once) ..." >&2
 	  if ! ninja -j "$JOBS" >"$BUILD_LOG" 2>&1; then
 		echo "ANTs full build failed. Last 200 lines:" >&2
 		tail -n 200 "$BUILD_LOG" >&2
@@ -112,46 +114,35 @@ From: itk.sif
 	  fi
 	fi
 	
-	# then your existing install step (keep it):
-	cmake --install . --prefix "${INSTALL_PREFIX}"
-
-	# ---- Install (or copy binaries if no install rules) ----
-	# Prefer an explicit prefix just in case:
+	# ---- install (or copy if no install rules) ----
+	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
 	if ! cmake --install . --prefix "${INSTALL_PREFIX}" ; then
 	  echo "Note: No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
 	  mkdir -p "${INSTALL_PREFIX}/bin"
-	
-	  # Use the resolved ninja targets we actually built
-	  for t in $RESOLVED ; do
-		# Ask ninja which file this target outputs (more reliable than guessing name)
+	  for t in $RESOLVED; do
 		out="$(ninja -t query "$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
 		if [ -n "$out" ] && [ -f "$out" ]; then
 		  cp -fv "$out" "${INSTALL_PREFIX}/bin/"
 		  continue
 		fi
-	
-		# Fallback 1: see if it's on PATH already (rare during build shells)
 		p="$(command -v "$t" 2>/dev/null || true)"
 		if [ -n "$p" ] && [ -x "$p" ]; then
-		  cp -fv "$p" "${INSTALL_PREFIX}/bin/"
-		  continue
+		  cp -fv "$p" "${INSTALL_PREFIX}/bin/"; continue
 		fi
-	
-		# Fallback 2: search the build tree for an executable matching the target
 		found="$(find . -type f -name "$t" -perm -111 -print -quit 2>/dev/null || true)"
 		[ -n "$found" ] && cp -fv "$found" "${INSTALL_PREFIX}/bin/" || true
 	  done
 	fi
 	
-	# ---- Final sanity check ----
+	# ---- final sanity ----
 	if [ ! -x "${INSTALL_PREFIX}/bin/antsRegistration" ]; then
 	  echo "FATAL: ANTs installation failed — ${INSTALL_PREFIX}/bin/antsRegistration not found." >&2
 	  echo "Built targets were: $RESOLVED" >&2
+	  # show a few known outputs for debugging
+	  find "${INSTALL_PREFIX}/bin" -maxdepth 1 -type f -printf '%f\n' | sort | head -n 50 >&2 || true
 	  exit 1
 	fi
 	chmod -R a+rX "${INSTALL_PREFIX}"
-	
-	
 
 %test
     set -eu
