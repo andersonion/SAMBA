@@ -56,6 +56,61 @@ From: ants.sif
     echo 'export FSLOUTPUTTYPE=${FSLOUTPUTTYPE:-NIFTI_GZ}' >> /etc/profile.d/99-fsl-samba.sh
     echo 'export PATH="${FSLDIR}/bin:$PATH"' >> /etc/profile.d/99-fsl-samba.sh
     
+    # --- MATLAB Runtime R2015b (MCR) + Java 8 ---
+	# Consistent locations
+	BUILD_ROOT=/opt/build
+	ME_DIR=${BUILD_ROOT}/matlab_execs
+	CACHE_DIR=${BUILD_ROOT}/matlab_cache
+	MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
+	INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
+	INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
+	TEMP_DIR=${ME_DIR}/temp
+	
+	# Prepare directories (do NOT mkdir the installer *file* path)
+	mkdir -p "$MATLAB_2015b_PATH" "$ME_DIR" "$TEMP_DIR" "$CACHE_DIR"
+	
+	# If a stale directory exists where the file should go, remove it
+	if [ -d "$INSTALLER_PATH" ]; then
+	  rm -rf "$INSTALLER_PATH"
+	fi
+	
+	# Prefer cached copy; else download to a *file* with -O
+	if [ -f "${CACHE_DIR}/${INSTALLER_NAME}" ]; then
+	  cp -f "${CACHE_DIR}/${INSTALLER_NAME}" "${INSTALLER_PATH}"
+	else
+	  wget -O "${INSTALLER_PATH}" \
+		"http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}"
+	  cp -f "${INSTALLER_PATH}" "${CACHE_DIR}/" || true
+	fi
+	
+	# Unpack and install non-interactively
+	unzip -d "${TEMP_DIR}" "${INSTALLER_PATH}"
+	"${TEMP_DIR}/install" -mode silent -agreeToLicense yes -destinationFolder "${MATLAB_2015b_PATH}"
+	rm -rf "${TEMP_DIR}"
+	
+	# Verify key libs in either runtime/ or bin/ tree (MathWorks moved things across updates)
+	if ! ls "${MATLAB_2015b_PATH}"/runtime/glnxa64/libmwmclmcrrt.so* >/dev/null 2>&1 && \
+	   ! ls "${MATLAB_2015b_PATH}"/bin/glnxa64/libmwmclmcrrt.so*     >/dev/null 2>&1 ; then
+	  echo "FATAL: MCR libmwmclmcrrt.so* missing under ${MATLAB_2015b_PATH}" >&2
+	  exit 1
+	fi
+	
+	# Java 8 for MATLAB2015b compatibility
+	apt-get update && apt-get install -y --no-install-recommends openjdk-8-jre-headless
+	mkdir -p /opt/samba/java
+	cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre /opt/samba/java
+	
+	# Make MCR discoverable by the dynamic linker (do this LATE so native builds don’t pick up MCR’s libstdc++)
+	cat >/etc/ld.so.conf.d/mcr_v90.conf <<EOF
+	/opt/MATLAB/MATLAB2015b_runtime/v90/runtime/glnxa64
+	/opt/MATLAB/MATLAB2015b_runtime/v90/bin/glnxa64
+	/opt/MATLAB/MATLAB2015b_runtime/v90/sys/os/glnxa64
+	EOF
+	ldconfig
+	
+	# Read/execute perms for non-root users
+	chmod -R a+rX /opt/MATLAB "$ME_DIR"
+
     # --- Perlbrew + Perl 5.16.3 + cpanm + Carton (no project install here) ---
 	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
 	PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
