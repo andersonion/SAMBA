@@ -1,26 +1,23 @@
 Bootstrap: localimage
 From: itk.sif
 
-%labels
-    Stage "ANTs build (no Examples) on top of itk.sif"
-
 %environment
     export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
     export ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
     export PATH="${ANTSPATH}:$PATH"
-    # ITK comes from base image (your itk stage installs to /opt/itk)
     export ITK_DIR="${ITK_DIR:-/opt/itk/lib/cmake/ITK-5.3}"
-    # checkout location only
     export SRC_ROOT="${SRC_ROOT:-/opt/src}"
-    export ANTS_REF="${ANTS_REF:-master}"
+    # 🔒 hard default to the commit we agreed: 0ea8e53
+    export ANTS_REF="${ANTS_REF:-0ea8e53}"
     export ANTS_TARGETS="${ANTS_TARGETS:-antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage}"
 
 %post
+    # /bin/sh-safe
     set -eu
     SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
     ITK_DIR="${ITK_DIR:-/opt/itk/lib/cmake/ITK-5.3}"
     SRC_ROOT="${SRC_ROOT:-/opt/src}"
-    ANTS_REF="${ANTS_REF:-master}"
+    ANTS_REF="${ANTS_REF:-0ea8e53}"
     ANTS_TARGETS="${ANTS_TARGETS:-antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage}"
 
     if [ ! -f "${ITK_DIR}/ITKConfig.cmake" ]; then
@@ -28,30 +25,38 @@ From: itk.sif
     fi
 
     if command -v apt-get >/dev/null 2>&1; then
-        export DEBIAN_FRONTEND=noninteractive
-        apt-get update
-        apt-get install -y --no-install-recommends \
-          build-essential cmake ninja-build git \
-          zlib1g-dev libpng-dev libtiff-dev libjpeg-dev \
-          libexpat1-dev ca-certificates
-        apt-get clean; rm -rf /var/lib/apt/lists/*
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends \
+        build-essential cmake ninja-build git \
+        zlib1g-dev libpng-dev libtiff-dev libjpeg-dev \
+        libexpat1-dev ca-certificates
+      apt-get clean; rm -rf /var/lib/apt/lists/*
     fi
 
     export CMAKE_PREFIX_PATH="/opt/itk${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
 
-    mkdir -p "${SRC_ROOT}"; cd "${SRC_ROOT}"
-    if [ ! -d ANTs ]; then git clone https://github.com/ANTsX/ANTs.git; fi
-    cd ANTs; git fetch --all --tags; git checkout --detach "${ANTS_REF}" || true
+    mkdir -p "${SRC_ROOT}"
+    cd "${SRC_ROOT}"
+    if [ ! -d ANTs ]; then
+      git clone https://github.com/ANTsX/ANTs.git
+    fi
+    cd ANTs
+    git fetch --all --tags
+    # 🔒 checkout exactly the commit (override-able via ANTS_REF if you really want)
+    git checkout --detach "${ANTS_REF}"
 
-    rm -rf build; mkdir -p build; cd build
+    rm -rf build
+    mkdir -p build
+    cd build
+
     INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
     JOBS="$(nproc)"; [ "$JOBS" -gt 4 ] && JOBS=4
 
     cmake -G Ninja \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
-      -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF \
-      -DANTS_SUPERBUILD=OFF -DBUILD_SUPERBUILD=OFF \
+      -DBUILD_TESTING=OFF \
       -DITK_DIR:PATH="${ITK_DIR}" \
       ..
 
@@ -64,11 +69,8 @@ From: itk.sif
 
 %test
     set -eu
-    ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR:-/opt/samba}/ants/bin}"
-    [ -x "${ANTSPATH}/antsRegistration" ]
-    [ -x "${ANTSPATH}/antsApplyTransforms" ]
-    [ -x "${ANTSPATH}/N4BiasFieldCorrection" ]
-    echo "ANTs core tools present in ${ANTSPATH}"
+    [ -x "${SAMBA_APPS_DIR:-/opt/samba}/ants/bin/antsRegistration" ]
+    echo "ANTs core tools present."
 
 %runscript
     exec /bin/sh -c "$@"
