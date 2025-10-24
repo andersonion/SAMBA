@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+
+# --- user toggles (optional) ---
+# FORCE=1          # rebuild even if image exists
+# USE_FAKEROOT=1   # use --fakeroot instead of sudo
+# ELEVATE=0        # do NOT use sudo for the build
+
+# Example: export from env or set defaults here
+: "${FORCE:=}"         # empty by default
+: "${USE_FAKEROOT:=}"  # empty by default
+: "${ELEVATE:=1}"      # default to sudo
+
+
+
 # ===== Stages =====
 STAGES=( base itk ants fsl_mcr final )
 IMAGES=( base.sif itk.sif ants.sif fsl_mcr.sif samba.sif )
@@ -55,31 +68,65 @@ stage_index() {
 
 # Build one stage by numeric index (0..N-1)
 build_stage() {
-  local idx="${1-}"
-  if [[ -z "$idx" ]]; then
-    echo "INTERNAL: build_stage requires an index" >&2
-    exit 1
+  local idx="$1"
+  # Basic arg/sanity checks
+  if [[ -z "${idx:-}" ]]; then
+    echo "ERROR: build_stage <index> required" >&2
+    return 2
   fi
-
-  # Bounds check
   if (( idx < 0 || idx >= ${#STAGES[@]} )); then
-    echo "INTERNAL: stage index out of range: $idx" >&2
-    exit 1
+    echo "ERROR: stage index $idx out of range" >&2
+    return 2
   fi
 
   local name="${STAGES[$idx]}"
+  # Allow DEFS[] to be optional; fall back to "<stage>.def"
+  local def="${DEFS[$idx]:-${name}.def}"
   local img="${IMAGES[$idx]}"
-  local def="${name}.def"
 
-  if [[ ! -f "$def" ]]; then
-    echo "ERROR: Missing definition file: $def" >&2
-    exit 1
+  echo "=== Stage [$idx] $name ==="
+  echo "DEF: $def"
+  echo "SIF: $img"
+
+  # If this stage uses Bootstrap: localimage, make sure previous SIF exists
+  if (( idx > 0 )); then
+    local prev_img="${IMAGES[$((idx-1))]}"
+    if [[ ! -f "$prev_img" ]]; then
+      echo "ERROR: prerequisite image missing: $prev_img" >&2
+      echo "Hint: run previous stages or set START_INDEX accordingly." >&2
+      return 3
+    fi
   fi
 
-  echo "=== [$(($idx+1))/${#STAGES[@]}] Building ${name} -> ${img} ==="
-  time sudo "$CT" build "./${img}" "./${def}"
-  echo "=== OK: ${img} ==="
+  # Skip if target image already exists (unless FORCE=1)
+  if [[ -f "$img" && -z "${FORCE:-}" ]]; then
+    echo "SKIP: $img already exists (set FORCE=1 to rebuild)"
+    return 0
+  fi
+
+  # Build command (supports fakeroot + optional sudo elevation)
+  local build_cmd=( "$CT" build )
+  if [[ -n "${USE_FAKEROOT:-}" ]]; then
+    build_cmd+=( --fakeroot )
+  fi
+
+  # Some environments need sudo; default ELEVATE=1 (on) unless set to 0
+  local runner=()
+  if [[ "${ELEVATE:-1}" == "1" ]]; then
+    runner=( sudo )
+  fi
+
+  # Do the build with timing
+  set -o pipefail
+  time "${runner[@]}" "${build_cmd[@]}" "$img" "$def" |& tee "build_${name}.log"
+  local rc=${PIPESTATUS[0]}
+  if (( rc != 0 )); then
+    echo "FATAL: build failed for stage '$name' (rc=$rc)" >&2
+    return "$rc"
+  fi
+  echo "OK: built $img"
 }
+
 
 # ===== Determine starting index =====
 START_INDEX=0
