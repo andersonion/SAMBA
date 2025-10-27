@@ -21,7 +21,8 @@ From: ants.sif
 	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
 	# set -u safe initializers (do this BEFORE any use of these vars)
 	: "${FSLBASE:=${SAMBA_APPS_DIR}/fsl}"
-	: "${FSLVER:=}"
+	: "${FSLVER:=6.0.6}"
+	FSL_VERSION_DIR="${FSLBASE}/${FSLVER}"
 
 	export DEBIAN_FRONTEND=noninteractive
 
@@ -119,8 +120,6 @@ From: ants.sif
 
 	# --- Install FSL (headless) into ${SAMBA_APPS_DIR}/fsl/<version> ---
 	# Choose a version; override by exporting FSLVER at build time if desired
-	: "${FSLVER:=6.0.6}"
-	FSL_VERSION_DIR="${FSLBASE}/${FSLVER}"
 	mkdir -p "${FSL_VERSION_DIR}"
 
 	# Minimal runtime deps for CLI tools (safe on focal)
