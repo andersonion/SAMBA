@@ -21,53 +21,26 @@ From: itk.sif
     BUILD=${SRC}/build
     LOG=/tmp/ants_cmake.log
 
-    mkdir -p /opt/src
-    if [ ! -d "$SRC" ]; then
-      git clone https://github.com/ANTsX/ANTs.git "$SRC"
-    fi
-    cd "$SRC"
-    git fetch --all -q || true
-    git checkout 0ea8e53
+    	# ---------- ensure correct ANTs source/commit ----------
+	mkdir -p /opt/src
+	cd /opt/src
+	if [ ! -d ANTs ]; then
+		git clone https://github.com/ANTsX/ANTs.git
+	fi
+	cd ANTs
+	git fetch --all --tags
+	# pin to the commit we validated in /tmp debug
+	git checkout --detach 0ea8e53
 
-    # Fresh build directory
-    rm -rf "$BUILD"
-    mkdir -p "$BUILD"
-    cd "$BUILD"
-
-    # ---- Configure (Option A: SuperBuild OFF) ----
-    : > "$LOG"
-    if ! cmake -G Ninja \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
-        -DBUILD_TESTING=OFF \
-        -DBUILD_EXAMPLES=ON \
-        -DSuperBuild=OFF \
-        -DITK_DIR="$ITK_DIR" \
-        .. >>"$LOG" 2>&1 ; then
-      echo "FATAL: CMake configure failed. Last 200 lines:" >&2
-      tail -n 200 "$LOG" >&2
-      # Print CMake diagnostic logs if present
-      [ -f CMakeFiles/CMakeError.log ]  && { echo "--- CMakeError.log ---";  tail -n 200 CMakeFiles/CMakeError.log; }
-      [ -f CMakeFiles/CMakeOutput.log ] && { echo "--- CMakeOutput.log ---"; tail -n 200 CMakeFiles/CMakeOutput.log; }
-      exit 1
-    fi
-
-    # Ensure generator actually created build.ninja
-    if [ ! -f build.ninja ]; then
-      echo "FATAL: build.ninja was not generated (generator or configure issue)." >&2
-      exit 1
-    fi
-
-    # ---- Build selected tools ----
 	# ---------- CLEAN OUT ANY SUPERBUILD ARTIFACTS ----------
 	rm -rf build ANTS-build ANTS-prefix 2>/dev/null || true
 	mkdir -p build
 	cd build
 
 	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
-	JOBS=1
+	JOBS=1	# low and steady; bump later if stable
 
-	# ---------- CONFIGURE WITH SUPERBUILD OFF ----------
+	# ---------- CONFIGURE: SUPERBUILD OFF + EXTERNAL ITK ----------
 	cmake -G Ninja \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
@@ -77,14 +50,10 @@ From: itk.sif
 		-DBUILD_ALL_ANTS_APPS=OFF \
 		..
 
-	# Sanity: if SuperBuild dirs still appear, fail fast
-	if [ -d "ANTS-build" ] || [ -d "ANTS-prefix" ]; then
-		echo "FATAL: ANTs SuperBuild detected (ANTS-build/ANTS-prefix present) even though -DANTS_SUPERBUILD=OFF." >&2
-		echo "Make sure the build dir was empty before configure." >&2
-		exit 1
-	fi
+	# fast sanity: show a few available targets (for future debugging)
+	ninja -t targets all 2>/dev/null | head -n 40 || true
 
-	# ---------- RESOLVE THE REAL TARGET NAMES THEN BUILD ----------
+	# ---------- build only the core CLIs, sequentially for clarity ----------
 	WANTED="
 		antsRegistration
 		antsApplyTransforms
@@ -104,30 +73,10 @@ From: itk.sif
 		ConvertTransformFile
 	"
 
-	AVAIL=$(
-		{ cmake --build . --target help 2>/dev/null || true; ninja -t targets all 2>/dev/null || true; } \
-		| sed 's/^[[:space:]]\{0,3\}\.\{3\}[[:space:]]*//' | sed 's/:.*$//' | awk '{print $1}' | sort -u
-	)
-
-	RESOLVED=""
-	for t in $WANTED; do
-		if printf '%s\n' "$AVAIL" | grep -qx "$t"; then
-			RESOLVED="$RESOLVED $t"
-		elif printf '%s\n' "$AVAIL" | grep -qx "l_$t"; then
-			RESOLVED="$RESOLVED l_$t"
-		fi
-	done
-
-	[ -z "$RESOLVED" ] && {
-		echo "FATAL: none of the requested ANTs tool targets found." >&2
-		printf '%s\n' "$AVAIL" | head -n 80 >&2
-		exit 1
-	}
-
 	mkdir -p /tmp/ants_logs
-	for tgt in $RESOLVED; do
-		log="/tmp/ants_logs/${tgt}.log"; : > "$log"
+	for tgt in $WANTED; do
 		echo "=== Building target: $tgt (j=$JOBS) ==="
+		log="/tmp/ants_logs/${tgt}.log"; : > "$log"
 		if ! cmake --build . --target "$tgt" -- -j "$JOBS" >"$log" 2>&1; then
 			echo "BUILD FAILED for $tgt. Last 120 lines:" >&2
 			tail -n 120 "$log" >&2
@@ -135,23 +84,25 @@ From: itk.sif
 		fi
 	done
 
-	# ---------- INSTALL (OR MANUAL COPY IF NO INSTALL RULES) ----------
+	# ---------- INSTALL (or copy from Examples/ if no install rule) ----------
 	if ! cmake --install . --prefix "${INSTALL_PREFIX}" ; then
 		echo "No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
 		mkdir -p "${INSTALL_PREFIX}/bin"
 		for t in $WANTED; do
-			[ -f "Examples/$t" ] && cp -fv "Examples/$t" "${INSTALL_PREFIX}/bin/" && continue
-			for q in "$t" "l_$t"; do
-				out="$(ninja -t query "$q" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
-				if [ -n "$out" ] && [ -f "$out" ]; then
-					cp -fv "$out" "${INSTALL_PREFIX}/bin/"
-					break
-				fi
-			done
+			# common output location for this commit/layout
+			if [ -f "Examples/$t" ]; then
+				cp -fv "Examples/$t" "${INSTALL_PREFIX}/bin/"
+				continue
+			fi
+			# last resort: ask ninja where the artifact is
+			out="$(ninja -t query "$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+			if [ -n "$out" ] && [ -f "$out" ]; then
+				cp -fv "$out" "${INSTALL_PREFIX}/bin/"
+			fi
 		done
 	fi
 
-	# ---------- FINAL SANITY CHECK ----------
+	# ---------- FINAL SANITY ----------
 	if [ ! -x "${INSTALL_PREFIX}/bin/antsRegistration" ]; then
 		echo "FATAL: ANTs installation failed — ${INSTALL_PREFIX}/bin/antsRegistration not found." >&2
 		find "${INSTALL_PREFIX}/bin" -maxdepth 1 -type f -printf '%f\n' | sort | head -n 200 >&2 || true
