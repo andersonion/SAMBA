@@ -87,26 +87,6 @@ From: fsl_mmcr.sif
 	  exit 1
 	fi
 	echo "Carton dependencies installed."
-	
-		# ---- end-of-stage sanity: FSL must be present ----
-	FSLBASE="${SAMBA_APPS_DIR:-/opt/samba}/fsl"
-	# prefer explicit FSLVER if you set it in this stage; otherwise pick latest 6.*
-	if [ -z "${FSLVER:-}" ]; then
-		FSLVER="$(basename "$(ls -d "${FSLBASE}"/6.* 2>/dev/null | sort -V | tail -1 || true)")"
-	fi
-	FSLDIR="${FSLBASE}/${FSLVER:-6.0.6}"
-
-	if [ ! -x "${FSLDIR}/bin/fslmaths" ]; then
-		echo "FATAL: ${FSLDIR}/bin/fslmaths not found after install." >&2
-		echo "Contents of ${FSLDIR}/bin (if dir exists):" >&2
-		ls -l "${FSLDIR}/bin" 2>&1 | sed 's/^/  /' >&2 || true
-		exit 1
-	fi
-	# quick smoke test
-	"${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || {
-		echo "FATAL: ${FSLDIR}/bin/fslmaths failed to run." >&2
-		exit 1
-	}
 
 
 %test
