@@ -59,86 +59,33 @@ From: itk.sif
     fi
 
     # ---- Build selected tools ----
-	# ---- Low-parallel, per-target build with loud logs (no full-build fallback) ----
-	JOBS="$(nproc)"; [ "$JOBS" -gt 1 ] && JOBS=1   # force low RAM; bump later if stable
+	# ---- Stable full build (low parallelism) ----
+	JOBS=1                                 # keep memory usage tiny; raise later if stable
+	BUILD_LOG=/tmp/ants_build.log; : > "$BUILD_LOG"
 	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
 	
-	# (Optional) make CMake/Ninja verbose to see compile lines
-	# If your configure didn't set this, we can still pass -v below.
-	# cmake -DCMAKE_VERBOSE_MAKEFILE=ON . >/dev/null 2>&1 || true
-	
-	WANTED="
-	  antsRegistration
-	  antsApplyTransforms
-	  N4BiasFieldCorrection
-	  Atropos
-	  ImageMath
-	  ResampleImageBySpacing
-	  ResampleImage
-	  SmoothImage
-	  MultiplyImages
-	  ThresholdImage
-	  PrintHeader
-	  ConvertImage
-	  ConvertImagePixelType
-	  SetOrigin
-	  SetSpacing
-	  ConvertTransformFile
-	"
-	
-	# Discover real target names once (accept exact or l_<name>)
-	AVAIL=$(
-	  { cmake --build . --target help 2>/dev/null || true; ninja -t targets all 2>/dev/null || true; } \
-	  | sed 's/^[[:space:]]\{0,3\}\.\{3\}[[:space:]]*//' | sed 's/:.*$//' | awk '{print $1}' | sort -u
-	)
-	
-	# Emit what we found (first 50) to help debugging
-	echo "Available targets (sample):" >&2
-	printf '%s\n' "$AVAIL" | head -n 50 >&2 || true
-	
-	# Resolve wanted → actual targets
-	RESOLVED=""
-	for t in $WANTED; do
-	  if printf '%s\n' "$AVAIL" | grep -qx "$t"; then
-		RESOLVED="$RESOLVED $t"
-	  elif printf '%s\n' "$AVAIL" | grep -qx "l_$t"; then
-		RESOLVED="$RESOLVED l_$t"
-	  fi
-	done
-	
-	# If still nothing matched, try the two most common spellings for antsApplyTransforms first
-	[ -z "$RESOLVED" ] && RESOLVED="l_antsApplyTransforms antsApplyTransforms"
-	
-	mkdir -p /tmp/ants_logs
-	fail_count=0
-	for tgt in $RESOLVED; do
-	  log="/tmp/ants_logs/${tgt}.log"
-	  : > "$log"
-	  echo "=== Building target: $tgt (j=$JOBS, verbose) ==="
-	  if ! cmake --build . --target "$tgt" -- -j "$JOBS" -v >"$log" 2>&1; then
-		echo "BUILD FAILED for $tgt. Last 200 lines:" >&2
-		tail -n 200 "$log" >&2
-		if grep -Eiq 'killed.*cc1plus|terminated signal|out of memory' "$log"; then
-		  echo "Hint: Looks like OOM. Keep JOBS=1 or add swap." >&2
-		fi
-		fail_count=$((fail_count+1))
-		break
-	  fi
-	done
-	
-	[ "$fail_count" -ne 0 ] && exit 1
+	echo "Building full ANTs tree with -j ${JOBS} (low RAM mode)…"
+	if ! cmake --build . -- -j "${JOBS}" >"$BUILD_LOG" 2>&1; then
+	  echo "ANTs build failed. Last 200 lines:" >&2
+	  tail -n 200 "$BUILD_LOG" >&2
+	  exit 1
+	fi
 	
 	# ---- Install (or copy if no install rules) ----
 	if ! cmake --install . --prefix "${INSTALL_PREFIX}" ; then
 	  echo "No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
 	  mkdir -p "${INSTALL_PREFIX}/bin"
-	  for t in $WANTED; do
-		# copy both plain and l_ variants if they exist
-		for q in "$t" "l_$t"; do
-		  out="$(ninja -t query "$q" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
-		  [ -n "$out" ] && [ -f "$out" ] && cp -fv "$out" "${INSTALL_PREFIX}/bin/" || true
-		  [ -f "Examples/$t" ] && cp -fv "Examples/$t" "${INSTALL_PREFIX}/bin/" || true
-		done
+	  # copy a few core tools if present (add more if you rely on them)
+	  for t in antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath \
+			   ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage \
+			   PrintHeader ConvertImage ConvertImagePixelType SetOrigin SetSpacing ConvertTransformFile
+	  do
+		# common output path in this tree
+		[ -f "Examples/$t" ] && cp -fv "Examples/$t" "${INSTALL_PREFIX}/bin/" && continue
+		# ask ninja for the built artifact
+		out="$(ninja -t query "$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+		[ -z "$out" ] && out="$(ninja -t query "l_$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+		[ -n "$out" ] && [ -f "$out" ] && cp -fv "$out" "${INSTALL_PREFIX}/bin/" || true
 	  done
 	fi
 	
