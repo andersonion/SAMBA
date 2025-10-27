@@ -19,6 +19,12 @@ From: ants.sif
 	set -eu
 	export DEBIAN_FRONTEND=noninteractive
 	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+	# set -u safe initializers (do this BEFORE any use of these vars)
+	: "${FSLBASE:=${SAMBA_APPS_DIR}/fsl}"
+	: "${FSLVER:=}"
+
+	export DEBIAN_FRONTEND=noninteractive
+
 
 	export PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
 	export PERLBREW_HOME="${PERLBREW_HOME:-${PERLBREW_ROOT}}"
@@ -112,8 +118,6 @@ From: ants.sif
 	"${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 cpanm -n Carton
 
 	# ---- end-of-stage sanity: FSL must be present and runnable (set -u safe) ----
-	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-	FSLBASE="${SAMBA_APPS_DIR}/fsl"
 
 	# Resolve FSLDIR: prefer explicit FSLVER if it exists; else pick highest 6.*
 	if [ -n "${FSLVER:-}" ] && [ -d "${FSLBASE}/${FSLVER}" ]; then
