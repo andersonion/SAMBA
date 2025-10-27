@@ -18,9 +18,11 @@ From: ants.sif
 %post
 	set -eu
 
-	# base env
+	# base env (define these BEFORE anything else to be set -u safe)
 	export DEBIAN_FRONTEND=noninteractive
 	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+	export PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
+	export PERLBREW_HOME="${PERLBREW_HOME:-${PERLBREW_ROOT}}"
 
 	# ---- Remove NeuroDebian (ignore completely) ----
 	rm -f /etc/apt/sources.list.d/neurodebian.sources.list /etc/apt/sources.list.d/neurodebian.list || true
@@ -39,9 +41,9 @@ From: ants.sif
 	ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
 	dpkg-reconfigure -f noninteractive tzdata
 
+	# app roots
+	mkdir -p "${SAMBA_APPS_DIR}" "${PERLBREW_ROOT}"
 
-    mkdir -p "${SAMBA_APPS_DIR}"
-	
 
     # Provide wrapper env for non-login shells at runtime
     echo "export FSLDIR=${SAMBA_APPS_DIR}/fsl" > /etc/profile.d/99-fsl-samba.sh
@@ -103,13 +105,7 @@ From: ants.sif
 	# Read/execute perms for non-root users
 	chmod -R a+rX /opt/MATLAB "$ME_DIR"
 
-    # --- Perlbrew + Perl 5.16.3 + cpanm + Carton (no project install here) ---
-	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-	export PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
-	export PERLBREW_HOME="${PERLBREW_HOME:-${PERLBREW_ROOT}}"
-	mkdir -p "${PERLBREW_ROOT}"
-
-	# Install perlbrew + perl + cpanm + Carton (no PATH assumptions)
+	# --- Perlbrew + Perl 5.16.3 + cpanm + Carton (no project install here) ---
 	curl -L https://install.perlbrew.pl | bash
 	"${PERLBREW_ROOT}/bin/perlbrew" init
 	"${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
