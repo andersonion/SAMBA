@@ -2,123 +2,134 @@ Bootstrap: docker
 From: ubuntu:20.04
 
 %labels
-    Maintainer Robert Anderson
-    Version v1.0
+	Maintainer Robert Anderson
+	Version v1.0
 
 %environment
-    # ---- Core SAMBA env (runtime) ----
-    export fsl_version='6.0.6'
-    export SAMBA_APPS_DIR=/opt/samba
-    export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
-    export FSLDIR=${SAMBA_APPS_DIR}/fsl/${fsl_version}
-    export ANTSPATH=${SAMBA_APPS_DIR}/ants/bin
-    export FSLOUTPUTTYPE=NIFTI_GZ
-    export PATH=${SAMBA_PATH}:${ANTSPATH}:${FSLDIR}/bin:$PATH
+	# ---- Core SAMBA env (runtime) ----
+	export fsl_version='6.0.6'
+	export SAMBA_APPS_DIR=/opt/samba
+	export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
+	export FSLDIR=${SAMBA_APPS_DIR}/fsl/${fsl_version}
+	export ANTSPATH=${SAMBA_APPS_DIR}/ants/bin
+	export FSLOUTPUTTYPE=NIFTI_GZ
+	export PATH=${SAMBA_PATH}:${ANTSPATH}:${FSLDIR}/bin:$PATH
 
-    # MATLAB runtime + exec helpers
-    export MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
-    export MATLAB_EXEC_PATH=/opt/samba/matlab_execs_for_SAMBA
-    export MCRROOT=${MATLAB_2015b_PATH}
-    export LD_LIBRARY_PATH=${MCRROOT}/runtime/glnxa64:${MCRROOT}/bin/glnxa64:${MCRROOT}/sys/os/glnxa64:$LD_LIBRARY_PATH
-    export MATLAB_JAVA=${SAMBA_APPS_DIR}/java/jre
+	# MATLAB runtime + exec helpers
+	export MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
+	export MATLAB_EXEC_PATH=/opt/samba/matlab_execs_for_SAMBA
+	export MCRROOT=${MATLAB_2015b_PATH}
+	export LD_LIBRARY_PATH=${MCRROOT}/runtime/glnxa64:${MCRROOT}/bin/glnxa64:${MCRROOT}/sys/os/glnxa64:$LD_LIBRARY_PATH
+	export MATLAB_JAVA=${SAMBA_APPS_DIR}/java/jre
 
-    # Perlbrew (runtime shells may be bash); dot-sourcing is best-effort
-    export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
-    export PATH="$PERLBREW_ROOT/bin:$PATH"
-    . "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
+	# Perlbrew (runtime shells may be bash); dot-sourcing is best-effort
+	export PERLBREW_ROOT=${SAMBA_APPS_DIR}/perl5
+	export PATH="$PERLBREW_ROOT/bin:$PATH"
+	. "$PERLBREW_ROOT/etc/bashrc" 2>/dev/null || true
 
-    # BIGGUS_DISKUS defaulting (portable /bin/sh)
-    if [ -z "${BIGGUS_DISKUS:-}" ]; then
-      if [ -n "${SCRATCH:-}" ]; then
-        export BIGGUS_DISKUS="$SCRATCH"
-      elif [ -n "${WORK:-}" ]; then
-        export BIGGUS_DISKUS="$WORK"
-      else
-        export BIGGUS_DISKUS="$HOME/samba_scratch"
-      fi
-    fi
+	# BIGGUS_DISKUS defaulting (portable /bin/sh)
+	if [ -z "${BIGGUS_DISKUS:-}" ]; then
+		if [ -n "${SCRATCH:-}" ]; then
+			export BIGGUS_DISKUS="$SCRATCH"
+		elif [ -n "${WORK:-}" ]; then
+			export BIGGUS_DISKUS="$WORK"
+		else
+			export BIGGUS_DISKUS="$HOME/samba_scratch"
+		fi
+	fi
 
-    # Atlases
-    export ATLAS_FOLDER=/opt/atlases
+	# Atlases
+	export ATLAS_FOLDER=/opt/atlases
 
 %post
-    # POSIX sh (dash) compatible
-    set -eu
-    : "${fsl_version:=6.0.6}"
+	# POSIX sh (dash) compatible
+	set -eu
+	: "${fsl_version:=6.0.6}"
 
-    # Noninteractive tzdata to avoid prompts
-    export DEBIAN_FRONTEND=noninteractive
-    export TZ=Etc/UTC
-    ln -fs /usr/share/zoneinfo/$TZ /etc/localtime
-    apt-get update
-    apt-get install -y --no-install-recommends tzdata
-    dpkg-reconfigure -f noninteractive tzdata
+	# Noninteractive tzdata to avoid prompts
+	export DEBIAN_FRONTEND=noninteractive
+	export TZ=Etc/UTC
+	ln -fs /usr/share/zoneinfo/$TZ /etc/localtime
+	apt-get update
+	apt-get install -y --no-install-recommends tzdata
+	dpkg-reconfigure -f noninteractive tzdata
 
-    # Base packages
-    apt-get update && apt-get install -y --no-install-recommends \
-        build-essential curl git cmake ninja-build \
-        libfftw3-dev liblapacke-dev zlib1g-dev \
-        libjpeg-dev libpng-dev libtiff5-dev \
-        libexpat1-dev libxml2-dev libbz2-dev \
-        libeigen3-dev bc unzip ca-certificates \
-        perl libperl-dev python3 wget bzip2
+	# Base packages
+	apt-get update && apt-get install -y --no-install-recommends \
+		build-essential curl git cmake ninja-build \
+		libfftw3-dev liblapacke-dev zlib1g-dev \
+		libjpeg-dev libpng-dev libtiff5-dev \
+		libexpat1-dev libxml2-dev libbz2-dev \
+		libeigen3-dev bc unzip ca-certificates \
+		perl libperl-dev python3 wget bzip2 ccache
 
-    # --- Layout roots ---
-    export SAMBA_APPS_DIR=/opt/samba
-    export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
-    mkdir -p "${SAMBA_APPS_DIR}" /opt/src
+	# --- Layout roots ---
+	export SAMBA_APPS_DIR=/opt/samba
+	export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
+	mkdir -p "${SAMBA_APPS_DIR}" /opt/src
 
-    # --- Clone SAMBA repo (adjust if you pin a commit) ---
-    if [ ! -d "${SAMBA_PATH}" ]; then
-      git clone https://github.com/andersonion/SAMBA.git "${SAMBA_PATH}"
-      # (optional) cd "${SAMBA_PATH}" && git checkout <commit>
-    fi
+	# --- Clone SAMBA repo (adjust if you pin a commit) ---
+	if [ ! -d "${SAMBA_PATH}" ]; then
+		git clone https://github.com/andersonion/SAMBA.git "${SAMBA_PATH}"
+		# (optional) cd "${SAMBA_PATH}" && git checkout <commit>
+	fi
 
-    # =====================================================================
-    # ITK v5.3.0 (with GenericLabelInterpolator) — installed at /opt/itk
-    # =====================================================================
-    echo "Building ITK v5.3.0 into /opt/itk ..."
-    cd /opt/src
-    if [ ! -d itk ]; then
-      git clone https://github.com/InsightSoftwareConsortium/ITK.git itk || true
-      if [ ! -d itk ]; then
-        curl -L -o /tmp/itk-5.3.0.tar.gz https://codeload.github.com/InsightSoftwareConsortium/ITK/tar.gz/refs/tags/v5.3.0
-        tar -xzf /tmp/itk-5.3.0.tar.gz -C /opt/src
-        mv -f /opt/src/ITK-5.3.0 /opt/src/itk
-      fi
-    fi
+	# =====================================================================
+	# ITK v5.3.0 (with GenericLabelInterpolator) — installed at /opt/itk
+	# =====================================================================
+	echo "Building ITK v5.3.0 into /opt/itk ..."
+	cd /opt/src
+	if [ ! -d itk ]; then
+		git clone https://github.com/InsightSoftwareConsortium/ITK.git itk || true
+		if [ ! -d itk ]; then
+			curl -L -o /tmp/itk-5.3.0.tar.gz https://codeload.github.com/InsightSoftwareConsortium/ITK/tar.gz/refs/tags/v5.3.0
+			tar -xzf /tmp/itk-5.3.0.tar.gz -C /opt/src
+			mv -f /opt/src/ITK-5.3.0 /opt/src/itk
+		fi
+	fi
 
-    cd /opt/src/itk
-    if [ -d .git ]; then git fetch --all -q || true; git checkout v5.3.0 || true; fi
-    rm -rf build && mkdir build && cd build
+	cd /opt/src/itk
+	if [ -d .git ]; then git fetch --all -q || true; git checkout v5.3.0 || true; fi
+	rm -rf build && mkdir build && cd build
 
-    cmake -G Ninja \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=/opt/itk \
-      -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF \
-      -DITK_FORBID_DOWNLOADS=OFF \
-      -DModule_ITKReview=ON \
-      -DModule_GenericLabelInterpolator=ON \
-      ..
+	cmake -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/opt/itk \
+		-DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF \
+		-DITK_FORBID_DOWNLOADS=OFF \
+		-DModule_ITKReview=ON \
+		-DModule_GenericLabelInterpolator=ON \
+		..
 
-    ninja -j "$(nproc)"
-    cmake --install .
+	ninja -j "$(nproc)"
+	cmake --install .
 
-    ITK_CONFIG="$(find /opt/itk -name ITKConfig.cmake -print -quit)"
-    if [ -z "${ITK_CONFIG}" ]; then
-      echo "FATAL: ITKConfig.cmake not found under /opt/itk" >&2; exit 1
-    fi
-    ITK_DIR="$(dirname "$ITK_CONFIG")"; export ITK_DIR
-    echo "Using ITK_DIR=$ITK_DIR"
+	ITK_CONFIG="$(find /opt/itk -name ITKConfig.cmake -print -quit)"
+	if [ -z "${ITK_CONFIG}" ]; then
+		echo "FATAL: ITKConfig.cmake not found under /opt/itk" >&2; exit 1
+	fi
+	ITK_DIR="$(dirname "$ITK_CONFIG")"; export ITK_DIR
+	echo "Using ITK_DIR=$ITK_DIR"
 
-    set -eu
+	set -eu
 
-    # -- Paths/inputs --
-    ITK_DIR=/opt/itk/lib/cmake/ITK-5.3
-    INSTALL_PREFIX=/opt/samba/ants
-    SRC=/opt/src/ANTs
-    BUILD=${SRC}/build
-    LOG=/tmp/ants_cmake.log
+	# =====================================================================
+	# ANTs @ 0ea8e53 — non-superbuild, with ccache + smart batching
+	# =====================================================================
+
+	# ---- speed: ccache compiler cache ----
+	export CCACHE_DIR="/opt/.ccache"
+	mkdir -p "${CCACHE_DIR}"
+	ccache --max-size=5G || true
+	export CMAKE_C_COMPILER_LAUNCHER=ccache
+	export CMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+	# -- Paths/inputs --
+	ITK_DIR=/opt/itk/lib/cmake/ITK-5.3
+	INSTALL_PREFIX=/opt/samba/ants
+	SRC=/opt/src/ANTs
+	BUILD=${SRC}/build
+	LOG=/tmp/ants_cmake.log
 
 	# ---------- ensure correct ANTs source/commit ----------
 	mkdir -p /opt/src
@@ -136,9 +147,6 @@ From: ubuntu:20.04
 	mkdir -p build
 	cd build
 
-	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
-	JOBS=1	# low and steady; bump later if stable
-
 	# ---------- CONFIGURE: SUPERBUILD OFF + EXTERNAL ITK ----------
 	cmake -G Ninja \
 		-DCMAKE_BUILD_TYPE=Release \
@@ -152,7 +160,16 @@ From: ubuntu:20.04
 	# fast sanity: show a few available targets (for future debugging)
 	ninja -t targets all 2>/dev/null | head -n 40 || true
 
-	# ---------- build only the core CLIs, sequentially for clarity ----------
+	# ---------- build only the core CLIs, with smart parallelism ----------
+	# Pick JOBS based on RAM: 4 if >=16GB, 2 if >=8GB, else 1
+	if awk '/MemTotal:/ {exit ($2>=16000000)?10:($2>=8000000)?20:0}' /proc/meminfo; then
+		JOBS=4
+	elif [ "$?" -eq 20 ]; then
+		JOBS=2
+	else
+		JOBS=1
+	fi
+
 	WANTED="
 		antsRegistration
 		antsApplyTransforms
@@ -172,16 +189,53 @@ From: ubuntu:20.04
 		ConvertTransformFile
 	"
 
-	mkdir -p /tmp/ants_logs
-	for tgt in $WANTED; do
-		echo "=== Building target: $tgt (j=$JOBS) ==="
-		log="/tmp/ants_logs/${tgt}.log"; : > "$log"
-		if ! cmake --build . --target "$tgt" -- -j "$JOBS" >"$log" 2>&1; then
-			echo "BUILD FAILED for $tgt. Last 120 lines:" >&2
-			tail -n 120 "$log" >&2
-			exit 1
+	# collect available target names (strip trailing ':')
+	AVAIL="$(ninja -t targets all 2>/dev/null | cut -d: -f1 | sort -u)"
+
+	# resolve wanted tools to actual build targets
+	RESOLVED=""
+	for tool in $WANTED; do
+		if printf '%s\n' "$AVAIL" | grep -qx "Examples/$tool"; then
+			RESOLVED="$RESOLVED Examples/$tool"
+		elif printf '%s\n' "$AVAIL" | grep -qx "$tool"; then
+			RESOLVED="$RESOLVED $tool"
+		elif printf '%s\n' "$AVAIL" | grep -qx "l_$tool"; then
+			RESOLVED="$RESOLVED l_$tool"
+		else
+			echo "WARN: no target for '$tool' in this tree; skipping" >&2
 		fi
 	done
+
+	# build in small batches for speed without blowing RAM
+	# (batch size = JOBS; each build gets -j "$JOBS")
+	mkdir -p /tmp/ants_logs
+	i=0
+	batch=""
+	for tgt in $RESOLVED; do
+		batch="$batch --target $tgt"
+		i=$((i+1))
+		if [ "$i" -ge "$JOBS" ]; then
+			log="/tmp/ants_logs/batch_$RANDOM.log"; : > "$log"
+			echo "=== Building batch (j=$JOBS): $batch ==="
+			if ! cmake --build . $batch -- -j "$JOBS" >"$log" 2>&1; then
+				echo "BUILD FAILED in batch. Last 200 lines:" >&2
+				tail -n 200 "$log" >&2
+				exit 1
+			fi
+			i=0
+			batch=""
+		fi
+	done
+	# flush any remainder
+	if [ -n "$batch" ]; then
+		log="/tmp/ants_logs/batch_tail.log"; : > "$log"
+		echo "=== Building final batch (j=$JOBS): $batch ==="
+		if ! cmake --build . $batch -- -j "$JOBS" >"$log" 2>&1; then
+			echo "BUILD FAILED in final batch. Last 200 lines:" >&2
+			tail -n 200 "$log" >&2
+			exit 1
+		fi
+	fi
 
 	# ---------- INSTALL (or copy from Examples/ if no install rule) ----------
 	if ! cmake --install . --prefix "${INSTALL_PREFIX}" ; then
@@ -210,164 +264,162 @@ From: ubuntu:20.04
 
 	chmod -R a+rX "${INSTALL_PREFIX}"
 
+	# =====================================================================
+	# FSL 6.0.6 (non-interactive conda-based installer)
+	# =====================================================================
+	apt-get update
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3
+	FSLVER=6.0.6
+	FSLDIR=/opt/samba/fsl/${FSLVER}
+	FSLPARENT="$(dirname "$FSLDIR")"
+	mkdir -p "$FSLPARENT" && cd "$FSLPARENT"
+	wget -q https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py
 
+	TMPDST="$(mktemp -d "${FSLPARENT}/.fsl.XXXXXX")"
+	if ! python3 fslinstaller.py -d "$TMPDST" -V "$FSLVER" -q --skip_registration; then
+		yes | python3 fslinstaller.py -d "$TMPDST" -V "$FSLVER" -q --skip_registration
+	fi
+	[ -d "$FSLDIR" ] && rm -rf "$FSLDIR"
+	mv "$TMPDST" "$FSLDIR"
+	chmod -R a+rX "$FSLDIR"
+	if [ ! -x "$FSLDIR/bin/fslhd" ]; then
+		echo "WARNING: FSL install did not produce $FSLDIR/bin/fslhd"
+	fi
 
-    # =====================================================================
-    # FSL 6.0.6 (non-interactive conda-based installer)
-    # =====================================================================
-    apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3
-    FSLVER=6.0.6
-    FSLDIR=/opt/samba/fsl/${FSLVER}
-    FSLPARENT="$(dirname "$FSLDIR")"
-    mkdir -p "$FSLPARENT" && cd "$FSLPARENT"
-    wget -q https://fsl.fmrib.ox.ac.uk/fsldownloads/fslconda/releases/fslinstaller.py
+	# =====================================================================
+	# MATLAB R2015b Runtime (MCR) + Java 8
+	# =====================================================================
+	BUILD_ROOT=/opt/build
+	ME_DIR=${BUILD_ROOT}/matlab_execs
+	CACHE_DIR=${BUILD_ROOT}/matlab_cache
+	MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
+	INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
+	INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
+	TEMP_DIR=${ME_DIR}/temp
 
-    TMPDST="$(mktemp -d "${FSLPARENT}/.fsl.XXXXXX")"
-    if ! python3 fslinstaller.py -d "$TMPDST" -V "$FSLVER" -q --skip_registration; then
-      yes | python3 fslinstaller.py -d "$TMPDST" -V "$FSLVER" -q --skip_registration
-    fi
-    [ -d "$FSLDIR" ] && rm -rf "$FSLDIR"
-    mv "$TMPDST" "$FSLDIR"
-    chmod -R a+rX "$FSLDIR"
-    if [ ! -x "$FSLDIR/bin/fslhd" ]; then
-      echo "WARNING: FSL install did not produce $FSLDIR/bin/fslhd"
-    fi
+	mkdir -p "$MATLAB_2015b_PATH" "$ME_DIR" "$TEMP_DIR" "$CACHE_DIR"
+	[ -d "$INSTALLER_PATH" ] && rm -rf "$INSTALLER_PATH"
 
-    # =====================================================================
-    # MATLAB R2015b Runtime (MCR) + Java 8
-    # =====================================================================
-    BUILD_ROOT=/opt/build
-    ME_DIR=${BUILD_ROOT}/matlab_execs
-    CACHE_DIR=${BUILD_ROOT}/matlab_cache
-    MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
-    INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
-    INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
-    TEMP_DIR=${ME_DIR}/temp
+	if [ -f "${CACHE_DIR}/${INSTALLER_NAME}" ]; then
+		cp -f "${CACHE_DIR}/${INSTALLER_NAME}" "${INSTALLER_PATH}"
+	else
+		wget -O "${INSTALLER_PATH}" \
+			"http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}"
+		cp -f "${INSTALLER_PATH}" "${CACHE_DIR}/" || true
+	fi
 
-    mkdir -p "$MATLAB_2015b_PATH" "$ME_DIR" "$TEMP_DIR" "$CACHE_DIR"
-    [ -d "$INSTALLER_PATH" ] && rm -rf "$INSTALLER_PATH"
+	unzip -d "${TEMP_DIR}" "${INSTALLER_PATH}"
+	"${TEMP_DIR}/install" -mode silent -agreeToLicense yes -destinationFolder "${MATLAB_2015b_PATH}"
+	rm -rf "${TEMP_DIR}"
 
-    if [ -f "${CACHE_DIR}/${INSTALLER_NAME}" ]; then
-      cp -f "${CACHE_DIR}/${INSTALLER_NAME}" "${INSTALLER_PATH}"
-    else
-      wget -O "${INSTALLER_PATH}" \
-        "http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}"
-      cp -f "${INSTALLER_PATH}" "${CACHE_DIR}/" || true
-    fi
+	# Verify lib presence (runtime/ vs bin/ moved between builds)
+	if ! ls "${MATLAB_2015b_PATH}"/runtime/glnxa64/libmwmclmcrrt.so* >/dev/null 2>&1 && \
+	   ! ls "${MATLAB_2015b_PATH}"/bin/glnxa64/libmwmclmcrrt.so*     >/dev/null 2>&1 ; then
+		echo "FATAL: MCR libmwmclmcrrt.so* missing under ${MATLAB_2015b_PATH}" >&2
+		exit 1
+	fi
 
-    unzip -d "${TEMP_DIR}" "${INSTALLER_PATH}"
-    "${TEMP_DIR}/install" -mode silent -agreeToLicense yes -destinationFolder "${MATLAB_2015b_PATH}"
-    rm -rf "${TEMP_DIR}"
+	# Java 8 for MATLAB2015b
+	apt-get update && apt-get install -y --no-install-recommends openjdk-8-jre-headless
+	mkdir -p /opt/samba/java
+	cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre /opt/samba/java
 
-    # Verify lib presence (runtime/ vs bin/ moved between builds)
-    if ! ls "${MATLAB_2015b_PATH}"/runtime/glnxa64/libmwmclmcrrt.so* >/dev/null 2>&1 && \
-       ! ls "${MATLAB_2015b_PATH}"/bin/glnxa64/libmwmclmcrrt.so*     >/dev/null 2>&1 ; then
-      echo "FATAL: MCR libmwmclmcrrt.so* missing under ${MATLAB_2015b_PATH}" >&2
-      exit 1
-    fi
+	# =====================================================================
+	# matlab_execs_for_SAMBA runtime repo + compatibility symlink
+	# =====================================================================
+	if [ ! -d /opt/samba/matlab_execs_for_SAMBA ]; then
+		git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git /opt/samba/matlab_execs_for_SAMBA
+	fi
+	chmod -R a+rX /opt/samba/matlab_execs_for_SAMBA
+	ln -sfn /opt/samba/matlab_execs_for_SAMBA /opt/matlab_execs
 
-    # Java 8 for MATLAB2015b
-    apt-get update && apt-get install -y --no-install-recommends openjdk-8-jre-headless
-    mkdir -p /opt/samba/java
-    cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre /opt/samba/java
+	# =====================================================================
+	# Perlbrew + Perl 5.16.3 + cpanm + Carton + project deps (strict)
+	# =====================================================================
+	PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
+	curl -L https://install.perlbrew.pl | bash
+	"${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
+	"${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
+	"${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 cpanm -n Carton
 
-    # =====================================================================
-    # matlab_execs_for_SAMBA runtime repo + compatibility symlink
-    # =====================================================================
-    if [ ! -d /opt/samba/matlab_execs_for_SAMBA ]; then
-      git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git /opt/samba/matlab_execs_for_SAMBA
-    fi
-    chmod -R a+rX /opt/samba/matlab_execs_for_SAMBA
-    ln -sfn /opt/samba/matlab_execs_for_SAMBA /opt/matlab_execs
+	# Strict Carton install in ${SAMBA_PATH}
+	if [ ! -d "${SAMBA_PATH}" ]; then
+		echo "FATAL: ${SAMBA_PATH} missing before Carton install" >&2; exit 1
+	fi
+	cd "${SAMBA_PATH}"
+	if [ ! -f "cpanfile" ]; then
+		echo "FATAL: cpanfile missing in ${SAMBA_PATH}" >&2; exit 1
+	fi
+	if [ -f "cpanfile.snapshot" ] && [ ! -s "cpanfile.snapshot" ]; then
+		rm -f "cpanfile.snapshot"
+	fi
 
-    # =====================================================================
-    # Perlbrew + Perl 5.16.3 + cpanm + Carton + project deps (strict)
-    # =====================================================================
-    PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
-    curl -L https://install.perlbrew.pl | bash
-    "${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
-    "${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
-    "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 cpanm -n Carton
+	CARTON_LOG=/tmp/carton_install.log
+	: > "$CARTON_LOG"
+	if [ -s "cpanfile.snapshot" ]; then
+		CARTON_CMD="carton install --deployment"
+	else
+		CARTON_CMD="carton install"
+	fi
+	if ! "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 $CARTON_CMD >>"$CARTON_LOG" 2>&1; then
+		echo "FATAL: Carton install failed. Last 100 lines:" >&2
+		tail -n 100 "$CARTON_LOG" >&2
+		exit 1
+	fi
+	echo "Carton dependencies installed."
 
-    # Strict Carton install in ${SAMBA_PATH}
-    if [ ! -d "${SAMBA_PATH}" ]; then
-      echo "FATAL: ${SAMBA_PATH} missing before Carton install" >&2; exit 1
-    fi
-    cd "${SAMBA_PATH}"
-    if [ ! -f "cpanfile" ]; then
-      echo "FATAL: cpanfile missing in ${SAMBA_PATH}" >&2; exit 1
-    fi
-    if [ -f "cpanfile.snapshot" ] && [ ! -s "cpanfile.snapshot" ]; then
-      rm -f "cpanfile.snapshot"
-    fi
-
-    CARTON_LOG=/tmp/carton_install.log
-    : > "$CARTON_LOG"
-    if [ -s "cpanfile.snapshot" ]; then
-      CARTON_CMD="carton install --deployment"
-    else
-      CARTON_CMD="carton install"
-    fi
-    if ! "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 $CARTON_CMD >>"$CARTON_LOG" 2>&1; then
-      echo "FATAL: Carton install failed. Last 100 lines:" >&2
-      tail -n 100 "$CARTON_LOG" >&2
-      exit 1
-    fi
-    echo "Carton dependencies installed."
-
-    # Runtime activation for perlbrew in interactive shells
-    cat >/etc/profile.d/perlbrew.sh <<'EOF'
+	# Runtime activation for perlbrew in interactive shells
+	cat >/etc/profile.d/perlbrew.sh <<'EOF'
 export PERLBREW_ROOT=/opt/samba/perl5
 if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
-  . "$PERLBREW_ROOT/etc/bashrc"
+	. "$PERLBREW_ROOT/etc/bashrc"
 fi
 EOF
-    chmod 644 /etc/profile.d/perlbrew.sh
+	chmod 644 /etc/profile.d/perlbrew.sh
 
-    # =====================================================================
-    # Atlas: Zenodo chass_symmetric3 (cached, extracted to /opt/atlases)
-    # =====================================================================
-    ATLAS_FOLDER=/opt/atlases
-    AZ_ID=15178373
-    FILE_NAME=chass_symmetric3.tar.gz
-    DEST_DIR=${ATLAS_FOLDER}
-    CACHE_DIR=/opt/zenodo_cache
+	# =====================================================================
+	# Atlas: Zenodo chass_symmetric3 (cached, extracted to /opt/atlases)
+	# =====================================================================
+	ATLAS_FOLDER=/opt/atlases
+	AZ_ID=15178373
+	FILE_NAME=chass_symmetric3.tar.gz
+	DEST_DIR=${ATLAS_FOLDER}
+	CACHE_DIR=/opt/zenodo_cache
 
-    mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
-    cd "${DEST_DIR}"
+	mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
+	cd "${DEST_DIR}"
 
-    CACHED_TARBALL="${CACHE_DIR}/${FILE_NAME}"
-    if [ -f "$CACHED_TARBALL" ]; then
-      cp -f "$CACHED_TARBALL" "$FILE_NAME"
-    else
-      FILE_URL="$(curl -s "https://zenodo.org/api/records/${AZ_ID}" \
-        | sed -n 's/.*"key"[[:space:]]*:[[:space:]]*"'${FILE_NAME}'".*"self"[[:space:]]*:[[:space:]]*"\(https[^"]*\)".*/\1/p')"
-      if [ -z "${FILE_URL}" ]; then
-        echo "FATAL: Could not resolve Zenodo file URL for ${FILE_NAME}" >&2
-        exit 1
-      fi
-      wget -O "$FILE_NAME" "$FILE_URL"
-      cp -f "$FILE_NAME" "${CACHE_DIR}/" || true
-    fi
+	CACHED_TARBALL="${CACHE_DIR}/${FILE_NAME}"
+	if [ -f "$CACHED_TARBALL" ]; then
+		cp -f "$CACHED_TARBALL" "$FILE_NAME"
+	else
+		FILE_URL="$(curl -s "https://zenodo.org/api/records/${AZ_ID}" \
+			| sed -n 's/.*"key"[[:space:]]*:[[:space:]]*"'${FILE_NAME}'".*"self"[[:space:]]*:[[:space:]]*"\(https[^"]*\)".*/\1/p')"
+		if [ -z "${FILE_URL}" ]; then
+			echo "FATAL: Could not resolve Zenodo file URL for ${FILE_NAME}" >&2
+			exit 1
+		fi
+		wget -O "$FILE_NAME" "$FILE_URL"
+		cp -f "$FILE_NAME" "${CACHE_DIR}/" || true
+	fi
 
-    tar -xzf "$FILE_NAME"
-    rm -f "$FILE_NAME"
-    if [ ! -d chass_symmetric3 ]; then
-      echo "FATAL: chass_symmetric3 folder not found after extraction" >&2
-      exit 1
-    fi
+	tar -xzf "$FILE_NAME"
+	rm -f "$FILE_NAME"
+	if [ ! -d chass_symmetric3 ]; then
+		echo "FATAL: chass_symmetric3 folder not found after extraction" >&2
+		exit 1
+	fi
 
-    # --- Final perms & linker config ---
-    chmod -R a+rX /opt/MATLAB /opt/atlases /opt/zenodo_cache
+	# --- Final perms & linker config ---
+	chmod -R a+rX /opt/MATLAB /opt/atlases /opt/zenodo_cache
 
-    # Prefer ld.so to LD_LIBRARY_PATH for MCR, but do it at the end
-    cat >/etc/ld.so.conf.d/mcr_v90.conf <<EOF
+	# Prefer ld.so to LD_LIBRARY_PATH for MCR, but do it at the end
+	cat >/etc/ld.so.conf.d/mcr_v90.conf <<EOF
 /opt/MATLAB/MATLAB2015b_runtime/v90/runtime/glnxa64
 /opt/MATLAB/MATLAB2015b_runtime/v90/bin/glnxa64
 /opt/MATLAB/MATLAB2015b_runtime/v90/sys/os/glnxa64
 EOF
-    ldconfig
+	ldconfig
 
 %runscript
-    exec bash
+	exec bash

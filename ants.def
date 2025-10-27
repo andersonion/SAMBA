@@ -2,26 +2,39 @@ Bootstrap: localimage
 From: itk.sif
 
 %environment
-    export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-    export ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
-    export PATH="${ANTSPATH}:$PATH"
-    export ITK_DIR="${ITK_DIR:-/opt/itk/lib/cmake/ITK-5.3}"
-    export SRC_ROOT="${SRC_ROOT:-/opt/src}"
-    # 🔒 hard default to the commit we agreed: 0ea8e53
-    export ANTS_REF="${ANTS_REF:-0ea8e53}"
-    export ANTS_TARGETS="${ANTS_TARGETS:-antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage}"
+	export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+	export ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
+	export PATH="${ANTSPATH}:$PATH"
+	export ITK_DIR="${ITK_DIR:-/opt/itk/lib/cmake/ITK-5.3}"
+	export SRC_ROOT="${SRC_ROOT:-/opt/src}"
+	# 🔒 hard default to the commit we agreed: 0ea8e53
+	export ANTS_REF="${ANTS_REF:-0ea8e53}"
+	export ANTS_TARGETS="${ANTS_TARGETS:-antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage}"
 
 %post
-    set -eu
+	set -eu
 
-    # -- Paths/inputs --
-    ITK_DIR=/opt/itk/lib/cmake/ITK-5.3
-    INSTALL_PREFIX=/opt/samba/ants
-    SRC=/opt/src/ANTs
-    BUILD=${SRC}/build
-    LOG=/tmp/ants_cmake.log
+	# -- Paths/inputs --
+	ITK_DIR=/opt/itk/lib/cmake/ITK-5.3
+	INSTALL_PREFIX=/opt/samba/ants
+	SRC=/opt/src/ANTs
+	BUILD=${SRC}/build
+	LOG=/tmp/ants_cmake.log
 
-    	# ---------- ensure correct ANTs source/commit ----------
+	# ---- speed: ccache compiler cache ----
+	if command -v apt-get >/dev/null 2>&1; then
+		export DEBIAN_FRONTEND=noninteractive
+		apt-get update
+		apt-get install -y --no-install-recommends ccache
+		apt-get clean && rm -rf /var/lib/apt/lists/*
+	fi
+	export CCACHE_DIR="/opt/.ccache"
+	mkdir -p "${CCACHE_DIR}"
+	ccache --max-size=5G || true
+	export CMAKE_C_COMPILER_LAUNCHER=ccache
+	export CMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+	# ---------- ensure correct ANTs source/commit ----------
 	mkdir -p /opt/src
 	cd /opt/src
 	if [ ! -d ANTs ]; then
@@ -37,9 +50,6 @@ From: itk.sif
 	mkdir -p build
 	cd build
 
-	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
-	JOBS=1	# low and steady; bump later if stable
-
 	# ---------- CONFIGURE: SUPERBUILD OFF + EXTERNAL ITK ----------
 	cmake -G Ninja \
 		-DCMAKE_BUILD_TYPE=Release \
@@ -53,7 +63,16 @@ From: itk.sif
 	# fast sanity: show a few available targets (for future debugging)
 	ninja -t targets all 2>/dev/null | head -n 40 || true
 
-	# ---------- build only the core CLIs, sequentially for clarity ----------
+	# ---------- build only the core CLIs, with smart parallelism ----------
+	# Pick JOBS based on RAM: 4 if >=16GB, 2 if >=8GB, else 1
+	if awk '/MemTotal:/ {exit ($2>=16000000)?10:($2>=8000000)?20:0}' /proc/meminfo; then
+		JOBS=4
+	elif [ "$?" -eq 20 ]; then
+		JOBS=2
+	else
+		JOBS=1
+	fi
+
 	WANTED="
 		antsRegistration
 		antsApplyTransforms
@@ -73,16 +92,53 @@ From: itk.sif
 		ConvertTransformFile
 	"
 
-	mkdir -p /tmp/ants_logs
-	for tgt in $WANTED; do
-		echo "=== Building target: $tgt (j=$JOBS) ==="
-		log="/tmp/ants_logs/${tgt}.log"; : > "$log"
-		if ! cmake --build . --target "$tgt" -- -j "$JOBS" >"$log" 2>&1; then
-			echo "BUILD FAILED for $tgt. Last 120 lines:" >&2
-			tail -n 120 "$log" >&2
-			exit 1
+	# collect available target names (strip trailing ':')
+	AVAIL="$(ninja -t targets all 2>/dev/null | cut -d: -f1 | sort -u)"
+
+	# resolve wanted tools to actual build targets
+	RESOLVED=""
+	for tool in $WANTED; do
+		if printf '%s\n' "$AVAIL" | grep -qx "Examples/$tool"; then
+			RESOLVED="$RESOLVED Examples/$tool"
+		elif printf '%s\n' "$AVAIL" | grep -qx "$tool"; then
+			RESOLVED="$RESOLVED $tool"
+		elif printf '%s\n' "$AVAIL" | grep -qx "l_$tool"; then
+			RESOLVED="$RESOLVED l_$tool"
+		else
+			echo "WARN: no target for '$tool' in this tree; skipping" >&2
 		fi
 	done
+
+	# build in small batches for speed without blowing RAM
+	# (batch size = JOBS; each build gets -j "$JOBS")
+	mkdir -p /tmp/ants_logs
+	i=0
+	batch=""
+	for tgt in $RESOLVED; do
+		batch="$batch --target $tgt"
+		i=$((i+1))
+		if [ "$i" -ge "$JOBS" ]; then
+			log="/tmp/ants_logs/batch_$RANDOM.log"; : > "$log"
+			echo "=== Building batch (j=$JOBS): $batch ==="
+			if ! cmake --build . $batch -- -j "$JOBS" >"$log" 2>&1; then
+				echo "BUILD FAILED in batch. Last 200 lines:" >&2
+				tail -n 200 "$log" >&2
+				exit 1
+			fi
+			i=0
+			batch=""
+		fi
+	done
+	# flush any remainder
+	if [ -n "$batch" ]; then
+		log="/tmp/ants_logs/batch_tail.log"; : > "$log"
+		echo "=== Building final batch (j=$JOBS): $batch ==="
+		if ! cmake --build . $batch -- -j "$JOBS" >"$log" 2>&1; then
+			echo "BUILD FAILED in final batch. Last 200 lines:" >&2
+			tail -n 200 "$log" >&2
+			exit 1
+		fi
+	fi
 
 	# ---------- INSTALL (or copy from Examples/ if no install rule) ----------
 	if ! cmake --install . --prefix "${INSTALL_PREFIX}" ; then
@@ -112,9 +168,9 @@ From: itk.sif
 	chmod -R a+rX "${INSTALL_PREFIX}"
 
 %test
-    set -eu
-    [ -x "${SAMBA_APPS_DIR:-/opt/samba}/ants/bin/antsRegistration" ]
-    echo "ANTs core tools present."
+	set -eu
+	[ -x "${SAMBA_APPS_DIR:-/opt/samba}/ants/bin/antsRegistration" ]
+	echo "ANTs core tools present."
 
 %runscript
-    exec /bin/sh -c "$@"
+	exec /bin/sh -c "$@"
