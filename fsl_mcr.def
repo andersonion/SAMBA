@@ -112,16 +112,16 @@ From: ants.sif
 	"${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
 	"${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 cpanm -n Carton
 
-	# Runtime activation for perlbrew in interactive shells (no bare 'cat')
+	# Runtime activation for perlbrew in interactive shells
 	mkdir -p /etc/profile.d
-	install -m 644 /dev/stdin /etc/profile.d/perlbrew.sh <<'EOF'
+	cat <<'EOF' | tee /etc/profile.d/perlbrew.sh >/dev/null
 export PERLBREW_ROOT=/opt/samba/perl5
 if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
 	. "$PERLBREW_ROOT/etc/bashrc"
 fi
 EOF
-
 	chmod 644 /etc/profile.d/perlbrew.sh
+
 
 	
 
