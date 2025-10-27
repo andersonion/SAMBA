@@ -59,40 +59,90 @@ From: itk.sif
     fi
 
     # ---- Build selected tools ----
-	# ---- Stable full build (low parallelism) ----
-	JOBS=1                                 # keep memory usage tiny; raise later if stable
-	BUILD_LOG=/tmp/ants_build.log; : > "$BUILD_LOG"
+	# ---- fresh build dir ----
+	rm -rf build
+	mkdir -p build
+	cd build
+	
 	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
+	JOBS=1   # keep very low to avoid OOM; raise to 2–4 later if stable
 	
-	echo "Building full ANTs tree with -j ${JOBS} (low RAM mode)…"
-	if ! cmake --build . -- -j "${JOBS}" >"$BUILD_LOG" 2>&1; then
-	  echo "ANTs build failed. Last 200 lines:" >&2
-	  tail -n 200 "$BUILD_LOG" >&2
-	  exit 1
-	fi
+	# ---- configure: FORCE SUPERBUILD OFF + use your external ITK ----
+	cmake -G Ninja \
+	  -DCMAKE_BUILD_TYPE=Release \
+	  -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
+	  -DITK_DIR:PATH="${ITK_DIR}" \
+	  -DANTS_SUPERBUILD=OFF \
+	  -DBUILD_TESTING=OFF \
+	  -DBUILD_ALL_ANTS_APPS=OFF \
+	  ..
 	
-	# ---- Install (or copy if no install rules) ----
+	# ---- build ONLY the CLIs we care about (targets in this ANTs commit are "l_<name>") ----
+	# We resolve l_<name> targets if present; if not, try the plain name.
+	WANTED="
+	  antsRegistration
+	  antsApplyTransforms
+	  N4BiasFieldCorrection
+	  Atropos
+	  ImageMath
+	  ResampleImageBySpacing
+	  ResampleImage
+	  SmoothImage
+	  MultiplyImages
+	  ThresholdImage
+	  PrintHeader
+	  ConvertImage
+	  ConvertImagePixelType
+	  SetOrigin
+	  SetSpacing
+	  ConvertTransformFile
+	"
+	
+	# discover available targets
+	AVAIL=$(
+	  { cmake --build . --target help 2>/dev/null || true; ninja -t targets all 2>/dev/null || true; } \
+	  | sed 's/^[[:space:]]\{0,3\}\.\{3\}[[:space:]]*//' | sed 's/:.*$//' | awk '{print $1}' | sort -u
+	)
+	
+	RESOLVED=""
+	for t in $WANTED; do
+	  if printf '%s\n' "$AVAIL" | grep -qx "l_$t"; then
+		RESOLVED="$RESOLVED l_$t"
+	  elif printf '%s\n' "$AVAIL" | grep -qx "$t"; then
+		RESOLVED="$RESOLVED $t"
+	  fi
+	done
+	
+	# build sequentially to keep RAM low and get clear errors
+	mkdir -p /tmp/ants_logs
+	for tgt in $RESOLVED; do
+	  echo "=== Building target: $tgt (j=$JOBS) ==="
+	  log="/tmp/ants_logs/${tgt}.log"; : > "$log"
+	  if ! cmake --build . --target "$tgt" -- -j "$JOBS" >"$log" 2>&1; then
+		echo "BUILD FAILED for $tgt. Last 120 lines:" >&2
+		tail -n 120 "$log" >&2
+		exit 1
+	  fi
+	done
+	
+	# ---- install (or copy if a tool lacks install rules) ----
 	if ! cmake --install . --prefix "${INSTALL_PREFIX}" ; then
 	  echo "No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
 	  mkdir -p "${INSTALL_PREFIX}/bin"
-	  # copy a few core tools if present (add more if you rely on them)
-	  for t in antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath \
-			   ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage \
-			   PrintHeader ConvertImage ConvertImagePixelType SetOrigin SetSpacing ConvertTransformFile
-	  do
-		# common output path in this tree
+	  for t in $WANTED; do
+		# common location for built executables in this tree
 		[ -f "Examples/$t" ] && cp -fv "Examples/$t" "${INSTALL_PREFIX}/bin/" && continue
-		# ask ninja for the built artifact
-		out="$(ninja -t query "$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
-		[ -z "$out" ] && out="$(ninja -t query "l_$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
-		[ -n "$out" ] && [ -f "$out" ] && cp -fv "$out" "${INSTALL_PREFIX}/bin/" || true
+		# ask ninja for each variant's output
+		for q in "l_$t" "$t"; do
+		  out="$(ninja -t query "$q" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+		  [ -n "$out" ] && [ -f "$out" ] && cp -fv "$out" "${INSTALL_PREFIX}/bin/" && break || true
+		done
 	  done
 	fi
 	
-	# ---- Final sanity check ----
+	# ---- sanity ----
 	if [ ! -x "${INSTALL_PREFIX}/bin/antsRegistration" ]; then
 	  echo "FATAL: ANTs installation failed — ${INSTALL_PREFIX}/bin/antsRegistration not found." >&2
-	  echo "Installed files:" >&2
 	  find "${INSTALL_PREFIX}/bin" -maxdepth 1 -type f -printf '%f\n' | sort | head -n 100 >&2 || true
 	  exit 1
 	fi
