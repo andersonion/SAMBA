@@ -59,10 +59,13 @@ From: itk.sif
     fi
 
     # ---- Build selected tools ----
-	
-	# ---- Low-parallel, per-target build for stability & clear logs ----
-	JOBS="$(nproc)"; [ "$JOBS" -gt 2 ] && JOBS=2   # safer on RAM; bump if you know you have headroom
+	# ---- Low-parallel, per-target build with loud logs (no full-build fallback) ----
+	JOBS="$(nproc)"; [ "$JOBS" -gt 1 ] && JOBS=1   # force low RAM; bump later if stable
 	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
+	
+	# (Optional) make CMake/Ninja verbose to see compile lines
+	# If your configure didn't set this, we can still pass -v below.
+	# cmake -DCMAKE_VERBOSE_MAKEFILE=ON . >/dev/null 2>&1 || true
 	
 	WANTED="
 	  antsRegistration
@@ -89,6 +92,11 @@ From: itk.sif
 	  | sed 's/^[[:space:]]\{0,3\}\.\{3\}[[:space:]]*//' | sed 's/:.*$//' | awk '{print $1}' | sort -u
 	)
 	
+	# Emit what we found (first 50) to help debugging
+	echo "Available targets (sample):" >&2
+	printf '%s\n' "$AVAIL" | head -n 50 >&2 || true
+	
+	# Resolve wanted → actual targets
 	RESOLVED=""
 	for t in $WANTED; do
 	  if printf '%s\n' "$AVAIL" | grep -qx "$t"; then
@@ -98,21 +106,20 @@ From: itk.sif
 	  fi
 	done
 	
-	# Build targets sequentially for low peak memory and clear error logs
-	[ -z "$RESOLVED" ] && { echo "No requested targets found; building full tree once..." >&2; RESOLVED="all"; }
+	# If still nothing matched, try the two most common spellings for antsApplyTransforms first
+	[ -z "$RESOLVED" ] && RESOLVED="l_antsApplyTransforms antsApplyTransforms"
 	
 	mkdir -p /tmp/ants_logs
 	fail_count=0
 	for tgt in $RESOLVED; do
 	  log="/tmp/ants_logs/${tgt}.log"
 	  : > "$log"
-	  echo "=== Building target: $tgt (j=$JOBS) ==="
-	  if ! cmake --build . --target "$tgt" -- -j "$JOBS" >"$log" 2>&1; then
+	  echo "=== Building target: $tgt (j=$JOBS, verbose) ==="
+	  if ! cmake --build . --target "$tgt" -- -j "$JOBS" -v >"$log" 2>&1; then
 		echo "BUILD FAILED for $tgt. Last 200 lines:" >&2
 		tail -n 200 "$log" >&2
-		# Heuristic: surface OOM kill if it happened
 		if grep -Eiq 'killed.*cc1plus|terminated signal|out of memory' "$log"; then
-		  echo "Hint: This looks like an OOM. Try lowering jobs (JOBS=1) or add swap." >&2
+		  echo "Hint: Looks like OOM. Keep JOBS=1 or add swap." >&2
 		fi
 		fail_count=$((fail_count+1))
 		break
