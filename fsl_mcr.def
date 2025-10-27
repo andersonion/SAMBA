@@ -21,12 +21,28 @@ From: ants.sif
 
     if command -v apt-get >/dev/null 2>&1; then
       export DEBIAN_FRONTEND=noninteractive
-      apt-get update
-      apt-get install -y --no-install-recommends ca-certificates curl gnupg
-      # Add NeuroDebian list for Ubuntu 22.04 (jammy); change region if you prefer
-      curl -fsSL https://neuro.debian.net/lists/jammy.us-nh.full \
-        -o /etc/apt/sources.list.d/neurodebian.sources.list
-      apt-get update
+	# ---- NeuroDebian (correct codename + signed-by keyring) ----
+	apt-get update
+	apt-get install -y --no-install-recommends gnupg ca-certificates
+
+	# remove any previous bad file
+	rm -f /etc/apt/sources.list.d/neurodebian.sources.list /etc/apt/sources.list.d/neurodebian.list || true
+
+	# detect Ubuntu codename (focal for 20.04)
+	CODENAME="$(. /etc/os-release; echo "${VERSION_CODENAME:-focal}")"
+
+	# import NeuroDebian archive key into a keyring
+	curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc \
+		| gpg --dearmor > /usr/share/keyrings/neurodebian-archive-keyring.gpg
+
+	# add properly signed entries
+	cat > /etc/apt/sources.list.d/neurodebian.list <<EOF
+deb [arch=amd64 signed-by=/usr/share/keyrings/neurodebian-archive-keyring.gpg] http://neuro.debian.net/debian ${CODENAME} main
+deb [arch=amd64 signed-by=/usr/share/keyrings/neurodebian-archive-keyring.gpg] http://neuro.debian.net/debian data main
+EOF
+
+	apt-get update
+
       apt-get install -y --no-install-recommends neurodebian-keyring
       apt-get update
       # Minimal FSL bits (core tools & templates)
