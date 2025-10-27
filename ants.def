@@ -59,12 +59,11 @@ From: itk.sif
     fi
 
     # ---- Build selected tools ----
-
-	# ---- Build only the CLI executables we care about (CMake-resolved targets) ----
-	JOBS="$(nproc)"; [ "$JOBS" -gt 8 ] && JOBS=8
-	BUILD_LOG=/tmp/ants_build.log; : > "$BUILD_LOG"
 	
-	# Logical list of ANTs tools we actually want
+	# ---- Low-parallel, per-target build for stability & clear logs ----
+	JOBS="$(nproc)"; [ "$JOBS" -gt 2 ] && JOBS=2   # safer on RAM; bump if you know you have headroom
+	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
+	
 	WANTED="
 	  antsRegistration
 	  antsApplyTransforms
@@ -84,72 +83,66 @@ From: itk.sif
 	  ConvertTransformFile
 	"
 	
-	# Gather available targets from BOTH CMake and Ninja, normalize names
+	# Discover real target names once (accept exact or l_<name>)
 	AVAIL=$(
-	  {
-		cmake --build . --target help 2>/dev/null || true
-		ninja -t targets all 2>/dev/null || true
-	  } \
-	  | sed 's/^[[:space:]]\{0,3\}\.\{3\}[[:space:]]*//' \
-	  | sed 's/:.*$//' \
-	  | awk '{print $1}' \
-	  | sort -u
+	  { cmake --build . --target help 2>/dev/null || true; ninja -t targets all 2>/dev/null || true; } \
+	  | sed 's/^[[:space:]]\{0,3\}\.\{3\}[[:space:]]*//' | sed 's/:.*$//' | awk '{print $1}' | sort -u
 	)
 	
-	# Map wanted tool names to actual build targets (accept exact or l_<name>)
-	RESOLVED_TARGET_ARGS=""
+	RESOLVED=""
 	for t in $WANTED; do
 	  if printf '%s\n' "$AVAIL" | grep -qx "$t"; then
-		RESOLVED_TARGET_ARGS="$RESOLVED_TARGET_ARGS --target $t"
+		RESOLVED="$RESOLVED $t"
 	  elif printf '%s\n' "$AVAIL" | grep -qx "l_$t"; then
-		RESOLVED_TARGET_ARGS="$RESOLVED_TARGET_ARGS --target l_$t"
+		RESOLVED="$RESOLVED l_$t"
 	  fi
 	done
 	
-	if [ -n "$RESOLVED_TARGET_ARGS" ]; then
-	  echo "CMake targets resolved:$RESOLVED_TARGET_ARGS"
-	  # Build just those targets (CMake drives Ninja; pass -j via '--')
-	  if ! cmake --build . $RESOLVED_TARGET_ARGS -- -j "$JOBS" >"$BUILD_LOG" 2>&1; then
-		echo "ANTs build failed. Last 200 lines:" >&2
-		tail -n 200 "$BUILD_LOG" >&2
-		exit 1
+	# Build targets sequentially for low peak memory and clear error logs
+	[ -z "$RESOLVED" ] && { echo "No requested targets found; building full tree once..." >&2; RESOLVED="all"; }
+	
+	mkdir -p /tmp/ants_logs
+	fail_count=0
+	for tgt in $RESOLVED; do
+	  log="/tmp/ants_logs/${tgt}.log"
+	  : > "$log"
+	  echo "=== Building target: $tgt (j=$JOBS) ==="
+	  if ! cmake --build . --target "$tgt" -- -j "$JOBS" >"$log" 2>&1; then
+		echo "BUILD FAILED for $tgt. Last 200 lines:" >&2
+		tail -n 200 "$log" >&2
+		# Heuristic: surface OOM kill if it happened
+		if grep -Eiq 'killed.*cc1plus|terminated signal|out of memory' "$log"; then
+		  echo "Hint: This looks like an OOM. Try lowering jobs (JOBS=1) or add swap." >&2
+		fi
+		fail_count=$((fail_count+1))
+		break
 	  fi
-	else
-	  echo "Note: none of the requested tools found as targets; building full tree once..." >&2
-	  if ! cmake --build . -- -j "$JOBS" >"$BUILD_LOG" 2>&1; then
-		echo "ANTs full build failed. Last 200 lines:" >&2
-		tail -n 200 "$BUILD_LOG" >&2
-		exit 1
-	  fi
-	fi
+	done
+	
+	[ "$fail_count" -ne 0 ] && exit 1
 	
 	# ---- Install (or copy if no install rules) ----
-	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
 	if ! cmake --install . --prefix "${INSTALL_PREFIX}" ; then
-	  echo "Note: No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
+	  echo "No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
 	  mkdir -p "${INSTALL_PREFIX}/bin"
-	  # Try both direct path and CMake/Ninja query for each tool
 	  for t in $WANTED; do
-		# 1) common output location
-		if [ -f "Examples/$t" ]; then
-		  cp -fv "Examples/$t" "${INSTALL_PREFIX}/bin/"; continue
-		fi
-		# 2) if we resolved a target, ask ninja for its output
-		#    (check l_<name> first, then <name>)
-		out="$(ninja -t query "l_$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
-		[ -z "$out" ] && out="$(ninja -t query "$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
-		[ -n "$out" ] && [ -f "$out" ] && cp -fv "$out" "${INSTALL_PREFIX}/bin/" || true
+		# copy both plain and l_ variants if they exist
+		for q in "$t" "l_$t"; do
+		  out="$(ninja -t query "$q" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+		  [ -n "$out" ] && [ -f "$out" ] && cp -fv "$out" "${INSTALL_PREFIX}/bin/" || true
+		  [ -f "Examples/$t" ] && cp -fv "Examples/$t" "${INSTALL_PREFIX}/bin/" || true
+		done
 	  done
 	fi
 	
 	# ---- Final sanity check ----
 	if [ ! -x "${INSTALL_PREFIX}/bin/antsRegistration" ]; then
 	  echo "FATAL: ANTs installation failed — ${INSTALL_PREFIX}/bin/antsRegistration not found." >&2
-	  echo "Built targets were: $RESOLVED_TARGET_ARGS" >&2
-	  # show a few outputs for debugging
-	  find "${INSTALL_PREFIX}/bin" -maxdepth 1 -type f -printf '%f\n' | sort | head -n 50 >&2 || true
+	  echo "Installed files:" >&2
+	  find "${INSTALL_PREFIX}/bin" -maxdepth 1 -type f -printf '%f\n' | sort | head -n 100 >&2 || true
 	  exit 1
 	fi
+	
 	chmod -R a+rX "${INSTALL_PREFIX}"
 
 %test
