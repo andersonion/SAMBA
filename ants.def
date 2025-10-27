@@ -118,7 +118,11 @@ From: itk.sif
 		batch="$batch --target $tgt"
 		i=$((i+1))
 		if [ "$i" -ge "$JOBS" ]; then
-			log="/tmp/ants_logs/batch_$RANDOM.log"; : > "$log"
+					# old:
+			# log="/tmp/ants_logs/batch_$RANDOM.log"; : > "$log"
+			# new (POSIX-safe):
+			log="$(mktemp /tmp/ants_logs/batch_XXXXXX.log)"; : > "$log"
+
 			echo "=== Building batch (j=$JOBS): $batch ==="
 			if ! cmake --build . $batch -- -j "$JOBS" >"$log" 2>&1; then
 				echo "BUILD FAILED in batch. Last 200 lines:" >&2
@@ -131,7 +135,8 @@ From: itk.sif
 	done
 	# flush any remainder
 	if [ -n "$batch" ]; then
-		log="/tmp/ants_logs/batch_tail.log"; : > "$log"
+		log="$(mktemp /tmp/ants_logs/batch_tail_XXXXXX.log)"; : > "$log"
+
 		echo "=== Building final batch (j=$JOBS): $batch ==="
 		if ! cmake --build . $batch -- -j "$JOBS" >"$log" 2>&1; then
 			echo "BUILD FAILED in final batch. Last 200 lines:" >&2
