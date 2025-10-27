@@ -126,13 +126,15 @@ From: ants.sif
 	apt-get update && apt-get install -y --no-install-recommends \
 		libgomp1 libx11-6 libxext6 libxt6 libxmu6 libgl1 libglu1-mesa
 
-	# Fetch official installer and run it quietly to the exact dir we want
-	tmp_inst=/tmp/fslinstaller.py
-	wget -qO "${tmp_inst}" https://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py
+	# Fetch official FSL installer to a temp file (set -u safe) and run it
+	tmp_inst="$(mktemp -p /tmp fslinstaller.XXXXXX.py)"
+	curl -fsSL https://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py -o "${tmp_inst}"
+
 	python3 "${tmp_inst}" -V "${FSLVER}" -d "${FSL_VERSION_DIR}" -q || {
 		echo "Retrying FSL installer once..." >&2
 		python3 "${tmp_inst}" -V "${FSLVER}" -d "${FSL_VERSION_DIR}" -q
 	}
+
 	rm -f "${tmp_inst}"
 
 	# Normalize layout: some installers nest 'fsl' one level deeper; flatten if needed
