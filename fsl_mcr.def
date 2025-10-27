@@ -2,7 +2,7 @@ Bootstrap: localimage
 From: ants.sif
 
 %labels
-    Stage "FSL (NeuroDebian minimal/core) on top of ants.sif"
+    Stage "FSL on top of ants.sif"
 
 %environment
     export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
@@ -16,52 +16,29 @@ From: ants.sif
     export PATH="${FSLDIR}/bin:$PATH"
 
 %post
-    set -eu
-    SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+	set -eu
 
-    if command -v apt-get >/dev/null 2>&1; then
-      export DEBIAN_FRONTEND=noninteractive
-	# ---- NeuroDebian (correct codename + signed-by keyring) ----
-	apt-get update
-	apt-get install -y --no-install-recommends gnupg ca-certificates
+	# base env
+	export DEBIAN_FRONTEND=noninteractive
+	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
 
-	# remove any previous bad file
+	# ---- Remove NeuroDebian (ignore completely) ----
 	rm -f /etc/apt/sources.list.d/neurodebian.sources.list /etc/apt/sources.list.d/neurodebian.list || true
-
-	# detect Ubuntu codename (focal for 20.04)
-	CODENAME="$(. /etc/os-release; echo "${VERSION_CODENAME:-focal}")"
-
-	# import NeuroDebian archive key into a keyring
-	curl -fsSL https://neuro.debian.net/_static/neuro.debian.net.asc \
-		| gpg --dearmor > /usr/share/keyrings/neurodebian-archive-keyring.gpg
-
-	# add properly signed entries
-	cat > /etc/apt/sources.list.d/neurodebian.list <<EOF
-deb [arch=amd64 signed-by=/usr/share/keyrings/neurodebian-archive-keyring.gpg] http://neuro.debian.net/debian ${CODENAME} main
-deb [arch=amd64 signed-by=/usr/share/keyrings/neurodebian-archive-keyring.gpg] http://neuro.debian.net/debian data main
-EOF
-
 	apt-get update
 
-      apt-get install -y --no-install-recommends neurodebian-keyring
-      apt-get update
-      # Minimal FSL bits (core tools & templates)
-      apt-get install -y --no-install-recommends fsl-core fsl-mni152-templates
-      apt-get clean; rm -rf /var/lib/apt/lists/*
-    else
-      echo "ERROR: apt-get not found; FSL install method expects Debian/Ubuntu base." >&2
-      exit 1
-    fi
+	# ---- Core packages (no NeuroDebian deps) ----
+	apt-get install -y --no-install-recommends \
+		tzdata ca-certificates gnupg curl wget unzip bzip2 \
+		build-essential git cmake ninja-build \
+		libfftw3-dev liblapacke-dev zlib1g-dev \
+		libjpeg-dev libpng-dev libtiff5-dev \
+		libexpat1-dev libxml2-dev libbz2-dev \
+		libeigen3-dev bc perl libperl-dev python3 ccache
 
-    # Detect FSL dir installed by packages
-    REAL_FSLDIR=""
-    for p in /usr/share/fsl/6.* /usr/lib/fsl/6.*; do
-      if [ -d "$p" ]; then REAL_FSLDIR="$p"; break; fi
-    done
-    if [ -z "$REAL_FSLDIR" ]; then
-      echo "ERROR: Could not locate FSL install dir after apt install." >&2
-      exit 1
-    fi
+	# timezone noninteractive sanity
+	ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
+	dpkg-reconfigure -f noninteractive tzdata
+
 
     # Make SAMBA_APPS_DIR/fsl point to the real FSL dir so FSLDIR can default there
     mkdir -p "${SAMBA_APPS_DIR}"
