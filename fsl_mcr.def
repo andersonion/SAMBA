@@ -40,9 +40,8 @@ From: ants.sif
 	dpkg-reconfigure -f noninteractive tzdata
 
 
-    # Make SAMBA_APPS_DIR/fsl point to the real FSL dir so FSLDIR can default there
     mkdir -p "${SAMBA_APPS_DIR}"
-    ln -sfn "$REAL_FSLDIR" "${SAMBA_APPS_DIR}/fsl"
+	
 
     # Provide wrapper env for non-login shells at runtime
     echo "export FSLDIR=${SAMBA_APPS_DIR}/fsl" > /etc/profile.d/99-fsl-samba.sh
