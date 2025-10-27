@@ -17,10 +17,9 @@ From: ants.sif
 
 %post
 	set -eu
-
-	# base env (define these BEFORE anything else to be set -u safe)
 	export DEBIAN_FRONTEND=noninteractive
 	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+
 	export PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
 	export PERLBREW_HOME="${PERLBREW_HOME:-${PERLBREW_ROOT}}"
 
@@ -112,32 +111,49 @@ From: ants.sif
 	"${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
 	"${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 cpanm -n Carton
 
-		# ---- end-of-stage sanity: FSL must be present ----
-	FSLBASE="${SAMBA_APPS_DIR:-/opt/samba}/fsl"
-	# prefer explicit FSLVER if you set it in this stage; otherwise pick latest 6.*
-	if [ -z "${FSLVER:-}" ]; then
-		FSLVER="$(basename "$(ls -d "${FSLBASE}"/6.* 2>/dev/null | sort -V | tail -1 || true)")"
+	# ---- end-of-stage sanity: FSL must be present and runnable (set -u safe) ----
+	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+	FSLBASE="${SAMBA_APPS_DIR}/fsl"
+
+	# Resolve FSLDIR: prefer explicit FSLVER if it exists; else pick highest 6.*
+	if [ -n "${FSLVER:-}" ] && [ -d "${FSLBASE}/${FSLVER}" ]; then
+		FSLDIR="${FSLBASE}/${FSLVER}"
+	else
+		FSLDIR="$(find "${FSLBASE}" -maxdepth 1 -mindepth 1 -type d -name '6.*' 2>/dev/null | sort -V | tail -1 || true)"
 	fi
-	FSLDIR="${FSLBASE}/${FSLVER:-6.0.6}"
+	: "${FSLDIR:?FATAL: No FSL dir found under ${FSLBASE}}"
 
 	if [ ! -x "${FSLDIR}/bin/fslmaths" ]; then
 		echo "FATAL: ${FSLDIR}/bin/fslmaths not found after install." >&2
-		echo "Contents of ${FSLDIR}/bin (if dir exists):" >&2
-		ls -l "${FSLDIR}/bin" 2>&1 | sed 's/^/  /' >&2 || true
+		echo "Contents under ${FSLBASE} (depth 2):" >&2
+		find "${FSLBASE}" -maxdepth 2 -type d 2>/dev/null | sed 's/^/  /' >&2 || true
 		exit 1
 	fi
-	# quick smoke test
-	"${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || {
-		echo "FATAL: ${FSLDIR}/bin/fslmaths failed to run." >&2
+	# smoke test
+	if ! "${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1; then
+		echo "FATAL: ${FSLDIR}/bin/fslmaths failed to execute." >&2
 		exit 1
-	}
+	fi
+
 
 %test
-    set -eu
-    FSLDIR="${FSLDIR:-${SAMBA_APPS_DIR:-/opt/samba}/fsl}"
-    [ -x "${FSLDIR}/bin/fslmaths" ]
-    "${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || true
-    echo "FSL present at ${FSLDIR}"
+	set -eu
+	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+	FSLBASE="${SAMBA_APPS_DIR}/fsl"
+
+	if [ -n "${FSLVER:-}" ] && [ -d "${FSLBASE}/${FSLVER}" ]; then
+		FSLDIR="${FSLBASE}/${FSLVER}"
+	else
+		FSLDIR="$(find "${FSLBASE}" -maxdepth 1 -mindepth 1 -type d -name '6.*' 2>/dev/null | sort -V | tail -1 || true)"
+	fi
+	: "${FSLDIR:?FATAL: No FSL dir found under ${FSLBASE} in %test}"
+
+	echo "[%test:fsl_mcr] SAMBA_APPS_DIR=${SAMBA_APPS_DIR}"
+	echo "[%test:fsl_mcr] FSLDIR=${FSLDIR}"
+	ls -l "${FSLDIR}/bin" || { echo "[%test:fsl_mcr] bin missing"; exit 1; }
+	[ -x "${FSLDIR}/bin/fslmaths" ] || { echo "[%test:fsl_mcr] fslmaths not executable"; exit 1; }
+	"${FSLDIR}/bin/fslmaths" -version
+	echo "[%test:fsl_mcr] OK"
 
 %runscript
     exec /bin/sh -c "$@"
