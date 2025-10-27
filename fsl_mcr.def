@@ -105,19 +105,23 @@ From: ants.sif
 
     # --- Perlbrew + Perl 5.16.3 + cpanm + Carton (no project install here) ---
 	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-	PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
-	
+	export PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
+	export PERLBREW_HOME="${PERLBREW_HOME:-${PERLBREW_ROOT}}"
+	mkdir -p "${PERLBREW_ROOT}"
+
+	# Install perlbrew + perl + cpanm + Carton (no PATH assumptions)
 	curl -L https://install.perlbrew.pl | bash
+	"${PERLBREW_ROOT}/bin/perlbrew" init
 	"${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
 	"${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
 	"${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 cpanm -n Carton
-	
+
 	cat >/etc/profile.d/perlbrew.sh <<'EOF'
-	export PERLBREW_ROOT=/opt/samba/perl5
-	if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
-	  . "$PERLBREW_ROOT/etc/bashrc"
-	fi
-	EOF
+export PERLBREW_ROOT=/opt/samba/perl5
+if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
+	. "$PERLBREW_ROOT/etc/bashrc"
+fi
+EOF
 	chmod 644 /etc/profile.d/perlbrew.sh
 
 
