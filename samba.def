@@ -158,26 +158,21 @@ From: ubuntu:20.04
     fi
 
     # ---- Build selected tools ----
-	# ---- fresh build dir ----
-	rm -rf build
-	mkdir -p build
-	cd build
+	# ---- Robust, simple build + manual copy of required CLIs ----
+	JOBS=1                                           # low RAM so it completes predictably
+	BUILD_LOG=/tmp/ants_build.log; : > "$BUILD_LOG"
+	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"          # where we want the tools to live
+	ANTSBIN="${INSTALL_PREFIX}/bin"
+	mkdir -p "${ANTSBIN}"
 	
-	INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
-	JOBS=1   # keep very low to avoid OOM; raise to 2–4 later if stable
+	echo "Building full ANTs tree (-j ${JOBS})…"
+	if ! cmake --build . -- -j "${JOBS}" >"$BUILD_LOG" 2>&1; then
+	  echo "ANTs build failed. Last 200 lines:" >&2
+	  tail -n 200 "$BUILD_LOG" >&2
+	  exit 1
+	fi
 	
-	# ---- configure: FORCE SUPERBUILD OFF + use your external ITK ----
-	cmake -G Ninja \
-	  -DCMAKE_BUILD_TYPE=Release \
-	  -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
-	  -DITK_DIR:PATH="${ITK_DIR}" \
-	  -DANTS_SUPERBUILD=OFF \
-	  -DBUILD_TESTING=OFF \
-	  -DBUILD_ALL_ANTS_APPS=OFF \
-	  ..
-	
-	# ---- build ONLY the CLIs we care about (targets in this ANTs commit are "l_<name>") ----
-	# We resolve l_<name> targets if present; if not, try the plain name.
+	# Tools we actually need
 	WANTED="
 	  antsRegistration
 	  antsApplyTransforms
@@ -197,52 +192,44 @@ From: ubuntu:20.04
 	  ConvertTransformFile
 	"
 	
-	# discover available targets
-	AVAIL=$(
-	  { cmake --build . --target help 2>/dev/null || true; ninja -t targets all 2>/dev/null || true; } \
-	  | sed 's/^[[:space:]]\{0,3\}\.\{3\}[[:space:]]*//' | sed 's/:.*$//' | awk '{print $1}' | sort -u
-	)
-	
-	RESOLVED=""
+	# Copy built executables directly from the build tree (Examples/) into ANTSPATH
+	COPIED=0
 	for t in $WANTED; do
-	  if printf '%s\n' "$AVAIL" | grep -qx "l_$t"; then
-		RESOLVED="$RESOLVED l_$t"
-	  elif printf '%s\n' "$AVAIL" | grep -qx "$t"; then
-		RESOLVED="$RESOLVED $t"
+	  # common path in ANTs builds
+	  if [ -f "Examples/$t" ]; then
+		cp -fv "Examples/$t" "${ANTSBIN}/"
+		chmod a+rx "${ANTSBIN}/$t" || true
+		COPIED=$((COPIED+1))
+		continue
+	  fi
+	
+	  # fallback: ask ninja for the output file of either <t> or l_<t>
+	  out="$(ninja -t query "$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+	  [ -z "$out" ] && out="$(ninja -t query "l_$t" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
+	  if [ -n "$out" ] && [ -f "$out" ]; then
+		cp -fv "$out" "${ANTSBIN}/"
+		b="$(basename "$out")"
+		chmod a+rx "${ANTSBIN}/${b}" || true
+		# If the filename isn't exactly $t, also drop a convenience copy named $t
+		[ "$b" != "$t" ] && cp -fv "${ANTSBIN}/${b}" "${ANTSBIN}/${t}" || true
+		COPIED=$((COPIED+1))
+		continue
+	  fi
+	
+	  # last-chance: search the tree for an executable named $t
+	  found="$(find . -type f -name "$t" -perm -111 -print -quit 2>/dev/null || true)"
+	  if [ -n "$found" ]; then
+		cp -fv "$found" "${ANTSBIN}/"
+		chmod a+rx "${ANTSBIN}/$t" || true
+		COPIED=$((COPIED+1))
 	  fi
 	done
 	
-	# build sequentially to keep RAM low and get clear errors
-	mkdir -p /tmp/ants_logs
-	for tgt in $RESOLVED; do
-	  echo "=== Building target: $tgt (j=$JOBS) ==="
-	  log="/tmp/ants_logs/${tgt}.log"; : > "$log"
-	  if ! cmake --build . --target "$tgt" -- -j "$JOBS" >"$log" 2>&1; then
-		echo "BUILD FAILED for $tgt. Last 120 lines:" >&2
-		tail -n 120 "$log" >&2
-		exit 1
-	  fi
-	done
-	
-	# ---- install (or copy if a tool lacks install rules) ----
-	if ! cmake --install . --prefix "${INSTALL_PREFIX}" ; then
-	  echo "No install target; copying built binaries to ${INSTALL_PREFIX}/bin"
-	  mkdir -p "${INSTALL_PREFIX}/bin"
-	  for t in $WANTED; do
-		# common location for built executables in this tree
-		[ -f "Examples/$t" ] && cp -fv "Examples/$t" "${INSTALL_PREFIX}/bin/" && continue
-		# ask ninja for each variant's output
-		for q in "l_$t" "$t"; do
-		  out="$(ninja -t query "$q" 2>/dev/null | awk '/^  outputs:/{print $2; exit}')"
-		  [ -n "$out" ] && [ -f "$out" ] && cp -fv "$out" "${INSTALL_PREFIX}/bin/" && break || true
-		done
-	  done
-	fi
-	
-	# ---- sanity ----
-	if [ ! -x "${INSTALL_PREFIX}/bin/antsRegistration" ]; then
-	  echo "FATAL: ANTs installation failed — ${INSTALL_PREFIX}/bin/antsRegistration not found." >&2
-	  find "${INSTALL_PREFIX}/bin" -maxdepth 1 -type f -printf '%f\n' | sort | head -n 100 >&2 || true
+	# Final sanity
+	if [ ! -x "${ANTSBIN}/antsRegistration" ]; then
+	  echo "FATAL: ANTs installation failed — ${ANTSBIN}/antsRegistration not found." >&2
+	  echo "Copied ${COPIED} tools. Present in ${ANTSBIN}:" >&2
+	  find "${ANTSBIN}" -maxdepth 1 -type f -printf '%f\n' | sort | head -n 200 >&2 || true
 	  exit 1
 	fi
 	
