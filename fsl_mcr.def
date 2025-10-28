@@ -156,11 +156,27 @@ From: ants.sif
 	# ---- end-of-stage sanity against mini FSL ----
 	FSLDIR="${FSLROOT}"  # now points to mini
 
-	# 1) Ensure FSLROOT actually points at .../mini
-	if [ "$(readlink -f "${FSLROOT}" 2>/dev/null || echo "${FSLROOT}")" != "$(readlink -f "${FSL_MINI}")" ]; then
-		echo "FATAL: ${FSLROOT} does not point to mini (${FSL_MINI})." >&2
-		ls -l "${FSLROOT}" || true
+	# 1) Ensure FSLROOT actually points at .../mini (robust)
+	if [ ! -d "${FSL_MINI}" ]; then
+		echo "FATAL: mini dir missing: ${FSL_MINI}" >&2
 		exit 1
+	fi
+	if [ -L "${FSLROOT}" ]; then
+		# Compare both the literal link target and the resolved paths
+		_link_target="$(readlink "${FSLROOT}")"
+		if [ "${_link_target}" != "${FSL_MINI}" ] && \
+		   [ "$(readlink -f "${FSLROOT}")" != "$(readlink -f "${FSL_MINI}")" ]; then
+			echo "FATAL: ${FSLROOT} does not point to mini (${FSL_MINI})." >&2
+			ls -l "${FSLROOT}" || true
+			exit 1
+		fi
+	else
+		# If it's not a symlink, ensure it resolves to the mini dir
+		if [ "$(readlink -f "${FSLROOT}")" != "$(readlink -f "${FSL_MINI}")" ]; then
+			echo "FATAL: ${FSLROOT} is not a symlink to mini (${FSL_MINI})." >&2
+			ls -ld "${FSLROOT}" "${FSL_MINI}" || true
+			exit 1
+		fi
 	fi
 
 	# 2) Ensure the throwaway full-install base was removed
