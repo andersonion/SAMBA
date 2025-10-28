@@ -125,7 +125,8 @@ From: ants.sif
 	# Minimal runtime deps for CLI tools (safe on focal)
 	apt-get update && apt-get install -y --no-install-recommends \
 		libgomp1 libx11-6 libxext6 libxt6 libxmu6 libgl1 libglu1-mesa
-		
+	
+	set -x
 	# Fetch and run the FSL installer (set -u safe; no mktemp)
 	tmp_inst="/tmp/fslinstaller.py"
 	rm -f "${tmp_inst}"
@@ -133,6 +134,7 @@ From: ants.sif
 		echo "FATAL: failed to download fslinstaller.py" >&2
 		exit 1
 	}
+	set +x
 
 	python3 "${tmp_inst}" -V "${FSLVER}" -d "${FSL_VERSION_DIR}" -q || {
 		echo "Retrying FSL installer once..." >&2
