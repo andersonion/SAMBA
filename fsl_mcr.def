@@ -20,18 +20,18 @@ From: ants.sif
 %post
 	set -eu
 	export DEBIAN_FRONTEND=noninteractive
-
 	: "${SAMBA_APPS_DIR:=/opt/samba}"
 
-	# Public link used by pipelines (symlink only, do NOT build here)
+	# Public link used by the pipeline (symlink only; do NOT build here)
 	FSL_PUBLIC_LINK="${SAMBA_APPS_DIR}/fsl"
+	# Back-compat shim for any older lines that still reference FSLROOT
+	FSLROOT="${FSL_PUBLIC_LINK}"
 
-	# Real directories outside the public link to avoid symlink recursion
+	# Hidden real dirs to avoid symlink recursion
 	: "${FSLVER:=6.0.6}"
-	FSL_INSTALL_BASE="${SAMBA_APPS_DIR}/.fsl_full"           # throwaway full install
-	FSL_VERSION_DIR="${FSL_INSTALL_BASE}/${FSLVER}"
-	FSL_MINI_DIR="${SAMBA_APPS_DIR}/.fsl_mini"               # real mini tree lives here
-
+	FSL_INSTALL_BASE="${SAMBA_APPS_DIR}/.fsl_full"      # throwaway full install
+	FSL_VERSION_DIR="${FSL_INSTALL_BASE}/${FSLVER}"     # full install target
+	FSL_MINI_DIR="${SAMBA_APPS_DIR}/.fsl_mini"          # real mini runtime
 	mkdir -p "${FSL_INSTALL_BASE}"
 
 	export PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
