@@ -19,14 +19,18 @@ From: ants.sif
 	set -eu
 	export DEBIAN_FRONTEND=noninteractive
 
-	# Canonical FSL paths (do NOT point any of these to .../mini)
 	: "${SAMBA_APPS_DIR:=/opt/samba}"
-	FSLROOT="${SAMBA_APPS_DIR}/fsl"          # base dir (no version, no mini)
-	: "${FSLVER:=6.0.6}"                     # pin desired version
-	FSL_VERSION_DIR="${FSLROOT}/${FSLVER}"   # full install lives here
+
+	# Public base and mini (what the pipeline will use)
+	FSLROOT="${SAMBA_APPS_DIR}/fsl"          # stable public base (symlink to mini)
 	FSL_MINI="${FSLROOT}/mini"               # slim runtime lives here
 
-	export DEBIAN_FRONTEND=noninteractive
+	# Throwaway full-install base kept separate to avoid symlink loops
+	: "${FSLVER:=6.0.6}"
+	FSL_INSTALL_BASE="${SAMBA_APPS_DIR}/.fsl_full"   # hidden staging root
+	FSL_VERSION_DIR="${FSL_INSTALL_BASE}/${FSLVER}"  # full install lives here temporarily
+	mkdir -p "${FSL_INSTALL_BASE}"
+
 
 
 	export PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
@@ -96,7 +100,7 @@ From: ants.sif
 
 
 	# --- Build a minimal FSL runtime with only the tools we use (robust to conda layout) ---
-	# Find the actual FSL root that contains bin/fslmaths (path can vary under micromamba)
+	# Find the actual FSL root that contains bin/fslmaths (micromamba layout varies)
 	FSL_BIN="$(find "${FSL_VERSION_DIR}" -type f -name fslmaths -path '*/bin/*' -print -quit || true)"
 	if [ -z "${FSL_BIN}" ]; then
 		echo "FATAL: could not locate fslmaths under ${FSL_VERSION_DIR}" >&2
@@ -117,7 +121,7 @@ From: ants.sif
 		cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI}/etc/fslconf/"
 	fi
 
-	# optional data — copy only if present (some conda layouts omit it)
+	# optional data — copy only if present
 	if [ -d "${FSL_FULL}/share/fsl/data" ]; then
 		cp -a "${FSL_FULL}/share/fsl/data/." "${FSL_MINI}/share/fsl/data/" || true
 	elif [ -d "${FSL_FULL%/*}/share/fsl/data" ]; then
@@ -134,23 +138,39 @@ From: ants.sif
 		fi
 	done
 
-	# include FSL-provided libs if present
+	# include any FSL private libs if present
 	if [ -d "${FSL_FULL}/lib" ]; then
 		cp -a "${FSL_FULL}/lib/"lib*.so* "${FSL_MINI}/lib/" 2>/dev/null || true
 	fi
 
-	# Point ${FSLROOT} → mini (avoid self-linking)
+	# 1) remove the full installation tree FIRST (no symlink loops possible)
+	rm -rf "${FSL_INSTALL_BASE}"
+
+	# 2) then point ${FSLROOT} → mini (avoid self-linking)
 	if [ "$(readlink -f "${FSLROOT}" 2>/dev/null || echo "${FSLROOT}")" != "$(readlink -f "${FSL_MINI}")" ]; then
 		rm -rf "${FSLROOT}"
 		ln -sfn "${FSL_MINI}" "${FSLROOT}"
 	fi
 
-	# remove the full installation to keep the image small
-	rm -rf "${FSL_VERSION_DIR}"
-
 
 	# ---- end-of-stage sanity against mini FSL ----
 	FSLDIR="${FSLROOT}"  # now points to mini
+
+	# 1) Ensure FSLROOT actually points at .../mini
+	if [ "$(readlink -f "${FSLROOT}" 2>/dev/null || echo "${FSLROOT}")" != "$(readlink -f "${FSL_MINI}")" ]; then
+		echo "FATAL: ${FSLROOT} does not point to mini (${FSL_MINI})." >&2
+		ls -l "${FSLROOT}" || true
+		exit 1
+	fi
+
+	# 2) Ensure the throwaway full-install base was removed
+	if [ -e "${FSL_INSTALL_BASE}" ]; then
+		echo "FATAL: ${FSL_INSTALL_BASE} still exists (full install not cleaned)." >&2
+		ls -la "${FSL_INSTALL_BASE}" || true
+		exit 1
+	fi
+
+	# 3) Tools must exist
 	need_missing=0
 	for t in fslmaths fdr randomise design_ttest2; do
 		if [ ! -x "${FSLDIR}/bin/${t}" ]; then
@@ -160,11 +180,19 @@ From: ants.sif
 	done
 	[ "${need_missing}" -eq 0 ] || exit 1
 
-	# quick smoke tests
+	# 4) Quick smoke tests (don’t require network)
 	"${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || { echo "FATAL: fslmaths failed to run."; exit 1; }
 	"${FSLDIR}/bin/fdr" -h >/dev/null 2>&1 || true
 	"${FSLDIR}/bin/randomise" -h >/dev/null 2>&1 || true
 	"${FSLDIR}/bin/design_ttest2" -h >/dev/null 2>&1 || true
+
+	
+	# ---- end-of-stage sanity against mini FSL ----
+	FSLDIR="${FSLROOT}"  # now points to mini
+	for t in fslmaths fdr randomise design_ttest2; do
+		[ -x "${FSLDIR}/bin/${t}" ] || { echo "FATAL: ${FSLDIR}/bin/${t} missing in mini FSL." >&2; exit 1; }
+	done
+	"${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || { echo "FATAL: fslmaths failed to run."; exit 1; }
 
 
     # --- MATLAB Runtime R2015b (MCR) + Java 8 ---
