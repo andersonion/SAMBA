@@ -64,7 +64,7 @@ From: ants.sif
 		rm -rf "${FSL_VERSION_DIR}"
 	fi
 	# Do NOT mkdir the version dir; let the installer create it
-	mkdir -p "${FSLBASE}"
+	mkdir -p "${FSLROOT}"
 
 	# Minimal runtime deps for CLI tools (safe on focal)
 	apt-get update && apt-get install -y --no-install-recommends \
@@ -233,14 +233,14 @@ From: ants.sif
 %test
 	set -eu
 	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-	FSLBASE="${SAMBA_APPS_DIR}/fsl"
+	FSLROOT="${SAMBA_APPS_DIR}/fsl"
 
-	if [ -n "${FSLVER:-}" ] && [ -d "${FSLBASE}/${FSLVER}" ]; then
-		FSLDIR="${FSLBASE}/${FSLVER}"
+	if [ -n "${FSLVER:-}" ] && [ -d "${FSLROOT}/${FSLVER}" ]; then
+		FSLDIR="${FSLROOT}/${FSLVER}"
 	else
-		FSLDIR="$(find "${FSLBASE}" -maxdepth 1 -mindepth 1 -type d -name '6.*' 2>/dev/null | sort -V | tail -1 || true)"
+		FSLDIR="$(find "${FSLROOT}" -maxdepth 1 -mindepth 1 -type d -name '6.*' 2>/dev/null | sort -V | tail -1 || true)"
 	fi
-	: "${FSLDIR:?FATAL: No FSL dir found under ${FSLBASE} in %test}"
+	: "${FSLDIR:?FATAL: No FSL dir found under ${FSLROOT} in %test}"
 
 	echo "[%test:fsl_mcr] SAMBA_APPS_DIR=${SAMBA_APPS_DIR}"
 	echo "[%test:fsl_mcr] FSLDIR=${FSLDIR}"
