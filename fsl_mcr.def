@@ -13,7 +13,9 @@ From: ants.sif
     # FSL defaults to living under SAMBA_APPS_DIR via symlink we create in %post
     export FSLDIR="${FSLDIR:-${SAMBA_APPS_DIR}/fsl}"
     export FSLOUTPUTTYPE="${FSLOUTPUTTYPE:-NIFTI_GZ}"
-    export PATH="${FSLDIR}/bin:$PATH"
+	export PATH="${FSLDIR}/bin:${PATH}"
+	export LD_LIBRARY_PATH="${FSLDIR}/lib:${LD_LIBRARY_PATH:-}"
+
 
 %post
 	set -eu
@@ -21,17 +23,16 @@ From: ants.sif
 
 	: "${SAMBA_APPS_DIR:=/opt/samba}"
 
-	# Public base and mini (what the pipeline will use)
-	FSLROOT="${SAMBA_APPS_DIR}/fsl"          # stable public base (symlink to mini)
-	FSL_MINI="${FSLROOT}/mini"               # slim runtime lives here
+	# Public link used by pipelines (symlink only, do NOT build here)
+	FSL_PUBLIC_LINK="${SAMBA_APPS_DIR}/fsl"
 
-	# Throwaway full-install base kept separate to avoid symlink loops
+	# Real directories outside the public link to avoid symlink recursion
 	: "${FSLVER:=6.0.6}"
-	FSL_INSTALL_BASE="${SAMBA_APPS_DIR}/.fsl_full"   # hidden staging root
-	FSL_VERSION_DIR="${FSL_INSTALL_BASE}/${FSLVER}"  # full install lives here temporarily
+	FSL_INSTALL_BASE="${SAMBA_APPS_DIR}/.fsl_full"           # throwaway full install
+	FSL_VERSION_DIR="${FSL_INSTALL_BASE}/${FSLVER}"
+	FSL_MINI_DIR="${SAMBA_APPS_DIR}/.fsl_mini"               # real mini tree lives here
+
 	mkdir -p "${FSL_INSTALL_BASE}"
-
-
 
 	export PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
 	export PERLBREW_HOME="${PERLBREW_HOME:-${PERLBREW_ROOT}}"
@@ -99,14 +100,7 @@ From: ants.sif
 	fi
 
 
-	# --- Build minimal FSL (install full to hidden staging, harvest mini, nuke full) ---
-	# Required vars expected earlier in %post:
-	#   SAMBA_APPS_DIR (default /opt/samba)
-	#   FSLROOT="${SAMBA_APPS_DIR}/fsl"
-	#   FSL_MINI="${FSLROOT}/mini"
-	#   FSL_INSTALL_BASE="${SAMBA_APPS_DIR}/.fsl_full"
-	#   FSL_VERSION_DIR="${FSL_INSTALL_BASE}/${FSLVER}"
-
+	# --- Build minimal FSL (install full to hidden staging, harvest mini, then link public path) ---
 	# Find the actual FSL root that contains bin/fslmaths inside the staged full install
 	FSL_BIN="$(find "${FSL_VERSION_DIR}" -type f -name fslmaths -path '*/bin/*' -print -quit || true)"
 	if [ -z "${FSL_BIN}" ]; then
@@ -119,84 +113,78 @@ From: ants.sif
 	# Only these tools:
 	FSL_TOOLS="fslmaths fdr randomise design_ttest2"
 
-	# fresh mini tree
-	rm -rf "${FSL_MINI}"
-	mkdir -p "${FSL_MINI}/bin" "${FSL_MINI}/lib" "${FSL_MINI}/etc/fslconf" "${FSL_MINI}/share/fsl/data"
+	# fresh mini tree (real dir, not inside public link)
+	rm -rf "${FSL_MINI_DIR}"
+	mkdir -p "${FSL_MINI_DIR}/bin" "${FSL_MINI_DIR}/lib" "${FSL_MINI_DIR}/etc/fslconf" "${FSL_MINI_DIR}/share/fsl/data"
 
 	# minimal config (if present)
 	if [ -d "${FSL_FULL}/etc/fslconf" ]; then
-		cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI}/etc/fslconf/"
+		cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI_DIR}/etc/fslconf/"
 	fi
 
 	# optional data (copy only if it exists in this layout)
 	if [ -d "${FSL_FULL}/share/fsl/data" ]; then
-		cp -a "${FSL_FULL}/share/fsl/data/." "${FSL_MINI}/share/fsl/data/" || true
+		cp -a "${FSL_FULL}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
 	elif [ -d "${FSL_FULL%/*}/share/fsl/data" ]; then
-		cp -a "${FSL_FULL%/*}/share/fsl/data/." "${FSL_MINI}/share/fsl/data/" || true
+		cp -a "${FSL_FULL%/*}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
 	fi
 
 	# copy requested tools and their ELF deps (ignore ldd errors on scripts)
 	for t in ${FSL_TOOLS}; do
 		if [ -e "${FSL_FULL}/bin/${t}" ]; then
-			cp -a "${FSL_FULL}/bin/${t}" "${FSL_MINI}/bin/"
+			cp -a "${FSL_FULL}/bin/${t}" "${FSL_MINI_DIR}/bin/"
 			ldd "${FSL_FULL}/bin/${t}" 2>/dev/null | awk '/=> \//{print $3}' | while read -r so; do
-				[ -n "${so}" ] && cp -n "${so}" "${FSL_MINI}/lib/" 2>/dev/null || true
+				[ -n "${so}" ] && cp -n "${so}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
 			done
 		fi
 	done
 
 	# include any FSL-provided libs if present
 	if [ -d "${FSL_FULL}/lib" ]; then
-		cp -a "${FSL_FULL}/lib/"lib*.so* "${FSL_MINI}/lib/" 2>/dev/null || true
+		cp -a "${FSL_FULL}/lib/"lib*.so* "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
 	fi
 
-	# remove the full installation staging area BEFORE pointing FSLROOT → mini (avoid loops)
+	# remove the full installation staging area BEFORE creating the public symlink
 	rm -rf "${FSL_INSTALL_BASE}"
 
-	# point ${FSLROOT} → mini (robust, avoid self-linking)
-	if [ "$(readlink -f "${FSLROOT}" 2>/dev/null || echo "${FSLROOT}")" != "$(readlink -f "${FSL_MINI}")" ]; then
-		rm -rf "${FSLROOT}"
-		ln -sfn "${FSL_MINI}" "${FSLROOT}"
+	# point /opt/samba/fsl (public path) → mini dir (robust, avoid self-linking)
+	if [ "$(readlink -f "${FSL_PUBLIC_LINK}" 2>/dev/null || echo '')" != "$(readlink -f "${FSL_MINI_DIR}")" ]; then
+		rm -rf "${FSL_PUBLIC_LINK}"
+		ln -sfn "${FSL_MINI_DIR}" "${FSL_PUBLIC_LINK}"
 	fi
 
 	# debug breadcrumb
-	echo "[skinny-fsl] built: $(ls -l "${FSL_MINI}/bin" || echo 'no bin')"
+	echo "[skinny-fsl] mini tree at ${FSL_MINI_DIR}"
+	ls -l "${FSL_MINI_DIR}/bin" || true
+	ls -l "${FSL_PUBLIC_LINK}" || true
 
 
 	# ---- end-of-stage sanity against mini FSL ----
-	FSLDIR="${FSLROOT}"  # now points to mini
-
-	# 1) Ensure FSLROOT actually points at .../mini (robust)
-	if [ ! -d "${FSL_MINI}" ]; then
-		echo "FATAL: mini dir missing: ${FSL_MINI}" >&2
+	# public link and real mini must exist
+	if [ ! -d "${FSL_MINI_DIR}" ]; then
+		echo "FATAL: mini dir missing: ${FSL_MINI_DIR}" >&2
 		exit 1
 	fi
-	if [ -L "${FSLROOT}" ]; then
-		# Compare both the literal link target and the resolved paths
-		_link_target="$(readlink "${FSLROOT}")"
-		if [ "${_link_target}" != "${FSL_MINI}" ] && \
-		   [ "$(readlink -f "${FSLROOT}")" != "$(readlink -f "${FSL_MINI}")" ]; then
-			echo "FATAL: ${FSLROOT} does not point to mini (${FSL_MINI})." >&2
-			ls -l "${FSLROOT}" || true
+
+	# public link should point to the real mini dir
+	if [ -L "${FSL_PUBLIC_LINK}" ]; then
+		_link_target="$(readlink "${FSL_PUBLIC_LINK}")"
+		if [ "${_link_target}" != "${FSL_MINI_DIR}" ] && \
+		   [ "$(readlink -f "${FSL_PUBLIC_LINK}")" != "$(readlink -f "${FSL_MINI_DIR}")" ]; then
+			echo "FATAL: ${FSL_PUBLIC_LINK} does not point to mini (${FSL_MINI_DIR})." >&2
+			ls -l "${FSL_PUBLIC_LINK}" || true
 			exit 1
 		fi
 	else
-		# If it's not a symlink, ensure it resolves to the mini dir
-		if [ "$(readlink -f "${FSLROOT}")" != "$(readlink -f "${FSL_MINI}")" ]; then
-			echo "FATAL: ${FSLROOT} is not a symlink to mini (${FSL_MINI})." >&2
-			ls -ld "${FSLROOT}" "${FSL_MINI}" || true
+		if [ "$(readlink -f "${FSL_PUBLIC_LINK}")" != "$(readlink -f "${FSL_MINI_DIR}")" ]; then
+			echo "FATAL: ${FSL_PUBLIC_LINK} is not a symlink to mini (${FSL_MINI_DIR})." >&2
+			ls -ld "${FSL_PUBLIC_LINK}" "${FSL_MINI_DIR}" || true
 			exit 1
 		fi
-	fi
+	endif
 
-	# 2) Ensure the throwaway full-install base was removed
-	if [ -e "${FSL_INSTALL_BASE}" ]; then
-		echo "FATAL: ${FSL_INSTALL_BASE} still exists (full install not cleaned)." >&2
-		ls -la "${FSL_INSTALL_BASE}" || true
-		exit 1
-	fi
-
-	# 3) Tools must exist
+	# tools must exist and run
+	FSLDIR="${FSL_PUBLIC_LINK}"
 	need_missing=0
 	for t in fslmaths fdr randomise design_ttest2; do
 		if [ ! -x "${FSLDIR}/bin/${t}" ]; then
@@ -206,20 +194,10 @@ From: ants.sif
 	done
 	[ "${need_missing}" -eq 0 ] || exit 1
 
-	# 4) Quick smoke tests (don’t require network)
 	"${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || { echo "FATAL: fslmaths failed to run."; exit 1; }
 	"${FSLDIR}/bin/fdr" -h >/dev/null 2>&1 || true
 	"${FSLDIR}/bin/randomise" -h >/dev/null 2>&1 || true
 	"${FSLDIR}/bin/design_ttest2" -h >/dev/null 2>&1 || true
-
-	
-	# ---- end-of-stage sanity against mini FSL ----
-	FSLDIR="${FSLROOT}"  # now points to mini
-	for t in fslmaths fdr randomise design_ttest2; do
-		[ -x "${FSLDIR}/bin/${t}" ] || { echo "FATAL: ${FSLDIR}/bin/${t} missing in mini FSL." >&2; exit 1; }
-	done
-	"${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || { echo "FATAL: fslmaths failed to run."; exit 1; }
-
 
     # --- MATLAB Runtime R2015b (MCR) + Java 8 ---
 	# Consistent locations
