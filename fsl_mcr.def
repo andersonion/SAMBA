@@ -56,14 +56,13 @@ From: ants.sif
     echo 'export FSLOUTPUTTYPE=${FSLOUTPUTTYPE:-NIFTI_GZ}' >> /etc/profile.d/99-fsl-samba.sh
     echo 'export PATH="${FSLDIR}/bin:$PATH"' >> /etc/profile.d/99-fsl-samba.sh
     
-    # --- Install FSL (headless) into ${SAMBA_APPS_DIR}/fsl/<version> ---
 	# If the destination exists, remove it to avoid interactive overwrite prompt
 	if [ -d "${FSL_VERSION_DIR}" ] && [ -n "$(ls -A "${FSL_VERSION_DIR}" 2>/dev/null || true)" ]; then
 		echo "Found existing ${FSL_VERSION_DIR}; removing to avoid installer prompt..."
 		rm -rf "${FSL_VERSION_DIR}"
 	fi
-	mkdir -p "${FSL_VERSION_DIR}"
-
+	# Do NOT mkdir the version dir; let the installer create it
+	mkdir -p "${FSLBASE}"
 
 	# Minimal runtime deps for CLI tools (safe on focal)
 	apt-get update && apt-get install -y --no-install-recommends \
