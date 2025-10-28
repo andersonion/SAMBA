@@ -92,31 +92,58 @@ From: ants.sif
 		rm -rf "${FSL_VERSION_DIR}/fsl"
 	fi
 
-	# Point ${SAMBA_APPS_DIR}/fsl at the chosen version (no hardcoding)
-	ln -sfn "${FSL_VERSION_DIR}" "${FSLBASE}"
+
+	# --- Build a minimal FSL runtime with only the tools we use ---
+	FSL_FULL="${FSL_VERSION_DIR}"                  # where the installer put the full tree
+	FSL_MINI="${FSLBASE}/mini"                     # new slim runtime dir
+	FSL_TOOLS="fslmaths fdr randomise design_ttest2"         # adjust to your actual needs
+
+	# fresh mini tree
+	rm -rf "${FSL_MINI}"
+	mkdir -p "${FSL_MINI}/bin" "${FSL_MINI}/lib" "${FSL_MINI}/etc/fslconf" "${FSL_MINI}/share/fsl/data"
+
+	# config is tiny but required by wrappers/env
+	cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI}/etc/fslconf/"
+
+	# optional data (safe to skip if you truly don't need atlases/templates)
+	cp -a "${FSL_FULL}/share/fsl/data/." "${FSL_MINI}/share/fsl/data/" || true
+
+	# copy requested tools and their ELF deps
+	for t in ${FSL_TOOLS}; do
+		if [ -x "${FSL_FULL}/bin/${t}" ]; then
+			cp -a "${FSL_FULL}/bin/${t}" "${FSL_MINI}/bin/"
+			# copy resolved shared libs (absolute paths only)
+			for so in $(ldd "${FSL_FULL}/bin/${t}" | awk '/=> \//{print $3}'); do
+				cp -n "${so}" "${FSL_MINI}/lib/" 2>/dev/null || true
+			done
+		elif [ -f "${FSL_FULL}/bin/${t}" ]; then
+			# shell/python wrappers
+			cp -a "${FSL_FULL}/bin/${t}" "${FSL_MINI}/bin/"
+		fi
+	done
+
+	# include FSL private libs (*.so*) that some tools dlopen at runtime
+	cp -a "${FSL_FULL}/lib/"lib*.so* "${FSL_MINI}/lib/" 2>/dev/null || true
+
+	# make ${SAMBA_APPS_DIR}/fsl point to our mini tree (replaces any previous link to the full tree)
+	ln -sfn "${FSL_MINI}" "${FSLBASE}"
 
 
-	# ---- end-of-stage sanity: FSL must be present and runnable (set -u safe) ----
 
-	# Resolve FSLDIR: prefer explicit FSLVER if it exists; else pick highest 6.*
-	if [ -n "${FSLVER:-}" ] && [ -d "${FSLBASE}/${FSLVER}" ]; then
-		FSLDIR="${FSLBASE}/${FSLVER}"
-	else
-		FSLDIR="$(find "${FSLBASE}" -maxdepth 1 -mindepth 1 -type d -name '6.*' 2>/dev/null | sort -V | tail -1 || true)"
-	fi
-	: "${FSLDIR:?FATAL: No FSL dir found under ${FSLBASE}}"
 
+	# ---- end-of-stage sanity against mini FSL ----
+	FSLDIR="${FSLBASE}"  # base now points to mini
 	if [ ! -x "${FSLDIR}/bin/fslmaths" ]; then
-		echo "FATAL: ${FSLDIR}/bin/fslmaths not found after install." >&2
-		echo "Contents under ${FSLBASE} (depth 2):" >&2
-		find "${FSLBASE}" -maxdepth 2 -type d 2>/dev/null | sed 's/^/  /' >&2 || true
+		echo "FATAL: ${FSLDIR}/bin/fslmaths not found in mini FSL." >&2
+		ls -l "${FSLDIR}/bin" 2>/dev/null || true
 		exit 1
 	fi
-	# smoke test
-	if ! "${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1; then
-		echo "FATAL: ${FSLDIR}/bin/fslmaths failed to execute." >&2
+	# smoke test (prints version or exits 0 silently)
+	"${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || {
+		echo "FATAL: fslmaths failed to run from mini FSL." >&2
 		exit 1
-	fi
+	}
+
     
     # -------
 
