@@ -99,8 +99,15 @@ From: ants.sif
 	fi
 
 
-	# --- Build a minimal FSL runtime with only the tools we use (robust to conda layout) ---
-	# Find the actual FSL root that contains bin/fslmaths (micromamba layout varies)
+	# --- Build minimal FSL (install full to hidden staging, harvest mini, nuke full) ---
+	# Required vars expected earlier in %post:
+	#   SAMBA_APPS_DIR (default /opt/samba)
+	#   FSLROOT="${SAMBA_APPS_DIR}/fsl"
+	#   FSL_MINI="${FSLROOT}/mini"
+	#   FSL_INSTALL_BASE="${SAMBA_APPS_DIR}/.fsl_full"
+	#   FSL_VERSION_DIR="${FSL_INSTALL_BASE}/${FSLVER}"
+
+	# Find the actual FSL root that contains bin/fslmaths inside the staged full install
 	FSL_BIN="$(find "${FSL_VERSION_DIR}" -type f -name fslmaths -path '*/bin/*' -print -quit || true)"
 	if [ -z "${FSL_BIN}" ]; then
 		echo "FATAL: could not locate fslmaths under ${FSL_VERSION_DIR}" >&2
@@ -116,12 +123,12 @@ From: ants.sif
 	rm -rf "${FSL_MINI}"
 	mkdir -p "${FSL_MINI}/bin" "${FSL_MINI}/lib" "${FSL_MINI}/etc/fslconf" "${FSL_MINI}/share/fsl/data"
 
-	# config is tiny but required by wrappers/env (copy if present)
+	# minimal config (if present)
 	if [ -d "${FSL_FULL}/etc/fslconf" ]; then
 		cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI}/etc/fslconf/"
 	fi
 
-	# optional data — copy only if present
+	# optional data (copy only if it exists in this layout)
 	if [ -d "${FSL_FULL}/share/fsl/data" ]; then
 		cp -a "${FSL_FULL}/share/fsl/data/." "${FSL_MINI}/share/fsl/data/" || true
 	elif [ -d "${FSL_FULL%/*}/share/fsl/data" ]; then
@@ -138,19 +145,22 @@ From: ants.sif
 		fi
 	done
 
-	# include any FSL private libs if present
+	# include any FSL-provided libs if present
 	if [ -d "${FSL_FULL}/lib" ]; then
 		cp -a "${FSL_FULL}/lib/"lib*.so* "${FSL_MINI}/lib/" 2>/dev/null || true
 	fi
 
-	# 1) remove the full installation tree FIRST (no symlink loops possible)
+	# remove the full installation staging area BEFORE pointing FSLROOT → mini (avoid loops)
 	rm -rf "${FSL_INSTALL_BASE}"
 
-	# 2) then point ${FSLROOT} → mini (avoid self-linking)
+	# point ${FSLROOT} → mini (robust, avoid self-linking)
 	if [ "$(readlink -f "${FSLROOT}" 2>/dev/null || echo "${FSLROOT}")" != "$(readlink -f "${FSL_MINI}")" ]; then
 		rm -rf "${FSLROOT}"
 		ln -sfn "${FSL_MINI}" "${FSLROOT}"
 	fi
+
+	# debug breadcrumb
+	echo "[skinny-fsl] built: $(ls -l "${FSL_MINI}/bin" || echo 'no bin')"
 
 
 	# ---- end-of-stage sanity against mini FSL ----
