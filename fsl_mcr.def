@@ -18,11 +18,13 @@ From: ants.sif
 %post
 	set -eu
 	export DEBIAN_FRONTEND=noninteractive
-	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-	# set -u safe initializers (do this BEFORE any use of these vars)
-	: "${FSLBASE:=${SAMBA_APPS_DIR}/fsl}"
-	: "${FSLVER:=6.0.6}"
-	FSL_VERSION_DIR="${FSLBASE}/${FSLVER}"
+
+	# Canonical FSL paths (do NOT point any of these to .../mini)
+	: "${SAMBA_APPS_DIR:=/opt/samba}"
+	FSLROOT="${SAMBA_APPS_DIR}/fsl"          # base dir (no version, no mini)
+	: "${FSLVER:=6.0.6}"                     # pin desired version
+	FSL_VERSION_DIR="${FSLROOT}/${FSLVER}"   # full install lives here
+	FSL_MINI="${FSLROOT}/mini"               # slim runtime lives here
 
 	export DEBIAN_FRONTEND=noninteractive
 
@@ -94,16 +96,16 @@ From: ants.sif
 
 
 	# --- Build a minimal FSL runtime with only the tools we use (robust to conda layout) ---
-	# discover the actual FSL root that contains bin/fslmaths
+	# Find the actual FSL root that contains bin/fslmaths (path can vary under micromamba)
 	FSL_BIN="$(find "${FSL_VERSION_DIR}" -type f -name fslmaths -path '*/bin/*' -print -quit || true)"
 	if [ -z "${FSL_BIN}" ]; then
 		echo "FATAL: could not locate fslmaths under ${FSL_VERSION_DIR}" >&2
-		find "${FSL_VERSION_DIR}" -maxdepth 3 -type f -name fslmaths 2>/dev/null | sed 's/^/  /' >&2 || true
+		find "${FSL_VERSION_DIR}" -maxdepth 4 -type f -name fslmaths 2>/dev/null | sed 's/^/  /' >&2 || true
 		exit 1
 	fi
-	FSL_FULL="$(dirname "$(dirname "${FSL_BIN}")")"      # …/<something>/bin → take its parent
+	FSL_FULL="$(dirname "$(dirname "${FSL_BIN}")")"   # …/<something>/bin → its parent
 
-	FSL_MINI="${FSLBASE}/mini"
+	# Only these tools:
 	FSL_TOOLS="fslmaths fdr randomise design_ttest2"
 
 	# fresh mini tree
@@ -115,44 +117,40 @@ From: ants.sif
 		cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI}/etc/fslconf/"
 	fi
 
-	# optional data — copy only if present (some conda layouts don’t ship it)
+	# optional data — copy only if present (some conda layouts omit it)
 	if [ -d "${FSL_FULL}/share/fsl/data" ]; then
 		cp -a "${FSL_FULL}/share/fsl/data/." "${FSL_MINI}/share/fsl/data/" || true
-	else
-		# some builds put data higher up; try one level up
-		if [ -d "${FSL_FULL%/*}/share/fsl/data" ]; then
-			cp -a "${FSL_FULL%/*}/share/fsl/data/." "${FSL_MINI}/share/fsl/data/" || true
-		fi
+	elif [ -d "${FSL_FULL%/*}/share/fsl/data" ]; then
+		cp -a "${FSL_FULL%/*}/share/fsl/data/." "${FSL_MINI}/share/fsl/data/" || true
 	fi
 
 	# copy requested tools and their ELF deps (ignore ldd errors on scripts)
 	for t in ${FSL_TOOLS}; do
 		if [ -e "${FSL_FULL}/bin/${t}" ]; then
 			cp -a "${FSL_FULL}/bin/${t}" "${FSL_MINI}/bin/"
-			# pull shared libs for ELF binaries; scripts will print "not a dynamic executable" → ignore
 			ldd "${FSL_FULL}/bin/${t}" 2>/dev/null | awk '/=> \//{print $3}' | while read -r so; do
 				[ -n "${so}" ] && cp -n "${so}" "${FSL_MINI}/lib/" 2>/dev/null || true
 			done
 		fi
 	done
 
-	# include FSL-provided libs if present (conda envs usually have these under lib/)
+	# include FSL-provided libs if present
 	if [ -d "${FSL_FULL}/lib" ]; then
 		cp -a "${FSL_FULL}/lib/"lib*.so* "${FSL_MINI}/lib/" 2>/dev/null || true
 	fi
 
-	# Point ${SAMBA_APPS_DIR}/fsl at our mini tree (avoid self-linking)
-	LINK_BASE="${FSLBASE}"
-	if [ "$(readlink -f "${LINK_BASE}" 2>/dev/null || echo "${LINK_BASE}")" != "$(readlink -f "${FSL_MINI}")" ]; then
-		rm -rf "${LINK_BASE}"
-		ln -sfn "${FSL_MINI}" "${LINK_BASE}"
+	# Point ${FSLROOT} → mini (avoid self-linking)
+	if [ "$(readlink -f "${FSLROOT}" 2>/dev/null || echo "${FSLROOT}")" != "$(readlink -f "${FSL_MINI}")" ]; then
+		rm -rf "${FSLROOT}"
+		ln -sfn "${FSL_MINI}" "${FSLROOT}"
 	fi
 
 	# remove the full installation to keep the image small
 	rm -rf "${FSL_VERSION_DIR}"
 
+
 	# ---- end-of-stage sanity against mini FSL ----
-	FSLDIR="${FSLBASE}"
+	FSLDIR="${FSLROOT}"  # now points to mini
 	need_missing=0
 	for t in fslmaths fdr randomise design_ttest2; do
 		if [ ! -x "${FSLDIR}/bin/${t}" ]; then
@@ -162,7 +160,7 @@ From: ants.sif
 	done
 	[ "${need_missing}" -eq 0 ] || exit 1
 
-	# quick smoke tests (don’t require network)
+	# quick smoke tests
 	"${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || { echo "FATAL: fslmaths failed to run."; exit 1; }
 	"${FSLDIR}/bin/fdr" -h >/dev/null 2>&1 || true
 	"${FSLDIR}/bin/randomise" -h >/dev/null 2>&1 || true
