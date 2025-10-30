@@ -110,9 +110,24 @@ From: ants.sif
 	fi
 	FSL_FULL="$(dirname "$(dirname "${FSL_BIN}")")"   # …/<something>/bin → its parent
 
-	# tools we want plus helpers commonly needed by those tools
-	FSL_TOOLS="fslmaths fdr randomise design_ttest2"
-	FSL_HELPERS="fslpython fsl_sub"
+	# tools we want (single source of truth!)
+	# edit here only if you need more FSL commands in SAMBA
+	export FSL_TOOLS="
+		fslmaths
+		fdr
+		randomise
+		design_ttest2
+	"
+
+	# helpers required for some tools (python wrapper + job submission wrapper)
+	export FSL_HELPERS="
+		fslpython
+		fsl_sub
+	"
+
+	# combined list for loops
+	export FSL_ALL_TO_COPY="$(printf "%s %s" "${FSL_TOOLS}" "${FSL_HELPERS}")"
+
 
 	# fresh mini tree (real dir, not inside public link)
 	rm -rf "${FSL_MINI_DIR}"
@@ -149,7 +164,7 @@ From: ants.sif
 		fi
 	}
 
-	for t in ${FSL_TOOLS} ${FSL_HELPERS}; do
+	for t in ${FSL_ALL_TO_COPY}; do
 		if ! copy_tool "${t}"; then
 			echo "WARN: ${t} not found under ${FSL_VERSION_DIR}" >&2
 		fi
@@ -167,6 +182,12 @@ From: ants.sif
 	done
 	echo "[skinny-fsl] mini bin contains:"
 	ls -l "${FSL_MINI_DIR}/bin" || true
+
+	# sweep any shared libs living under lib/ anywhere in the staged install (conda envs, pkgs, etc)
+	find "${FSL_VERSION_DIR}" -type f -path '*/lib/lib*.so*' -exec cp -n {} "${FSL_MINI_DIR}/lib/" \; 2>/dev/null || true
+
+	# optional: check for unresolved libs on the staged binary before nuking staging
+	ldd "${FSL_MINI_DIR}/bin/fslmaths" 2>/dev/null | awk '/not found/ {print "MISSING:",$0}' || true
 
 
 	# remove the full installation staging area BEFORE creating the public symlink
@@ -211,7 +232,7 @@ From: ants.sif
 	# tools must exist and run
 	FSLDIR="${FSL_PUBLIC_LINK}"
 	need_missing=0
-	for t in fslmaths fdr randomise design_ttest2; do
+	for t in ${FSL_TOOLS}; do
 		if [ ! -x "${FSLDIR}/bin/${t}" ]; then
 			echo "FATAL: ${FSLDIR}/bin/${t} missing in mini FSL." >&2
 			need_missing=1
@@ -219,10 +240,13 @@ From: ants.sif
 	done
 	[ "${need_missing}" -eq 0 ] || exit 1
 
-	"${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || { echo "FATAL: fslmaths failed to run."; exit 1; }
-	"${FSLDIR}/bin/fdr" -h >/dev/null 2>&1 || true
-	"${FSLDIR}/bin/randomise" -h >/dev/null 2>&1 || true
-	"${FSLDIR}/bin/design_ttest2" -h >/dev/null 2>&1 || true
+	# smoke test core tools
+	for t in ${FSL_TOOLS}; do
+		if ! "${FSLDIR}/bin/${t}" -h >/dev/null 2>&1; then
+			echo "FATAL: ${t} failed to run." >&2
+			exit 1
+		fi
+	done
 
     # --- MATLAB Runtime R2015b (MCR) + Java 8 ---
 	# Consistent locations
