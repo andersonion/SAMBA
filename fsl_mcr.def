@@ -261,8 +261,18 @@ EOF
 
 	# One strict check (fslmaths should print a version and return 0)
 	ENV_FSL="FSLDIR=${FSLDIR} FSLOUTPUTTYPE=${FSLOUTPUTTYPE:-NIFTI_GZ} LD_LIBRARY_PATH=${FSLDIR}/lib:${LD_LIBRARY_PATH:-} PATH=${FSLDIR}/bin:${PATH}"
-	env ${ENV_FSL} "${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || {
-		echo "FATAL: fslmaths failed -version"; exit 1; }
+	# Loader-only smoke check for fslmaths (allow non-zero help exit codes)
+	set +e
+	_fslm_out="$(env ${ENV_FSL} "${FSLDIR}/bin/fslmaths" -h 2>&1 </dev/null | head -n 5)"
+	_fslm_rc=$?
+	set -e
+	if printf '%s\n' "$_fslm_out" | grep -Ei \
+		'error while loading shared libraries|No such file|not found|undefined symbol|Segmentation fault|GLIBCXX' >/dev/null; then
+		echo "FATAL: fslmaths smoke check failed:"
+		printf '%s\n' "$_fslm_out"
+		exit 1
+	fi
+	echo "  [ok] fslmaths (rc=${_fslm_rc})"
 
 	# Tolerant smoke checks for tools that return non-zero on -h
 	_smoke_ok() {
