@@ -186,39 +186,38 @@ From: ants.sif
 	# sweep any shared libs living under lib/ anywhere in the staged install (conda envs, pkgs, etc)
 	find "${FSL_VERSION_DIR}" -type f -path '*/lib/lib*.so*' -exec cp -n {} "${FSL_MINI_DIR}/lib/" \; 2>/dev/null || true
 
-	# ---- Fixup: ensure modern libstdc++ and friends are in mini/lib with correct SONAMEs ----
-	_fix_copy_soname () {
-		# $1 = lib base pattern, e.g. libstdc++.so.6
-		_need="$1"
-		# find a real file (not just a symlink) anywhere under staged install
-		_real="$(find "${FSL_VERSION_DIR}" -type f -path "*/lib/${_need}*" -exec bash -lc 't="{}"; [ -L "$t" ] && readlink -f "$t" || echo "$t"' \; 2>/dev/null \
-		         | grep -E "/lib/${_need}(\.|$)" | head -n1 || true)"
-		[ -z "${_real}" ] && return 0
-		cp -f "${_real}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
-		# ensure SONAME symlink exists (e.g., libstdc++.so.6 -> libstdc++.so.6.0.29)
-		_base="$(basename "${_real}")"
-		case "${_base}" in
-			*_*.so) _soname="${_base}";;
-			*.so.*) _soname="$(echo "${_base}" | sed 's/\(\.so\)\..*/\1/').6";;  # fallback
-			*)      _soname="${_need}";;
-		esac
-		# if target file looks like libstdc++.so.6.0.*, link libstdc++.so.6 to it
-		if [ "${_need}" = "libstdc++.so.6" ]; then
-			_target="$(basename "${_real}")"
-			ln -sfn "${_target}" "${FSL_MINI_DIR}/lib/libstdc++.so.6"
-		fi
+	# ---- Fixup: force modern libstdc++/friends from the staged conda env ----
+	_pick_latest_and_link () {
+		# $1 is the SONAME we want to satisfy, e.g. libstdc++.so.6
+		soname="$1"
+
+		# find the highest-versioned real file under staged install
+		cand="$(find "${FSL_VERSION_DIR}" -type f -path "*/lib/${soname}*" 2>/dev/null \
+		       | sort -V | tail -1 || true)"
+		[ -z "${cand}" ] && return 0
+
+		# copy that real file into mini/lib
+		cp -f "${cand}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
+		base="$(basename "${cand}")"
+
+		# make sure the SONAME symlink resolves to the newest file we just copied
+		ln -sfn "${base}" "${FSL_MINI_DIR}/lib/${soname}"
 	}
 
-	# must-haves for FSL conda builds
-	for _lib in \
+	# prefer conda-provided runtimes with newer symbols
+	for so in \
 		libstdc++.so.6 \
-		libgcc_s.so.1 \
-		libgomp.so.1 \
+		libgfortran.so.5 \
 		libquadmath.so.0 \
-		libgfortran.so.5
+		libgomp.so.1 \
+		libgcc_s.so.1
 	do
-		_fix_copy_soname "${_lib}"
+		_pick_latest_and_link "${so}"
 	done
+
+	# sanity: show unresolved after fix
+	ldd "${FSL_MINI_DIR}/bin/fslmaths" 2>/dev/null | awk '/not found/ {print "MISSING:",$0}' || true
+
 
 	# re-check unresolved deps on fslmaths before nuking staging
 	ldd "${FSL_MINI_DIR}/bin/fslmaths" 2>/dev/null | awk '/not found/ {print "MISSING:",$0}' || true
