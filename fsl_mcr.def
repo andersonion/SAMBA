@@ -259,15 +259,43 @@ EOF
 	done
 	[ "${need_missing}" -eq 0 ] || exit 1
 
-	# DIAG: confirm what fdr links against (with our mini lib first)
-	echo "[skinny-fsl] ldd check for fdr:"
-	env LD_LIBRARY_PATH="${FSLDIR}/lib:${LD_LIBRARY_PATH:-}" ldd "${FSLDIR}/bin/fdr" | sed 's/^/  /'
+	# One strict check (fslmaths should print a version and return 0)
+	ENV_FSL="FSLDIR=${FSLDIR} FSLOUTPUTTYPE=${FSLOUTPUTTYPE:-NIFTI_GZ} LD_LIBRARY_PATH=${FSLDIR}/lib:${LD_LIBRARY_PATH:-} PATH=${FSLDIR}/bin:${PATH}"
+	env ${ENV_FSL} "${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || {
+		echo "FATAL: fslmaths failed -version"; exit 1; }
 
-	# smoke tests with env applied (since %environment isn't sourced here)
-	_TEST_ENV="FSLDIR=${FSLDIR} FSLOUTPUTTYPE=${FSLOUTPUTTYPE:-NIFTI_GZ} LD_LIBRARY_PATH=${FSLDIR}/lib:${LD_LIBRARY_PATH:-} PATH=${FSLDIR}/bin:${PATH}"
-	for t in ${FSL_TOOLS}; do
-		env ${_TEST_ENV} "${FSLDIR}/bin/${t}" -h >/dev/null 2>&1 || { echo "FATAL: ${t} failed to run." >&2; exit 1; }
+	# Tolerant smoke checks for tools that return non-zero on -h
+	_smoke_ok() {
+		tool="$1"
+		set +e
+		out="$("${FSLDIR}/bin/${tool}" -h 2>&1 </dev/null | head -n 5)"
+		rc=$?
+		set -e
+		# Fail only on loader/ABI crashes; allow non-zero help exit codes
+		if printf '%s\n' "$out" | grep -Ei \
+			'error while loading shared libraries|No such file|not found|undefined symbol|Segmentation fault|GLIBCXX' >/dev/null; then
+			echo "FATAL: ${tool} smoke check failed:"
+			printf '%s\n' "$out"
+			exit 1
+		fi
+		echo "  [ok] ${tool} (rc=${rc})"
+	}
+
+	for t in fdr randomise design_ttest2; do
+		env ${ENV_FSL} sh -c '
+			tool="$1"
+			set +e
+			out="$("$FSLDIR/bin/$tool" -h 2>&1 </dev/null | head -n 5)"
+			rc=$?
+			set -e
+			case "$out" in
+				*"error while loading shared libraries"*|*"No such file"*|*"not found"*|*"undefined symbol"*|*"Segmentation fault"*|*"GLIBCXX"*)
+					echo "FATAL: $tool smoke check failed:"; printf "%s\n" "$out"; exit 1;;
+			esac
+			echo "  [ok] $tool (rc=$rc)"
+		' _ "$t"
 	done
+
 
 	# --- MATLAB Runtime R2015b (MCR) + Java 8 ---
 	BUILD_ROOT=/opt/build
