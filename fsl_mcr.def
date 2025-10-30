@@ -181,7 +181,7 @@ From: ants.sif
 			ls -ld "${FSL_PUBLIC_LINK}" "${FSL_MINI_DIR}" || true
 			exit 1
 		fi
-	endif
+	fi
 
 	# tools must exist and run
 	FSLDIR="${FSL_PUBLIC_LINK}"
