@@ -219,8 +219,52 @@ From: ants.sif
 	ldd "${FSL_MINI_DIR}/bin/fslmaths" 2>/dev/null | awk '/not found/ {print "MISSING:",$0}' || true
 
 
-	# re-check unresolved deps on fslmaths before nuking staging
-	ldd "${FSL_MINI_DIR}/bin/fslmaths" 2>/dev/null | awk '/not found/ {print "MISSING:",$0}' || true
+	# ---- Backfill any tool-specific missing .so deps from the staged tree ----
+	_backfill_missing_libs_for () {
+		_tool_path="$1"
+		# list unresolved sonames like: libgsl.so.27
+		miss="$(ldd "${_tool_path}" 2>/dev/null | awk '/not found/{print $1}')"
+		[ -z "${miss}" ] && return 0
+		echo "[skinny-fsl] backfilling for $(basename "${_tool_path}"):"
+		while read -r need; do
+			[ -z "${need}" ] && continue
+			# find best candidate under staged install
+			cand="$(find "${FSL_VERSION_DIR}" -type f -path "*/lib/${need}*" 2>/dev/null | sort -V | tail -1 || true)"
+			if [ -n "${cand}" ]; then
+				cp -n "${cand}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
+				base="$(basename "${cand}")"
+				# ensure SONAME symlink (libfoo.so.X -> libfoo.so.X.Y.Z)
+				case "${need}" in
+					*.so.[0-9]*) ln -sfn "${base}" "${FSL_MINI_DIR}/lib/${need}" ;;
+				esac
+				echo "  + ${need}  <-  ${base}"
+			else
+				echo "  ! ${need}  (not found under staged tree)" >&2
+			fi
+		done <<EOF
+${miss}
+EOF
+	}
+
+	# pre-empt common FSL deps (gsl)
+	for gsl in libgsl.so libgsl.so.* libgslcblas.so libgslcblas.so.* ; do
+		find "${FSL_VERSION_DIR}" -type f -path "*/lib/${gsl}" -exec cp -n {} "${FSL_MINI_DIR}/lib/" \; 2>/dev/null || true
+	done
+
+	# run backfill for each core tool (handles fdr/randomise/etc.)
+	for t in ${FSL_TOOLS}; do
+		if [ -x "${FSL_MINI_DIR}/bin/${t}" ]; then
+			_backfill_missing_libs_for "${FSL_MINI_DIR}/bin/${t}"
+		fi
+	done
+
+	# show unresolved (if any) before we delete staged tree
+	for t in ${FSL_TOOLS}; do
+		if [ -x "${FSL_MINI_DIR}/bin/${t}" ]; then
+			ldd "${FSL_MINI_DIR}/bin/${t}" 2>/dev/null | awk -v T="$t" '/not found/ {print "MISSING (" T "):", $0}'
+		fi
+	done
+
 
 	# remove the full installation staging area BEFORE creating the public symlink
 	rm -rf "${FSL_INSTALL_BASE}"
