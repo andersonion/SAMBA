@@ -110,8 +110,9 @@ From: ants.sif
 	fi
 	FSL_FULL="$(dirname "$(dirname "${FSL_BIN}")")"   # …/<something>/bin → its parent
 
-	# Only these tools:
+	# tools we want plus helpers commonly needed by those tools
 	FSL_TOOLS="fslmaths fdr randomise design_ttest2"
+	FSL_HELPERS="fslpython fsl_sub"
 
 	# fresh mini tree (real dir, not inside public link)
 	rm -rf "${FSL_MINI_DIR}"
@@ -128,21 +129,45 @@ From: ants.sif
 	elif [ -d "${FSL_FULL%/*}/share/fsl/data" ]; then
 		cp -a "${FSL_FULL%/*}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
 	fi
-
-	# copy requested tools and their ELF deps (ignore ldd errors on scripts)
-	for t in ${FSL_TOOLS}; do
-		if [ -e "${FSL_FULL}/bin/${t}" ]; then
-			cp -a "${FSL_FULL}/bin/${t}" "${FSL_MINI_DIR}/bin/"
-			ldd "${FSL_FULL}/bin/${t}" 2>/dev/null | awk '/=> \//{print $3}' | while read -r so; do
+	# copy requested tools from *any* bin inside the staged install
+	copy_tool() {
+		_tool="$1"
+		# prefer real bin paths; fall back to any executable match
+		_path="$(find "${FSL_VERSION_DIR}" -type f -name "${_tool}" -perm -111 -path '*/bin/*' -print -quit 2>/dev/null || true)"
+		if [ -z "${_path}" ]; then
+			_path="$(find "${FSL_VERSION_DIR}" -type f -name "${_tool}" -perm -111 -print -quit 2>/dev/null || true)"
+		fi
+		if [ -n "${_path}" ]; then
+			cp -a "${_path}" "${FSL_MINI_DIR}/bin/${_tool}"
+			# pull shared libs for ELF binaries; scripts will say "not a dynamic executable" → ignore
+			ldd "${_path}" 2>/dev/null | awk '/=> \//{print $3}' | while read -r so; do
 				[ -n "${so}" ] && cp -n "${so}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
 			done
+			return 0
+		else
+			return 1
+		fi
+	}
+
+	for t in ${FSL_TOOLS} ${FSL_HELPERS}; do
+		if ! copy_tool "${t}"; then
+			echo "WARN: ${t} not found under ${FSL_VERSION_DIR}" >&2
 		fi
 	done
+
 
 	# include any FSL-provided libs if present
 	if [ -d "${FSL_FULL}/lib" ]; then
 		cp -a "${FSL_FULL}/lib/"lib*.so* "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
 	fi
+
+	echo "[skinny-fsl] staged tool locations:"
+	for t in ${FSL_TOOLS}; do
+		find "${FSL_VERSION_DIR}" -type f -name "${t}" -print 2>/dev/null | sed "s/^/  ${t}: /" || true
+	done
+	echo "[skinny-fsl] mini bin contains:"
+	ls -l "${FSL_MINI_DIR}/bin" || true
+
 
 	# remove the full installation staging area BEFORE creating the public symlink
 	rm -rf "${FSL_INSTALL_BASE}"
