@@ -87,15 +87,27 @@ From: base.sif
 
 		# Non-interactive full install into hidden staging
 		# Avoid any pre-set PATH/LD_LIBRARY_PATH to prevent pulling conda shims during build
-		(	# subshell to localize env
+		# Non-interactive full install into hidden staging (try long flags, then short flags)
+		(
 			unset PATH LD_LIBRARY_PATH || true
 			PATH="/usr/sbin:/usr/bin:/sbin:/bin"
+			set +e
 			python3 "${tmp_inst}" \
 				--dest="${FSL_INSTALL_BASE}/${FSL_VER}" \
 				--version="${FSL_VER}" \
 				--quiet \
 				--skip_registration \
 				--yes
+			rc=$?
+			set -e
+			if [ "${rc}" -ne 0 ]; then
+				echo "[fsl] long-option mode failed, retrying with short flags..."
+				# -d DEST, -V VERSION, -n (non-interactive), -o (overwrite if exists), -s (skip registration if supported)
+				python3 "${tmp_inst}" \
+					-d "${FSL_INSTALL_BASE}/${FSL_VER}" \
+					-V "${FSL_VER}" \
+					-n -o -s
+			fi
 		)
 
 		echo "FSL successfully installed"
