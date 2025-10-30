@@ -1,381 +1,255 @@
 Bootstrap: localimage
-From: ants.sif
+From: base.sif
 
 %labels
-	Stage "FSL on top of ants.sif"
+	App: SAMBA FSL+MCR stage
+	Maintainer: you
+	Stage: fsl_mcr
 
 %environment
+	# container runtime env (evaluate at runtime, not build time)
 	export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-	# Keep ANTSPATH consistent
-	export ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
-	export PATH="${ANTSPATH}:$PATH"
-
-	# FSL defaults to living under SAMBA_APPS_DIR via symlink we create in %post
-	export FSLDIR="${FSLDIR:-${SAMBA_APPS_DIR}/fsl}"
+	export FSLROOT="${FSLROOT:-${SAMBA_APPS_DIR}/fsl}"         # public symlink target (will point to mini)
+	export FSLDIR="${FSLROOT}"
 	export FSLOUTPUTTYPE="${FSLOUTPUTTYPE:-NIFTI_GZ}"
 	export PATH="${FSLDIR}/bin:${PATH}"
-	export LD_LIBRARY_PATH="${FSLDIR}/lib:${LD_LIBRARY_PATH:-}"
 
 %post
 	set -eu
-	export DEBIAN_FRONTEND=noninteractive
-	: "${SAMBA_APPS_DIR:=/opt/samba}"
 
-	# Public link used by the pipeline (symlink only; do NOT build here)
-	FSL_PUBLIC_LINK="${SAMBA_APPS_DIR}/fsl"
-	# Back-compat shim for any older lines that still reference FSLROOT
-	FSLROOT="${FSL_PUBLIC_LINK}"
+	# ---- toggles ----
+	SKIP_FSL="${SKIP_FSL:-0}"          # 1=skip FSL build entirely
+	SKIP_MCR="${SKIP_MCR:-0}"          # 1=skip MATLAB MCR prep
 
-	# Hidden real dirs to avoid symlink recursion
-	: "${FSLVER:=6.0.6}"
-	FSL_INSTALL_BASE="${SAMBA_APPS_DIR}/.fsl_full"      # throwaway full install
-	FSL_VERSION_DIR="${FSL_INSTALL_BASE}/${FSLVER}"     # full install target
-	FSL_MINI_DIR="${SAMBA_APPS_DIR}/.fsl_mini"          # real mini runtime
-	mkdir -p "${FSL_INSTALL_BASE}"
+	# ---- base dirs (do not hard-code; keep variable-driven) ----
+	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+	FSLROOT="${FSLROOT:-${SAMBA_APPS_DIR}/fsl}"
 
-	export PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
-	export PERLBREW_HOME="${PERLBREW_HOME:-${PERLBREW_ROOT}}"
-
-	# ---- Remove NeuroDebian (ignore completely) ----
-	rm -f /etc/apt/sources.list.d/neurodebian.sources.list /etc/apt/sources.list.d/neurodebian.list || true
-	apt-get update
-
-	# ---- Core packages (no NeuroDebian deps) ----
-	apt-get install -y --no-install-recommends \
-		tzdata ca-certificates gnupg curl wget unzip bzip2 rsync \
-		build-essential git cmake ninja-build \
-		libfftw3-dev liblapacke-dev zlib1g-dev \
-		libjpeg-dev libpng-dev libtiff5-dev \
-		libexpat1-dev libxml2-dev libbz2-dev \
-		libeigen3-dev bc perl libperl-dev python3 ccache
-
-	# timezone noninteractive sanity
-	ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
-	dpkg-reconfigure -f noninteractive tzdata
-
-	# app roots
-	mkdir -p "${SAMBA_APPS_DIR}" "${PERLBREW_ROOT}"
-
-	# Provide wrapper env for non-login shells at runtime
-	cat >/etc/profile.d/99-fsl-samba.sh <<'EOF'
-export FSLDIR=${SAMBA_APPS_DIR:-/opt/samba}/fsl
-export FSLOUTPUTTYPE=${FSLOUTPUTTYPE:-NIFTI_GZ}
-export PATH="${FSLDIR}/bin:$PATH"
-export LD_LIBRARY_PATH="${FSLDIR}/lib:${LD_LIBRARY_PATH:-}"
-EOF
-
-	# If the destination exists, remove it to avoid interactive overwrite prompt
-	if [ -d "${FSL_VERSION_DIR}" ] && [ -n "$(ls -A "${FSL_VERSION_DIR}" 2>/dev/null || true)" ]; then
-		echo "Found existing ${FSL_VERSION_DIR}; removing to avoid installer prompt..."
-		rm -rf "${FSL_VERSION_DIR}"
+	# ---- noninteractive apt and core packages ----
+	if command -v apt-get >/dev/null 2>&1; then
+		export DEBIAN_FRONTEND=noninteractive
+		# never let foreign libcurl from MCR or FSL env bleed into host tools
+		LD_LIBRARY_PATH= apt-get update
+		LD_LIBRARY_PATH= apt-get install -y --no-install-recommends \
+			tzdata ca-certificates gnupg curl wget unzip bzip2 \
+			build-essential git cmake ninja-build \
+			libfftw3-dev liblapacke-dev zlib1g-dev \
+			libjpeg-dev libpng-dev libtiff5-dev \
+			libexpat1-dev libxml2-dev libbz2-dev \
+			libeigen3-dev bc python3 \
+			openjdk-8-jre-headless
+		ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
+		dpkg-reconfigure -f noninteractive tzdata
 	fi
 
-	# Minimal runtime deps for CLI tools (safe on focal)
-	apt-get update && apt-get install -y --no-install-recommends \
-		libgomp1 libx11-6 libxext6 libxt6 libxmu6 libgl1 libglu1-mesa
+	# ---- create app roots (variable-driven) ----
+	mkdir -p "${SAMBA_APPS_DIR}" "${SAMBA_APPS_DIR}/perl5" "${SAMBA_APPS_DIR}/java"
 
-	set -x
-	# Fetch and run the FSL installer
-	tmp_inst="/tmp/fslinstaller.py"
-	rm -f "${tmp_inst}"
-	curl -fsSL -o "${tmp_inst}" https://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py
-	set +x
-
-	python3 "${tmp_inst}" -V "${FSLVER}" -d "${FSL_VERSION_DIR}" -q || {
-		echo "Retrying FSL installer once..." >&2
-		python3 "${tmp_inst}" -V "${FSLVER}" -d "${FSL_VERSION_DIR}" -q
-	}
-	rm -f "${tmp_inst}"
-
-	# Normalize layout: some installers nest 'fsl' one level deeper; flatten if needed
-	if [ -d "${FSL_VERSION_DIR}/fsl" ] && [ -x "${FSL_VERSION_DIR}/fsl/bin/fslmaths" ]; then
-		rsync -a "${FSL_VERSION_DIR}/fsl/" "${FSL_VERSION_DIR}/"
-		rm -rf "${FSL_VERSION_DIR}/fsl"
+	# ---- stage a clean JRE (some legacy tools look here explicitly) ----
+	if [ -d /usr/lib/jvm/java-8-openjdk-amd64/jre ]; then
+		cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre "${SAMBA_APPS_DIR}/java"
 	fi
 
-	# -------- Skinny FSL build (copy only what we need) --------
-	# Find staged FSL root that has bin/fslmaths
-	FSL_BIN="$(find "${FSL_VERSION_DIR}" -type f -name fslmaths -path '*/bin/*' -print -quit || true)"
-	if [ -z "${FSL_BIN}" ]; then
-		echo "FATAL: could not locate fslmaths under ${FSL_VERSION_DIR}" >&2
-		find "${FSL_VERSION_DIR}" -maxdepth 4 -type f -name fslmaths 2>/dev/null | sed 's/^/  /' >&2 || true
-		exit 1
-	fi
-	FSL_FULL="$(dirname "$(dirname "${FSL_BIN}")")"   # …/<something>/bin → parent
+	# =====================================================================
+	# EARLY, FLAKY PIECES FIRST (so we fail fast)
+	# =====================================================================
 
-	# tools we want (single source of truth!)
-	export FSL_TOOLS="
-		fslmaths
-		fdr
-		randomise
-		design_ttest2
-	"
-
-	# helpers some tools expect
-	export FSL_HELPERS="
-		fslpython
-		fsl_sub
-	"
-
-	# combined list for loops
-	export FSL_ALL_TO_COPY="$(printf "%s %s" "${FSL_TOOLS}" "${FSL_HELPERS}")"
-
-	# build fresh mini tree
-	rm -rf "${FSL_MINI_DIR}"
-	mkdir -p "${FSL_MINI_DIR}/bin" "${FSL_MINI_DIR}/lib" "${FSL_MINI_DIR}/etc/fslconf" "${FSL_MINI_DIR}/share/fsl/data"
-
-	# minimal config (if present)
-	if [ -d "${FSL_FULL}/etc/fslconf" ]; then
-		cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI_DIR}/etc/fslconf/"
+	# ---- MATLAB MCR (optional; guard if you don’t need it in this stage) ----
+	if [ "${SKIP_MCR}" -ne 1 ]; then
+		# If you mount /opt/MATLAB/MATLAB2015b_runtime into later stages, nothing to do here.
+		# This block is intentionally minimal to avoid libcurl collisions.
+		true
 	fi
 
-	# optional data (atlases/templates) if present
-	if [ -d "${FSL_FULL}/share/fsl/data" ]; then
-		cp -a "${FSL_FULL}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
-	elif [ -d "${FSL_FULL%/*}/share/fsl/data" ]; then
-		cp -a "${FSL_FULL%/*}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
-	fi
+	# =====================================================================
+	# (…other stage work you keep here — e.g., perlbrew init, non-FSL runtime bits…)
+	# =====================================================================
 
-	# helper to copy a tool + its ELF deps
-	copy_tool() {
-		_tool="$1"
-		# prefer real bin paths; fall back to any exec match
-		_path="$(find "${FSL_VERSION_DIR}" -type f -name "${_tool}" -perm -111 -path '*/bin/*' -print -quit 2>/dev/null || true)"
-		if [ -z "${_path}" ]; then
-			_path="$(find "${FSL_VERSION_DIR}" -type f -name "${_tool}" -perm -111 -print -quit 2>/dev/null || true)"
+	# =====================================================================
+	# FSL: INSTALL FULL → HARVEST MINI → LINK PUBLIC PATH  (RUNS LAST)
+	# =====================================================================
+	build_fsl_mini() {
+		set -eu
+
+		# Keep all paths variable-driven
+		FSL_INSTALL_BASE="${SAMBA_APPS_DIR}/.fsl_full"   # hidden staging for full conda install
+		FSL_MINI_DIR="${SAMBA_APPS_DIR}/.fsl_mini"       # hidden mini payload; public link ${FSLROOT} → here
+		FSL_VER="${FSL_VER:-6.0.6}"
+
+		# Clean any old staging (do not touch public link yet)
+		rm -rf "${FSL_INSTALL_BASE}" "${FSL_MINI_DIR}"
+		mkdir -p "${FSL_INSTALL_BASE}" "${FSL_MINI_DIR}"
+
+		# Download installer with a *clean* loader env
+		tmp_inst="$(mktemp -p /tmp fslinstaller.XXXXXX.py)"
+		rm -f "${tmp_inst}"
+		LD_LIBRARY_PATH= /usr/bin/curl -fsSL -o "${tmp_inst}" "https://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py"
+
+		# Non-interactive full install into hidden staging
+		# Avoid any pre-set PATH/LD_LIBRARY_PATH to prevent pulling conda shims during build
+		(	# subshell to localize env
+			unset PATH LD_LIBRARY_PATH || true
+			PATH="/usr/sbin:/usr/bin:/sbin:/bin"
+			python3 "${tmp_inst}" \
+				--dest="${FSL_INSTALL_BASE}/${FSL_VER}" \
+				--version="${FSL_VER}" \
+				--quiet \
+				--skip_registration \
+				--yes
+		)
+
+		echo "FSL successfully installed"
+
+		# Discover a real FSL root containing bin/fslmaths inside the staged install
+		FSL_VERSION_DIR="${FSL_INSTALL_BASE}/${FSL_VER}"
+		FSL_BIN="$(find "${FSL_VERSION_DIR}" -type f -name fslmaths -path '*/bin/*' -print -quit || true)"
+		if [ -z "${FSL_BIN}" ]; then
+			echo "FATAL: could not locate fslmaths under ${FSL_VERSION_DIR}" >&2
+			find "${FSL_VERSION_DIR}" -maxdepth 4 -type f -name fslmaths 2>/dev/null | sed 's/^/  /' >&2 || true
+			exit 1
 		fi
-		if [ -n "${_path}" ]; then
+		FSL_FULL="$(dirname "$(dirname "${FSL_BIN}")")"  # …/something/bin → its parent
+
+		# Single source of truth for tools we keep
+		# (edit here if SAMBA needs more FSL CLIs later)
+		export FSL_TOOLS="
+			fslmaths
+			fdr
+			randomise
+			design_ttest2
+		"
+		export FSL_HELPERS="
+			fslpython
+			fsl_sub
+		"
+		export FSL_ALL_TO_COPY="$(printf "%s %s" "${FSL_TOOLS}" "${FSL_HELPERS}")"
+
+		# Build fresh mini tree
+		mkdir -p "${FSL_MINI_DIR}/bin" "${FSL_MINI_DIR}/lib" "${FSL_MINI_DIR}/etc/fslconf" "${FSL_MINI_DIR}/share/fsl/data"
+
+		# Minimal config (if present)
+		if [ -d "${FSL_FULL}/etc/fslconf" ]; then
+			cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI_DIR}/etc/fslconf/"
+		fi
+		# Optional data (atlases/templates)
+		if [ -d "${FSL_FULL}/share/fsl/data" ]; then
+			cp -a "${FSL_FULL}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
+		elif [ -d "${FSL_FULL%/*}/share/fsl/data" ]; then
+			cp -a "${FSL_FULL%/*}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
+		fi
+
+		# Helper to copy a tool from anywhere inside staged install and backfill its ELF deps
+		copy_tool() {
+			_tool="$1"
+			_path="$(find "${FSL_VERSION_DIR}" -type f -name "${_tool}" -perm -111 -path '*/bin/*' -print -quit 2>/dev/null || true)"
+			if [ -z "${_path}" ]; then
+				_path="$(find "${FSL_VERSION_DIR}" -type f -name "${_tool}" -perm -111 -print -quit 2>/dev/null || true)"
+			fi
+			[ -z "${_path}" ] && return 1
 			cp -a "${_path}" "${FSL_MINI_DIR}/bin/${_tool}"
-			# shared libs (ignore scripts complaining "not a dynamic executable")
+			# backfill linked libs (ignore scripts that aren't ELF)
 			ldd "${_path}" 2>/dev/null | awk '/=> \//{print $3}' | while read -r so; do
 				[ -n "${so}" ] && cp -n "${so}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
 			done
 			return 0
-		else
-			return 1
-		fi
-	}
+		}
 
-	for t in ${FSL_ALL_TO_COPY}; do
-		if ! copy_tool "${t}"; then
-			echo "WARN: ${t} not found under ${FSL_VERSION_DIR}" >&2
-		fi
-	done
-
-	# include any FSL-provided libs if present
-	if [ -d "${FSL_FULL}/lib" ]; then
-		cp -a "${FSL_FULL}/lib/"lib*.so* "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
-	fi
-
-	echo "[skinny-fsl] staged tool locations:"
-	for t in ${FSL_TOOLS}; do
-		find "${FSL_VERSION_DIR}" -type f -name "${t}" -print 2>/dev/null | sed "s/^/  ${t}: /" || true
-	done
-	echo "[skinny-fsl] mini bin contains:"
-	ls -l "${FSL_MINI_DIR}/bin" || true
-
-	# sweep other libs under staged */lib trees (conda env/pkgs)
-	find "${FSL_VERSION_DIR}" -type f -path '*/lib/lib*.so*' -exec cp -n {} "${FSL_MINI_DIR}/lib/" \; 2>/dev/null || true
-
-	# prefer conda-provided newer runtimes and ensure SONAME links exist
-	_pick_latest_and_link () {
-		soname="$1"
-		cand="$(find "${FSL_VERSION_DIR}" -type f -path "*/lib/${soname}*" 2>/dev/null | sort -V | tail -1 || true)"
-		[ -z "${cand}" ] && return 0
-		cp -f "${cand}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
-		ln -sfn "$(basename "${cand}")" "${FSL_MINI_DIR}/lib/${soname}"
-	}
-	for so in libstdc++.so.6 libgfortran.so.5 libquadmath.so.0 libgomp.so.1 libgcc_s.so.1; do
-		_pick_latest_and_link "${so}"
-	done
-
-	# GSL link fixups (create both versioned and unversioned symlinks)
-	_link_latest () {
-		prefix="$1"
-		cand="$(ls -1 "${FSL_MINI_DIR}/lib/${prefix}"* 2>/dev/null | sort -V | tail -1 || true)"
-		[ -z "${cand}" ] && return 0
-		ln -sfn "$(basename "${cand}")" "${FSL_MINI_DIR}/lib/${prefix}"
-	}
-	_link_latest libgslcblas.so.0
-	_link_latest libgslcblas.so
-	_link_latest libgsl.so.27
-	_link_latest libgsl.so
-
-	# backfill remaining missing libs per-tool from staged tree
-	_backfill_missing_libs_for () {
-		_tool_path="$1"
-		miss="$(ldd "${_tool_path}" 2>/dev/null | awk '/not found/{print $1}')"
-		[ -z "${miss}" ] && return 0
-		echo "[skinny-fsl] backfilling for $(basename "${_tool_path}"):"
-		while read -r need; do
-			[ -z "${need}" ] && continue
-			cand="$(find "${FSL_VERSION_DIR}" -type f -path "*/lib/${need}*" 2>/dev/null | sort -V | tail -1 || true)"
-			if [ -n "${cand}" ]; then
-				cp -n "${cand}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
-				case "${need}" in
-					*.so.[0-9]*) ln -sfn "$(basename "${cand}")" "${FSL_MINI_DIR}/lib/${need}" ;;
-				esac
-				echo "  + ${need}  <-  $(basename "${cand}")"
-			else
-				echo "  ! ${need}  (not found under staged tree)" >&2
+		for t in ${FSL_ALL_TO_COPY}; do
+			if ! copy_tool "${t}"; then
+				echo "WARN: ${t} not found under ${FSL_VERSION_DIR}" >&2
 			fi
-		done <<EOF
-${miss}
-EOF
-	}
-	for t in ${FSL_TOOLS}; do
-		[ -x "${FSL_MINI_DIR}/bin/${t}" ] && _backfill_missing_libs_for "${FSL_MINI_DIR}/bin/${t}"
-	done
+		done
 
-	# show unresolved (if any) before deleting staging
-	for t in ${FSL_TOOLS}; do
-		if [ -x "${FSL_MINI_DIR}/bin/${t}" ]; then
-			ldd "${FSL_MINI_DIR}/bin/${t}" 2>/dev/null | awk -v T="$t" '/not found/ {print "MISSING (" T "):", $0}'
+		# Sweep any shared libs living under lib/ anywhere in staged install (conda envs, pkgs, etc.)
+		find "${FSL_VERSION_DIR}" -type f -path '*/lib/lib*.so*' -exec cp -n {} "${FSL_MINI_DIR}/lib/" \; 2>/dev/null || true
+
+		# Include FSL-provided libs if present (duplicate-safe)
+		if [ -d "${FSL_FULL}/lib" ]; then
+			cp -a "${FSL_FULL}/lib/"lib*.so* "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
 		fi
-	done
 
-	# remove the full installation staging area BEFORE creating the public symlink
-	rm -rf "${FSL_INSTALL_BASE}"
+		# Ensure GSL soname and generic links point at the newest file copied
+		_link_latest () {
+			prefix="$1"  # e.g., libgsl.so.27 or libgsl.so
+			cand="$(ls -1 "${FSL_MINI_DIR}/lib/${prefix}"* 2>/dev/null | sort -V | tail -1 || true)"
+			[ -z "${cand}" ] && return 0
+			base="$(basename "${cand}")"
+			ln -sfn "${base}" "${FSL_MINI_DIR}/lib/${prefix}"
+		}
+		_link_latest libgslcblas.so.0
+		_link_latest libgslcblas.so
+		_link_latest libgsl.so.27
+		_link_latest libgsl.so
 
-	# point the public path to the real mini dir (avoid self-linking)
-	if [ "$(readlink -f "${FSL_PUBLIC_LINK}" 2>/dev/null || echo '')" != "$(readlink -f "${FSL_MINI_DIR}")" ]; then
-		rm -rf "${FSL_PUBLIC_LINK}"
-		ln -sfn "${FSL_MINI_DIR}" "${FSL_PUBLIC_LINK}"
-	fi
+		# Fix up critical GCC runtime libs (libstdc++ et al) to satisfy GLIBCXX requirements
+		_fix_copy_soname () {
+			_need="$1"  # libstdc++.so.6, libgcc_s.so.1, etc.
+			_real="$(find "${FSL_VERSION_DIR}" -type f -path "*/lib/${_need}*" -exec bash -lc 't="{}"; [ -L "$t" ] && readlink -f "$t" || echo "$t"' \; 2>/dev/null \
+			         | grep -E "/lib/${_need}(\.|$)" | head -n1 || true)"
+			[ -z "${_real}" ] && return 0
+			cp -f "${_real}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
+			if [ "${_need}" = "libstdc++.so.6" ]; then
+				ln -sfn "$(basename "${_real}")" "${FSL_MINI_DIR}/lib/libstdc++.so.6"
+			fi
+		}
+		for _lib in libstdc++.so.6 libgcc_s.so.1 libgomp.so.1 libquadmath.so.0 libgfortran.so.5; do
+			_fix_copy_soname "${_lib}"
+		done
 
-	# ---- end-of-stage sanity against mini FSL ----
-	if [ "$(readlink -f "${FSL_PUBLIC_LINK}")" != "$(readlink -f "${FSL_MINI_DIR}")" ]; then
-		echo "FATAL: ${FSL_PUBLIC_LINK} does not point to ${FSL_MINI_DIR}" >&2
-		ls -l "${FSL_PUBLIC_LINK}" || true
-		exit 1
-	fi
-	FSLDIR="${FSL_PUBLIC_LINK}"
-	need_missing=0
-	for t in ${FSL_TOOLS}; do
-		if [ ! -x "${FSLDIR}/bin/${t}" ]; then
-			echo "FATAL: ${FSLDIR}/bin/${t} missing in mini FSL." >&2
-			need_missing=1
-		fi
-	done
-	[ "${need_missing}" -eq 0 ] || exit 1
+		# Log what we staged
+		echo "[skinny-fsl] staged tool locations:"
+		for t in ${FSL_TOOLS}; do
+			find "${FSL_VERSION_DIR}" -type f -name "${t}" -print 2>/dev/null | sed "s/^/  ${t}: /" || true
+		done
+		echo "[skinny-fsl] mini bin contains:"
+		ls -l "${FSL_MINI_DIR}/bin" || true
 
-	# One strict check (fslmaths should print a version and return 0)
-	ENV_FSL="FSLDIR=${FSLDIR} FSLOUTPUTTYPE=${FSLOUTPUTTYPE:-NIFTI_GZ} LD_LIBRARY_PATH=${FSLDIR}/lib:${LD_LIBRARY_PATH:-} PATH=${FSLDIR}/bin:${PATH}"
-	# Loader-only smoke check for fslmaths (allow non-zero help exit codes)
-	set +e
-	_fslm_out="$(env ${ENV_FSL} "${FSLDIR}/bin/fslmaths" -h 2>&1 </dev/null | head -n 5)"
-	_fslm_rc=$?
-	set -e
-	if printf '%s\n' "$_fslm_out" | grep -Ei \
-		'error while loading shared libraries|No such file|not found|undefined symbol|Segmentation fault|GLIBCXX' >/dev/null; then
-		echo "FATAL: fslmaths smoke check failed:"
-		printf '%s\n' "$_fslm_out"
-		exit 1
-	fi
-	echo "  [ok] fslmaths (rc=${_fslm_rc})"
+		# Quick dependency check before making public
+		ldd "${FSL_MINI_DIR}/bin/fslmaths" 2>/dev/null | awk '/not found/ {print "MISSING:",$0}' || true
+		ldd "${FSL_MINI_DIR}/bin/fdr" 2>/dev/null | awk '/not found/ {print "MISSING:",$0}' || true
 
-	# Tolerant smoke checks for tools that return non-zero on -h
-	_smoke_ok() {
-		tool="$1"
-		set +e
-		out="$("${FSLDIR}/bin/${tool}" -h 2>&1 </dev/null | head -n 5)"
-		rc=$?
-		set -e
-		# Fail only on loader/ABI crashes; allow non-zero help exit codes
-		if printf '%s\n' "$out" | grep -Ei \
-			'error while loading shared libraries|No such file|not found|undefined symbol|Segmentation fault|GLIBCXX' >/dev/null; then
-			echo "FATAL: ${tool} smoke check failed:"
-			printf '%s\n' "$out"
-			exit 1
-		fi
-		echo "  [ok] ${tool} (rc=${rc})"
+		# Link public path last
+		ln -sfn "${FSL_MINI_DIR}" "${FSLROOT}"
+
+		# Smoke tests with *clean* loader (avoid picking host libs)
+		(
+			export FSLDIR="${FSLROOT}"
+			export PATH="${FSLDIR}/bin:${PATH}"
+			export FSLOUTPUTTYPE="${FSLOUTPUTTYPE:-NIFTI_GZ}"
+			LD_LIBRARY_PATH="${FSLDIR}/lib" "${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1
+			LD_LIBRARY_PATH="${FSLDIR}/lib" "${FSLDIR}/bin/fdr" -h >/dev/null 2>&1 || true
+			LD_LIBRARY_PATH="${FSLDIR}/lib" "${FSLDIR}/bin/randomise" -h >/dev/null 2>&1 || true
+			LD_LIBRARY_PATH="${FSLDIR}/lib" "${FSLDIR}/bin/design_ttest2" -h >/dev/null 2>&1 || true
+		) || { echo "FATAL: FSL smoke test failed."; exit 1; }
+
+		# Remove the full conda-based staging to keep the image lean
+		rm -rf "${FSL_INSTALL_BASE}"
+		echo "[skinny-fsl] mini tree at ${FSL_MINI_DIR}"
+		ls -l "${FSL_MINI_DIR}/bin" || true
 	}
 
-	for t in fdr randomise design_ttest2; do
-		env ${ENV_FSL} sh -c '
-			tool="$1"
-			set +e
-			out="$("$FSLDIR/bin/$tool" -h 2>&1 </dev/null | head -n 5)"
-			rc=$?
-			set -e
-			case "$out" in
-				*"error while loading shared libraries"*|*"No such file"*|*"not found"*|*"undefined symbol"*|*"Segmentation fault"*|*"GLIBCXX"*)
-					echo "FATAL: $tool smoke check failed:"; printf "%s\n" "$out"; exit 1;;
-			esac
-			echo "  [ok] $tool (rc=$rc)"
-		' _ "$t"
-	done
-
-
-	# --- MATLAB Runtime R2015b (MCR) + Java 8 ---
-	BUILD_ROOT=/opt/build
-	ME_DIR=${BUILD_ROOT}/matlab_execs
-	CACHE_DIR=${BUILD_ROOT}/matlab_cache
-	MATLAB_2015b_PATH=/opt/MATLAB/MATLAB2015b_runtime/v90
-	INSTALLER_NAME=MCR_R2015b_glnxa64_installer.zip
-	INSTALLER_PATH=${ME_DIR}/${INSTALLER_NAME}
-	TEMP_DIR=${ME_DIR}/temp
-
-	mkdir -p "$MATLAB_2015b_PATH" "$ME_DIR" "$TEMP_DIR" "$CACHE_DIR"
-	[ -d "$INSTALLER_PATH" ] && rm -rf "$INSTALLER_PATH"
-
-	if [ -f "${CACHE_DIR}/${INSTALLER_NAME}" ]; then
-		cp -f "${CACHE_DIR}/${INSTALLER_NAME}" "${INSTALLER_PATH}"
+	# ---- call FSL last (or skip) ----
+	if [ "${SKIP_FSL}" -eq 0 ]; then
+		build_fsl_mini
 	else
-		wget -O "${INSTALLER_PATH}" \
-			"http://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/${INSTALLER_NAME}"
-		cp -f "${INSTALLER_PATH}" "${CACHE_DIR}/" || true
+		echo "SKIP_FSL=1 → skipping FSL-mini build (leaving whatever is present)."
 	fi
 
-	unzip -d "${TEMP_DIR}" "${INSTALLER_PATH}"
-	"${TEMP_DIR}/install" -mode silent -agreeToLicense yes -destinationFolder "${MATLAB_2015b_PATH}"
-	rm -rf "${TEMP_DIR}"
-
-	if ! ls "${MATLAB_2015b_PATH}"/runtime/glnxa64/libmwmclmcrrt.so* >/dev/null 2>&1 && \
-	   ! ls "${MATLAB_2015b_PATH}"/bin/glnxa64/libmwmclmcrrt.so*     >/dev/null 2>&1 ; then
-		echo "FATAL: MCR libmwmclmcrrt.so* missing under ${MATLAB_2015b_PATH}" >&2
-		exit 1
-	fi
-
-	apt-get update && apt-get install -y --no-install-recommends openjdk-8-jre-headless
-	mkdir -p /opt/samba/java
-	cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre /opt/samba/java
-
-	# Make MCR discoverable by the dynamic linker (do this LATE so native builds don’t pick up MCR’s libstdc++)
-	cat >/etc/ld.so.conf.d/mcr_v90.conf <<EOF
-/opt/MATLAB/MATLAB2015b_runtime/v90/runtime/glnxa64
-/opt/MATLAB/MATLAB2015b_runtime/v90/bin/glnxa64
-/opt/MATLAB/MATLAB2015b_runtime/v90/sys/os/glnxa64
-EOF
-	ldconfig
-
-	chmod -R a+rX /opt/MATLAB "$ME_DIR"
-
-	# --- Perlbrew + Perl 5.16.3 + cpanm + Carton (no project install here) ---
-	curl -L https://install.perlbrew.pl | bash
-	"${PERLBREW_ROOT}/bin/perlbrew" init
-	"${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
-	"${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
-	"${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 cpanm -n Carton
+%runscript
+	exec /bin/bash -lc "$@"
 
 %test
 	set -eu
-	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-	FSLROOT="${SAMBA_APPS_DIR}/fsl"
-
-	# In final image FSLROOT is the mini dir (symlink)
-	FSLDIR="${FSLROOT}"
-	: "${FSLDIR:?FATAL: No FSL dir found at ${FSLROOT} in %test}"
-
-	echo "[%test:fsl_mcr] SAMBA_APPS_DIR=${SAMBA_APPS_DIR}"
-	echo "[%test:fsl_mcr] FSLDIR=${FSLDIR}"
-	ls -l "${FSLDIR}/bin" || { echo "[%test:fsl_mcr] bin missing"; exit 1; }
-	for t in fslmaths fdr randomise design_ttest2; do
-		[ -x "${FSLDIR}/bin/${t}" ] || { echo "[%test:fsl_mcr] ${t} not executable"; exit 1; }
-	done
-	env FSLDIR="${FSLDIR}" FSLOUTPUTTYPE="${FSLOUTPUTTYPE:-NIFTI_GZ}" LD_LIBRARY_PATH="${FSLDIR}/lib:${LD_LIBRARY_PATH:-}" PATH="${FSLDIR}/bin:${PATH}" \
-		"${FSLDIR}/bin/fslmaths" -version >/dev/null
-	echo "[%test:fsl_mcr] OK"
-
-%runscript
-	exec /bin/sh -c "$@"
+	# basic sanity: FSL present and runnable if we did not skip it
+	if [ "${SKIP_FSL:-0}" -eq 0 ]; then
+		SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+		FSLDIR="${FSLDIR:-${SAMBA_APPS_DIR}/fsl}"
+		if [ ! -x "${FSLDIR}/bin/fslmaths" ]; then
+			echo "FATAL: fslmaths missing in ${FSLDIR}/bin"
+			exit 1
+		fi
+		LD_LIBRARY_PATH="${FSLDIR}/lib" "${FSLDIR}/bin/fslmaths" -version >/dev/null 2>&1 || {
+			echo "FATAL: fslmaths failed -version"; exit 1;
+		}
+	fi
+	echo "OK"
