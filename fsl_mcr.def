@@ -215,6 +215,23 @@ From: ants.sif
 		_pick_latest_and_link "${so}"
 	done
 
+	# --- Ensure GSL links (both soname and unversioned) resolve to newest file copied ---
+	_link_latest () {
+		# $1 like libgsl.so or libgsl.so.27
+		prefix="$1"
+		cand="$(ls -1 "${FSL_MINI_DIR}/lib/${prefix}"* 2>/dev/null | sort -V | tail -1 || true)"
+		[ -z "${cand}" ] && return 0
+		base="$(basename "${cand}")"
+		ln -sfn "${base}" "${FSL_MINI_DIR}/lib/${prefix}"
+	}
+
+	# Create both libgsl.so.27 -> libgsl.so.27.* and libgsl.so -> libgsl.so.27.*
+	_link_latest libgslcblas.so.0
+	_link_latest libgslcblas.so
+	_link_latest libgsl.so.27
+	_link_latest libgsl.so
+
+
 	# sanity: show unresolved after fix
 	ldd "${FSL_MINI_DIR}/bin/fslmaths" 2>/dev/null | awk '/not found/ {print "MISSING:",$0}' || true
 
@@ -295,6 +312,12 @@ EOF
 		fi
 	done
 	[ "${need_missing}" -eq 0 ] || exit 1
+
+	# --- DIAG: print what fdr is linked against with our mini lib path first ---
+	echo "[skinny-fsl] ldd check for fdr:"
+	env LD_LIBRARY_PATH="${FSL_MINI_DIR}/lib:${LD_LIBRARY_PATH:-}" \
+	    ldd "${FSL_MINI_DIR}/bin/fdr" | sed 's/^/  /'
+
 
 	# smoke tests with env applied (since %environment isn't sourced here)
 	_TEST_ENV="FSLDIR=${FSLDIR} FSLOUTPUTTYPE=${FSLOUTPUTTYPE:-NIFTI_GZ} LD_LIBRARY_PATH=${FSLDIR}/lib:${LD_LIBRARY_PATH:-} PATH=${FSLDIR}/bin:${PATH}"
