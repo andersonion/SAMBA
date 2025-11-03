@@ -47,14 +47,18 @@ From: ants.sif
 		echo "[mcr] not found (that’s OK — nothing to do here)."
 	fi
 
-	# ---- Java JRE (for some wrapped execs that expect Java 8) ----
-	if [ -d /usr/lib/jvm/java-8-openjdk-amd64/jre ]; then
-		mkdir -p "${SAMBA_APPS_DIR}/java"
-		cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre "${SAMBA_APPS_DIR}/java"
-		echo "[java] copied JRE to ${SAMBA_APPS_DIR}/java"
-	else
-		echo "[java] OpenJDK 8 JRE not present; skipping copy."
+	# install JRE8 if the base doesn't have it
+	if [ ! -d /usr/lib/jvm/java-8-openjdk-amd64/jre ]; then
+		apt-get update
+		apt-get install -y --no-install-recommends openjdk-8-jre-headless
+		apt-get clean
+		rm -rf /var/lib/apt/lists/*
 	fi
+
+	# now copy the JRE into the SAMBA tree (as you already do)
+	mkdir -p "${SAMBA_APPS_DIR}/java"
+	cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre "${SAMBA_APPS_DIR}/java"
+	
 
 	# ---- matlab_execs_for_SAMBA (read-only checkout) ----
 	if [ ! -d "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA" ]; then
@@ -67,13 +71,27 @@ From: ants.sif
 	# ---- ldconfig after MCR/execs (safe even if nothing changed) ----
 	ldconfig || true
 
-	# ---- perlbrew (use curl in a sanitized env to avoid MCR's libcurl shim) ----
+	# ---- perlbrew (sandboxed curl, but preserve HOME/PERLBREW_ROOT) ----
 	export PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
 	mkdir -p "${PERLBREW_ROOT}"
-	_curl_clean -fsSL -o /tmp/perlbrew-install.sh https://install.perlbrew.pl
-	_run_clean bash /tmp/perlbrew-install.sh
-	# make perlbrew CLI available in this stage (no shell login)
+
+	# fetch installer with clean lib paths (avoid MCR's libcurl)
+	env -i PATH="${SYSTEM_PATH}" LD_LIBRARY_PATH="${SYSTEM_LDLIB}" \
+		/usr/bin/curl -fsSL -o /tmp/perlbrew-install.sh https://install.perlbrew.pl
+
+	# run installer with a minimal, but valid, env
+	env -i HOME="${PERLBREW_ROOT}" PERLBREW_ROOT="${PERLBREW_ROOT}" \
+		PATH="${SYSTEM_PATH}" LD_LIBRARY_PATH="${SYSTEM_LDLIB}" \
+		bash /tmp/perlbrew-install.sh -f
+
+	# make perlbrew available to the remainder of this %post
 	export PATH="${PERLBREW_ROOT}/bin:${PATH}"
+
+	# (optional) install a specific perl without leaking MCR libs
+	# env -i HOME="${PERLBREW_ROOT}" PERLBREW_ROOT="${PERLBREW_ROOT}" \
+	# 	PATH="${PERLBREW_ROOT}/bin:${SYSTEM_PATH}" LD_LIBRARY_PATH="${SYSTEM_LDLIB}" \
+	# 	perlbrew install -n perl-5.16.3
+
 
 	# =====================================================================
 	# FSL: INSTALL FULL → HARVEST SKINNY → RPATH FIX → LINK → CLEAN
