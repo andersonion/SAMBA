@@ -77,24 +77,45 @@ From: ants.sif
 	# =====================================================================
 	# perlbrew bootstrap (clean environment; immune to MCR libcurl)
 	# =====================================================================
+	# =====================================================================
+	# perlbrew bootstrap (clean env; keep PERLBREW_ROOT/HOME set)
+	# =====================================================================
 	PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
 	mkdir -p "${PERLBREW_ROOT}"
 
-	# Fetch installer with a squeaky-clean env and explicit system LDs
-	env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH="${SYS_LD}" \
-		/usr/bin/curl -fsSL -o /tmp/perlbrew-install.sh https://install.perlbrew.pl
+	# Use system curl with a clean but explicit env so MCR's libcurl won't poison it.
+	# Pipe installer directly, giving PERLBREW_ROOT and HOME to bash.
+	env -i \
+		PERLBREW_ROOT="${PERLBREW_ROOT}" \
+		HOME=/root \
+		PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+		LD_LIBRARY_PATH="${SYS_LD}" \
+		bash -lc '/usr/bin/curl -fsSL https://install.perlbrew.pl | bash'
 
-	# Install perlbrew
-	env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH="${SYS_LD}" \
-		bash /tmp/perlbrew-install.sh
+	# Initialize perlbrew (creates ${PERLBREW_ROOT}/etc/bashrc, etc.)
+	env -i \
+		PERLBREW_ROOT="${PERLBREW_ROOT}" \
+		HOME=/root \
+		PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+		LD_LIBRARY_PATH="${SYS_LD}" \
+		"${PERLBREW_ROOT}/bin/perlbrew" init
 
-	# Install perl 5.16.3 and cpanm (non-interactive)
-	env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root LD_LIBRARY_PATH="${SYS_LD}" \
+	# Install Perl and cpanm non-interactively
+	env -i \
+		PERLBREW_ROOT="${PERLBREW_ROOT}" \
+		HOME=/root \
+		PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+		LD_LIBRARY_PATH="${SYS_LD}" \
 		"${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
-	env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root LD_LIBRARY_PATH="${SYS_LD}" \
+
+	env -i \
+		PERLBREW_ROOT="${PERLBREW_ROOT}" \
+		HOME=/root \
+		PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+		LD_LIBRARY_PATH="${SYS_LD}" \
 		"${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
 
-	# Activate perlbrew at shell init
+	# Activate perlbrew for login shells
 	cat >/etc/profile.d/perlbrew.sh <<'EOF'
 export PERLBREW_ROOT=/opt/samba/perl5
 if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
