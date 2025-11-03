@@ -106,12 +106,22 @@ EOF
 	# =====================================================================
 	# 2) Perlbrew + Perl 5.16.3 + cpanm + Carton  (EARLY -> fail fast)
 	# =====================================================================
-	PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
-	curl -L https://install.perlbrew.pl | bash
-	"${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
-	"${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
+	# --- perlbrew install in a CLEAN env (avoid MCR's libcurl) ---
+	PERLBREW_ROOT="/opt/samba/perl5"
+	mkdir -p "${PERLBREW_ROOT}"
+	# fetch installer without any LD_LIBRARY_PATH or MCR ld paths
+	env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+		/usr/bin/curl -fsSL -o /tmp/perlbrew-install.sh https://install.perlbrew.pl
+	env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+		bash /tmp/perlbrew-install.sh
 
-	# runtime activation for interactive shells
+	# use perlbrew via absolute path; also keep env clean for the first runs
+	env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root \
+		"${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
+	env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root \
+		"${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
+
+	# activate at login (same as before)
 	cat >/etc/profile.d/perlbrew.sh <<'EOF'
 export PERLBREW_ROOT=/opt/samba/perl5
 if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
@@ -119,6 +129,7 @@ if [ -r "$PERLBREW_ROOT/etc/bashrc" ]; then
 fi
 EOF
 	chmod 644 /etc/profile.d/perlbrew.sh
+
 
 	# Carton deps for SAMBA repo (optional here; cheap sanity)
 	if [ ! -d "${SAMBA_PATH}" ]; then
