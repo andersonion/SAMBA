@@ -260,10 +260,8 @@ From: ants.sif
 			exit 1
 		fi
 
-		# --- Set RPATH only on ELF binaries; skip scripts like design_ttest2 ---
-		is_elf() {
-			readelf -h "$1" >/dev/null 2>&1
-		}
+		# --- Patch ELF rpaths so mini/lib wins over system libs ---
+		is_elf() { readelf -h "$1" >/dev/null 2>&1; }
 	
 		for _b in \
 			"${FSL_MINI_DIR}/bin/fslmaths" \
@@ -273,14 +271,25 @@ From: ants.sif
 		do
 			[ -x "$_b" ] || continue
 			if is_elf "$_b"; then
-				patchelf --set-rpath '$ORIGIN/../lib' "$_b"
-				# libomp may not be present; don't fail if it's not needed
+				# Force DT_RPATH (higher precedence than LD_LIBRARY_PATH/DT_RUNPATH)
+				patchelf --force-rpath --set-rpath '$ORIGIN/../lib' "$_b"
+				echo "[patchelf] $_b rpath: $(patchelf --print-rpath "$_b" 2>/dev/null || echo '(none)')"
+				# libomp may not be needed; ignore if absent
 				patchelf --remove-needed libomp.so "$_b" 2>/dev/null || true
 			else
 				# script wrapper; nothing to patch
 				:
 			fi
 		done
+	
+		# Assert rpath really took for the critical binary
+		if is_elf "${FSL_MINI_DIR}/bin/fslmaths"; then
+			if ! patchelf --print-rpath "${FSL_MINI_DIR}/bin/fslmaths" 2>/dev/null | grep -q '\$ORIGIN/../lib'; then
+				echo "FATAL: fslmaths rpath missing \$ORIGIN/../lib after patching." >&2
+				exit 1
+			fi
+		fi
+
 
 
 		# quick triage view
