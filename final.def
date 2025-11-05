@@ -130,55 +130,53 @@ From: fsl_mcr.sif
 
 
 %test
-	# Fail fast and show commands
-	set -euxo pipefail
+	# POSIX /bin/sh here — no pipefail, no bashisms.
+	# Delegate the real checks to bash so we can source perlbrew safely.
+	if command -v bash >/dev/null 2>&1; then
+		exec bash -lc '
+			set -euxo pipefail
 
-	# --- Load perlbrew env (non-login shell by default in %test) ---
-	if [ -f /opt/samba/perl5/etc/bashrc ]; then
-		. /opt/samba/perl5/etc/bashrc
+			# --- Load perlbrew env (bash) ---
+			if [ -f /opt/samba/perl5/etc/bashrc ]; then
+				source /opt/samba/perl5/etc/bashrc
+			fi
+			if command -v perlbrew >/dev/null 2>&1; then
+				perlbrew use perl-5.16.3 || true
+			fi
+
+			# Carton/local::lib env (match build-time layout)
+			export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
+			export PERL_MB_OPT="--install_base \"/opt/samba/perl5libs\""
+			export PERL_MM_OPT="INSTALL_BASE=/opt/samba/perl5libs"
+			export PERL5LIB="/opt/samba/perl5libs/lib/perl5${PERL5LIB:+:${PERL5LIB}}"
+			export PATH="/opt/samba/perl5/bin:$PATH"
+
+			# Diagnostics
+			echo "[diag] perl: $(command -v perl || echo NONE)"
+			perl -V:version || true
+			echo "[diag] perlbrew: $(command -v perlbrew || echo NONE)"
+			echo "[diag] carton: $(command -v carton || echo NONE)"
+
+			# Sanity checks
+			carton --help >/dev/null
+			test -d /opt/samba/SAMBA
+			test -d /opt/samba/perl5libs
+			perl -Mlocal::lib=/opt/samba/perl5libs -e "print qq[ok\n]" >/dev/null
+
+			# FSL smoke (if present). Use --help (not -version) for fslmaths.
+			if [ -x /opt/samba/fsl/bin/fslmaths ]; then
+				/opt/samba/fsl/bin/fslmaths --help >/dev/null 2>&1 || true
+				/opt/samba/fsl/bin/fdr --help >/dev/null 2>&1 || true
+				/opt/samba/fsl/bin/randomise --help >/dev/null 2>&1 || true
+				/opt/samba/fsl/bin/design_ttest2 --help >/dev/null 2>&1 || true
+			fi
+
+			echo "[test] final.def sanity checks passed."
+		'
+	else
+		echo "FATAL: /bin/bash not found; cannot run bash-only checks." >&2
+		exit 1
 	fi
-
-	# Select the perl you built for SAMBA (no-op if already default)
-	if command -v perlbrew >/dev/null 2>&1; then
-		perlbrew use perl-5.16.3 || true
-	fi
-
-	# --- Diagnostics so we can see what's available in %test ---
-	echo "[diag] which perl: $(command -v perl || echo 'NONE')"
-	echo "[diag] perl -v:"
-	perl -v || true
-
-	echo "[diag] which perlbrew: $(command -v perlbrew || echo 'NONE')"
-	echo "[diag] which carton: $(command -v carton || echo 'NONE')"
-
-	# Make sure Carton’s local libs are visible
-	export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
-	export PERL_MB_OPT="--install_base \"/opt/samba/perl5libs\""
-	export PERL_MM_OPT="INSTALL_BASE=/opt/samba/perl5libs"
-	export PERL5LIB="/opt/samba/perl5libs/lib/perl5${PERL5LIB:+:${PERL5LIB}}"
-	export PATH="/opt/samba/perl5/bin:$PATH"
-
-	# --- Sanity checks (non-destructive) ---
-	# 1) Carton can be invoked
-	carton --help >/dev/null
-
-	# 2) Core directories exist
-	test -d /opt/samba/SAMBA
-	test -d /opt/samba/perl5libs
-
-	# 3) A trivial perl loads with local::lib path available
-	perl -Mlocal::lib=/opt/samba/perl5libs -e 'print qq[ok\n];' >/dev/null
-
-	# 4) If FSL mini is expected in this image, check the binaries are runnable
-	if [ -x /opt/samba/fsl/bin/fslmaths ]; then
-		# Do NOT pass '-version' to fslmaths (treats it as filename). Use '--help' smoke.
-		/opt/samba/fsl/bin/fslmaths --help >/dev/null 2>&1 || true
-		/opt/samba/fsl/bin/fdr --help >/dev/null 2>&1 || true
-		/opt/samba/fsl/bin/randomise --help >/dev/null 2>&1 || true
-		/opt/samba/fsl/bin/design_ttest2 --help >/dev/null 2>&1 || true
-	fi
-
-	echo "[test] final.def sanity checks passed."
 
 %runscript
     exec /bin/sh -c "$@"
