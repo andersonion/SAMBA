@@ -39,54 +39,62 @@ From: fsl_mcr.sif
       apt-get clean; rm -rf /var/lib/apt/lists/*
     fi
 
-    # Clone SAMBA FIRST so cpanfile exists for Carton
-    mkdir -p "${SRC_ROOT}"
-    if [ ! -d "${SAMBA_SRC_DIR}" ]; then
-      git clone "${SAMBA_REPO}" "${SAMBA_SRC_DIR}"
-    fi
-    cd "${SAMBA_SRC_DIR}"
-    git fetch --all --tags
-    git checkout --detach "${SAMBA_REF}" || true
-    if [ ! -f "${SAMBA_SRC_DIR}/cpanfile" ]; then
-      echo "ERROR: cpanfile not found in ${SAMBA_SRC_DIR}" >&2; exit 1
-    fi
+	# --- SAMBA repo (clone → checkout ref → stage under /opt/samba/SAMBA) ---
+	mkdir -p "${SRC_ROOT}"
+	if [ ! -d "${SAMBA_SRC_DIR}" ]; then
+		git clone "${SAMBA_REPO}" "${SAMBA_SRC_DIR}"
+	fi
 
-	# --- Strict Carton install for the project (fatal on missing/failed) ---
-
-	SAMBA_PATH="${SAMBA_PATH:-${SAMBA_APPS_DIR}/SAMBA}"
-	
-	# Sanity: perlbrew must exist from prior stage
-	if [ ! -x "${PERLBREW_ROOT}/bin/perlbrew" ]; then
-	  echo "FATAL: perlbrew not found at ${PERLBREW_ROOT}/bin/perlbrew (did you build fsl_mcr stage?)" >&2
-	  exit 1
-	fi
-	
-	# Repo must be present now
-	cd "${SAMBA_PATH}" || { echo "FATAL: ${SAMBA_PATH} missing"; exit 1; }
-	
-	if [ ! -f "cpanfile" ]; then
-	  echo "FATAL: cpanfile is missing in ${SAMBA_PATH}"; exit 1
-	fi
-	
-	# Remove empty snapshot if present
-	if [ -f "cpanfile.snapshot" ] && [ ! -s "cpanfile.snapshot" ]; then
-	  rm -f "cpanfile.snapshot"
-	fi
-	
-	CARTON_LOG=/tmp/carton_install.log
-	: > "$CARTON_LOG"
-	if [ -s "cpanfile.snapshot" ]; then
-	  CARTON_CMD="carton install --deployment"
+	# Fetch the desired ref (branch, tag, or commit) and hard-reset to it
+	git -C "${SAMBA_SRC_DIR}" fetch --all --tags --prune
+	# Try as a full ref first (origin/<ref>), then as a tag/commit fallback
+	if git -C "${SAMBA_SRC_DIR}" rev-parse --verify --quiet "origin/${SAMBA_REF}" >/dev/null; then
+		git -C "${SAMBA_SRC_DIR}" reset --hard "origin/${SAMBA_REF}"
 	else
-	  CARTON_CMD="carton install"
+		git -C "${SAMBA_SRC_DIR}" reset --hard "${SAMBA_REF}"
 	fi
-	
-	if ! "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 $CARTON_CMD >>"$CARTON_LOG" 2>&1; then
-	  echo "FATAL: Carton install failed. Last 100 lines:" >&2
-	  tail -n 100 "$CARTON_LOG" >&2
-	  exit 1
+
+	# Sanity: ensure cpanfile exists in the source tree
+	if [ ! -f "${SAMBA_SRC_DIR}/cpanfile" ]; then
+		echo "FATAL: cpanfile not found in ${SAMBA_SRC_DIR}" >&2
+		ls -la "${SAMBA_SRC_DIR}" >&2 || true
+		exit 1
 	fi
-	echo "Carton dependencies installed."
+
+	# Stage a working copy under /opt/samba/SAMBA for the runtime
+	SAMBA_PATH="${SAMBA_PATH:-${SAMBA_APPS_DIR}/SAMBA}"
+	mkdir -p "${SAMBA_APPS_DIR}"
+	rm -rf "${SAMBA_PATH}.tmp"
+	rsync -a --delete "${SAMBA_SRC_DIR}/" "${SAMBA_PATH}.tmp/"
+	mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
+	chmod -R a+rX "${SAMBA_PATH}"
+
+	# --- Carton (Perl deps) under perlbrew Perl 5.16.3 ---
+	if [ ! -x "${PERLBREW_ROOT}/bin/perlbrew" ]; then
+		echo "FATAL: perlbrew not found at ${PERLBREW_ROOT}/bin/perlbrew (build fsl_mcr stage first)." >&2
+		exit 1
+	fi
+
+	cd "${SAMBA_PATH}"
+
+	# If a zero-length snapshot snuck in, remove it to allow resolve
+	[ -f cpanfile.snapshot ] && [ ! -s cpanfile.snapshot ] && rm -f cpanfile.snapshot
+
+	CARTON_LOG=/tmp/carton_install.log
+	: > "${CARTON_LOG}"
+	if [ -s cpanfile.snapshot ]; then
+		CARTON_CMD="carton install --deployment"
+	else
+		CARTON_CMD="carton install"
+	fi
+
+	if ! "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 ${CARTON_CMD} >>"${CARTON_LOG}" 2>&1; then
+		echo "FATAL: Carton install failed. Last 100 lines:" >&2
+		tail -n 100 "${CARTON_LOG}" >&2
+		exit 1
+	fi
+
+	echo "Carton dependencies installed under ${SAMBA_CARTON_PATH:-${SAMBA_APPS_DIR}/perl5libs}."
 
 
 %test
