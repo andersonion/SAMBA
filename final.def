@@ -58,6 +58,9 @@ From: fsl_mcr.sif
 		[ -z "${REF}" ] && REF="master"
 	fi
 
+	# Temporary override until samba.sif can be debugged.
+	SAMBA_REF=master
+
 	# Try to pin to an exact remote branch first; then tag; then SHA/commit
 	if git -C "${SAMBA_SRC_DIR}" show-ref --verify --quiet "refs/remotes/origin/${REF}"; then
 		git -C "${SAMBA_SRC_DIR}" checkout -f -B buildpin "origin/${REF}"
