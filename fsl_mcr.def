@@ -259,13 +259,29 @@ From: ants.sif
 			echo "FATAL: patchelf not found; cannot RPATH-fix skinny FSL." >&2
 			exit 1
 		fi
-		for _t in ${FSL_TOOLS}; do
-			_b="${FSL_MINI_DIR}/bin/${_t}"
-			[ -x "${_b}" ] || { echo "FATAL: missing ${_b}"; exit 1; }
-			patchelf --set-rpath '$ORIGIN/../lib' "${_b}" || {
-				echo "FATAL: set-rpath failed for ${_b}" >&2; exit 1; }
-			patchelf --remove-needed libomp.so "${_b}" 2>/dev/null || true
+
+		# --- Set RPATH only on ELF binaries; skip scripts like design_ttest2 ---
+		is_elf() {
+			readelf -h "$1" >/dev/null 2>&1
+		}
+	
+		for _b in \
+			"${FSL_MINI_DIR}/bin/fslmaths" \
+			"${FSL_MINI_DIR}/bin/fdr" \
+			"${FSL_MINI_DIR}/bin/randomise" \
+			"${FSL_MINI_DIR}/bin/design_ttest2"
+		do
+			[ -x "$_b" ] || continue
+			if is_elf "$_b"; then
+				patchelf --set-rpath '$ORIGIN/../lib' "$_b"
+				# libomp may not be present; don't fail if it's not needed
+				patchelf --remove-needed libomp.so "$_b" 2>/dev/null || true
+			else
+				# script wrapper; nothing to patch
+				:
+			fi
 		done
+
 
 		# quick triage view
 		echo "[skinny-fsl] mini bin contains:"
