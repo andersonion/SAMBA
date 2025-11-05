@@ -101,6 +101,27 @@ From: fsl_mcr.sif
 	chmod -R a+rX "${SAMBA_PATH}"
 
 
+	# --- Ensure local::lib + Carton live in /opt/samba/perl5libs ---
+	export PERLBREW_ROOT="/opt/samba/perl5"
+	mkdir -p "/opt/samba/perl5" "/opt/samba/perl5libs"
+
+	# cpanm via perlbrew (safe to re-run)
+	if ! [ -x "/opt/samba/perl5/bin/cpanm" ]; then
+		perlbrew install-cpanm || true
+	fi
+
+	# point installs to our project-local lib and make its bin show up
+	export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
+	export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
+	export PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
+	export PERL5LIB="/opt/samba/perl5libs/lib/perl5${PERL5LIB:+:$PERL5LIB}"
+	export PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:$PATH"
+
+	# install the modules we need for build/test
+	/opt/samba/perl5/bin/cpanm --quiet --notest --local-lib=/opt/samba/perl5libs local::lib Carton
+
+
+
 	# --- Carton (Perl deps) under perlbrew Perl 5.16.3 ---
 	if [ ! -x "${PERLBREW_ROOT}/bin/perlbrew" ]; then
 		echo "FATAL: perlbrew not found at ${PERLBREW_ROOT}/bin/perlbrew (build fsl_mcr stage first)." >&2
@@ -140,9 +161,9 @@ From: fsl_mcr.sif
 			if [ -f /opt/samba/perl5/etc/bashrc ]; then
 				source /opt/samba/perl5/etc/bashrc
 			fi
-			if command -v perlbrew >/dev/null 2>&1; then
-				perlbrew use perl-5.16.3 || true
-			fi
+			#if command -v perlbrew >/dev/null 2>&1; then
+			#	perlbrew use perl-5.16.3 || true
+			#fi
 
 			# Carton/local::lib env (match build-time layout)
 			export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
@@ -151,12 +172,11 @@ From: fsl_mcr.sif
 			export PERL5LIB="/opt/samba/perl5libs/lib/perl5${PERL5LIB:+:${PERL5LIB}}"
 			export PATH="/opt/samba/perl5/bin:$PATH"
 
-			# ensure local::lib bin (where "carton" lives) is on PATH
+			# make sure we see Carton from our local::lib
 			export PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:$PATH"
-	
-			# quick check that Carton is actually installed in this perl@lib
-			perl -Mlocal::lib=/opt/samba/perl5libs -MCarton -e1
-
+		
+			# verify local::lib + Carton are available
+			perl -Mlocal::lib=/opt/samba/perl5libs -MCarton -e1 || { echo "FATAL: Carton not available in /opt/samba/perl5libs"; exit 1; }
 
 			# Diagnostics
 			echo "[diag] perl: $(command -v perl || echo NONE)"
