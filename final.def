@@ -83,6 +83,15 @@ From: fsl_mcr.sif
 		exit 1
 	fi
 
+	# ensure rsync is available for source sync
+	if command -v apt-get >/dev/null 2>&1; then
+		apt-get update
+		apt-get install -y --no-install-recommends rsync
+		apt-get clean
+		rm -rf /var/lib/apt/lists/*
+	fi
+
+
 	# Stage a working copy under /opt/samba/SAMBA (runtime location)
 	SAMBA_PATH="${SAMBA_PATH:-${SAMBA_APPS_DIR}/SAMBA}"
 	mkdir -p "${SAMBA_APPS_DIR}"
