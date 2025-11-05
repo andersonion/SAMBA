@@ -188,7 +188,7 @@ From: ants.sif
 		for t in ${FSL_ALL_TO_COPY}; do
 			if ! copy_tool "${t}"; then
 				echo "WARN: ${t} not found in full install." >&2
-			end
+			fi
 		done
 
 		# include any FSL private libs if present
