@@ -151,6 +151,13 @@ From: fsl_mcr.sif
 			export PERL5LIB="/opt/samba/perl5libs/lib/perl5${PERL5LIB:+:${PERL5LIB}}"
 			export PATH="/opt/samba/perl5/bin:$PATH"
 
+			# ensure local::lib bin (where "carton" lives) is on PATH
+			export PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:$PATH"
+	
+			# quick check that Carton is actually installed in this perl@lib
+			perl -Mlocal::lib=/opt/samba/perl5libs -MCarton -e1
+
+
 			# Diagnostics
 			echo "[diag] perl: $(command -v perl || echo NONE)"
 			perl -V:version || true
