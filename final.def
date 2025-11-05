@@ -39,35 +39,53 @@ From: fsl_mcr.sif
       apt-get clean; rm -rf /var/lib/apt/lists/*
     fi
 
-	# --- SAMBA repo (clone → checkout ref → stage under /opt/samba/SAMBA) ---
+	# --- SAMBA repo: clone → resolve ref → checkout → stage to /opt/samba/SAMBA ---
 	mkdir -p "${SRC_ROOT}"
 	if [ ! -d "${SAMBA_SRC_DIR}" ]; then
 		git clone "${SAMBA_REPO}" "${SAMBA_SRC_DIR}"
 	fi
 
-	# Fetch the desired ref (branch, tag, or commit) and hard-reset to it
+	# Always refresh refs
 	git -C "${SAMBA_SRC_DIR}" fetch --all --tags --prune
-	# Try as a full ref first (origin/<ref>), then as a tag/commit fallback
-	if git -C "${SAMBA_SRC_DIR}" rev-parse --verify --quiet "origin/${SAMBA_REF}" >/dev/null; then
-		git -C "${SAMBA_SRC_DIR}" reset --hard "origin/${SAMBA_REF}"
-	else
-		git -C "${SAMBA_SRC_DIR}" reset --hard "${SAMBA_REF}"
+
+	# Resolve the ref to use:
+	# 1) $SAMBA_REF if set (branch/tag/sha)
+	# 2) remote default branch (origin/HEAD) if available
+	# 3) 'master' as last resort
+	REF="${SAMBA_REF:-}"
+	if [ -z "${REF}" ]; then
+		REF="$(git -C "${SAMBA_SRC_DIR}" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)"
+		[ -z "${REF}" ] && REF="master"
 	fi
 
-	# Sanity: ensure cpanfile exists in the source tree
+	# Try to pin to an exact remote branch first; then tag; then SHA/commit
+	if git -C "${SAMBA_SRC_DIR}" show-ref --verify --quiet "refs/remotes/origin/${REF}"; then
+		git -C "${SAMBA_SRC_DIR}" checkout -f -B buildpin "origin/${REF}"
+	elif git -C "${SAMBA_SRC_DIR}" show-ref --verify --quiet "refs/tags/${REF}"; then
+		git -C "${SAMBA_SRC_DIR}" checkout -f -B buildpin "refs/tags/${REF}"
+	elif git -C "${SAMBA_SRC_DIR}" rev-parse --verify --quiet "${REF}" >/dev/null; then
+		git -C "${SAMBA_SRC_DIR}" checkout -f -B buildpin "${REF}"
+	else
+		echo "FATAL: cannot resolve SAMBA_REF='${REF}' in ${SAMBA_SRC_DIR}" >&2
+		git -C "${SAMBA_SRC_DIR}" show-ref | sed 's/^/  /' >&2 || true
+		exit 1
+	fi
+
+	# Sanity check
 	if [ ! -f "${SAMBA_SRC_DIR}/cpanfile" ]; then
 		echo "FATAL: cpanfile not found in ${SAMBA_SRC_DIR}" >&2
 		ls -la "${SAMBA_SRC_DIR}" >&2 || true
 		exit 1
 	fi
 
-	# Stage a working copy under /opt/samba/SAMBA for the runtime
+	# Stage a working copy under /opt/samba/SAMBA (runtime location)
 	SAMBA_PATH="${SAMBA_PATH:-${SAMBA_APPS_DIR}/SAMBA}"
 	mkdir -p "${SAMBA_APPS_DIR}"
 	rm -rf "${SAMBA_PATH}.tmp"
 	rsync -a --delete "${SAMBA_SRC_DIR}/" "${SAMBA_PATH}.tmp/"
 	mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
 	chmod -R a+rX "${SAMBA_PATH}"
+
 
 	# --- Carton (Perl deps) under perlbrew Perl 5.16.3 ---
 	if [ ! -x "${PERLBREW_ROOT}/bin/perlbrew" ]; then
