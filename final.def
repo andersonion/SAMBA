@@ -1,5 +1,5 @@
 Bootstrap: localimage
-From: fsl_mmcr.sif
+From: fsl_mcr.sif
 
 %labels
     Stage "SAMBA app env (perlbrew + Carton) on top of fsl_mmcr.sif"
