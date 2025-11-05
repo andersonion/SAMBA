@@ -48,6 +48,11 @@ From: fsl_mcr.sif
 	# Always refresh refs
 	git -C "${SAMBA_SRC_DIR}" fetch --all --tags --prune
 
+
+	# Temporary override until samba.sif can be debugged.
+	SAMBA_REF=master
+
+
 	# Resolve the ref to use:
 	# 1) $SAMBA_REF if set (branch/tag/sha)
 	# 2) remote default branch (origin/HEAD) if available
@@ -57,9 +62,6 @@ From: fsl_mcr.sif
 		REF="$(git -C "${SAMBA_SRC_DIR}" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)"
 		[ -z "${REF}" ] && REF="master"
 	fi
-
-	# Temporary override until samba.sif can be debugged.
-	SAMBA_REF=master
 
 	# Try to pin to an exact remote branch first; then tag; then SHA/commit
 	if git -C "${SAMBA_SRC_DIR}" show-ref --verify --quiet "refs/remotes/origin/${REF}"; then
