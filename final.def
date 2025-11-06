@@ -25,7 +25,23 @@ From: fsl_mcr.sif
 	export PATH="${FSLDIR}/bin:${PATH}"
 
 %post
+	%post
 	set -eu
+
+	# --- build-time defaults (env from %environment is runtime-only) ---
+	SAMBA_ROOT="${SAMBA_ROOT:-/opt/samba}"
+	SAMBA_PATH="${SAMBA_PATH:-${SAMBA_ROOT}/SAMBA}"
+
+	# perl user lib root used by cpanm below
+	PERL_LOCAL_LIB_ROOT="${PERL_LOCAL_LIB_ROOT:-${SAMBA_ROOT}/perl5libs}"
+	PERL_MB_OPT="${PERL_MB_OPT:---install_base \"${PERL_LOCAL_LIB_ROOT}\"}"
+	PERL_MM_OPT="${PERL_MM_OPT:-INSTALL_BASE=${PERL_LOCAL_LIB_ROOT}}"
+	PERL5LIB="${PERL5LIB:-${PERL_LOCAL_LIB_ROOT}/lib/perl5}"
+
+	# prepend the bins we expect to exist in the base image or later in this stage
+	PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/ants/bin:/opt/samba/fsl/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	export SAMBA_ROOT SAMBA_PATH PERL_LOCAL_LIB_ROOT PERL_MB_OPT PERL_MM_OPT PERL5LIB PATH
+
 
 	# ---- baseline dirs ----
 	mkdir -p /opt/src "${SAMBA_ROOT}" "${SAMBA_ROOT}/perl5" "${SAMBA_ROOT}/perl5libs"
