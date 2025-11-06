@@ -94,9 +94,10 @@ From: fsl_mcr.sif
     fi
     mkdir -p "${PERL_LOCAL_LIB_ROOT}/bin"
 
- 	    # =====================================================================
+     # =====================================================================
     # Atlas: Zenodo chass_symmetric3 → /opt/atlases/chass_symmetric3
-    # Robust: uses JSON; falls back to per-file downloads if no .tar.gz exists
+    #   - Reads JSON from stdin (no argv indexing)
+    #   - Works under /bin/sh (no bashisms)
     # =====================================================================
     ATLAS_FOLDER="/opt/atlases"
     AZ_ID="15178373"
@@ -108,7 +109,7 @@ From: fsl_mcr.sif
     mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
     cd "${DEST_DIR}"
 
-    # Ensure python3 for JSON parsing
+    # Ensure python3 for JSON parsing (keep it minimal)
     if ! command -v python3 >/dev/null 2>&1; then
         apt-get update
         apt-get install -y --no-install-recommends python3-minimal ca-certificates
@@ -118,32 +119,33 @@ From: fsl_mcr.sif
     curl -fsSL "https://zenodo.org/api/records/${AZ_ID}" -o "${TMP_JSON}" \
         || { echo "FATAL: cannot fetch Zenodo record ${AZ_ID}" >&2; exit 1; }
 
-    # Try to find a tarball first
-    TARBALL_NAME="$(python3 - <<'PY'
-import json, sys, re
-j = json.load(open(sys.argv[1]))
+    # --- Try to find a .tar.gz in the record ---
+    TARBALL_NAME="$(
+        python3 - <<'PY' < "${TMP_JSON}"
+import json, re, sys
+j = json.load(sys.stdin)
 for f in j.get("files", []):
     k = f.get("key", "")
     if re.search(r"\.tar\.gz$", k):
         print(k)
         break
 PY
-"${TMP_JSON}"
-)"
+    )"
 
     if [ -n "${TARBALL_NAME}" ]; then
         echo "[atlas] found archive: ${TARBALL_NAME}"
-        TARBALL_URL="$(python3 - <<'PY'
-import json, sys
-j = json.load(open(sys.argv[1]))
-name = sys.argv[2]
+        # pull its download URL
+        TARBALL_URL="$(
+            TARBALL_NAME="${TARBALL_NAME}" python3 - <<'PY' < "${TMP_JSON}"
+import os, json, sys
+name = os.environ.get("TARBALL_NAME","")
+j = json.load(sys.stdin)
 for f in j.get("files", []):
     if f.get("key") == name:
         print(f.get("links", {}).get("download") or f.get("links", {}).get("self", ""))
         break
 PY
-"${TMP_JSON}" "${TARBALL_NAME}"
-)"
+        )"
         [ -n "${TARBALL_URL}" ] || { echo "FATAL: no URL for ${TARBALL_NAME}" >&2; exit 1; }
 
         CACHED="${CACHE_DIR}/${TARBALL_NAME}"
@@ -175,10 +177,10 @@ chass_symmetric3_labels_lookup.txt
 chass_symmetric3_mask.nii.gz
 "
 
-        # Build a JSON map of key->download URL for quick lookup
-        python3 - <<'PY' "${TMP_JSON}" > /tmp/zen_urls.tsv
+        # build TSV: key \t download_url (from stdin JSON)
+        python3 - <<'PY' < "${TMP_JSON}" > /tmp/zen_urls.tsv
 import json, sys
-j = json.load(open(sys.argv[1]))
+j = json.load(sys.stdin)
 for f in j.get("files", []):
     key = f.get("key", "")
     url = f.get("links", {}).get("download") or f.get("links", {}).get("self", "")
@@ -186,17 +188,18 @@ for f in j.get("files", []):
         print(f"{key}\t{url}")
 PY
 
-        # Download each needed file (use cache if present)
-        while read -r K; do
+        # fetch each needed file (use cache if available)
+        IFS='
+'
+        for K in ${FILE_KEYS}; do
             [ -n "${K}" ] || continue
-            URL="$(awk -v k="${K}" -F'\t' '$1==k{print $2}' /tmp/zen_urls.tsv | head -1)"
+            URL="$(awk -v k="${K}" -F '\t' '$1==k{print $2}' /tmp/zen_urls.tsv | head -1)"
             if [ -z "${URL}" ]; then
                 echo "FATAL: ${K} not present on Zenodo record ${AZ_ID}" >&2
                 echo "[atlas] available files:" >&2
                 cut -f1 /tmp/zen_urls.tsv >&2
                 exit 1
             fi
-
             CACHED="${CACHE_DIR}/${K}"
             if [ -f "${CACHED}" ]; then
                 cp -f "${CACHED}" "${SAMBA_ATLAS_DIR}/${K}"
@@ -205,9 +208,7 @@ PY
                 curl -fL --retry 5 --retry-delay 2 -o "${SAMBA_ATLAS_DIR}/${K}" "${URL}"
                 cp -f "${SAMBA_ATLAS_DIR}/${K}" "${CACHE_DIR}/" || true
             fi
-        done <<EOF
-${FILE_KEYS}
-EOF
+        done
     fi
 
     # Stable path for SAMBA + perms
@@ -215,6 +216,7 @@ EOF
     chmod -R a+rX "/opt/atlases" "/opt/zenodo_cache"
     rm -f "${TMP_JSON}"
     echo "[atlas] ready at /opt/samba/atlas"
+
 
 
     # ---- java jre (if present in base) ----
