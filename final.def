@@ -94,110 +94,127 @@ From: fsl_mcr.sif
     fi
     mkdir -p "${PERL_LOCAL_LIB_ROOT}/bin"
 
-    # =====================================================================
-    # Atlas: Zenodo chass_symmetric3 (cached, extracted to /opt/atlases)
+ 	    # =====================================================================
+    # Atlas: Zenodo chass_symmetric3 → /opt/atlases/chass_symmetric3
+    # Robust: uses JSON; falls back to per-file downloads if no .tar.gz exists
     # =====================================================================
     ATLAS_FOLDER="/opt/atlases"
     AZ_ID="15178373"
     DEST_DIR="${ATLAS_FOLDER}"
     CACHE_DIR="/opt/zenodo_cache"
     SAMBA_ATLAS_DIR="${ATLAS_FOLDER}/chass_symmetric3"
+    TMP_JSON="/tmp/zenodo_${AZ_ID}.json"
 
     mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
     cd "${DEST_DIR}"
 
-    # ensure python3 for robust JSON parsing
+    # Ensure python3 for JSON parsing
     if ! command -v python3 >/dev/null 2>&1; then
         apt-get update
         apt-get install -y --no-install-recommends python3-minimal ca-certificates
     fi
 
-    echo "[atlas] resolving file from Zenodo record ${AZ_ID} ..."
-    ZJSON="$(curl -fsSL "https://zenodo.org/api/records/${AZ_ID}")" || {
-        echo "FATAL: could not fetch Zenodo record JSON for ${AZ_ID}" >&2
-        exit 1
-    }
+    echo "[atlas] fetching Zenodo record JSON ${AZ_ID} ..."
+    curl -fsSL "https://zenodo.org/api/records/${AZ_ID}" -o "${TMP_JSON}" \
+        || { echo "FATAL: cannot fetch Zenodo record ${AZ_ID}" >&2; exit 1; }
 
-    FILE_NAME="$(printf '%s' "${ZJSON}" | python3 - <<'PY'
-import sys, json, re
-data=json.load(sys.stdin)
-cand=None
-for f in data.get("files", []):
-    k=f.get("key","")
-    if re.search(r"^chass_symmetric3.*\.tar\.gz$", k):
-        cand=k; break
-if not cand:
-    for f in data.get("files", []):
-        k=f.get("key","")
-        if k.endswith(".tar.gz"):
-            cand=k; break
-if not cand:
-    print("")  # empty=fail in shell
-else:
-    print(cand)
+    # Try to find a tarball first
+    TARBALL_NAME="$(python3 - <<'PY'
+import json, sys, re
+j = json.load(open(sys.argv[1]))
+for f in j.get("files", []):
+    k = f.get("key", "")
+    if re.search(r"\.tar\.gz$", k):
+        print(k)
+        break
 PY
-    )"
+"${TMP_JSON}"
+)"
 
-    if [ -z "${FILE_NAME}" ]; then
-        echo "[atlas] available files on record:" >&2
-        printf '%s' "${ZJSON}" | python3 - <<'PY' 1>&2
-import sys, json
-for f in json.load(sys.stdin).get("files", []):
-    print(" -", f.get("key"))
+    if [ -n "${TARBALL_NAME}" ]; then
+        echo "[atlas] found archive: ${TARBALL_NAME}"
+        TARBALL_URL="$(python3 - <<'PY'
+import json, sys
+j = json.load(open(sys.argv[1]))
+name = sys.argv[2]
+for f in j.get("files", []):
+    if f.get("key") == name:
+        print(f.get("links", {}).get("download") or f.get("links", {}).get("self", ""))
+        break
 PY
-        echo "FATAL: no .tar.gz file found on Zenodo record ${AZ_ID}" >&2
-        exit 1
-    fi
+"${TMP_JSON}" "${TARBALL_NAME}"
+)"
+        [ -n "${TARBALL_URL}" ] || { echo "FATAL: no URL for ${TARBALL_NAME}" >&2; exit 1; }
 
-    FILE_URL="$(printf '%s' "${ZJSON}" | python3 - <<'PY'
-import sys, json, re
-data=json.load(sys.stdin)
-target=None
-for f in data.get("files", []):
-    k=f.get("key","")
-    if re.search(r"^chass_symmetric3.*\.tar\.gz$", k):
-        target=f; break
-if target is None:
-    for f in data.get("files", []):
-        if f.get("key","").endswith(".tar.gz"):
-            target=f; break
-if target is None:
-    print("")
-else:
-    print(target.get("links",{}).get("download") or target.get("links",{}).get("self",""))
-PY
-    )"
+        CACHED="${CACHE_DIR}/${TARBALL_NAME}"
+        if [ -f "${CACHED}" ]; then
+            cp -f "${CACHED}" "${TARBALL_NAME}"
+        else
+            echo "[atlas] downloading archive ..."
+            curl -fL --retry 5 --retry-delay 2 -o "${TARBALL_NAME}" "${TARBALL_URL}"
+            cp -f "${TARBALL_NAME}" "${CACHE_DIR}/" || true
+        fi
 
-    if [ -z "${FILE_URL}" ]; then
-        echo "FATAL: could not resolve a download URL for ${FILE_NAME}" >&2
-        exit 1
-    fi
+        tar -xzf "${TARBALL_NAME}"
+        rm -f "${TARBALL_NAME}"
+        [ -d "${SAMBA_ATLAS_DIR}" ] || { echo "FATAL: ${SAMBA_ATLAS_DIR} missing after extraction" >&2; exit 1; }
 
-    echo "[atlas] chosen file: ${FILE_NAME}"
-    CACHED_TARBALL="${CACHE_DIR}/${FILE_NAME}"
-    if [ -f "${CACHED_TARBALL}" ]; then
-        cp -f "${CACHED_TARBALL}" "${FILE_NAME}"
     else
-        echo "[atlas] downloading ${FILE_NAME} ..."
-        curl -fL --retry 5 --retry-delay 2 -o "${FILE_NAME}" "${FILE_URL}"
-        cp -f "${FILE_NAME}" "${CACHE_DIR}/" || true
+        echo "[atlas] no .tar.gz in record; downloading individual files ..."
+        mkdir -p "${SAMBA_ATLAS_DIR}"
+
+        # expected file keys for CHASS symmetric3
+        FILE_KEYS="
+chass_symmetric3_T2.nii.gz
+chass_symmetric3_DWI.nii.gz
+chass_symmetric3_FA.nii.gz
+chass_symmetric3_MD.nii.gz
+chass_symmetric3_MO.nii.gz
+chass_symmetric3_labels.nii.gz
+chass_symmetric3_labels_lookup.txt
+chass_symmetric3_mask.nii.gz
+"
+
+        # Build a JSON map of key->download URL for quick lookup
+        python3 - <<'PY' "${TMP_JSON}" > /tmp/zen_urls.tsv
+import json, sys
+j = json.load(open(sys.argv[1]))
+for f in j.get("files", []):
+    key = f.get("key", "")
+    url = f.get("links", {}).get("download") or f.get("links", {}).get("self", "")
+    if key and url:
+        print(f"{key}\t{url}")
+PY
+
+        # Download each needed file (use cache if present)
+        while read -r K; do
+            [ -n "${K}" ] || continue
+            URL="$(awk -v k="${K}" -F'\t' '$1==k{print $2}' /tmp/zen_urls.tsv | head -1)"
+            if [ -z "${URL}" ]; then
+                echo "FATAL: ${K} not present on Zenodo record ${AZ_ID}" >&2
+                echo "[atlas] available files:" >&2
+                cut -f1 /tmp/zen_urls.tsv >&2
+                exit 1
+            fi
+
+            CACHED="${CACHE_DIR}/${K}"
+            if [ -f "${CACHED}" ]; then
+                cp -f "${CACHED}" "${SAMBA_ATLAS_DIR}/${K}"
+            else
+                echo "[atlas] downloading ${K} ..."
+                curl -fL --retry 5 --retry-delay 2 -o "${SAMBA_ATLAS_DIR}/${K}" "${URL}"
+                cp -f "${SAMBA_ATLAS_DIR}/${K}" "${CACHE_DIR}/" || true
+            fi
+        done <<EOF
+${FILE_KEYS}
+EOF
     fi
 
-    # extract and sanity-check directory (it must produce .../chass_symmetric3)
-    tar -xzf "${FILE_NAME}"
-    rm -f "${FILE_NAME}"
-    if [ ! -d "${SAMBA_ATLAS_DIR}" ]; then
-        echo "FATAL: chass_symmetric3 folder not found after extraction" >&2
-        echo "[atlas] contents of ${DEST_DIR}:" >&2
-        ls -la "${DEST_DIR}" >&2 || true
-        exit 1
-    fi
-
-    # stable path for SAMBA
+    # Stable path for SAMBA + perms
     ln -sfn "${SAMBA_ATLAS_DIR}" "/opt/samba/atlas"
-
-    # perms
     chmod -R a+rX "/opt/atlases" "/opt/zenodo_cache"
+    rm -f "${TMP_JSON}"
+    echo "[atlas] ready at /opt/samba/atlas"
 
 
     # ---- java jre (if present in base) ----
