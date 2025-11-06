@@ -119,33 +119,36 @@ From: fsl_mcr.sif
     curl -fsSL "https://zenodo.org/api/records/${AZ_ID}" -o "${TMP_JSON}" \
         || { echo "FATAL: cannot fetch Zenodo record ${AZ_ID}" >&2; exit 1; }
 
-    # --- Try to find a .tar.gz in the record ---
+
+    # --- find a .tar.gz filename in the JSON ---
     TARBALL_NAME="$(
-        python3 - <<'PY' < "${TMP_JSON}"
+        python3 -c '
 import json, re, sys
 j = json.load(sys.stdin)
 for f in j.get("files", []):
-    k = f.get("key", "")
+    k = f.get("key", "") or ""
     if re.search(r"\.tar\.gz$", k):
         print(k)
         break
-PY
+' < "${TMP_JSON}"
     )"
 
     if [ -n "${TARBALL_NAME}" ]; then
         echo "[atlas] found archive: ${TARBALL_NAME}"
-        # pull its download URL
+
+        # --- find its download URL ---
         TARBALL_URL="$(
-            TARBALL_NAME="${TARBALL_NAME}" python3 - <<'PY' < "${TMP_JSON}"
-import os, json, sys
+            TARBALL_NAME="${TARBALL_NAME}" python3 -c '
+import json, os, sys
 name = os.environ.get("TARBALL_NAME","")
 j = json.load(sys.stdin)
 for f in j.get("files", []):
     if f.get("key") == name:
         print(f.get("links", {}).get("download") or f.get("links", {}).get("self", ""))
         break
-PY
+' < "${TMP_JSON}"
         )"
+
         [ -n "${TARBALL_URL}" ] || { echo "FATAL: no URL for ${TARBALL_NAME}" >&2; exit 1; }
 
         CACHED="${CACHE_DIR}/${TARBALL_NAME}"
@@ -165,7 +168,17 @@ PY
         echo "[atlas] no .tar.gz in record; downloading individual files ..."
         mkdir -p "${SAMBA_ATLAS_DIR}"
 
-        # expected file keys for CHASS symmetric3
+        # build TSV: key \t url
+        python3 -c '
+import json, sys
+j = json.load(sys.stdin)
+for f in j.get("files", []):
+    key = f.get("key", "")
+    url = f.get("links", {}).get("download") or f.get("links", {}).get("self", "")
+    if key and url:
+        print(f"{key}\t{url}")
+' < "${TMP_JSON}" > /tmp/zen_urls.tsv
+
         FILE_KEYS="
 chass_symmetric3_T2.nii.gz
 chass_symmetric3_DWI.nii.gz
@@ -177,23 +190,11 @@ chass_symmetric3_labels_lookup.txt
 chass_symmetric3_mask.nii.gz
 "
 
-        # build TSV: key \t download_url (from stdin JSON)
-        python3 - <<'PY' < "${TMP_JSON}" > /tmp/zen_urls.tsv
-import json, sys
-j = json.load(sys.stdin)
-for f in j.get("files", []):
-    key = f.get("key", "")
-    url = f.get("links", {}).get("download") or f.get("links", {}).get("self", "")
-    if key and url:
-        print(f"{key}\t{url}")
-PY
-
-        # fetch each needed file (use cache if available)
         IFS='
 '
         for K in ${FILE_KEYS}; do
             [ -n "${K}" ] || continue
-            URL="$(awk -v k="${K}" -F '\t' '$1==k{print $2}' /tmp/zen_urls.tsv | head -1)"
+            URL="$(awk -F '\t' -v k="${K}" '$1==k{print $2}' /tmp/zen_urls.tsv | head -1)"
             if [ -z "${URL}" ]; then
                 echo "FATAL: ${K} not present on Zenodo record ${AZ_ID}" >&2
                 echo "[atlas] available files:" >&2
@@ -211,7 +212,6 @@ PY
         done
     fi
 
-    # Stable path for SAMBA + perms
     ln -sfn "${SAMBA_ATLAS_DIR}" "/opt/samba/atlas"
     chmod -R a+rX "/opt/atlases" "/opt/zenodo_cache"
     rm -f "${TMP_JSON}"
