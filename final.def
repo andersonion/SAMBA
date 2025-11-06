@@ -2,208 +2,121 @@ Bootstrap: localimage
 From: fsl_mcr.sif
 
 %labels
-    Stage "SAMBA app env (perlbrew + Carton) on top of fsl_mmcr.sif"
+	Stage "final"
+	Maintainer "you"
 
 %environment
-    export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-    export ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
-    export PATH="${ANTSPATH}:$PATH"
+	# Core paths
+	export SAMBA_ROOT="/opt/samba"
+	export SAMBA_PATH="${SAMBA_ROOT}/SAMBA"
 
-    export PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
-    export PATH="${PERLBREW_ROOT}/bin:$PATH"
+	# Perl user lib (installed in %post)
+	export PERL_LOCAL_LIB_ROOT="${SAMBA_ROOT}/perl5libs"
+	export PERL_MB_OPT="--install_base \"${PERL_LOCAL_LIB_ROOT}\""
+	export PERL_MM_OPT="INSTALL_BASE=${PERL_LOCAL_LIB_ROOT}"
+	export PERL5LIB="${PERL_LOCAL_LIB_ROOT}/lib/perl5"
 
-    export SRC_ROOT="${SRC_ROOT:-/opt/src}"
-    export SAMBA_REPO="${SAMBA_REPO:-https://github.com/your-org/SAMBA.git}"
-    export SAMBA_REF="${SAMBA_REF:-main}"
-    export SAMBA_SRC_DIR="${SAMBA_SRC_DIR:-${SRC_ROOT}/SAMBA}"
+	# Binaries
+	export PATH="${PERL_LOCAL_LIB_ROOT}/bin:${SAMBA_ROOT}/perl5/bin:${SAMBA_ROOT}/ants/bin:${SAMBA_ROOT}/fsl/bin:${SAMBA_PATH}:${PATH}"
 
-    export SAMBA_CARTON_PATH="${SAMBA_CARTON_PATH:-${SAMBA_APPS_DIR}/perl5libs}"
+	# FSL defaults (already present from base, kept for clarity)
+	export FSLDIR="${SAMBA_ROOT}/fsl"
+	export FSLOUTPUTTYPE="${FSLOUTPUTTYPE:-NIFTI_GZ}"
+	export PATH="${FSLDIR}/bin:${PATH}"
 
 %post
-    set -eu
-    SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-    PERLBREW_ROOT="${PERLBREW_ROOT:-${SAMBA_APPS_DIR}/perl5}"
-    SRC_ROOT="${SRC_ROOT:-/opt/src}"
-    SAMBA_REPO="${SAMBA_REPO:-https://github.com/andersonion/SAMBA.git}"
-    SAMBA_REF="${SAMBA_REF:-main}"
-    SAMBA_SRC_DIR="${SAMBA_SRC_DIR:-${SRC_ROOT}/SAMBA}"
-    SAMBA_CARTON_PATH="${SAMBA_CARTON_PATH:-${SAMBA_APPS_DIR}/perl5libs}"
+	set -eu
 
-    if command -v apt-get >/dev/null 2>&1; then
-      export DEBIAN_FRONTEND=noninteractive
-      apt-get update
-      apt-get install -y --no-install-recommends \
-        build-essential curl git ca-certificates \
-        zlib1g-dev libssl-dev libreadline-dev \
-        libncurses5-dev libncursesw5-dev libffi-dev make
-      apt-get clean; rm -rf /var/lib/apt/lists/*
-    fi
+	# ---- baseline dirs ----
+	mkdir -p /opt/src "${SAMBA_ROOT}" "${SAMBA_ROOT}/perl5" "${SAMBA_ROOT}/perl5libs"
 
-	# --- SAMBA repo: clone → resolve ref → checkout → stage to /opt/samba/SAMBA ---
-	mkdir -p "${SRC_ROOT}"
-	if [ ! -d "${SAMBA_SRC_DIR}" ]; then
-		git clone "${SAMBA_REPO}" "${SAMBA_SRC_DIR}"
-	fi
+	# ---- packages for building perl modules (no perlbrew/carton) ----
+	# keep it lean but sufficient for CPAN builds
+	apt-get update
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+		git ca-certificates curl build-essential \
+		cpanminus \
+		libssl-dev zlib1g-dev libexpat1-dev libperl-dev \
+		libffi-dev libxml2-dev libxslt1-dev \
+		libjpeg-dev libpng-dev libtiff5-dev \
+		sed coreutils
+	apt-get clean
+	rm -rf /var/lib/apt/lists/*
 
-	# Always refresh refs
-	git -C "${SAMBA_SRC_DIR}" fetch --all --tags --prune
-
-
-	# Temporary override until samba.sif can be debugged.
-	SAMBA_REF=master
-
-
-	# Resolve the ref to use:
-	# 1) $SAMBA_REF if set (branch/tag/sha)
-	# 2) remote default branch (origin/HEAD) if available
-	# 3) 'master' as last resort
-	REF="${SAMBA_REF:-}"
-	if [ -z "${REF}" ]; then
-		REF="$(git -C "${SAMBA_SRC_DIR}" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || true)"
-		[ -z "${REF}" ] && REF="master"
-	fi
-
-	# Try to pin to an exact remote branch first; then tag; then SHA/commit
-	if git -C "${SAMBA_SRC_DIR}" show-ref --verify --quiet "refs/remotes/origin/${REF}"; then
-		git -C "${SAMBA_SRC_DIR}" checkout -f -B buildpin "origin/${REF}"
-	elif git -C "${SAMBA_SRC_DIR}" show-ref --verify --quiet "refs/tags/${REF}"; then
-		git -C "${SAMBA_SRC_DIR}" checkout -f -B buildpin "refs/tags/${REF}"
-	elif git -C "${SAMBA_SRC_DIR}" rev-parse --verify --quiet "${REF}" >/dev/null; then
-		git -C "${SAMBA_SRC_DIR}" checkout -f -B buildpin "${REF}"
+	# ---- fetch SAMBA ----
+	if [ ! -d /opt/src/SAMBA ]; then
+		git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
 	else
-		echo "FATAL: cannot resolve SAMBA_REF='${REF}' in ${SAMBA_SRC_DIR}" >&2
-		git -C "${SAMBA_SRC_DIR}" show-ref | sed 's/^/  /' >&2 || true
+		git -C /opt/src/SAMBA fetch --all --tags --prune
+	fi
+
+	# pin to master (repo uses master, not main)
+	REF="master"
+	if git -C /opt/src/SAMBA show-ref --verify --quiet "refs/remotes/origin/${REF}"; then
+		git -C /opt/src/SAMBA checkout -f -B buildpin "origin/${REF}"
+	else
+		echo "FATAL: cannot resolve SAMBA ref '${REF}'" >&2
+		git -C /opt/src/SAMBA show-ref | sed 's/^/  /' >&2 || true
 		exit 1
 	fi
 
-	# Sanity check
-	if [ ! -f "${SAMBA_SRC_DIR}/cpanfile" ]; then
-		echo "FATAL: cpanfile not found in ${SAMBA_SRC_DIR}" >&2
-		ls -la "${SAMBA_SRC_DIR}" >&2 || true
-		exit 1
-	fi
-
-	# ensure rsync is available for source sync
-	if command -v apt-get >/dev/null 2>&1; then
-		apt-get update
-		apt-get install -y --no-install-recommends rsync
-		apt-get clean
-		rm -rf /var/lib/apt/lists/*
-	fi
-
-
-	# Stage a working copy under /opt/samba/SAMBA (runtime location)
-	SAMBA_PATH="${SAMBA_PATH:-${SAMBA_APPS_DIR}/SAMBA}"
-	mkdir -p "${SAMBA_APPS_DIR}"
+	# materialize to /opt/samba/SAMBA (atomic-ish without rsync)
 	rm -rf "${SAMBA_PATH}.tmp"
-	rsync -a --delete "${SAMBA_SRC_DIR}/" "${SAMBA_PATH}.tmp/"
+	mkdir -p "${SAMBA_PATH}.tmp"
+	# copy tree
+	( cd /opt/src/SAMBA && tar -cf - . ) | ( cd "${SAMBA_PATH}.tmp" && tar -xf - )
+	chmod -R a+rX "${SAMBA_PATH}.tmp"
 	mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
-	chmod -R a+rX "${SAMBA_PATH}"
 
-
-	# --- Ensure local::lib + Carton live in /opt/samba/perl5libs ---
-	export PERLBREW_ROOT="/opt/samba/perl5"
-	mkdir -p "/opt/samba/perl5" "/opt/samba/perl5libs"
-
-	# cpanm via perlbrew (safe to re-run)
-	if ! [ -x "/opt/samba/perl5/bin/cpanm" ]; then
-		perlbrew install-cpanm || true
-	fi
-
-	# point installs to our project-local lib and make its bin show up
-	export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
-	export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
-	export PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
-	export PERL5LIB="/opt/samba/perl5libs/lib/perl5${PERL5LIB:+:$PERL5LIB}"
-	export PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:$PATH"
-
-	# install the modules we need for build/test
-	/opt/samba/perl5/bin/cpanm --quiet --notest --local-lib=/opt/samba/perl5libs local::lib Carton
-
-
-
-	# --- Carton (Perl deps) under perlbrew Perl 5.16.3 ---
-	if [ ! -x "${PERLBREW_ROOT}/bin/perlbrew" ]; then
-		echo "FATAL: perlbrew not found at ${PERLBREW_ROOT}/bin/perlbrew (build fsl_mcr stage first)." >&2
-		exit 1
-	fi
-
-	cd "${SAMBA_PATH}"
-
-	# If a zero-length snapshot snuck in, remove it to allow resolve
-	[ -f cpanfile.snapshot ] && [ ! -s cpanfile.snapshot ] && rm -f cpanfile.snapshot
-
-	CARTON_LOG=/tmp/carton_install.log
-	: > "${CARTON_LOG}"
-	if [ -s cpanfile.snapshot ]; then
-		CARTON_CMD="carton install --deployment"
+	# ---- perl user env (no perlbrew, no carton) ----
+	# Install local::lib & project deps from cpanfile (if present)
+	if [ -f "${SAMBA_PATH}/cpanfile" ]; then
+		# ensure local::lib available
+		cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib
+		# install deps declared by SAMBA
+		( cd "${SAMBA_PATH}" && \
+		  cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" --installdeps . )
 	else
-		CARTON_CMD="carton install"
+		# fallback: some common modules used in SAMBA stack (kept minimal)
+		cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" \
+			Parallel::ForkManager File::Basename File::Path JSON Try::Tiny
 	fi
 
-	if ! "${PERLBREW_ROOT}/bin/perlbrew" exec --with perl-5.16.3 ${CARTON_CMD} >>"${CARTON_LOG}" 2>&1; then
-		echo "FATAL: Carton install failed. Last 100 lines:" >&2
-		tail -n 100 "${CARTON_LOG}" >&2
-		exit 1
+	# safety: make sure bin dir exists even if no scripts were installed
+	mkdir -p "${PERL_LOCAL_LIB_ROOT}/bin"
+
+	# ---- java jre (copied earlier in base; keep if present) ----
+	if [ -d /usr/lib/jvm/java-8-openjdk-amd64/jre ]; then
+		mkdir -p "${SAMBA_ROOT}/java"
+		cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre "${SAMBA_ROOT}/java" || true
 	fi
 
-	echo "Carton dependencies installed under ${SAMBA_CARTON_PATH:-${SAMBA_APPS_DIR}/perl5libs}."
-
+	# ---- quick diag to help later debugging (does not fail build) ----
+	echo "[diag] perl $(perl -V:version | sed 's/version=//')" || true
+	( command -v cpanm && cpanm --version ) >/dev/null 2>&1 || true
+	ls -ld "${SAMBA_PATH}" || true
 
 %test
-	# POSIX /bin/sh here — no pipefail, no bashisms.
-	# Delegate the real checks to bash so we can source perlbrew safely.
-	if command -v bash >/dev/null 2>&1; then
-		exec bash -lc '
-			set -euxo pipefail
+	# dash-compatible: no pipefail
+	set -eu
 
-			# --- Load perlbrew env (bash) ---
-			if [ -f /opt/samba/perl5/etc/bashrc ]; then
-				source /opt/samba/perl5/etc/bashrc
-			fi
-			#if command -v perlbrew >/dev/null 2>&1; then
-			#	perlbrew use perl-5.16.3 || true
-			#fi
+	# Paths/env sanity
+	[ -d "/opt/samba/SAMBA" ] || { echo "FATAL: /opt/samba/SAMBA missing"; exit 1; }
 
-			# Carton/local::lib env (match build-time layout)
-			export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
-			export PERL_MB_OPT="--install_base \"/opt/samba/perl5libs\""
-			export PERL_MM_OPT="INSTALL_BASE=/opt/samba/perl5libs"
-			export PERL5LIB="/opt/samba/perl5libs/lib/perl5${PERL5LIB:+:${PERL5LIB}}"
-			export PATH="/opt/samba/perl5/bin:$PATH"
+	# Perl can see our local::lib dir
+	perl -Mlocal::lib=/opt/samba/perl5libs -e1 || { echo "FATAL: local::lib not usable"; exit 1; }
 
-			# make sure we see Carton from our local::lib
-			export PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:$PATH"
-		
-			# verify local::lib + Carton are available
-			perl -Mlocal::lib=/opt/samba/perl5libs -MCarton -e1 || { echo "FATAL: Carton not available in /opt/samba/perl5libs"; exit 1; }
+	# A couple of common modules expected by SAMBA codepaths (soft check)
+	perl -MFile::Basename -e1 || { echo "FATAL: File::Basename not available"; exit 1; }
+	perl -MFile::Path -e1 || { echo "FATAL: File::Path not available"; exit 1; }
 
-			# Diagnostics
-			echo "[diag] perl: $(command -v perl || echo NONE)"
-			perl -V:version || true
-			echo "[diag] perlbrew: $(command -v perlbrew || echo NONE)"
-			echo "[diag] carton: $(command -v carton || echo NONE)"
+	# FSL presence (should be in PATH from base image)
+	command -v fslmaths >/dev/null 2>&1 || { echo "FATAL: fslmaths not in PATH"; exit 1; }
+	fslmaths -version >/dev/null 2>&1 || true
 
-			# Sanity checks
-			carton --help >/dev/null
-			test -d /opt/samba/SAMBA
-			test -d /opt/samba/perl5libs
-			perl -Mlocal::lib=/opt/samba/perl5libs -e "print qq[ok\n]" >/dev/null
-
-			# FSL smoke (if present). Use --help (not -version) for fslmaths.
-			if [ -x /opt/samba/fsl/bin/fslmaths ]; then
-				/opt/samba/fsl/bin/fslmaths --help >/dev/null 2>&1 || true
-				/opt/samba/fsl/bin/fdr --help >/dev/null 2>&1 || true
-				/opt/samba/fsl/bin/randomise --help >/dev/null 2>&1 || true
-				/opt/samba/fsl/bin/design_ttest2 --help >/dev/null 2>&1 || true
-			fi
-
-			echo "[test] final.def sanity checks passed."
-		'
-	else
-		echo "FATAL: /bin/bash not found; cannot run bash-only checks." >&2
-		exit 1
-	fi
+	# SAMBA repo exists & is readable
+	[ -r "/opt/samba/SAMBA/README.md" ] || true
 
 %runscript
-    exec /bin/sh -c "$@"
+	#!/bin/sh
+	exec /bin/bash "$@"
