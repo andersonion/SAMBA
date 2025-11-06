@@ -94,7 +94,7 @@ From: fsl_mcr.sif
     fi
     mkdir -p "${PERL_LOCAL_LIB_ROOT}/bin"
 
-     # =====================================================================
+    # =====================================================================
     # Atlas: Zenodo chass_symmetric3 → /opt/atlases/chass_symmetric3
     #   - Reads JSON from stdin (no argv indexing)
     #   - Works under /bin/sh (no bashisms)
