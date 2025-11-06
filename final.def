@@ -24,7 +24,7 @@ From: fsl_mcr.sif
 	export FSLOUTPUTTYPE="${FSLOUTPUTTYPE:-NIFTI_GZ}"
 	export PATH="${FSLDIR}/bin:${PATH}"
 
-%posts
+%post
 	set -eu
 
 	# --- build-time defaults (env from %environment is runtime-only) ---
