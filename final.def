@@ -94,47 +94,46 @@ From: fsl_mcr.sif
     fi
     mkdir -p "${PERL_LOCAL_LIB_ROOT}/bin"
 
-    # =====================================================================
-    # Atlas: Zenodo chass_symmetric3 (cached, extracted to /opt/atlases)
-    # =====================================================================
-    ATLAS_FOLDER="/opt/atlases"
-    AZ_ID="15178373"
-    FILE_NAME="chass_symmetric3.tar.gz"
-    DEST_DIR="${ATLAS_FOLDER}"
-    CACHE_DIR="/opt/zenodo_cache"
-    SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
+	# =====================================================================
+	# Atlas: Zenodo chass_symmetric3 (cached, extracted to /opt/atlases)
+	# =====================================================================
+	ATLAS_FOLDER="/opt/atlases"
+	AZ_ID="15178373"
+	FILE_NAME="chass_symmetric3.tar.gz"
+	FILE_URL="https://zenodo.org/records/${AZ_ID}/files/${FILE_NAME}?download=1"
+	DEST_DIR="${ATLAS_FOLDER}"
+	CACHE_DIR="/opt/zenodo_cache"
+	SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
 
-    mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
-    cd "${DEST_DIR}"
+	mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
+	cd "${DEST_DIR}"
 
-    CACHED_TARBALL="${CACHE_DIR}/${FILE_NAME}"
-    if [ -f "${CACHED_TARBALL}" ]; then
-        cp -f "${CACHED_TARBALL}" "${FILE_NAME}"
-    else
-        # Resolve file URL from Zenodo record JSON using sed (no jq dependency)
-        FILE_URL="$(curl -fsSL "https://zenodo.org/api/records/${AZ_ID}" \
-          | sed -n 's/.*"key"[[:space:]]*:[[:space:]]*"'${FILE_NAME}'".*"self"[[:space:]]*:[[:space:]]*"\(https[^"]*\)".*/\1/p')"
-        if [ -z "${FILE_URL}" ]; then
-            echo "FATAL: Could not resolve Zenodo file URL for ${FILE_NAME}" >&2
-            exit 1
-        fi
-        # Download with curl
-        curl -fL --retry 3 -o "${FILE_NAME}" "${FILE_URL}"
-        cp -f "${FILE_NAME}" "${CACHE_DIR}/" || true
-    fi
+	CACHED_TARBALL="${CACHE_DIR}/${FILE_NAME}"
+	if [ -f "${CACHED_TARBALL}" ]; then
+		cp -f "${CACHED_TARBALL}" "${FILE_NAME}"
+	else
+		# direct, stable Zenodo file URL (no JSON parsing needed)
+		echo "[atlas] fetching ${FILE_NAME} from Zenodo record ${AZ_ID} ..."
+		curl -fL --retry 4 --retry-delay 2 -o "${FILE_NAME}" "${FILE_URL}"
+		cp -f "${FILE_NAME}" "${CACHE_DIR}/" || true
+	fi
 
-    tar -xzf "${FILE_NAME}"
-    rm -f "${FILE_NAME}"
-    if [ ! -d "${SAMBA_ATLAS_DIR}" ]; then
-        echo "FATAL: chass_symmetric3 folder not found after extraction" >&2
-        exit 1
-    fi
+	# extract and sanity-check directory
+	tar -xzf "${FILE_NAME}"
+	rm -f "${FILE_NAME}"
+	if [ ! -d "${SAMBA_ATLAS_DIR}" ]; then
+		echo "FATAL: chass_symmetric3 folder not found after extraction" >&2
+		# show what got extracted to help debug
+		ls -la "${DEST_DIR}" >&2 || true
+		exit 1
+	fi
 
-    # Stable path expected by your pipelines
-    ln -sfn "${SAMBA_ATLAS_DIR}" "${SAMBA_ROOT}/atlas"
+	# Stable path expected by your pipelines
+	ln -sfn "${SAMBA_ATLAS_DIR}" "/opt/samba/atlas"
 
-    # Final perms
-    chmod -R a+rX /opt/atlases /opt/zenodo_cache
+	# Final perms
+	chmod -R a+rX "/opt/atlases" "/opt/zenodo_cache"
+
 
     # ---- java jre (if present in base) ----
     if [ -d /usr/lib/jvm/java-8-openjdk-amd64/jre ]; then
