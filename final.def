@@ -2,136 +2,174 @@ Bootstrap: localimage
 From: fsl_mcr.sif
 
 %labels
-	Stage "final"
-	Maintainer "you"
+    Stage "final"
+    Maintainer "you"
 
 %environment
-	# Core paths
-	export SAMBA_ROOT="/opt/samba"
-	export SAMBA_PATH="${SAMBA_ROOT}/SAMBA"
+    # Core paths
+    export SAMBA_ROOT="/opt/samba"
+    export SAMBA_PATH="${SAMBA_ROOT}/SAMBA"
 
-	# Perl user lib (installed in %post)
-	export PERL_LOCAL_LIB_ROOT="${SAMBA_ROOT}/perl5libs"
-	export PERL_MB_OPT="--install_base \"${PERL_LOCAL_LIB_ROOT}\""
-	export PERL_MM_OPT="INSTALL_BASE=${PERL_LOCAL_LIB_ROOT}"
-	export PERL5LIB="${PERL_LOCAL_LIB_ROOT}/lib/perl5"
+    # Perl user lib (installed in %post)
+    export PERL_LOCAL_LIB_ROOT="${SAMBA_ROOT}/perl5libs"
+    export PERL_MB_OPT="--install_base \"${PERL_LOCAL_LIB_ROOT}\""
+    export PERL_MM_OPT="INSTALL_BASE=${PERL_LOCAL_LIB_ROOT}"
+    export PERL5LIB="${PERL_LOCAL_LIB_ROOT}/lib/perl5"
 
-	# Binaries
-	export PATH="${PERL_LOCAL_LIB_ROOT}/bin:${SAMBA_ROOT}/perl5/bin:${SAMBA_ROOT}/ants/bin:${SAMBA_ROOT}/fsl/bin:${SAMBA_PATH}:${PATH}"
+    # Binaries
+    export PATH="${PERL_LOCAL_LIB_ROOT}/bin:${SAMBA_ROOT}/perl5/bin:${SAMBA_ROOT}/ants/bin:${SAMBA_ROOT}/fsl/bin:${SAMBA_PATH}:${PATH}"
 
-	# FSL defaults (already present from base, kept for clarity)
-	export FSLDIR="${SAMBA_ROOT}/fsl"
-	export FSLOUTPUTTYPE="${FSLOUTPUTTYPE:-NIFTI_GZ}"
-	export PATH="${FSLDIR}/bin:${PATH}"
+    # FSL defaults
+    export FSLDIR="${SAMBA_ROOT}/fsl"
+    export FSLOUTPUTTYPE="${FSLOUTPUTTYPE:-NIFTI_GZ}"
+    export PATH="${FSLDIR}/bin:${PATH}"
+
+    # Atlas (set at build time; kept here for runtime discoverability)
+    export SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
 
 %post
-	set -eu
+    set -eu
 
-	# --- build-time defaults (env from %environment is runtime-only) ---
-	SAMBA_ROOT="${SAMBA_ROOT:-/opt/samba}"
-	SAMBA_PATH="${SAMBA_PATH:-${SAMBA_ROOT}/SAMBA}"
+    # --- build-time defaults (env from %environment is runtime-only) ---
+    SAMBA_ROOT="${SAMBA_ROOT:-/opt/samba}"
+    SAMBA_PATH="${SAMBA_PATH:-${SAMBA_ROOT}/SAMBA}"
 
-	# perl user lib root used by cpanm below
-	PERL_LOCAL_LIB_ROOT="${PERL_LOCAL_LIB_ROOT:-${SAMBA_ROOT}/perl5libs}"
-	PERL_MB_OPT="${PERL_MB_OPT:---install_base \"${PERL_LOCAL_LIB_ROOT}\"}"
-	PERL_MM_OPT="${PERL_MM_OPT:-INSTALL_BASE=${PERL_LOCAL_LIB_ROOT}}"
-	PERL5LIB="${PERL5LIB:-${PERL_LOCAL_LIB_ROOT}/lib/perl5}"
+    # perl user lib root used by cpanm below
+    PERL_LOCAL_LIB_ROOT="${PERL_LOCAL_LIB_ROOT:-${SAMBA_ROOT}/perl5libs}"
+    PERL_MB_OPT="${PERL_MB_OPT:---install_base \"${PERL_LOCAL_LIB_ROOT}\"}"
+    PERL_MM_OPT="${PERL_MM_OPT:-INSTALL_BASE=${PERL_LOCAL_LIB_ROOT}}"
+    PERL5LIB="${PERL5LIB:-${PERL_LOCAL_LIB_ROOT}/lib/perl5}"
 
-	# prepend the bins we expect to exist in the base image or later in this stage
-	PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/ants/bin:/opt/samba/fsl/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-	export SAMBA_ROOT SAMBA_PATH PERL_LOCAL_LIB_ROOT PERL_MB_OPT PERL_MM_OPT PERL5LIB PATH
+    # prepend bins we expect to exist
+    PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/ants/bin:/opt/samba/fsl/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    export SAMBA_ROOT SAMBA_PATH PERL_LOCAL_LIB_ROOT PERL_MB_OPT PERL_MM_OPT PERL5LIB PATH
 
+    # ---- baseline dirs ----
+    mkdir -p /opt/src "${SAMBA_ROOT}" "${SAMBA_ROOT}/perl5" "${SAMBA_ROOT}/perl5libs"
 
-	# ---- baseline dirs ----
-	mkdir -p /opt/src "${SAMBA_ROOT}" "${SAMBA_ROOT}/perl5" "${SAMBA_ROOT}/perl5libs"
+    # ---- packages (lean) ----
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        git ca-certificates curl build-essential \
+        cpanminus \
+        libssl-dev zlib1g-dev libexpat1-dev libperl-dev \
+        libffi-dev libxml2-dev libxslt1-dev \
+        libjpeg-dev libpng-dev libtiff5-dev \
+        sed coreutils tar
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
 
-	# ---- packages for building perl modules (no perlbrew/carton) ----
-	# keep it lean but sufficient for CPAN builds
-	apt-get update
-	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-		git ca-certificates curl build-essential \
-		cpanminus \
-		libssl-dev zlib1g-dev libexpat1-dev libperl-dev \
-		libffi-dev libxml2-dev libxslt1-dev \
-		libjpeg-dev libpng-dev libtiff5-dev \
-		sed coreutils
-	apt-get clean
-	rm -rf /var/lib/apt/lists/*
+    # ---- fetch SAMBA ----
+    if [ ! -d /opt/src/SAMBA ]; then
+        git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
+    else
+        git -C /opt/src/SAMBA fetch --all --tags --prune
+    fi
 
-	# ---- fetch SAMBA ----
-	if [ ! -d /opt/src/SAMBA ]; then
-		git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
-	else
-		git -C /opt/src/SAMBA fetch --all --tags --prune
-	fi
+    # pin to master (repo uses master)
+    REF="master"
+    if git -C /opt/src/SAMBA show-ref --verify --quiet "refs/remotes/origin/${REF}"; then
+        git -C /opt/src/SAMBA checkout -f -B buildpin "origin/${REF}"
+    else
+        echo "FATAL: cannot resolve SAMBA ref '${REF}'" >&2
+        git -C /opt/src/SAMBA show-ref | sed 's/^/  /' >&2 || true
+        exit 1
+    fi
 
-	# pin to master (repo uses master, not main)
-	REF="master"
-	if git -C /opt/src/SAMBA show-ref --verify --quiet "refs/remotes/origin/${REF}"; then
-		git -C /opt/src/SAMBA checkout -f -B buildpin "origin/${REF}"
-	else
-		echo "FATAL: cannot resolve SAMBA ref '${REF}'" >&2
-		git -C /opt/src/SAMBA show-ref | sed 's/^/  /' >&2 || true
-		exit 1
-	fi
+    # materialize to /opt/samba/SAMBA (atomic-ish without rsync)
+    rm -rf "${SAMBA_PATH}.tmp"
+    mkdir -p "${SAMBA_PATH}.tmp"
+    ( cd /opt/src/SAMBA && tar -cf - . ) | ( cd "${SAMBA_PATH}.tmp" && tar -xf - )
+    chmod -R a+rX "${SAMBA_PATH}.tmp"
+    mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
 
-	# materialize to /opt/samba/SAMBA (atomic-ish without rsync)
-	rm -rf "${SAMBA_PATH}.tmp"
-	mkdir -p "${SAMBA_PATH}.tmp"
-	# copy tree
-	( cd /opt/src/SAMBA && tar -cf - . ) | ( cd "${SAMBA_PATH}.tmp" && tar -xf - )
-	chmod -R a+rX "${SAMBA_PATH}.tmp"
-	mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
+    # ---- perl user env (no perlbrew, no carton) ----
+    if [ -f "${SAMBA_PATH}/cpanfile" ]; then
+        cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib
+        ( cd "${SAMBA_PATH}" && \
+          cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" --installdeps . )
+    else
+        cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" \
+            Parallel::ForkManager File::Basename File::Path JSON Try::Tiny
+    fi
+    mkdir -p "${PERL_LOCAL_LIB_ROOT}/bin"
 
-	# ---- perl user env (no perlbrew, no carton) ----
-	# Install local::lib & project deps from cpanfile (if present)
-	if [ -f "${SAMBA_PATH}/cpanfile" ]; then
-		# ensure local::lib available
-		cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib
-		# install deps declared by SAMBA
-		( cd "${SAMBA_PATH}" && \
-		  cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" --installdeps . )
-	else
-		# fallback: some common modules used in SAMBA stack (kept minimal)
-		cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" \
-			Parallel::ForkManager File::Basename File::Path JSON Try::Tiny
-	fi
+    # =====================================================================
+    # Atlas: Zenodo chass_symmetric3 (cached, extracted to /opt/atlases)
+    # =====================================================================
+    ATLAS_FOLDER="/opt/atlases"
+    AZ_ID="15178373"
+    FILE_NAME="chass_symmetric3.tar.gz"
+    DEST_DIR="${ATLAS_FOLDER}"
+    CACHE_DIR="/opt/zenodo_cache"
+    SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
 
-	# safety: make sure bin dir exists even if no scripts were installed
-	mkdir -p "${PERL_LOCAL_LIB_ROOT}/bin"
+    mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
+    cd "${DEST_DIR}"
 
-	# ---- java jre (copied earlier in base; keep if present) ----
-	if [ -d /usr/lib/jvm/java-8-openjdk-amd64/jre ]; then
-		mkdir -p "${SAMBA_ROOT}/java"
-		cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre "${SAMBA_ROOT}/java" || true
-	fi
+    CACHED_TARBALL="${CACHE_DIR}/${FILE_NAME}"
+    if [ -f "${CACHED_TARBALL}" ]; then
+        cp -f "${CACHED_TARBALL}" "${FILE_NAME}"
+    else
+        # Resolve file URL from Zenodo record JSON using sed (no jq dependency)
+        FILE_URL="$(curl -fsSL "https://zenodo.org/api/records/${AZ_ID}" \
+          | sed -n 's/.*"key"[[:space:]]*:[[:space:]]*"'${FILE_NAME}'".*"self"[[:space:]]*:[[:space:]]*"\(https[^"]*\)".*/\1/p')"
+        if [ -z "${FILE_URL}" ]; then
+            echo "FATAL: Could not resolve Zenodo file URL for ${FILE_NAME}" >&2
+            exit 1
+        fi
+        # Download with curl
+        curl -fL --retry 3 -o "${FILE_NAME}" "${FILE_URL}"
+        cp -f "${FILE_NAME}" "${CACHE_DIR}/" || true
+    fi
 
-	# ---- quick diag to help later debugging (does not fail build) ----
-	echo "[diag] perl $(perl -V:version | sed 's/version=//')" || true
-	( command -v cpanm && cpanm --version ) >/dev/null 2>&1 || true
-	ls -ld "${SAMBA_PATH}" || true
+    tar -xzf "${FILE_NAME}"
+    rm -f "${FILE_NAME}"
+    if [ ! -d "${SAMBA_ATLAS_DIR}" ]; then
+        echo "FATAL: chass_symmetric3 folder not found after extraction" >&2
+        exit 1
+    fi
+
+    # Stable path expected by your pipelines
+    ln -sfn "${SAMBA_ATLAS_DIR}" "${SAMBA_ROOT}/atlas"
+
+    # Final perms
+    chmod -R a+rX /opt/atlases /opt/zenodo_cache
+
+    # ---- java jre (if present in base) ----
+    if [ -d /usr/lib/jvm/java-8-openjdk-amd64/jre ]; then
+        mkdir -p "${SAMBA_ROOT}/java"
+        cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre "${SAMBA_ROOT}/java" || true
+    fi
+
+    # ---- quick diag (non-fatal) ----
+    echo "[diag] perl $(perl -V:version | sed 's/version=//')" || true
+    ( command -v cpanm && cpanm --version ) >/dev/null 2>&1 || true
+    ls -ld "${SAMBA_PATH}" || true
+    ls -ld "${SAMBA_ATLAS_DIR}" || true
+    ls -l "${SAMBA_ROOT}/atlas" || true
 
 %test
-	# dash-compatible: no pipefail
-	set -eu
+    # dash-compatible: no pipefail
+    set -eu
 
-	# Paths/env sanity
-	[ -d "/opt/samba/SAMBA" ] || { echo "FATAL: /opt/samba/SAMBA missing"; exit 1; }
+    # SAMBA repo exists
+    [ -d "/opt/samba/SAMBA" ] || { echo "FATAL: /opt/samba/SAMBA missing"; exit 1; }
 
-	# Perl can see our local::lib dir
-	perl -Mlocal::lib=/opt/samba/perl5libs -e1 || { echo "FATAL: local::lib not usable"; exit 1; }
+    # Perl local::lib usable
+    perl -Mlocal::lib=/opt/samba/perl5libs -e1 || { echo "FATAL: local::lib not usable"; exit 1; }
+    perl -MFile::Basename -e1 || { echo "FATAL: File::Basename not available"; exit 1; }
+    perl -MFile::Path -e1 || { echo "FATAL: File::Path not available"; exit 1; }
 
-	# A couple of common modules expected by SAMBA codepaths (soft check)
-	perl -MFile::Basename -e1 || { echo "FATAL: File::Basename not available"; exit 1; }
-	perl -MFile::Path -e1 || { echo "FATAL: File::Path not available"; exit 1; }
+    # FSL present (from base image)
+    command -v fslmaths >/dev/null 2>&1 || { echo "FATAL: fslmaths not in PATH"; exit 1; }
+    fslmaths -version >/dev/null 2>&1 || true
 
-	# FSL presence (should be in PATH from base image)
-	command -v fslmaths >/dev/null 2>&1 || { echo "FATAL: fslmaths not in PATH"; exit 1; }
-	fslmaths -version >/dev/null 2>&1 || true
-
-	# SAMBA repo exists & is readable
-	[ -r "/opt/samba/SAMBA/README.md" ] || true
+    # Atlas present and non-empty (basic sanity)
+    [ -d "/opt/atlases/chass_symmetric3" ] || { echo "FATAL: atlas dir missing"; exit 1; }
+    [ -L "/opt/samba/atlas" ] || { echo "FATAL: /opt/samba/atlas symlink missing"; exit 1; }
+    ls -1 /opt/atlases/chass_symmetric3/*.nii* >/dev/null 2>&1 || { echo "FATAL: atlas appears empty"; exit 1; }
 
 %runscript
-	#!/bin/sh
-	exec /bin/bash "$@"
+    #!/bin/sh
+    exec /bin/bash "$@"
