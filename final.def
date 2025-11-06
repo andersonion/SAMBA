@@ -94,45 +94,110 @@ From: fsl_mcr.sif
     fi
     mkdir -p "${PERL_LOCAL_LIB_ROOT}/bin"
 
-	# =====================================================================
-	# Atlas: Zenodo chass_symmetric3 (cached, extracted to /opt/atlases)
-	# =====================================================================
-	ATLAS_FOLDER="/opt/atlases"
-	AZ_ID="15178373"
-	FILE_NAME="chass_symmetric3.tar.gz"
-	FILE_URL="https://zenodo.org/records/${AZ_ID}/files/${FILE_NAME}?download=1"
-	DEST_DIR="${ATLAS_FOLDER}"
-	CACHE_DIR="/opt/zenodo_cache"
-	SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
+    # =====================================================================
+    # Atlas: Zenodo chass_symmetric3 (cached, extracted to /opt/atlases)
+    # =====================================================================
+    ATLAS_FOLDER="/opt/atlases"
+    AZ_ID="15178373"
+    DEST_DIR="${ATLAS_FOLDER}"
+    CACHE_DIR="/opt/zenodo_cache"
+    SAMBA_ATLAS_DIR="${ATLAS_FOLDER}/chass_symmetric3"
 
-	mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
-	cd "${DEST_DIR}"
+    mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
+    cd "${DEST_DIR}"
 
-	CACHED_TARBALL="${CACHE_DIR}/${FILE_NAME}"
-	if [ -f "${CACHED_TARBALL}" ]; then
-		cp -f "${CACHED_TARBALL}" "${FILE_NAME}"
-	else
-		# direct, stable Zenodo file URL (no JSON parsing needed)
-		echo "[atlas] fetching ${FILE_NAME} from Zenodo record ${AZ_ID} ..."
-		curl -fL --retry 4 --retry-delay 2 -o "${FILE_NAME}" "${FILE_URL}"
-		cp -f "${FILE_NAME}" "${CACHE_DIR}/" || true
-	fi
+    # ensure python3 for robust JSON parsing
+    if ! command -v python3 >/dev/null 2>&1; then
+        apt-get update
+        apt-get install -y --no-install-recommends python3-minimal ca-certificates
+    fi
 
-	# extract and sanity-check directory
-	tar -xzf "${FILE_NAME}"
-	rm -f "${FILE_NAME}"
-	if [ ! -d "${SAMBA_ATLAS_DIR}" ]; then
-		echo "FATAL: chass_symmetric3 folder not found after extraction" >&2
-		# show what got extracted to help debug
-		ls -la "${DEST_DIR}" >&2 || true
-		exit 1
-	fi
+    echo "[atlas] resolving file from Zenodo record ${AZ_ID} ..."
+    ZJSON="$(curl -fsSL "https://zenodo.org/api/records/${AZ_ID}")" || {
+        echo "FATAL: could not fetch Zenodo record JSON for ${AZ_ID}" >&2
+        exit 1
+    }
 
-	# Stable path expected by your pipelines
-	ln -sfn "${SAMBA_ATLAS_DIR}" "/opt/samba/atlas"
+    FILE_NAME="$(printf '%s' "${ZJSON}" | python3 - <<'PY'
+import sys, json, re
+data=json.load(sys.stdin)
+cand=None
+for f in data.get("files", []):
+    k=f.get("key","")
+    if re.search(r"^chass_symmetric3.*\.tar\.gz$", k):
+        cand=k; break
+if not cand:
+    for f in data.get("files", []):
+        k=f.get("key","")
+        if k.endswith(".tar.gz"):
+            cand=k; break
+if not cand:
+    print("")  # empty=fail in shell
+else:
+    print(cand)
+PY
+    )"
 
-	# Final perms
-	chmod -R a+rX "/opt/atlases" "/opt/zenodo_cache"
+    if [ -z "${FILE_NAME}" ]; then
+        echo "[atlas] available files on record:" >&2
+        printf '%s' "${ZJSON}" | python3 - <<'PY' 1>&2
+import sys, json
+for f in json.load(sys.stdin).get("files", []):
+    print(" -", f.get("key"))
+PY
+        echo "FATAL: no .tar.gz file found on Zenodo record ${AZ_ID}" >&2
+        exit 1
+    fi
+
+    FILE_URL="$(printf '%s' "${ZJSON}" | python3 - <<'PY'
+import sys, json, re
+data=json.load(sys.stdin)
+target=None
+for f in data.get("files", []):
+    k=f.get("key","")
+    if re.search(r"^chass_symmetric3.*\.tar\.gz$", k):
+        target=f; break
+if target is None:
+    for f in data.get("files", []):
+        if f.get("key","").endswith(".tar.gz"):
+            target=f; break
+if target is None:
+    print("")
+else:
+    print(target.get("links",{}).get("download") or target.get("links",{}).get("self",""))
+PY
+    )"
+
+    if [ -z "${FILE_URL}" ]; then
+        echo "FATAL: could not resolve a download URL for ${FILE_NAME}" >&2
+        exit 1
+    fi
+
+    echo "[atlas] chosen file: ${FILE_NAME}"
+    CACHED_TARBALL="${CACHE_DIR}/${FILE_NAME}"
+    if [ -f "${CACHED_TARBALL}" ]; then
+        cp -f "${CACHED_TARBALL}" "${FILE_NAME}"
+    else
+        echo "[atlas] downloading ${FILE_NAME} ..."
+        curl -fL --retry 5 --retry-delay 2 -o "${FILE_NAME}" "${FILE_URL}"
+        cp -f "${FILE_NAME}" "${CACHE_DIR}/" || true
+    fi
+
+    # extract and sanity-check directory (it must produce .../chass_symmetric3)
+    tar -xzf "${FILE_NAME}"
+    rm -f "${FILE_NAME}"
+    if [ ! -d "${SAMBA_ATLAS_DIR}" ]; then
+        echo "FATAL: chass_symmetric3 folder not found after extraction" >&2
+        echo "[atlas] contents of ${DEST_DIR}:" >&2
+        ls -la "${DEST_DIR}" >&2 || true
+        exit 1
+    fi
+
+    # stable path for SAMBA
+    ln -sfn "${SAMBA_ATLAS_DIR}" "/opt/samba/atlas"
+
+    # perms
+    chmod -R a+rX "/opt/atlases" "/opt/zenodo_cache"
 
 
     # ---- java jre (if present in base) ----
