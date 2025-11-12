@@ -62,7 +62,7 @@ From: fsl_mcr.sif
     }
 
     # =========================
-    # System deps under scrubbed env (shield MCR so apt/curl see system libstdc++)
+    # System deps (shield MCR so tools see system libstdc++)
     # =========================
     _mcr_shield_begin
     _sysrun apt-get update
@@ -96,10 +96,8 @@ From: fsl_mcr.sif
     # =========================
     # Install Carton + deps (BAKED IN)
     # =========================
-    # Install Carton to our local-lib prefix
     /usr/bin/cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib Carton
 
-    # Use the installed Carton by absolute path and with the right env
     CARTON_BIN="/opt/samba/perl5libs/bin/carton"
     if [ ! -x "${CARTON_BIN}" ]; then
         echo "FATAL: ${CARTON_BIN} missing after cpanm install" >&2
@@ -107,14 +105,27 @@ From: fsl_mcr.sif
     fi
 
     cd "${SAMBA_PATH}"
-    echo "[carton] installing dependencies..."
+    echo "[carton] warm install to generate cpanfile.snapshot..."
     env -i \
         PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
         LC_ALL=C \
         DEBIAN_FRONTEND=noninteractive \
         LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
         PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
-        "${CARTON_BIN}" install --deployment --path "/opt/samba/perl5libs"
+        "${CARTON_BIN}" install --path "/opt/samba/perl5libs"
+
+    if [ -f "cpanfile.snapshot" ]; then
+        echo "[carton] snapshot present; locking with --deployment..."
+        env -i \
+            PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            LC_ALL=C \
+            DEBIAN_FRONTEND=noninteractive \
+            LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
+            PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
+            "${CARTON_BIN}" install --deployment --path "/opt/samba/perl5libs"
+    else
+        echo "[carton] WARNING: no cpanfile.snapshot created; proceeding with non-deployment install."
+    fi
     echo "[carton] done."
 
     # =========================
@@ -168,13 +179,14 @@ PY
     set -eu
     echo "[test] basic check..."
     command -v perl >/dev/null
-    # Use absolute path to carton to avoid PATH issues in test env
     if [ ! -x /opt/samba/perl5libs/bin/carton ]; then
         echo "FATAL: carton not found in /opt/samba/perl5libs/bin"; exit 1
     fi
     if [ ! -d "/opt/atlases/chass_symmetric3" ]; then
         echo "FATAL: atlas directory missing"; exit 1
     fi
+    # Snapshot is nice-to-have; don’t fail if absent.
+    [ -f "/opt/samba/SAMBA/cpanfile.snapshot" ] && echo "[test] snapshot present"
     echo "[test] OK"
 
 %runscript
