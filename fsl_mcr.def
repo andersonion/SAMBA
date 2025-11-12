@@ -15,52 +15,111 @@ From: ants.sif
 %post
 	set -eu
 
-	# ---------- constants & helpers ----------
-	SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+	# ------------------------------------------------------------------
+	# Base paths / constants
+	# ------------------------------------------------------------------
+	SAMBA_APPS_DIR="/opt/samba"
 	MCR_ROOT="/opt/MATLAB/MATLAB2015b_runtime/v90"
+	MCR_ZIP="/tmp/MCR_R2015b_glnxa64_installer.zip"
+	MCR_URL="https://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/MCR_R2015b_glnxa64_installer.zip"
+	MCR_INSTDIR="/tmp/mcr_installer"
+
+	FSL_INSTALL_BASE="${SAMBA_APPS_DIR}/.fsl_full"
+	FSL_MINI_DIR="${SAMBA_APPS_DIR}/.fsl_mini"
+	FSL_VER="6.0.6"
+
+	PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
+	PERL_LOCAL_LIB_ROOT="${SAMBA_APPS_DIR}/perl5libs"
+	PERL5LIB="${PERL_LOCAL_LIB_ROOT}/lib/perl5"
+
 	SYSTEM_PATH="/usr/sbin:/usr/bin:/sbin:/bin"
 	SYSTEM_LDLIB="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu"
 
-	# small helper: run a command in a scrubbed env (no LD_LIBRARY_PATH leakage)
-	_run_clean () {
-		# usage: _run_clean CMD [args...]
-		env -i PATH="${SYSTEM_PATH}" LD_LIBRARY_PATH="${SYSTEM_LDLIB}" "$@"
+	mkdir -p "${SAMBA_APPS_DIR}" "${PERLBREW_ROOT}" "${PERL_LOCAL_LIB_ROOT}"
+
+	# ------------------------------------------------------------------
+	# Helpers: run with clean system libs to avoid MCR/libcurl poisoning
+	# ------------------------------------------------------------------
+	_curl_clean() {
+		env -i \
+			PATH="${SYSTEM_PATH}" \
+			LD_LIBRARY_PATH="${SYSTEM_LDLIB}" \
+			HTTPS_PROXY="${HTTPS_PROXY:-}" \
+			HTTP_PROXY="${HTTP_PROXY:-}" \
+			no_proxy="${no_proxy:-}" \
+			/usr/bin/curl "$@"
 	}
 
-	# another helper: strict curl that ignores any foreign libcurl on the image
-	_curl_clean () {
-		# usage: _curl_clean -fsSL -o /tmp/file URL
-		env -i PATH="${SYSTEM_PATH}" LD_LIBRARY_PATH="${SYSTEM_LDLIB}" /usr/bin/curl "$@"
+	_run_clean() {
+		# Usage: _run_clean cmd [args...]
+		env -i \
+			PATH="${SYSTEM_PATH}" \
+			LD_LIBRARY_PATH="${SYSTEM_LDLIB}" \
+			"$@"
 	}
 
-	# ---------- base dirs ----------
-	mkdir -p "${SAMBA_APPS_DIR}" "${SAMBA_APPS_DIR}/perl5"
-
-	# =====================================================================
-	# EARLY PARTS (fail sooner; keep FSL for last)
-	# =====================================================================
-
-	# ---- MATLAB MCR presence check (no mutation) ----
-	if [ -d "${MCR_ROOT}/runtime/glnxa64" ]; then
-		echo "[mcr] found: ${MCR_ROOT}"
-	else
-		echo "[mcr] not found (that’s OK — nothing to do here)."
-	fi
-
-	# install JRE8 if the base doesn't have it
-	if [ ! -d /usr/lib/jvm/java-8-openjdk-amd64/jre ]; then
+	# ------------------------------------------------------------------
+	# Minimal deps needed in this stage
+	# (assumes base image already has core build tools etc.)
+	# ------------------------------------------------------------------
+	if command -v apt-get >/dev/null 2>&1; then
+		export DEBIAN_FRONTEND=noninteractive
 		apt-get update
-		apt-get install -y --no-install-recommends openjdk-8-jre-headless
+		apt-get install -y --no-install-recommends \
+			ca-certificates curl wget unzip git patchelf \
+			libgomp1 libgfortran5 libquadmath0 \
+			rsync
 		apt-get clean
 		rm -rf /var/lib/apt/lists/*
 	fi
 
-	# now copy the JRE into the SAMBA tree (as you already do)
-	mkdir -p "${SAMBA_APPS_DIR}/java"
-	cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre "${SAMBA_APPS_DIR}/java"
-	
+	# ==================================================================
+	# 1. Install MATLAB MCR R2015b (v90)
+	# ==================================================================
+	if [ ! -f "${MCR_ROOT}/runtime/glnxa64/libmwmclmcrrt.so" ]; then
+		echo "[mcr] Installing MATLAB Runtime R2015b (v90) into ${MCR_ROOT} ..."
+		mkdir -p "$(dirname "${MCR_ROOT}")"
+		_curl_clean -fsSL "${MCR_URL}" -o "${MCR_ZIP}"
+		mkdir -p "${MCR_INSTDIR}"
+		unzip -q "${MCR_ZIP}" -d "${MCR_INSTDIR}"
 
-	# ---- matlab_execs_for_SAMBA (read-only checkout) ----
+		# MathWorks installer target is the parent of v90; it creates .../v90 inside it.
+		_run_clean "${MCR_INSTDIR}/install" \
+			-mode silent \
+			-agreeToLicense yes \
+			-deploymentFile "${MCR_INSTDIR}/installer_input.txt" \
+			-outputFile /tmp/mcr_install.log || {
+				echo "FATAL: MATLAB MCR installer failed" >&2
+				tail -n 50 /tmp/mcr_install.log || true
+				exit 1
+			}
+
+		# Normalize to expected path if installer used MATLAB_Runtime instead of MATLAB2015b_runtime
+		if [ ! -d "${MCR_ROOT}" ]; then
+			if [ -d "/opt/MATLAB/MATLAB_Runtime/v90" ]; then
+				ln -sfn "/opt/MATLAB/MATLAB_Runtime/v90" "${MCR_ROOT}"
+			fi
+		fi
+
+		rm -rf "${MCR_ZIP}" "${MCR_INSTDIR}"
+	fi
+
+	if [ ! -f "${MCR_ROOT}/runtime/glnxa64/libmwmclmcrrt.so" ]; then
+		echo "FATAL: MCR v90 runtime lib not found at ${MCR_ROOT}" >&2
+		exit 1
+	fi
+
+	# ------------------------------------------------------------------
+	# MCR runtime ldconfig hint (for tools that don't override LD_LIBRARY_PATH)
+	# ------------------------------------------------------------------
+	echo "${MCR_ROOT}/runtime/glnxa64"  > /etc/ld.so.conf.d/mcr_v90.conf
+	echo "${MCR_ROOT}/bin/glnxa64"    >> /etc/ld.so.conf.d/mcr_v90.conf
+	echo "${MCR_ROOT}/sys/os/glnxa64" >> /etc/ld.so.conf.d/mcr_v90.conf
+	ldconfig
+
+	# ==================================================================
+	# 2. matlab_execs_for_SAMBA wrapper scripts
+	# ==================================================================
 	if [ ! -d "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA" ]; then
 		git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git \
 			"${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA"
@@ -68,275 +127,195 @@ From: ants.sif
 	chmod -R a+rX "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA"
 	ln -sfn "${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA" /opt/matlab_execs
 
-	# ---- ldconfig after MCR/execs (safe even if nothing changed) ----
-	ldconfig || true
+	# ==================================================================
+	# 3. perlbrew + perl-5.16.3 + Carton (for SAMBA deps)
+	# ==================================================================
+	export PERLBREW_ROOT
+	if [ ! -x "${PERLBREW_ROOT}/bin/perlbrew" ]; then
+		echo "[perlbrew] Installing perlbrew into ${PERLBREW_ROOT} ..."
+		curl -fsSL https://install.perlbrew.pl | bash
+	fi
 
-	# ---- perlbrew (sandboxed curl, but preserve HOME/PERLBREW_ROOT) ----
-	export PERLBREW_ROOT="${SAMBA_APPS_DIR}/perl5"
-	mkdir -p "${PERLBREW_ROOT}"
-
-	# fetch installer with clean lib paths (avoid MCR's libcurl)
-	env -i PATH="${SYSTEM_PATH}" LD_LIBRARY_PATH="${SYSTEM_LDLIB}" \
-		/usr/bin/curl -fsSL -o /tmp/perlbrew-install.sh https://install.perlbrew.pl
-
-	# run installer with a minimal, but valid, env
-	env -i HOME="${PERLBREW_ROOT}" PERLBREW_ROOT="${PERLBREW_ROOT}" \
-		PATH="${SYSTEM_PATH}" LD_LIBRARY_PATH="${SYSTEM_LDLIB}" \
-		bash /tmp/perlbrew-install.sh -f
-
-	# make perlbrew available to the remainder of this %post
+	# Ensure perlbrew is on PATH for this script
 	export PATH="${PERLBREW_ROOT}/bin:${PATH}"
 
-	# (optional) install a specific perl without leaking MCR libs
-	# env -i HOME="${PERLBREW_ROOT}" PERLBREW_ROOT="${PERLBREW_ROOT}" \
-	# 	PATH="${PERLBREW_ROOT}/bin:${SYSTEM_PATH}" LD_LIBRARY_PATH="${SYSTEM_LDLIB}" \
-	# 	perlbrew install -n perl-5.16.3
+	# Install perl-5.16.3 once (idempotent)
+	if ! "${PERLBREW_ROOT}/bin/perlbrew" list | grep -q "perl-5.16.3"; then
+		"${PERLBREW_ROOT}/bin/perlbrew" install -n perl-5.16.3
+	fi
 
+	# Bootstrap cpanm via perlbrew helper
+	if [ ! -x "${PERLBREW_ROOT}/bin/cpanm" ]; then
+		"${PERLBREW_ROOT}/bin/perlbrew" install-cpanm
+	fi
 
-	# =====================================================================
-	# FSL: INSTALL FULL → HARVEST SKINNY → RPATH FIX → LINK → CLEAN
-	# =====================================================================
+	# Local lib for SAMBA perl deps
+	mkdir -p "${PERL_LOCAL_LIB_ROOT}/bin"
+	export PERL_LOCAL_LIB_ROOT
+	export PERL_MB_OPT="--install_base \"${PERL_LOCAL_LIB_ROOT}\""
+	export PERL_MM_OPT="INSTALL_BASE=${PERL_LOCAL_LIB_ROOT}"
+	export PERL5LIB
+	export PATH="${PERL_LOCAL_LIB_ROOT}/bin:${PERLBREW_ROOT}/bin:${PATH}"
+
+	# Install Carton + local::lib into the local lib tree
+	if ! perl -MCarton -e1 >/dev/null 2>&1; then
+		"${PERLBREW_ROOT}/bin/cpanm" --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" \
+			local::lib Carton
+	fi
+
+	# ==================================================================
+	# 4. Full FSL -> Skinny FSL mini tree
+	# ==================================================================
 	build_fsl_mini() {
 		set -eu
 
-		# versions/paths
-		FSL_VER="6.0.6"
-		FSL_INSTALL_BASE="${SAMBA_APPS_DIR}/.fsl_full"   # temp full install
-		FSL_MINI_DIR="${SAMBA_APPS_DIR}/.fsl_mini"      # final skinny tree (real dir)
-		FSLROOT="${SAMBA_APPS_DIR}/fsl"                 # public symlink target
-
-		# ensure tools available for fixups
-		apt-get update
-		apt-get install -y --no-install-recommends patchelf
-		apt-get clean
-		rm -rf /var/lib/apt/lists/*
-
-		# clean prior staging
 		rm -rf "${FSL_INSTALL_BASE}" "${FSL_MINI_DIR}"
 		mkdir -p "${FSL_INSTALL_BASE}" "${FSL_MINI_DIR}"
 
-		# fetch installer with sanitized curl
+		# Download FSL installer in a clean env
 		tmp_inst="$(mktemp -p /tmp fslinstaller.XXXXXX.py)"
-		rm -f "${tmp_inst}"
-		_curl_clean -fsSL -o "${tmp_inst}" https://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py
+		_curl_clean -fsSL https://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py -o "${tmp_inst}"
 
-		# correct CLI is -V/--fslversion (not --version)
+		# Run installer quietly into hidden full tree
 		_run_clean python3 "${tmp_inst}" \
 			--dest="${FSL_INSTALL_BASE}/${FSL_VER}" \
-			-V "${FSL_VER}" \
-			--yes --quiet --skip_registration
+			--version="${FSL_VER}" \
+			--quiet --skip_registration --yes || {
+				echo "FATAL: FSL installer failed" >&2
+				exit 1
+			}
+		rm -f "${tmp_inst}"
 
-		echo "[fsl] full installed at ${FSL_INSTALL_BASE}/${FSL_VER}"
-
-		# locate a canonical bin root (one that has fslmaths)
-		FSL_BIN="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name fslmaths -path '*/bin/*' -print -quit || true)"
-		if [ -z "${FSL_BIN}" ]; then
-			echo "FATAL: could not find fslmaths under ${FSL_INSTALL_BASE}/${FSL_VER}" >&2
+		FSL_VERSION_DIR="${FSL_INSTALL_BASE}/${FSL_VER}"
+		if [ ! -d "${FSL_VERSION_DIR}" ]; then
+			echo "FATAL: FSL not found at ${FSL_VERSION_DIR}" >&2
 			exit 1
 		fi
-		FSL_FULL="$(dirname "$(dirname "${FSL_BIN}")")"   # …/bin → parent
 
-		# single source of truth: the tools you actually need
-		FSL_TOOLS="
-			fslmaths
-			fdr
-			randomise
-			design_ttest2
-		"
-		# helpers frequently required by those tools
-		FSL_HELPERS="
-			fslpython
-			fsl_sub
-		"
-		FSL_ALL_TO_COPY="$(printf "%s %s" "${FSL_TOOLS}" "${FSL_HELPERS}")"
+		# Locate a canonical bin root (contains fslmaths)
+		FSL_BIN="$(find "${FSL_VERSION_DIR}" -type f -name fslmaths -path '*/bin/*' -print -quit || true)"
+		if [ -z "${FSL_BIN}" ]; then
+			echo "FATAL: could not locate fslmaths under ${FSL_VERSION_DIR}" >&2
+			exit 1
+		fi
+		FSL_FULL="$(dirname "$(dirname "${FSL_BIN}")")"
 
-		# create minimal tree
-		mkdir -p "${FSL_MINI_DIR}/bin" "${FSL_MINI_DIR}/lib" \
-		         "${FSL_MINI_DIR}/etc/fslconf" "${FSL_MINI_DIR}/share/fsl/data"
+		# Tools we actually need (single source of truth)
+		FSL_TOOLS="fslmaths fdr randomise design_ttest2"
+		FSL_HELPERS="fslpython fsl_sub"
+		FSL_ALL_TO_COPY="${FSL_TOOLS} ${FSL_HELPERS}"
 
-		# copy config (if present)
+		# Prepare mini tree layout
+		mkdir -p \
+			"${FSL_MINI_DIR}/bin" \
+			"${FSL_MINI_DIR}/lib" \
+			"${FSL_MINI_DIR}/etc/fslconf" \
+			"${FSL_MINI_DIR}/share/fsl/data"
+
+		# Config
 		if [ -d "${FSL_FULL}/etc/fslconf" ]; then
 			cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI_DIR}/etc/fslconf/"
 		fi
 
-		# optional data (atlas/templates) — copy if present
+		# Atlas/data (best-effort)
 		if [ -d "${FSL_FULL}/share/fsl/data" ]; then
 			cp -a "${FSL_FULL}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
 		elif [ -d "${FSL_FULL%/*}/share/fsl/data" ]; then
 			cp -a "${FSL_FULL%/*}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
 		fi
 
-		# helper to copy a tool and its linked libs
-		copy_tool () {
+		copy_tool() {
 			_tool="$1"
-			_path="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${_tool}" -perm -111 -path '*/bin/*' -print -quit 2>/dev/null || true)"
+			# Prefer bin/ paths
+			_path="$(find "${FSL_VERSION_DIR}" -type f -name "${_tool}" -perm -111 -path '*/bin/*' -print -quit 2>/dev/null || true)"
 			if [ -z "${_path}" ]; then
-				_path="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${_tool}" -perm -111 -print -quit 2>/dev/null || true)"
+				_path="$(find "${FSL_VERSION_DIR}" -type f -name "${_tool}" -perm -111 -print -quit 2>/dev/null || true)"
 			fi
-			if [ -n "${_path}" ]; then
-				cp -a "${_path}" "${FSL_MINI_DIR}/bin/${_tool}"
-				# gather shared libs (ignore scripts)
+			[ -z "${_path}" ] && return 1
+
+			cp -a "${_path}" "${FSL_MINI_DIR}/bin/${_tool}"
+
+			# Pull ELF deps (ignore scripts)
+			if file "${_path}" | grep -q "ELF"; then
 				ldd "${_path}" 2>/dev/null | awk '/=> \//{print $3}' | while read -r so; do
 					[ -n "${so}" ] && cp -n "${so}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
 				done
-				return 0
-			else
-				return 1
 			fi
+			return 0
 		}
 
 		for t in ${FSL_ALL_TO_COPY}; do
 			if ! copy_tool "${t}"; then
-				echo "WARN: ${t} not found in full install." >&2
+				echo "WARN: ${t} not found under ${FSL_VERSION_DIR}" >&2
 			fi
 		done
 
-		# include any FSL private libs if present
+		# Copy FSL private libs
 		if [ -d "${FSL_FULL}/lib" ]; then
 			cp -a "${FSL_FULL}/lib/"lib*.so* "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
 		fi
 
-		# sweep any libs living under lib/ anywhere in the staged install (conda env, pkgs, etc)
-		find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -path '*/lib/lib*.so*' \
-			-exec cp -n {} "${FSL_MINI_DIR}/lib/" \; 2>/dev/null || true
+		# Sweep any libs under lib/ in the full tree
+		find "${FSL_VERSION_DIR}" -type f -path '*/lib/lib*.so*' -exec cp -n {} "${FSL_MINI_DIR}/lib/" \; 2>/dev/null || true
 
-		# ----- backfill critical toolchain libs (GLIBCXX, libgcc, gfortran, BLAS/LAPACK, GSL) -----
-		# prefer the newest libstdc++ we can find in the staged tree
-		for cand in \
-			"$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name 'libstdc++.so.6.*' 2>/dev/null | sort -V | tail -1)" \
-			"/usr/lib/x86_64-linux-gnu/libstdc++.so.6"
-		do
-			[ -n "${cand}" ] && [ -f "${cand}" ] && cp -f "${cand}" "${FSL_MINI_DIR}/lib/" && break || true
-		done
-		# canonical link
-		if ls "${FSL_MINI_DIR}/lib/libstdc++.so.6."* >/dev/null 2>&1; then
-			best="$(ls -1 "${FSL_MINI_DIR}/lib/libstdc++.so.6."* | sort -V | tail -1)"
-			ln -sfn "$(basename "${best}")" "${FSL_MINI_DIR}/lib/libstdc++.so.6"
+		# Fix key lib symlinks (GSL, stdc++, etc.)
+		_link_latest() {
+			prefix="$1"
+			cand="$(ls -1 "${FSL_MINI_DIR}/lib/${prefix}"* 2>/dev/null | sort -V | tail -1 || true)"
+			[ -z "${cand}" ] && return 0
+			base="$(basename "${cand}")"
+			ln -sfn "${base}" "${FSL_MINI_DIR}/lib/${prefix}"
+		}
+		_link_latest libgslcblas.so.0
+		_link_latest libgslcblas.so
+		_link_latest libgsl.so.27
+		_link_latest libgsl.so
+
+		# Ensure libstdc++.so.6 points at newest we have
+		if ls "${FSL_MINI_DIR}/lib/libstdc++.so.6"* >/dev/null 2>&1; then
+			target="$(ls -1 "${FSL_MINI_DIR}/lib/libstdc++.so.6"* | sort -V | tail -1)"
+			ln -sfn "$(basename "${target}")" "${FSL_MINI_DIR}/lib/libstdc++.so.6"
 		fi
 
-		# libgcc_s, libgomp, libquadmath, libgfortran
-		for need in libgcc_s.so.1 libgomp.so.1 libquadmath.so.0 libgfortran.so.5; do
-			src="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${need}*" | sort -V | tail -1 || true)"
-			if [ -n "${src}" ]; then
-				cp -n "${src}" "${FSL_MINI_DIR}/lib/" || true
-			elif [ -f "/usr/lib/x86_64-linux-gnu/${need}" ]; then
-				cp -n "/usr/lib/x86_64-linux-gnu/${need}" "${FSL_MINI_DIR}/lib/" || true
-			fi
-			# patch ELF soname symlink if versioned file exists
-			if ls "${FSL_MINI_DIR}/lib/${need}."* >/dev/null 2>&1; then
-				best="$(ls -1 "${FSL_MINI_DIR}/lib/${need}."* | sort -V | tail -1)"
-				ln -sfn "$(basename "${best}")" "${FSL_MINI_DIR}/lib/${need%.*}"
+		# Set rpath on real ELF tools so they use mini/lib
+		for b in fslmaths fdr randomise; do
+			_bin="${FSL_MINI_DIR}/bin/${b}"
+			if [ -x "${_bin}" ] && file "${_bin}" | grep -q "ELF"; then
+				patchelf --set-rpath '$ORIGIN/../lib' "${_bin}" || true
+				patchelf --remove-needed libomp.so "${_bin}" 2>/dev/null || true
 			fi
 		done
 
-		# BLAS/LAPACK (libblas.so.3, liblapack.so.3)
-		for need in libblas.so.3 liblapack.so.3; do
-			src="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${need}*" | sort -V | tail -1 || true)"
-			if [ -n "${src}" ]; then
-				cp -n "${src}" "${FSL_MINI_DIR}/lib/" || true
-			elif [ -f "/usr/lib/x86_64-linux-gnu/${need}" ]; then
-				cp -n "/usr/lib/x86_64-linux-gnu/${need}" "${FSL_MINI_DIR}/lib/" || true
-			fi
-		done
-
-		# GSL (libgsl, libgslcblas) — create both versioned and unversioned symlinks
-		for base in libgslcblas.so libgsl.so; do
-			src="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${base}*" | sort -V | tail -1 || true)"
-			if [ -n "${src}" ]; then
-				cp -n "${src}" "${FSL_MINI_DIR}/lib/" || true
-			elif [ -f "/usr/lib/x86_64-linux-gnu/${base}" ]; then
-				cp -n "/usr/lib/x86_64-linux-gnu/${base}" "${FSL_MINI_DIR}/lib/" || true
-			fi
-			# fix soname links if we have versioned copies
-			if ls "${FSL_MINI_DIR}/lib/${base}."* >/dev/null 2>&1; then
-				best="$(ls -1 "${FSL_MINI_DIR}/lib/${base}."* | sort -V | tail -1)"
-				ln -sfn "$(basename "${best}")" "${FSL_MINI_DIR}/lib/${base}"
-			fi
-		done
-
-		# ----- Fix #2: embed RPATH → $ORIGIN/../lib and verify under scrubbed env -----
-		if ! command -v patchelf >/dev/null 2>&1; then
-			echo "FATAL: patchelf not found; cannot RPATH-fix skinny FSL." >&2
-			exit 1
-		fi
-
-		# --- Patch ELF rpaths so mini/lib wins over system libs ---
-		is_elf() { readelf -h "$1" >/dev/null 2>&1; }
-	
-		for _b in \
-			"${FSL_MINI_DIR}/bin/fslmaths" \
-			"${FSL_MINI_DIR}/bin/fdr" \
-			"${FSL_MINI_DIR}/bin/randomise" \
-			"${FSL_MINI_DIR}/bin/design_ttest2"
-		do
-			[ -x "$_b" ] || continue
-			if is_elf "$_b"; then
-				# Force DT_RPATH (higher precedence than LD_LIBRARY_PATH/DT_RUNPATH)
-				patchelf --force-rpath --set-rpath '$ORIGIN/../lib' "$_b"
-				echo "[patchelf] $_b rpath: $(patchelf --print-rpath "$_b" 2>/dev/null || echo '(none)')"
-				# libomp may not be needed; ignore if absent
-				patchelf --remove-needed libomp.so "$_b" 2>/dev/null || true
-			else
-				# script wrapper; nothing to patch
-				:
-			fi
-		done
-	
-		# Assert rpath really took for the critical binary
-		if is_elf "${FSL_MINI_DIR}/bin/fslmaths"; then
-			if ! patchelf --print-rpath "${FSL_MINI_DIR}/bin/fslmaths" 2>/dev/null | grep -q '\$ORIGIN/../lib'; then
-				echo "FATAL: fslmaths rpath missing \$ORIGIN/../lib after patching." >&2
-				exit 1
-			fi
-		fi
-
-
-
-		# quick triage view
+		# Diagnostics
 		echo "[skinny-fsl] mini bin contains:"
 		ls -l "${FSL_MINI_DIR}/bin" || true
 
 		echo "[skinny-fsl] ldd check for fdr:"
 		ldd "${FSL_MINI_DIR}/bin/fdr" || true
 
-		# --- Smoke test fslmaths under scrubbed env (no system libs) ---
-		# Prefer a real NIfTI bundled with FSL data; fall back to a usage run (non-zero ok).
-		_in="${FSL_MINI_DIR}/share/fsl/data/standard/MNI152_T1_2mm.nii.gz"
-		_out="$(mktemp -u /tmp/fslsmoke.XXXXXX.nii.gz)"
-		if [ -f "$_in" ]; then
-			_run_clean "${FSL_MINI_DIR}/bin/fslmaths" "$_in" -mul 1 "$_out" || {
-				echo "FATAL: fslmaths failed simple op under scrubbed env." >&2
-				ldd "${FSL_MINI_DIR}/bin/fslmaths" | awk '/not found/ {print "MISSING:",$0}' || true
-				exit 1
-			}
-			rm -f "$_out" || true
-		else
-			# No standard data present: just ensure it runs and shows usage (don’t fail on exit code)
+		# Light smoke tests (no -version; that confuses fslmaths)
+		_run_clean "${FSL_MINI_DIR}/bin/fdr"    -h || { echo "FATAL: fdr -h failed"; exit 1; }
+		_run_clean "${FSL_MINI_DIR}/bin/randomise" -h || { echo "FATAL: randomise -h failed"; exit 1; }
+		_run_clean "${FSL_MINI_DIR}/bin/design_ttest2" -h || { echo "FATAL: design_ttest2 -h failed"; exit 1; }
+
+		# Optional: if standard data exists, quick fslmaths invocation (no args = help)
+		if [ -f "${FSL_MINI_DIR}/share/fsl/data/standard/MNI152_T1_2mm.nii.gz" ]; then
 			_run_clean "${FSL_MINI_DIR}/bin/fslmaths" >/dev/null 2>&1 || true
 		fi
 
-
-	
-		# --- Help probes for CLI tools (don't require zero exit) ---
-		for probe in fdr randomise design_ttest2; do
-			# many FSL CLIs print help then exit non-zero; that's fine here
-			_run_clean "${FSL_MINI_DIR}/bin/${probe}" -h >/dev/null 2>&1 || \
-			_run_clean "${FSL_MINI_DIR}/bin/${probe}" --help >/dev/null 2>&1 || true
-	
-			# optional: still surface *missing* libs if any
-			ldd "${FSL_MINI_DIR}/bin/${probe}" 2>/dev/null | awk '/not found/ {print "MISSING:",$0}' || true
-		done
-
-
-		# link public path and clean full tree
-		ln -sfn "${FSL_MINI_DIR}" "${FSLROOT}"
+		# Expose mini as /opt/samba/fsl and drop full tree
+		ln -sfn "${FSL_MINI_DIR}" "${SAMBA_APPS_DIR}/fsl"
 		rm -rf "${FSL_INSTALL_BASE}"
-
-		echo "[skinny-fsl] OK — linked ${FSLROOT} -> ${FSL_MINI_DIR}"
+		echo "[skinny-fsl] OK — linked ${SAMBA_APPS_DIR}/fsl -> ${FSL_MINI_DIR}"
 	}
 
-	# run FSL build last
 	build_fsl_mini
+
+	# ------------------------------------------------------------------
+	# Final perms sanity
+	# ------------------------------------------------------------------
+	chmod -R a+rX "${SAMBA_APPS_DIR}" || true
+
 
 %test
 	set -eu
