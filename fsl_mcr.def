@@ -2,218 +2,221 @@ Bootstrap: localimage
 From: ants.sif
 
 %labels
-	Stage		fsl_mcr
-	Maintainer	Robert Anderson
+    Stage       fsl_mcr
+    Maintainer  BJ + ChatGPT (POSIX-sh safe, MCR + skinny-FSL)
 
 %environment
-	# Minimal runtime env (append-only)
-	export FSLDIR=/opt/samba/fsl
-	export PATH="/opt/samba/perl5/bin:/opt/samba/perl5libs/bin:${FSLDIR}/bin:/opt/samba/ants/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-	# Canonical MCR path (symlinked at build time)
-	export MCR_ROOT="/opt/MATLAB/MATLAB2015b_runtime/v90"
-	if [ -d "${MCR_ROOT}/runtime/glnxa64" ]; then
-		export LD_LIBRARY_PATH="${MCR_ROOT}/runtime/glnxa64:${MCR_ROOT}/bin/glnxa64:${MCR_ROOT}/sys/os/glnxa64:${LD_LIBRARY_PATH}"
-	fi
+    export FSLDIR=/opt/samba/fsl
+    export PATH="/opt/samba/perl5/bin:/opt/samba/perl5libs/bin:${FSLDIR}/bin:/opt/samba/ants/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    export MCR_ROOT="/opt/MATLAB/MATLAB2015b_runtime/v90"
+    if [ -d "${MCR_ROOT}/runtime/glnxa64" ]; then
+        export LD_LIBRARY_PATH="${MCR_ROOT}/runtime/glnxa64:${MCR_ROOT}/bin/glnxa64:${MCR_ROOT}/sys/os/glnxa64:${LD_LIBRARY_PATH}"
+    fi
 
 %post
-	set -eu
+    set -eu
 
-	# ------------------------------------------------------------------
-	# Packages needed for MCR install & skinny-FSL harvest
-	# ------------------------------------------------------------------
-	export DEBIAN_FRONTEND=noninteractive
-	apt-get update
-	apt-get install -y --no-install-recommends \
-		curl ca-certificates unzip xz-utils \
-		python3 jq \
-		patchelf file rsync \
-		libgfortran5 libquadmath0 libstdc++6 libgcc-s1 \
-		procps
-	apt-get clean
-	rm -rf /var/lib/apt/lists/*
+    # ---------------------------------------------------------------
+    # Base packages (MCR + skinny-FSL harvest + diagnostics)
+    # ---------------------------------------------------------------
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        curl ca-certificates unzip xz-utils \
+        python3 jq \
+        patchelf file rsync \
+        libgfortran5 libquadmath0 libstdc++6 libgcc-s1 \
+        procps
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
 
-	mkdir -p /opt/samba
-	chmod 0755 /opt/samba
+    mkdir -p /opt/samba
+    chmod 0755 /opt/samba
 
-	# ------------------------------------------------------------------
-	# MATLAB MCR R2015b (v90) — install → find → normalize → ldconfig
-	# ------------------------------------------------------------------
-	MCR_URL="https://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/MCR_R2015b_glnxa64_installer.zip"
-	MCR_ZIP="/tmp/MCR_R2015b_glnxa64_installer.zip"
-	MCR_INSTDIR="/tmp/mcr_installer"
-	MCR_CANON="/opt/MATLAB/MATLAB2015b_runtime/v90"
+    # ---------------------------------------------------------------
+    # Helper: always run curl with *system* lib search paths
+    # (avoid MCR’s libcurl pulled via ld.so cache)
+    # ---------------------------------------------------------------
+    syscurl() {
+        env -i \
+            PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu \
+            /usr/bin/curl "$@"
+    }
 
-	echo "[mcr] installing MATLAB Runtime R2015b (v90)..."
-	curl -fsSL "${MCR_URL}" -o "${MCR_ZIP}" || { echo "FATAL: curl MCR zip failed" >&2; exit 1; }
+    # ---------------------------------------------------------------
+    # MATLAB MCR R2015b (v90)
+    # ---------------------------------------------------------------
+    MCR_URL="https://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/MCR_R2015b_glnxa64_installer.zip"
+    MCR_ZIP="/tmp/MCR_R2015b_glnxa64_installer.zip"
+    MCR_INSTDIR="/tmp/mcr_installer"
+    MCR_CANON="/opt/MATLAB/MATLAB2015b_runtime/v90"
 
-	# Ensure a clean installer dir and force overwrite (no interactive prompt)
-	rm -rf "${MCR_INSTDIR}"
-	mkdir -p "${MCR_INSTDIR}"
-	unzip -o -q "${MCR_ZIP}" -d "${MCR_INSTDIR}" || { echo "FATAL: unzip MCR failed" >&2; exit 1; }
+    echo "[mcr] installing MATLAB Runtime R2015b (v90)..."
+    syscurl -fsSL "${MCR_URL}" -o "${MCR_ZIP}" || { echo "FATAL: curl MCR zip failed" >&2; exit 1; }
 
-	"${MCR_INSTDIR}/install" \
-		-mode silent \
-		-agreeToLicense yes \
-		-destinationFolder /usr/local/MATLAB/MATLAB_Runtime \
-		|| { echo "FATAL: MCR installer failed" >&2; exit 1; }
+    rm -rf "${MCR_INSTDIR}"
+    mkdir -p "${MCR_INSTDIR}"
+    unzip -o -q "${MCR_ZIP}" -d "${MCR_INSTDIR}" || { echo "FATAL: unzip MCR failed" >&2; exit 1; }
 
-	# Find the actual vendor install root
-	ACTUAL_ROOT=""
-	for C in \
-		/opt/MATLAB/MATLAB2015b_runtime/v90 \
-		/opt/MATLAB/MATLAB_Runtime/v90 \
-		/usr/local/MATLAB/MATLAB2015b_runtime/v90 \
-		/usr/local/MATLAB/MATLAB_Runtime/v90
-	do
-		if [ -f "${C}/runtime/glnxa64/libmwmclmcrrt.so" ]; then
-			ACTUAL_ROOT="${C}"
-			break
-		fi
-	done
-	[ -n "${ACTUAL_ROOT}" ] || { echo "FATAL: Could not locate MCR v90 runtime after install" >&2; exit 1; }
+    "${MCR_INSTDIR}/install" \
+        -mode silent \
+        -agreeToLicense yes \
+        -destinationFolder /usr/local/MATLAB/MATLAB_Runtime \
+        || { echo "FATAL: MCR installer failed" >&2; exit 1; }
 
-	# Normalize to canonical path
-	if [ "${ACTUAL_ROOT}" != "${MCR_CANON}" ]; then
-		mkdir -p "$(dirname "${MCR_CANON}")"
-		[ -e "${MCR_CANON}" ] && [ ! -L "${MCR_CANON}" ] && rm -rf "${MCR_CANON}"
-		ln -sfn "${ACTUAL_ROOT}" "${MCR_CANON}"
-	fi
+    ACTUAL_ROOT=""
+    for C in \
+        /opt/MATLAB/MATLAB2015b_runtime/v90 \
+        /opt/MATLAB/MATLAB_Runtime/v90 \
+        /usr/local/MATLAB/MATLAB2015b_runtime/v90 \
+        /usr/local/MATLAB/MATLAB_Runtime/v90
+    do
+        if [ -f "${C}/runtime/glnxa64/libmwmclmcrrt.so" ]; then
+            ACTUAL_ROOT="${C}"
+            break
+        fi
+    done
+    [ -n "${ACTUAL_ROOT}" ] || { echo "FATAL: Could not locate MCR v90 runtime after install" >&2; exit 1; }
 
-	# Make libs visible without LD_LIBRARY_PATH
-	{
-		echo "${ACTUAL_ROOT}/runtime/glnxa64"
-		echo "${ACTUAL_ROOT}/bin/glnxa64"
-		echo "${ACTUAL_ROOT}/sys/os/glnxa64"
-	} > /etc/ld.so.conf.d/mcr_v90.conf
-	ldconfig
+    if [ "${ACTUAL_ROOT}" != "${MCR_CANON}" ]; then
+        mkdir -p "$(dirname "${MCR_CANON}")"
+        [ -e "${MCR_CANON}" ] && [ ! -L "${MCR_CANON}" ] && rm -rf "${MCR_CANON}"
+        ln -sfn "${ACTUAL_ROOT}" "${MCR_CANON}"
+    fi
 
-	ls -lh "${MCR_CANON}/runtime/glnxa64/libmwmclmcrrt.so" || true
-	rm -rf "${MCR_ZIP}" "${MCR_INSTDIR}"
-	echo "[mcr] ok — normalized at ${MCR_CANON}"
+    {
+        echo "${ACTUAL_ROOT}/runtime/glnxa64"
+        echo "${ACTUAL_ROOT}/bin/glnxa64"
+        echo "${ACTUAL_ROOT}/sys/os/glnxa64"
+    } > /etc/ld.so.conf.d/mcr_v90.conf
+    ldconfig
 
-	# ------------------------------------------------------------------
-	# Skinny-FSL harvest (runs LAST, pure POSIX-sh)
-	# ------------------------------------------------------------------
-	build_fsl_mini() {
-		set -eu
+    ls -lh "${MCR_CANON}/runtime/glnxa64/libmwmclmcrrt.so" || true
+    rm -rf "${MCR_ZIP}" "${MCR_INSTDIR}"
+    echo "[mcr] ok — normalized at ${MCR_CANON}"
 
-		FSL_VER="6.0.6"
-		FSL_INSTALL_BASE="/opt/samba/.fsl_full"
-		FSL_MINI_DIR="/opt/samba/.fsl_mini"
+    # ---------------------------------------------------------------
+    # Skinny-FSL harvest (LAST). Uses syscurl() for installer fetch.
+    # ---------------------------------------------------------------
+    build_fsl_mini() {
+        set -eu
 
-		rm -rf "${FSL_INSTALL_BASE}" "${FSL_MINI_DIR}"
-		mkdir -p "${FSL_INSTALL_BASE}" "${FSL_MINI_DIR}"
+        FSL_VER="6.0.6"
+        FSL_INSTALL_BASE="/opt/samba/.fsl_full"
+        FSL_MINI_DIR="/opt/samba/.fsl_mini"
 
-		# Fetch official installer quietly
-		TMPINST="$(mktemp -p /tmp fslinstaller.XXXXXX.py)"
-		trap 'rm -f "${TMPINST}"' EXIT
-		env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH= \
-			curl -fsSL -o "${TMPINST}" https://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py
+        rm -rf "${FSL_INSTALL_BASE}" "${FSL_MINI_DIR}"
+        mkdir -p "${FSL_INSTALL_BASE}" "${FSL_MINI_DIR}"
 
-		python3 "${TMPINST}" \
-			--dest="${FSL_INSTALL_BASE}/${FSL_VER}" \
-			--quiet --skip_registration --yes \
-			|| { echo "FATAL: FSL installer failed" >&2; exit 1; }
+        TMPINST="$(mktemp -p /tmp fslinstaller.XXXXXX.py)"
+        trap 'rm -f "${TMPINST}"' EXIT
+        syscurl -fsSL -o "${TMPINST}" https://fsl.fmrib.ox.ac.uk/fsldownloads/fslinstaller.py
 
-		FSL_BIN="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name fslmaths -path '*/bin/*' -print -quit || true)"
-		if [ -z "${FSL_BIN}" ]; then
-			echo "FATAL: could not locate fslmaths under ${FSL_INSTALL_BASE}/${FSL_VER}" >&2
-			exit 1
-		fi
-		FSL_FULL="$(dirname "$(dirname "${FSL_BIN}")")"
+        python3 "${TMPINST}" \
+            --dest="${FSL_INSTALL_BASE}/${FSL_VER}" \
+            --quiet --skip_registration --yes \
+            || { echo "FATAL: FSL installer failed" >&2; exit 1; }
 
-		FSL_TOOLS="fslmaths fdr randomise design_ttest2"
-		FSL_HELPERS="fslpython fsl_sub"
-		FSL_ALL_TO_COPY="${FSL_TOOLS} ${FSL_HELPERS}"
+        FSL_BIN="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name fslmaths -path '*/bin/*' -print -quit || true)"
+        if [ -z "${FSL_BIN}" ]; then
+            echo "FATAL: could not locate fslmaths under ${FSL_INSTALL_BASE}/${FSL_VER}" >&2
+            exit 1
+        fi
+        FSL_FULL="$(dirname "$(dirname "${FSL_BIN}")")"
 
-		mkdir -p "${FSL_MINI_DIR}/bin" "${FSL_MINI_DIR}/lib" "${FSL_MINI_DIR}/etc/fslconf" "${FSL_MINI_DIR}/share/fsl/data"
+        FSL_TOOLS="fslmaths fdr randomise design_ttest2"
+        FSL_HELPERS="fslpython fsl_sub"
+        FSL_ALL_TO_COPY="${FSL_TOOLS} ${FSL_HELPERS}"
 
-		if [ -d "${FSL_FULL}/etc/fslconf" ]; then
-			cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI_DIR}/etc/fslconf/" || true
-		fi
-		if [ -d "${FSL_FULL}/share/fsl/data" ]; then
-			cp -a "${FSL_FULL}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
-		elif [ -d "${FSL_FULL%/*}/share/fsl/data" ]; then
-			cp -a "${FSL_FULL%/*}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
-		fi
+        mkdir -p "${FSL_MINI_DIR}/bin" "${FSL_MINI_DIR}/lib" "${FSL_MINI_DIR}/etc/fslconf" "${FSL_MINI_DIR}/share/fsl/data"
 
-		copy_tool() {
-			T="$1"
-			P="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${T}" -perm -111 -path '*/bin/*' -print -quit 2>/dev/null || true)"
-			[ -z "${P}" ] && P="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${T}" -perm -111 -print -quit 2>/dev/null || true)"
-			[ -z "${P}" ] && return 1
-			cp -a "${P}" "${FSL_MINI_DIR}/bin/${T}"
-			ldd "${P}" 2>/dev/null | awk '/=> \//{print $3}' | while read SO; do
-				[ -n "${SO}" ] && cp -n "${SO}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
-			done
-			return 0
-		}
+        if [ -d "${FSL_FULL}/etc/fslconf" ]; then
+            cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI_DIR}/etc/fslconf/" || true
+        fi
+        if [ -d "${FSL_FULL}/share/fsl/data" ]; then
+            cp -a "${FSL_FULL}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
+        elif [ -d "${FSL_FULL%/*}/share/fsl/data" ]; then
+            cp -a "${FSL_FULL%/*}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
+        fi
 
-		for T in ${FSL_ALL_TO_COPY}; do
-			copy_tool "${T}" || echo "WARN: ${T} not found under staged FSL" >&2
-		done
+        copy_tool() {
+            T="$1"
+            P="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${T}" -perm -111 -path '*/bin/*' -print -quit 2>/dev/null || true)"
+            [ -z "${P}" ] && P="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${T}" -perm -111 -print -quit 2>/dev/null || true)"
+            [ -z "${P}" ] && return 1
+            cp -a "${P}" "${FSL_MINI_DIR}/bin/${T}"
+            ldd "${P}" 2>/dev/null | awk '/=> \//{print $3}' | while read SO; do
+                [ -n "${SO}" ] && cp -n "${SO}" "${FSL_MINI_DIR}/lib/" 2>/dev/null || true
+            done
+            return 0
+        }
 
-		find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -path '*/lib/lib*.so*' -exec cp -n {} "${FSL_MINI_DIR}/lib/" \; 2>/dev/null || true
+        for T in ${FSL_ALL_TO_COPY}; do
+            copy_tool "${T}" || echo "WARN: ${T} not found under staged FSL" >&2
+        done
 
-		if ls "${FSL_MINI_DIR}/lib/libstdc++.so.6."* >/dev/null 2>&1; then
-			LATEST="$(ls -1 "${FSL_MINI_DIR}/lib/libstdc++.so.6."* | sort -V | tail -1 | xargs -n1 basename)"
-			ln -sfn "${LATEST}" "${FSL_MINI_DIR}/lib/libstdc++.so.6"
-		fi
+        find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -path '*/lib/lib*.so*' -exec cp -n {} "${FSL_MINI_DIR}/lib/" \; 2>/dev/null || true
 
-		for SON in libgfortran.so.5 libquadmath.so.0 libblas.so.3 liblapack.so.3; do
-			if [ ! -f "${FSL_MINI_DIR}/lib/${SON}" ]; then
-				CAND="$(ldconfig -p | awk -v s="${SON}" '$1==s {print $NF}' | head -1 || true)"
-				[ -n "${CAND}" ] && cp -n "${CAND}" "${FSL_MINI_DIR}/lib/" || true
-			fi
-		done
+        if ls "${FSL_MINI_DIR}/lib/libstdc++.so.6."* >/dev/null 2>&1; then
+            LATEST="$(ls -1 "${FSL_MINI_DIR}/lib/libstdc++.so.6."* | sort -V | tail -1 | xargs -n1 basename)"
+            ln -sfn "${LATEST}" "${FSL_MINI_DIR}/lib/libstdc++.so.6"
+        fi
 
-		for B in "${FSL_MINI_DIR}/bin/fslmaths" "${FSL_MINI_DIR}/bin/fdr" "${FSL_MINI_DIR}/bin/randomise"; do
-			if [ -x "${B}" ] && file -L "${B}" | grep -q ELF; then
-				patchelf --set-rpath '$ORIGIN/../lib' "${B}" || true
-				patchelf --remove-needed libomp.so "${B}" || true
-			fi
-		done
+        for SON in libgfortran.so.5 libquadmath.so.0 libblas.so.3 liblapack.so.3; do
+            if [ ! -f "${FSL_MINI_DIR}/lib/${SON}" ]; then
+                CAND="$(ldconfig -p | awk -v s="${SON}" '$1==s {print $NF}' | head -1 || true)"
+                [ -n "${CAND}" ] && cp -n "${CAND}" "${FSL_MINI_DIR}/lib/" || true
+            fi
+        done
 
-		echo "[skinny-fsl] mini bin contains:"
-		ls -l "${FSL_MINI_DIR}/bin" || true
-		echo "[skinny-fsl] ldd check for fdr:"
-		ldd "${FSL_MINI_DIR}/bin/fdr" || true
+        for B in "${FSL_MINI_DIR}/bin/fslmaths" "${FSL_MINI_DIR}/bin/fdr" "${FSL_MINI_DIR}/bin/randomise"; do
+            if [ -x "${B}" ] && file -L "${B}" | grep -q ELF; then
+                patchelf --set-rpath '$ORIGIN/../lib' "${B}" || true
+                patchelf --remove-needed libomp.so "${B}" || true
+            fi
+        done
 
-		_run_clean() {
-			env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu "$@" || return $?
-		}
+        echo "[skinny-fsl] mini bin contains:"
+        ls -l "${FSL_MINI_DIR}/bin" || true
+        echo "[skinny-fsl] ldd check for fdr:"
+        ldd "${FSL_MINI_DIR}/bin/fdr" || true
 
-		_run_clean "${FSL_MINI_DIR}/bin/fdr" --help || true
-		_run_clean "${FSL_MINI_DIR}/bin/randomise" --help || true
-		_run_clean "${FSL_MINI_DIR}/bin/design_ttest2" --help || true
-		_run_clean "${FSL_MINI_DIR}/bin/fslmaths" || true
+        _run_clean() {
+            env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu "$@" || return $?
+        }
 
-		ln -sfn "${FSL_MINI_DIR}" /opt/samba/fsl
-		rm -rf "${FSL_INSTALL_BASE}"
-		echo "[skinny-fsl] OK — linked /opt/samba/fsl -> ${FSL_MINI_DIR}"
-	}
+        _run_clean "${FSL_MINI_DIR}/bin/fdr" --help || true
+        _run_clean "${FSL_MINI_DIR}/bin/randomise" --help || true
+        _run_clean "${FSL_MINI_DIR}/bin/design_ttest2" --help || true
+        _run_clean "${FSL_MINI_DIR}/bin/fslmaths" || true
 
-	build_fsl_mini
+        ln -sfn "${FSL_MINI_DIR}" /opt/samba/fsl
+        rm -rf "${FSL_INSTALL_BASE}"
+        echo "[skinny-fsl] OK — linked /opt/samba/fsl -> ${FSL_MINI_DIR}"
+    }
+
+    build_fsl_mini
 
 %test
-	set -eu
-	MCR_ROOT="/opt/MATLAB/MATLAB2015b_runtime/v90"
-	echo "[test] checking MATLAB MCR v90 ..."
-	if [ ! -f "${MCR_ROOT}/runtime/glnxa64/libmwmclmcrrt.so" ]; then
-		echo "FATAL: libmwmclmcrrt.so missing under ${MCR_ROOT}" >&2
-		exit 1
-	fi
-	ldd "${MCR_ROOT}/runtime/glnxa64/libmwmclmcrrt.so" >/dev/null || {
-		echo "FATAL: ldd failed on MCR core lib" >&2; exit 1;
-	}
-	echo "[test] MCR OK"
+    set -eu
+    MCR_ROOT="/opt/MATLAB/MATLAB2015b_runtime/v90"
+    echo "[test] checking MATLAB MCR v90 ..."
+    if [ ! -f "${MCR_ROOT}/runtime/glnxa64/libmwmclmcrrt.so" ]; then
+        echo "FATAL: libmwmclmcrrt.so missing under ${MCR_ROOT}" >&2
+        exit 1
+    fi
+    ldd "${MCR_ROOT}/runtime/glnxa64/libmwmclmcrrt.so" >/dev/null || {
+        echo "FATAL: ldd failed on MCR core lib" >&2; exit 1;
+    }
+    echo "[test] MCR OK"
 
-	if [ ! -x /opt/samba/fsl/bin/fslmaths ]; then
-		echo "FATAL: /opt/samba/fsl/bin/fslmaths missing" >&2
-		exit 1
-	fi
-	( env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu /opt/samba/fsl/bin/fslmaths ) || true
-	( /opt/samba/fsl/bin/fdr --help >/dev/null 2>&1 ) || true
-	( /opt/samba/fsl/bin/randomise --help >/dev/null 2>&1 ) || true
-	( /opt/samba/fsl/bin/design_ttest2 --help >/dev/null 2>&1 ) || true
-	echo "[test] FSL skinny OK"
+    if [ ! -x /opt/samba/fsl/bin/fslmaths ]; then
+        echo "FATAL: /opt/samba/fsl/bin/fslmaths missing" >&2
+        exit 1
+    fi
+    ( env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu /opt/samba/fsl/bin/fslmaths ) || true
+    ( /opt/samba/fsl/bin/fdr --help >/dev/null 2>&1 ) || true
+    ( /opt/samba/fsl/bin/randomise --help >/dev/null 2>&1 ) || true
+    ( /opt/samba/fsl/bin/design_ttest2 --help >/dev/null 2>&1 ) || true
+    echo "[test] FSL skinny OK"
