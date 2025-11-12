@@ -3,20 +3,19 @@ From: ants.sif
 
 %labels
 	Stage		fsl_mcr
-	Maintainer	BJ + ChatGPT (POSIX-sh safe)
+	Maintainer	Robert Anderson
 
 %environment
 	# Minimal runtime env (append-only)
 	export FSLDIR=/opt/samba/fsl
 	export PATH="/opt/samba/perl5/bin:/opt/samba/perl5libs/bin:${FSLDIR}/bin:/opt/samba/ants/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-	# Canonical MCR path (we symlink here during build)
+	# Canonical MCR path (symlinked at build time)
 	export MCR_ROOT="/opt/MATLAB/MATLAB2015b_runtime/v90"
 	if [ -d "${MCR_ROOT}/runtime/glnxa64" ]; then
 		export LD_LIBRARY_PATH="${MCR_ROOT}/runtime/glnxa64:${MCR_ROOT}/bin/glnxa64:${MCR_ROOT}/sys/os/glnxa64:${LD_LIBRARY_PATH}"
 	fi
 
 %post
-	# POSIX sh only
 	set -eu
 
 	# ------------------------------------------------------------------
@@ -45,8 +44,12 @@ From: ants.sif
 	MCR_CANON="/opt/MATLAB/MATLAB2015b_runtime/v90"
 
 	echo "[mcr] installing MATLAB Runtime R2015b (v90)..."
-	curl -fsSL "${MCR_URL}" -o "${MCR_ZIP}"
-	unzip -q "${MCR_ZIP}" -d "${MCR_INSTDIR}"
+	curl -fsSL "${MCR_URL}" -o "${MCR_ZIP}" || { echo "FATAL: curl MCR zip failed" >&2; exit 1; }
+
+	# Ensure a clean installer dir and force overwrite (no interactive prompt)
+	rm -rf "${MCR_INSTDIR}"
+	mkdir -p "${MCR_INSTDIR}"
+	unzip -o -q "${MCR_ZIP}" -d "${MCR_INSTDIR}" || { echo "FATAL: unzip MCR failed" >&2; exit 1; }
 
 	"${MCR_INSTDIR}/install" \
 		-mode silent \
@@ -54,7 +57,7 @@ From: ants.sif
 		-destinationFolder /usr/local/MATLAB/MATLAB_Runtime \
 		|| { echo "FATAL: MCR installer failed" >&2; exit 1; }
 
-	# Find the actual vendor install root (pure sh, no arrays)
+	# Find the actual vendor install root
 	ACTUAL_ROOT=""
 	for C in \
 		/opt/MATLAB/MATLAB2015b_runtime/v90 \
@@ -67,22 +70,16 @@ From: ants.sif
 			break
 		fi
 	done
-
-	if [ -z "${ACTUAL_ROOT}" ]; then
-		echo "FATAL: Could not locate valid MCR v90 runtime after install" >&2
-		exit 1
-	fi
+	[ -n "${ACTUAL_ROOT}" ] || { echo "FATAL: Could not locate MCR v90 runtime after install" >&2; exit 1; }
 
 	# Normalize to canonical path
 	if [ "${ACTUAL_ROOT}" != "${MCR_CANON}" ]; then
 		mkdir -p "$(dirname "${MCR_CANON}")"
-		if [ -e "${MCR_CANON}" ] && [ ! -L "${MCR_CANON}" ]; then
-			rm -rf "${MCR_CANON}"
-		fi
+		[ -e "${MCR_CANON}" ] && [ ! -L "${MCR_CANON}" ] && rm -rf "${MCR_CANON}"
 		ln -sfn "${ACTUAL_ROOT}" "${MCR_CANON}"
 	fi
 
-	# Let ld.so find MCR libs without needing LD_LIBRARY_PATH at runtime
+	# Make libs visible without LD_LIBRARY_PATH
 	{
 		echo "${ACTUAL_ROOT}/runtime/glnxa64"
 		echo "${ACTUAL_ROOT}/bin/glnxa64"
@@ -95,7 +92,7 @@ From: ants.sif
 	echo "[mcr] ok — normalized at ${MCR_CANON}"
 
 	# ------------------------------------------------------------------
-	# Skinny-FSL harvest (RUNS LAST) — POSIX sh only (no 'local', no arrays)
+	# Skinny-FSL harvest (runs LAST, pure POSIX-sh)
 	# ------------------------------------------------------------------
 	build_fsl_mini() {
 		set -eu
@@ -107,7 +104,7 @@ From: ants.sif
 		rm -rf "${FSL_INSTALL_BASE}" "${FSL_MINI_DIR}"
 		mkdir -p "${FSL_INSTALL_BASE}" "${FSL_MINI_DIR}"
 
-		# Fetch installer with scrubbed env so it uses system libcurl
+		# Fetch official installer quietly
 		TMPINST="$(mktemp -p /tmp fslinstaller.XXXXXX.py)"
 		trap 'rm -f "${TMPINST}"' EXIT
 		env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH= \
@@ -118,7 +115,6 @@ From: ants.sif
 			--quiet --skip_registration --yes \
 			|| { echo "FATAL: FSL installer failed" >&2; exit 1; }
 
-		# Locate real root containing bin/fslmaths
 		FSL_BIN="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name fslmaths -path '*/bin/*' -print -quit || true)"
 		if [ -z "${FSL_BIN}" ]; then
 			echo "FATAL: could not locate fslmaths under ${FSL_INSTALL_BASE}/${FSL_VER}" >&2
@@ -126,15 +122,12 @@ From: ants.sif
 		fi
 		FSL_FULL="$(dirname "$(dirname "${FSL_BIN}")")"
 
-		# Tools to include in mini
 		FSL_TOOLS="fslmaths fdr randomise design_ttest2"
 		FSL_HELPERS="fslpython fsl_sub"
 		FSL_ALL_TO_COPY="${FSL_TOOLS} ${FSL_HELPERS}"
 
-		# Mini tree
 		mkdir -p "${FSL_MINI_DIR}/bin" "${FSL_MINI_DIR}/lib" "${FSL_MINI_DIR}/etc/fslconf" "${FSL_MINI_DIR}/share/fsl/data"
 
-		# Minimal configs/data if present
 		if [ -d "${FSL_FULL}/etc/fslconf" ]; then
 			cp -a "${FSL_FULL}/etc/fslconf/." "${FSL_MINI_DIR}/etc/fslconf/" || true
 		fi
@@ -144,13 +137,10 @@ From: ants.sif
 			cp -a "${FSL_FULL%/*}/share/fsl/data/." "${FSL_MINI_DIR}/share/fsl/data/" || true
 		fi
 
-		# Copy tool + sweep ELF deps into mini/lib
 		copy_tool() {
 			T="$1"
 			P="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${T}" -perm -111 -path '*/bin/*' -print -quit 2>/dev/null || true)"
-			if [ -z "${P}" ]; then
-				P="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${T}" -perm -111 -print -quit 2>/dev/null || true)"
-			fi
+			[ -z "${P}" ] && P="$(find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -name "${T}" -perm -111 -print -quit 2>/dev/null || true)"
 			[ -z "${P}" ] && return 1
 			cp -a "${P}" "${FSL_MINI_DIR}/bin/${T}"
 			ldd "${P}" 2>/dev/null | awk '/=> \//{print $3}' | while read SO; do
@@ -163,46 +153,36 @@ From: ants.sif
 			copy_tool "${T}" || echo "WARN: ${T} not found under staged FSL" >&2
 		done
 
-		# Sweep vendor lib/*.so* we might have missed
 		find "${FSL_INSTALL_BASE}/${FSL_VER}" -type f -path '*/lib/lib*.so*' -exec cp -n {} "${FSL_MINI_DIR}/lib/" \; 2>/dev/null || true
 
-		# Ensure modern libstdc++ present, link soname
 		if ls "${FSL_MINI_DIR}/lib/libstdc++.so.6."* >/dev/null 2>&1; then
 			LATEST="$(ls -1 "${FSL_MINI_DIR}/lib/libstdc++.so.6."* | sort -V | tail -1 | xargs -n1 basename)"
 			ln -sfn "${LATEST}" "${FSL_MINI_DIR}/lib/libstdc++.so.6"
 		fi
 
-		# Backfill BLAS/LAPACK/GFortran if missing
 		for SON in libgfortran.so.5 libquadmath.so.0 libblas.so.3 liblapack.so.3; do
 			if [ ! -f "${FSL_MINI_DIR}/lib/${SON}" ]; then
 				CAND="$(ldconfig -p | awk -v s="${SON}" '$1==s {print $NF}' | head -1 || true)"
-				if [ -n "${CAND}" ]; then
-					cp -n "${CAND}" "${FSL_MINI_DIR}/lib/" || true
-				fi
+				[ -n "${CAND}" ] && cp -n "${CAND}" "${FSL_MINI_DIR}/lib/" || true
 			fi
 		done
 
-		# Tighten rpath and drop libomp need (if any) — only for ELF bins
 		for B in "${FSL_MINI_DIR}/bin/fslmaths" "${FSL_MINI_DIR}/bin/fdr" "${FSL_MINI_DIR}/bin/randomise"; do
 			if [ -x "${B}" ] && file -L "${B}" | grep -q ELF; then
 				patchelf --set-rpath '$ORIGIN/../lib' "${B}" || true
 				patchelf --remove-needed libomp.so "${B}" || true
 			fi
 		done
-		# design_ttest2 is a script — do not patchelf
 
 		echo "[skinny-fsl] mini bin contains:"
 		ls -l "${FSL_MINI_DIR}/bin" || true
-
 		echo "[skinny-fsl] ldd check for fdr:"
 		ldd "${FSL_MINI_DIR}/bin/fdr" || true
 
-		# Light smoke tests under scrubbed env (no LD_LIBRARY_PATH pollution)
 		_run_clean() {
 			env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu "$@" || return $?
 		}
 
-		# Help/usage checks (do not use `fslmaths -version`)
 		_run_clean "${FSL_MINI_DIR}/bin/fdr" --help || true
 		_run_clean "${FSL_MINI_DIR}/bin/randomise" --help || true
 		_run_clean "${FSL_MINI_DIR}/bin/design_ttest2" --help || true
@@ -213,14 +193,10 @@ From: ants.sif
 		echo "[skinny-fsl] OK — linked /opt/samba/fsl -> ${FSL_MINI_DIR}"
 	}
 
-	# Run skinny-FSL build LAST
 	build_fsl_mini
 
 %test
-	# POSIX sh only
 	set -eu
-
-	# Verify MCR
 	MCR_ROOT="/opt/MATLAB/MATLAB2015b_runtime/v90"
 	echo "[test] checking MATLAB MCR v90 ..."
 	if [ ! -f "${MCR_ROOT}/runtime/glnxa64/libmwmclmcrrt.so" ]; then
@@ -232,7 +208,6 @@ From: ants.sif
 	}
 	echo "[test] MCR OK"
 
-	# Verify FSL mini
 	if [ ! -x /opt/samba/fsl/bin/fslmaths ]; then
 		echo "FATAL: /opt/samba/fsl/bin/fslmaths missing" >&2
 		exit 1
