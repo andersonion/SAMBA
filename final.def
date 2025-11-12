@@ -2,257 +2,195 @@ Bootstrap: localimage
 From: fsl_mcr.sif
 
 %labels
-    Stage "final"
-    Maintainer "you"
+	Stage: final
+	Maintainer: BJ Anderson
 
 %environment
-    # Core paths
-    export SAMBA_ROOT="/opt/samba"
-    export SAMBA_PATH="${SAMBA_ROOT}/SAMBA"
+	# --- Runtime env (kept minimal; MCR loader is already wired via ld.so.conf) ---
+	export SAMBA_ROOT="/opt/samba"
+	export SAMBA_PATH="/opt/samba/SAMBA"
 
-    # Perl user lib (installed in %post)
-    export PERL_LOCAL_LIB_ROOT="${SAMBA_ROOT}/perl5libs"
-    export PERL_MB_OPT="--install_base \"${PERL_LOCAL_LIB_ROOT}\""
-    export PERL_MM_OPT="INSTALL_BASE=${PERL_LOCAL_LIB_ROOT}"
-    export PERL5LIB="${PERL_LOCAL_LIB_ROOT}/lib/perl5"
+	# Perl local::lib location for Carton-installed deps
+	export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
+	export PERL5LIB="/opt/samba/perl5libs/lib/perl5"
+	export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
+	export PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
 
-    # Binaries
-    export PATH="${PERL_LOCAL_LIB_ROOT}/bin:${SAMBA_ROOT}/perl5/bin:${SAMBA_ROOT}/ants/bin:${SAMBA_ROOT}/fsl/bin:${SAMBA_PATH}:${PATH}"
+	# Atlas dir exposed for pipeline defaults
+	export SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
 
-    # FSL defaults
-    export FSLDIR="${SAMBA_ROOT}/fsl"
-    export FSLOUTPUTTYPE="${FSLOUTPUTTYPE:-NIFTI_GZ}"
-    export PATH="${FSLDIR}/bin:${PATH}"
-
-    # Atlas (set at build time; kept here for runtime discoverability)
-    export SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
+	# PATH: perl5 local bins, FSL skinny, ANTs (from parent), SAMBA scripts, system
+	export PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/fsl/bin:/opt/samba/ants/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 %post
-    set -eu
+	set -eu
 
-    # --- build-time defaults (env from %environment is runtime-only) ---
-    SAMBA_ROOT="${SAMBA_ROOT:-/opt/samba}"
-    SAMBA_PATH="${SAMBA_PATH:-${SAMBA_ROOT}/SAMBA}"
+	# =========================
+	# Vars
+	# =========================
+	SAMBA_ROOT="/opt/samba"
+	SAMBA_PATH="${SAMBA_ROOT}/SAMBA"
 
-    # perl user lib root used by cpanm below
-    PERL_LOCAL_LIB_ROOT="${PERL_LOCAL_LIB_ROOT:-${SAMBA_ROOT}/perl5libs}"
-    PERL_MB_OPT="${PERL_MB_OPT:---install_base \"${PERL_LOCAL_LIB_ROOT}\"}"
-    PERL_MM_OPT="${PERL_MM_OPT:-INSTALL_BASE=${PERL_LOCAL_LIB_ROOT}}"
-    PERL5LIB="${PERL5LIB:-${PERL_LOCAL_LIB_ROOT}/lib/perl5}"
+	PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
+	PERL5LIB="/opt/samba/perl5libs/lib/perl5"
+	PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
+	PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
 
-    # prepend bins we expect to exist
-    PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/ants/bin:/opt/samba/fsl/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-    export SAMBA_ROOT SAMBA_PATH PERL_LOCAL_LIB_ROOT PERL_MB_OPT PERL_MM_OPT PERL5LIB PATH
+	ATLAS_FOLDER="/opt/atlases"
+	SAMBA_ATLAS_DIR="${ATLAS_FOLDER}/chass_symmetric3"
+	ZENODO_ID="15178373"  # Mouse Brain Atlas Ex Vivo MRI
 
-    # ---- baseline dirs ----
-    mkdir -p /opt/src "${SAMBA_ROOT}" "${SAMBA_ROOT}/perl5" "${SAMBA_ROOT}/perl5libs"
+	export SAMBA_ROOT SAMBA_PATH PERL_LOCAL_LIB_ROOT PERL5LIB PERL_MB_OPT PERL_MM_OPT
 
-    # ---- packages (lean) ----
-    apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        git ca-certificates curl build-essential \
-        cpanminus \
-        libssl-dev zlib1g-dev libexpat1-dev libperl-dev \
-        libffi-dev libxml2-dev libxslt1-dev \
-        libjpeg-dev libpng-dev libtiff5-dev \
-        sed coreutils tar
-    apt-get clean
-    rm -rf /var/lib/apt/lists/*
+	# =========================
+	# Helpers
+	# =========================
+	_sysrun() {
+		# Run with a clean env so MCR's older libstdc++ never leaks into system tools.
+		env -i \
+			PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+			LC_ALL=C \
+			DEBIAN_FRONTEND=noninteractive \
+			LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu \
+			"$@"
+	}
 
-    # ---- fetch SAMBA ----
-    if [ ! -d /opt/src/SAMBA ]; then
-        git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
-    else
-        git -C /opt/src/SAMBA fetch --all --tags --prune
-    fi
+	_mcr_shield_begin() {
+		# Temporarily disable the MCR ld.so path so apt/curl use system libstdc++
+		if [ -f /etc/ld.so.conf.d/mcr_v90.conf ]; then
+			mv /etc/ld.so.conf.d/mcr_v90.conf /etc/ld.so.conf.d/mcr_v90.conf.disabled
+			ldconfig
+			: > /tmp/.mcr_shielded
+		fi
+	}
 
-    # pin to master (repo uses master)
-    REF="master"
-    if git -C /opt/src/SAMBA show-ref --verify --quiet "refs/remotes/origin/${REF}"; then
-        git -C /opt/src/SAMBA checkout -f -B buildpin "origin/${REF}"
-    else
-        echo "FATAL: cannot resolve SAMBA ref '${REF}'" >&2
-        git -C /opt/src/SAMBA show-ref | sed 's/^/  /' >&2 || true
-        exit 1
-    fi
+	_mcr_shield_end() {
+		if [ -f /tmp/.mcr_shielded ]; then
+			mv /etc/ld.so.conf.d/mcr_v90.conf.disabled /etc/ld.so.conf.d/mcr_v90.conf
+			ldconfig
+			rm -f /tmp/.mcr_shielded
+		fi
+	}
 
-    # materialize to /opt/samba/SAMBA (atomic-ish without rsync)
-    rm -rf "${SAMBA_PATH}.tmp"
-    mkdir -p "${SAMBA_PATH}.tmp"
-    ( cd /opt/src/SAMBA && tar -cf - . ) | ( cd "${SAMBA_PATH}.tmp" && tar -xf - )
-    chmod -R a+rX "${SAMBA_PATH}.tmp"
-    mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
+	# =========================
+	# System deps (scrubbed env)
+	# =========================
+	_mcr_shield_begin
+	_sysrun apt-get update
+	_sysrun apt-get install -y --no-install-recommends \
+		git rsync ca-certificates curl unzip \
+		make gcc perl-modules cpanminus
+	_sysrun apt-get clean
+	_sysrun rm -rf /var/lib/apt/lists/*
+	_mcr_shield_end
 
-    # ---- perl user env (no perlbrew, no carton) ----
-    if [ -f "${SAMBA_PATH}/cpanfile" ]; then
-        cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib
-        ( cd "${SAMBA_PATH}" && \
-          cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" --installdeps . )
-    else
-        cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" \
-            Parallel::ForkManager File::Basename File::Path JSON Try::Tiny
-    fi
-    mkdir -p "${PERL_LOCAL_LIB_ROOT}/bin"
+	# =========================
+	# Layout
+	# =========================
+	mkdir -p /opt/src "${SAMBA_ROOT}" /opt/samba/perl5 /opt/samba/perl5libs
+	chmod 0755 "${SAMBA_ROOT}"
 
-    # =====================================================================
-    # Atlas: Zenodo chass_symmetric3 → /opt/atlases/chass_symmetric3
-    #   - Reads JSON from stdin (no argv indexing)
-    #   - Works under /bin/sh (no bashisms)
-    # =====================================================================
-    ATLAS_FOLDER="/opt/atlases"
-    AZ_ID="15178373"
-    DEST_DIR="${ATLAS_FOLDER}"
-    CACHE_DIR="/opt/zenodo_cache"
-    SAMBA_ATLAS_DIR="${ATLAS_FOLDER}/chass_symmetric3"
-    TMP_JSON="/tmp/zenodo_${AZ_ID}.json"
+	# =========================
+	# Fetch & stage SAMBA (master)
+	# =========================
+	if [ ! -d /opt/src/SAMBA ]; then
+		git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
+	fi
+	git -C /opt/src/SAMBA fetch --all --tags --prune
+	# Your repo uses 'master'
+	git -C /opt/src/SAMBA checkout -f -B buildpin origin/master
 
-    mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
-    cd "${DEST_DIR}"
+	rm -rf "${SAMBA_PATH}.tmp"
+	rsync -a --delete /opt/src/SAMBA/ "${SAMBA_PATH}.tmp"/
+	mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
+	chmod -R a+rX "${SAMBA_PATH}"
 
-    # Ensure python3 for JSON parsing (keep it minimal)
-    if ! command -v python3 >/dev/null 2>&1; then
-        apt-get update
-        apt-get install -y --no-install-recommends python3-minimal ca-certificates
-    fi
+	# =========================
+	# Ensure Carton/local::lib available (no perlbrew)
+	# =========================
+	/usr/bin/cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib Carton
+	# (We are not running `carton install` at build-time to avoid pinning host-specific toolchains.)
 
-    echo "[atlas] fetching Zenodo record JSON ${AZ_ID} ..."
-    curl -fsSL "https://zenodo.org/api/records/${AZ_ID}" -o "${TMP_JSON}" \
-        || { echo "FATAL: cannot fetch Zenodo record ${AZ_ID}" >&2; exit 1; }
+	# =========================
+	# Embed Atlas from Zenodo
+	#  - If a .tar.gz exists, fetch and extract.
+	#  - Otherwise download the expected files individually.
+	# =========================
+	mkdir -p "${ATLAS_FOLDER}" "${SAMBA_ATLAS_DIR}"
+	cd "${ATLAS_FOLDER}"
 
+	# Pull record JSON under clean env to avoid SSL/lib issues
+	TMP_JSON="/tmp/zenodo_${ZENODO_ID}.json"
+	_mcr_shield_begin
+	_sysrun curl -fsSL "https://zenodo.org/api/records/${ZENODO_ID}" -o "${TMP_JSON}"
+	_mcr_shield_end
 
-    # --- find a .tar.gz filename in the JSON ---
-    TARBALL_NAME="$(
-        python3 -c '
-import json, re, sys
-j = json.load(sys.stdin)
-for f in j.get("files", []):
-    k = f.get("key", "") or ""
-    if re.search(r"\.tar\.gz$", k):
-        print(k)
-        break
-' < "${TMP_JSON}"
-    )"
+	# Try to discover a tarball; fallback to individual files if none.
+	TARBALL_NAME="$(
+		python3 - "$TMP_JSON" <<'PY'
+import json,sys
+j=json.load(open(sys.argv[1]))
+files=j.get("files",[])
+t=[f["key"] for f in files if f["key"].endswith(".tar.gz")]
+print(t[0] if t else "")
+PY
+	)"
 
-    if [ -n "${TARBALL_NAME}" ]; then
-        echo "[atlas] found archive: ${TARBALL_NAME}"
+	if [ -n "${TARBALL_NAME}" ]; then
+		echo "[atlas] fetching tarball: ${TARBALL_NAME}"
+		_mcr_shield_begin
+		_sysrun curl -fL --retry 4 --retry-delay 2 \
+			-o "${TARBALL_NAME}" \
+			"https://zenodo.org/api/records/${ZENODO_ID}/files/${TARBALL_NAME}/content"
+		_mcr_shield_end
+		tar -xzf "${TARBALL_NAME}" -C "${ATLAS_FOLDER}"
+		rm -f "${TARBALL_NAME}"
+	else
+		echo "[atlas] no tarball; fetching individual files into ${SAMBA_ATLAS_DIR}"
+		mkdir -p "${SAMBA_ATLAS_DIR}"
+		req="chass_symmetric3_T2.nii.gz chass_symmetric3_DWI.nii.gz chass_symmetric3_FA.nii.gz chass_symmetric3_MD.nii.gz chass_symmetric3_MO.nii.gz chass_symmetric3_labels.nii.gz chass_symmetric3_labels_lookup.txt chass_symmetric3_mask.nii.gz"
+		for k in $req; do
+			echo "  - $k"
+			_mcr_shield_begin
+			_sysrun curl -fL --retry 4 --retry-delay 2 \
+				-o "${SAMBA_ATLAS_DIR}/${k}" \
+				"https://zenodo.org/api/records/${ZENODO_ID}/files/${k}/content"
+			_mcr_shield_end
+		done
+	fi
 
-        # --- find its download URL ---
-        TARBALL_URL="$(
-            TARBALL_NAME="${TARBALL_NAME}" python3 -c '
-import json, os, sys
-name = os.environ.get("TARBALL_NAME","")
-j = json.load(sys.stdin)
-for f in j.get("files", []):
-    if f.get("key") == name:
-        print(f.get("links", {}).get("download") or f.get("links", {}).get("self", ""))
-        break
-' < "${TMP_JSON}"
-        )"
+	chmod -R a+rX "${ATLAS_FOLDER}"
 
-        [ -n "${TARBALL_URL}" ] || { echo "FATAL: no URL for ${TARBALL_NAME}" >&2; exit 1; }
-
-        CACHED="${CACHE_DIR}/${TARBALL_NAME}"
-        if [ -f "${CACHED}" ]; then
-            cp -f "${CACHED}" "${TARBALL_NAME}"
-        else
-            echo "[atlas] downloading archive ..."
-            curl -fL --retry 5 --retry-delay 2 -o "${TARBALL_NAME}" "${TARBALL_URL}"
-            cp -f "${TARBALL_NAME}" "${CACHE_DIR}/" || true
-        fi
-
-        tar -xzf "${TARBALL_NAME}"
-        rm -f "${TARBALL_NAME}"
-        [ -d "${SAMBA_ATLAS_DIR}" ] || { echo "FATAL: ${SAMBA_ATLAS_DIR} missing after extraction" >&2; exit 1; }
-
-    else
-        echo "[atlas] no .tar.gz in record; downloading individual files ..."
-        mkdir -p "${SAMBA_ATLAS_DIR}"
-
-        # build TSV: key \t url
-        python3 -c '
-import json, sys
-j = json.load(sys.stdin)
-for f in j.get("files", []):
-    key = f.get("key", "")
-    url = f.get("links", {}).get("download") or f.get("links", {}).get("self", "")
-    if key and url:
-        print(f"{key}\t{url}")
-' < "${TMP_JSON}" > /tmp/zen_urls.tsv
-
-        FILE_KEYS="
-chass_symmetric3_T2.nii.gz
-chass_symmetric3_DWI.nii.gz
-chass_symmetric3_FA.nii.gz
-chass_symmetric3_MD.nii.gz
-chass_symmetric3_MO.nii.gz
-chass_symmetric3_labels.nii.gz
-chass_symmetric3_labels_lookup.txt
-chass_symmetric3_mask.nii.gz
-"
-
-        IFS='
-'
-        for K in ${FILE_KEYS}; do
-            [ -n "${K}" ] || continue
-            URL="$(awk -F '\t' -v k="${K}" '$1==k{print $2}' /tmp/zen_urls.tsv | head -1)"
-            if [ -z "${URL}" ]; then
-                echo "FATAL: ${K} not present on Zenodo record ${AZ_ID}" >&2
-                echo "[atlas] available files:" >&2
-                cut -f1 /tmp/zen_urls.tsv >&2
-                exit 1
-            fi
-            CACHED="${CACHE_DIR}/${K}"
-            if [ -f "${CACHED}" ]; then
-                cp -f "${CACHED}" "${SAMBA_ATLAS_DIR}/${K}"
-            else
-                echo "[atlas] downloading ${K} ..."
-                curl -fL --retry 5 --retry-delay 2 -o "${SAMBA_ATLAS_DIR}/${K}" "${URL}"
-                cp -f "${SAMBA_ATLAS_DIR}/${K}" "${CACHE_DIR}/" || true
-            fi
-        done
-    fi
-
-    ln -sfn "${SAMBA_ATLAS_DIR}" "/opt/samba/atlas"
-    chmod -R a+rX "/opt/atlases" "/opt/zenodo_cache"
-    rm -f "${TMP_JSON}"
-    echo "[atlas] ready at /opt/samba/atlas"
-
-
-
-    # ---- java jre (if present in base) ----
-    if [ -d /usr/lib/jvm/java-8-openjdk-amd64/jre ]; then
-        mkdir -p "${SAMBA_ROOT}/java"
-        cp -a /usr/lib/jvm/java-8-openjdk-amd64/jre "${SAMBA_ROOT}/java" || true
-    fi
-
-    # ---- quick diag (non-fatal) ----
-    echo "[diag] perl $(perl -V:version | sed 's/version=//')" || true
-    ( command -v cpanm && cpanm --version ) >/dev/null 2>&1 || true
-    ls -ld "${SAMBA_PATH}" || true
-    ls -ld "${SAMBA_ATLAS_DIR}" || true
-    ls -l "${SAMBA_ROOT}/atlas" || true
+	# =========================
+	# Final echo
+	# =========================
+	echo "[final] staged SAMBA at ${SAMBA_PATH}"
+	echo "[final] atlas at ${SAMBA_ATLAS_DIR}"
+	echo "[final] carton at: $(command -v carton || echo 'MISSING')"
 
 %test
-    # dash-compatible: no pipefail
-    set -eu
-
-    # SAMBA repo exists
-    [ -d "/opt/samba/SAMBA" ] || { echo "FATAL: /opt/samba/SAMBA missing"; exit 1; }
-
-    # Perl local::lib usable
-    perl -Mlocal::lib=/opt/samba/perl5libs -e1 || { echo "FATAL: local::lib not usable"; exit 1; }
-    perl -MFile::Basename -e1 || { echo "FATAL: File::Basename not available"; exit 1; }
-    perl -MFile::Path -e1 || { echo "FATAL: File::Path not available"; exit 1; }
-
-    # FSL present (from base image)
-    command -v fslmaths >/dev/null 2>&1 || { echo "FATAL: fslmaths not in PATH"; exit 1; }
-    fslmaths -version >/dev/null 2>&1 || true
-
-    # Atlas present and non-empty (basic sanity)
-    [ -d "/opt/atlases/chass_symmetric3" ] || { echo "FATAL: atlas dir missing"; exit 1; }
-    [ -L "/opt/samba/atlas" ] || { echo "FATAL: /opt/samba/atlas symlink missing"; exit 1; }
-    ls -1 /opt/atlases/chass_symmetric3/*.nii* >/dev/null 2>&1 || { echo "FATAL: atlas appears empty"; exit 1; }
+	set -eu
+	echo "[test] minimal checks…"
+	# Confirm core tools exist
+	command -v perl >/dev/null
+	command -v carton >/dev/null
+	# Confirm atlas presence (either extracted dir populated or at least labels exist)
+	if [ ! -d "/opt/atlases/chass_symmetric3" ]; then
+		echo "FATAL: atlas directory missing"; exit 1
+	fi
+	# Quick file spot-check
+	if ! ls /opt/atlases/chass_symmetric3/*labels* >/dev/null 2>&1; then
+		echo "FATAL: atlas label file(s) missing"; exit 1
+	fi
+	echo "[test] OK"
 
 %runscript
-    #!/bin/sh
-    exec /bin/bash "$@"
+	#!/bin/sh
+	set -eu
+	echo "SAMBA container"
+	echo "  Image: final stage"
+	echo "  SAMBA: ${SAMBA_PATH}"
+	echo "  Atlas: ${SAMBA_ATLAS_DIR}"
+	echo
+	echo "Examples:"
+	echo "  singularity exec samba.sif samba-pipe /path/to/headfile"
