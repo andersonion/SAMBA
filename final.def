@@ -6,20 +6,13 @@ From: fsl_mcr.sif
 	Maintainer: BJ Anderson
 
 %environment
-	# --- Runtime env (kept minimal; MCR loader is already wired via ld.so.conf) ---
 	export SAMBA_ROOT="/opt/samba"
 	export SAMBA_PATH="/opt/samba/SAMBA"
-
-	# Perl local::lib location for Carton-installed deps
 	export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
 	export PERL5LIB="/opt/samba/perl5libs/lib/perl5"
 	export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
 	export PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
-
-	# Atlas dir exposed for pipeline defaults
 	export SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
-
-	# PATH: perl5 local bins, FSL skinny, ANTs (from parent), SAMBA scripts, system
 	export PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/fsl/bin:/opt/samba/ants/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 %post
@@ -30,15 +23,13 @@ From: fsl_mcr.sif
 	# =========================
 	SAMBA_ROOT="/opt/samba"
 	SAMBA_PATH="${SAMBA_ROOT}/SAMBA"
-
 	PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
 	PERL5LIB="/opt/samba/perl5libs/lib/perl5"
 	PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
 	PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
-
 	ATLAS_FOLDER="/opt/atlases"
 	SAMBA_ATLAS_DIR="${ATLAS_FOLDER}/chass_symmetric3"
-	ZENODO_ID="15178373"  # Mouse Brain Atlas Ex Vivo MRI
+	ZENODO_ID="15178373"
 
 	export SAMBA_ROOT SAMBA_PATH PERL_LOCAL_LIB_ROOT PERL5LIB PERL_MB_OPT PERL_MM_OPT
 
@@ -46,7 +37,6 @@ From: fsl_mcr.sif
 	# Helpers
 	# =========================
 	_sysrun() {
-		# Run with a clean env so MCR's older libstdc++ never leaks into system tools.
 		env -i \
 			PATH=/usr/sbin:/usr/bin:/sbin:/bin \
 			LC_ALL=C \
@@ -56,7 +46,6 @@ From: fsl_mcr.sif
 	}
 
 	_mcr_shield_begin() {
-		# Temporarily disable the MCR ld.so path so apt/curl use system libstdc++
 		if [ -f /etc/ld.so.conf.d/mcr_v90.conf ]; then
 			mv /etc/ld.so.conf.d/mcr_v90.conf /etc/ld.so.conf.d/mcr_v90.conf.disabled
 			ldconfig
@@ -73,7 +62,7 @@ From: fsl_mcr.sif
 	}
 
 	# =========================
-	# System deps (scrubbed env)
+	# System deps under scrubbed env
 	# =========================
 	_mcr_shield_begin
 	_sysrun apt-get update
@@ -97,7 +86,6 @@ From: fsl_mcr.sif
 		git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
 	fi
 	git -C /opt/src/SAMBA fetch --all --tags --prune
-	# Your repo uses 'master'
 	git -C /opt/src/SAMBA checkout -f -B buildpin origin/master
 
 	rm -rf "${SAMBA_PATH}.tmp"
@@ -106,26 +94,31 @@ From: fsl_mcr.sif
 	chmod -R a+rX "${SAMBA_PATH}"
 
 	# =========================
-	# Ensure Carton/local::lib available (no perlbrew)
+	# Install Carton + dependencies (baked in)
 	# =========================
 	/usr/bin/cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib Carton
-	# (We are not running `carton install` at build-time to avoid pinning host-specific toolchains.)
+
+	cd "${SAMBA_PATH}"
+	echo "[carton] installing dependencies..."
+	env -i \
+		PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+		LC_ALL=C \
+		DEBIAN_FRONTEND=noninteractive \
+		LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu \
+		bash -lc "carton install --deployment --path /opt/samba/perl5libs"
+	echo "[carton] done."
 
 	# =========================
 	# Embed Atlas from Zenodo
-	#  - If a .tar.gz exists, fetch and extract.
-	#  - Otherwise download the expected files individually.
 	# =========================
 	mkdir -p "${ATLAS_FOLDER}" "${SAMBA_ATLAS_DIR}"
 	cd "${ATLAS_FOLDER}"
 
-	# Pull record JSON under clean env to avoid SSL/lib issues
 	TMP_JSON="/tmp/zenodo_${ZENODO_ID}.json"
 	_mcr_shield_begin
 	_sysrun curl -fsSL "https://zenodo.org/api/records/${ZENODO_ID}" -o "${TMP_JSON}"
 	_mcr_shield_end
 
-	# Try to discover a tarball; fallback to individual files if none.
 	TARBALL_NAME="$(
 		python3 - "$TMP_JSON" <<'PY'
 import json,sys
@@ -146,11 +139,9 @@ PY
 		tar -xzf "${TARBALL_NAME}" -C "${ATLAS_FOLDER}"
 		rm -f "${TARBALL_NAME}"
 	else
-		echo "[atlas] no tarball; fetching individual files into ${SAMBA_ATLAS_DIR}"
-		mkdir -p "${SAMBA_ATLAS_DIR}"
+		echo "[atlas] no tarball; fetching individual files..."
 		req="chass_symmetric3_T2.nii.gz chass_symmetric3_DWI.nii.gz chass_symmetric3_FA.nii.gz chass_symmetric3_MD.nii.gz chass_symmetric3_MO.nii.gz chass_symmetric3_labels.nii.gz chass_symmetric3_labels_lookup.txt chass_symmetric3_mask.nii.gz"
 		for k in $req; do
-			echo "  - $k"
 			_mcr_shield_begin
 			_sysrun curl -fL --retry 4 --retry-delay 2 \
 				-o "${SAMBA_ATLAS_DIR}/${k}" \
@@ -158,39 +149,28 @@ PY
 			_mcr_shield_end
 		done
 	fi
-
 	chmod -R a+rX "${ATLAS_FOLDER}"
 
-	# =========================
-	# Final echo
-	# =========================
-	echo "[final] staged SAMBA at ${SAMBA_PATH}"
+	echo "[final] SAMBA at ${SAMBA_PATH}"
 	echo "[final] atlas at ${SAMBA_ATLAS_DIR}"
-	echo "[final] carton at: $(command -v carton || echo 'MISSING')"
+	echo "[final] Carton path: $(command -v carton || echo 'MISSING')"
 
 %test
 	set -eu
-	echo "[test] minimal checks…"
-	# Confirm core tools exist
+	echo "[test] basic check..."
 	command -v perl >/dev/null
 	command -v carton >/dev/null
-	# Confirm atlas presence (either extracted dir populated or at least labels exist)
 	if [ ! -d "/opt/atlases/chass_symmetric3" ]; then
 		echo "FATAL: atlas directory missing"; exit 1
-	fi
-	# Quick file spot-check
-	if ! ls /opt/atlases/chass_symmetric3/*labels* >/dev/null 2>&1; then
-		echo "FATAL: atlas label file(s) missing"; exit 1
 	fi
 	echo "[test] OK"
 
 %runscript
 	#!/bin/sh
 	set -eu
-	echo "SAMBA container"
-	echo "  Image: final stage"
+	echo "SAMBA container runtime"
 	echo "  SAMBA: ${SAMBA_PATH}"
 	echo "  Atlas: ${SAMBA_ATLAS_DIR}"
 	echo
-	echo "Examples:"
+	echo "Use:"
 	echo "  singularity exec samba.sif samba-pipe /path/to/headfile"
