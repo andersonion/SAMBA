@@ -132,9 +132,9 @@ function samba-pipe {
   )
   export CONTAINER_CMD_PREFIX="${CMD_PREFIX_A[*]}"
 
-  # Write selected env vars to ENV_FILE
+  # Write selected env vars to ENV_FILE (excluding CONTAINER_CMD_PREFIX)
   for var in USER BIGGUS_DISKUS SIF_PATH ATLAS_FOLDER NOTIFICATION_EMAIL \
-             PIPELINE_QUEUE SLURM_RESERVATION CONTAINER_CMD_PREFIX; do
+             PIPELINE_QUEUE SLURM_RESERVATION; do
     val="${!var:-}"
     if [[ -n "$val" ]]; then
       printf '%s=%s\n' "$var" "$val" >> "$ENV_FILE"
