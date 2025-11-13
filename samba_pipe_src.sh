@@ -43,16 +43,31 @@ export SAMBA_SIF_PATH="$SIF_PATH"
 
 # ---------- Optional: cluster client binds ----------
 EXTRA_BINDS=()
+
 # SLURM
 if command -v sbatch >/dev/null 2>&1; then
-  SBATCH_DIR="$(dirname "$(command -v sbatch)")"
+  SBATCH_BIN="$(command -v sbatch)"
+  SBATCH_DIR="$(dirname "$SBATCH_BIN")"
+
+  # Bind the directory containing sbatch/scancel/etc.
   EXTRA_BINDS+=( --bind "$SBATCH_DIR:$SBATCH_DIR" )
+
+  # Bind slurm.conf / /etc/slurm if present
   if [[ -n "${SLURM_CONF:-}" && -f "$SLURM_CONF" ]]; then
     EXTRA_BINDS+=( --bind "$(dirname "$SLURM_CONF")":"$(dirname "$SLURM_CONF")" )
   elif [[ -f /etc/slurm/slurm.conf ]]; then
     EXTRA_BINDS+=( --bind /etc/slurm:/etc/slurm )
   fi
+
+  # Try to locate libslurmfull.so or libslurm.so from ldd output and bind its directory
+  SLURM_LIB_PATH="$(ldd "$SBATCH_BIN" 2>/dev/null | awk '/libslurm(full)?\.so/ {print $3; exit}')"
+  if [[ -n "$SLURM_LIB_PATH" && -f "$SLURM_LIB_PATH" ]]; then
+    SLURM_LIB_DIR="$(dirname "$SLURM_LIB_PATH")"
+    EXTRA_BINDS+=( --bind "$SLURM_LIB_DIR:$SLURM_LIB_DIR" )
+    export SAMBA_SLURM_LIB_DIR="$SLURM_LIB_DIR"
+  fi
 fi
+
 # SGE
 if command -v qsub >/dev/null 2>&1; then
   QSUB_DIR="$(dirname "$(command -v qsub)")"
@@ -132,9 +147,10 @@ function samba-pipe {
   )
   export CONTAINER_CMD_PREFIX="${CMD_PREFIX_A[*]}"
 
-  # Write selected env vars to ENV_FILE (excluding CONTAINER_CMD_PREFIX)
+  # Write selected env vars to ENV_FILE
   for var in USER BIGGUS_DISKUS SIF_PATH ATLAS_FOLDER NOTIFICATION_EMAIL \
-             PIPELINE_QUEUE SLURM_RESERVATION; do
+             PIPELINE_QUEUE SLURM_RESERVATION SAMBA_SLURM_LIB_DIR \
+             CONTAINER_CMD_PREFIX; do
     val="${!var:-}"
     if [[ -n "$val" ]]; then
       printf '%s=%s\n' "$var" "$val" >> "$ENV_FILE"
