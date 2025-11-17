@@ -18,18 +18,18 @@
 
 # Try to auto-detect SIF if not provided.
 if [[ -z "${SIF_PATH:-}" ]]; then
-    if [[ -f "/home/apps/ubuntu-22.04/singularity/images/samba.sif" ]]; then
-        SIF_PATH="/home/apps/ubuntu-22.04/singularity/images/samba.sif"
-    elif [[ -f "/opt/containers/samba.sif" ]]; then
-        SIF_PATH="/opt/containers/samba.sif"
-    elif [[ -f "/opt/samba/samba.sif" ]]; then
-        SIF_PATH="/opt/samba/samba.sif"
-    fi
+  if [[ -f "/home/apps/ubuntu-22.04/singularity/images/samba.sif" ]]; then
+    SIF_PATH="/home/apps/ubuntu-22.04/singularity/images/samba.sif"
+  elif [[ -f "/opt/containers/samba.sif" ]]; then
+    SIF_PATH="/opt/containers/samba.sif"
+  elif [[ -f "/opt/samba/samba.sif" ]]; then
+    SIF_PATH="/opt/samba/samba.sif"
+  fi
 fi
 
 if [[ -z "${SIF_PATH:-}" ]]; then
-    echo "ERROR: SIF_PATH is not set and samba.sif could not be autodetected." >&2
-    echo "       Please export SIF_PATH=/full/path/to/samba.sif and re-source this file." >&2
+  echo "ERROR: SIF_PATH is not set and samba.sif could not be autodetected." >&2
+  echo "       Please export SIF_PATH=/full/path/to/samba.sif and re-source this file." >&2
 fi
 
 export CONTAINER_CMD
@@ -43,50 +43,50 @@ declare -a EXTRA_BINDS=()
 
 # Slurm config
 if [[ -d /etc/slurm ]]; then
-    EXTRA_BINDS+=( --bind /etc/slurm:/etc/slurm )
+  EXTRA_BINDS+=( --bind /etc/slurm:/etc/slurm )
 fi
 
 # sbatch/scancel (prefer /usr/local/bin if present)
 if command -v sbatch >/dev/null 2>&1; then
-    if [[ -d /usr/local/bin ]]; then
-        EXTRA_BINDS+=( --bind /usr/local/bin:/usr/local/bin )
-    fi
-    # If your site uses /usr/bin for Slurm, you *could* also bind that:
-    # if [[ -d /usr/bin ]]; then
-    #     EXTRA_BINDS+=( --bind /usr/bin:/usr/bin )
-    # fi
+  if [[ -d /usr/local/bin ]]; then
+    EXTRA_BINDS+=( --bind /usr/local/bin:/usr/local/bin )
+  fi
+  # If your site uses /usr/bin for Slurm, you *could* also bind that:
+  # if [[ -d /usr/bin ]]; then
+  #   EXTRA_BINDS+=( --bind /usr/bin:/usr/usr/bin )
+  # fi
 fi
 
 # Slurm plugins/libs
 if [[ -d /usr/local/lib/slurm ]]; then
-    EXTRA_BINDS+=( --bind /usr/local/lib/slurm:/usr/local/lib/slurm )
+  EXTRA_BINDS+=( --bind /usr/local/lib/slurm:/usr/local/lib/slurm )
 elif [[ -d /usr/lib/slurm ]]; then
-    EXTRA_BINDS+=( --bind /usr/lib/slurm:/usr/lib/slurm )
+  EXTRA_BINDS+=( --bind /usr/lib/slurm:/usr/lib/slurm )
 fi
 
 # Host glibc + system libs (critical for sbatch GLIBC_2.xx mismatch)
 if [[ -d /lib/x86_64-linux-gnu ]]; then
-    EXTRA_BINDS+=( --bind /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu )
+  EXTRA_BINDS+=( --bind /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu )
 fi
 
 if [[ -d /usr/lib/x86_64-linux-gnu ]]; then
-    EXTRA_BINDS+=( --bind /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu )
+  EXTRA_BINDS+=( --bind /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu )
 fi
 
 # Optional RHEL-ish:
 # if [[ -d /lib64 ]]; then
-#     EXTRA_BINDS+=( --bind /lib64:/lib64 )
+#   EXTRA_BINDS+=( --bind /lib64:/lib64 )
 # fi
 # if [[ -d /usr/lib64 ]]; then
-#     EXTRA_BINDS+=( --bind /usr/lib64:/usr/lib64 )
+#   EXTRA_BINDS+=( --bind /usr/lib64:/usr/lib64 )
 # fi
 
 # Allow user to inject extra binds:
 #   export SAMBA_EXTRA_BINDS="--bind /foo:/foo --bind /bar:/bar"
 if [[ -n "${SAMBA_EXTRA_BINDS:-}" ]]; then
-    # shellcheck disable=SC2206
-    ADDL=( ${SAMBA_EXTRA_BINDS} )
-    EXTRA_BINDS+=( "${ADDL[@]}" )
+  # shellcheck disable=SC2206
+  ADDL=( ${SAMBA_EXTRA_BINDS} )
+  EXTRA_BINDS+=( "${ADDL[@]}" )
 fi
 
 export EXTRA_BINDS
@@ -149,31 +149,13 @@ function samba-pipe {
   local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
   cp "$hf" "$hf_tmp"
 
-  # Env-file to feed into singularity/apptainer
-  local ENV_FILE
-  ENV_FILE="$(mktemp /tmp/samba_env.XXXXXX)"
-
   # Bind HF directory (host path visible in container)
   local BIND_HF_DIR=( --bind "$(dirname "$hf")":"$(dirname "$hf")" )
 
   # ------------------------------------------------------------------
-  # 1) Host-only prefix used to launch THIS container instance
-  #    (includes --env-file)
-  # ------------------------------------------------------------------
-  local HOST_CMD_PREFIX_A=(
-    "$CONTAINER_CMD" exec
-    --env-file "$ENV_FILE"
-    --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
-    "${BIND_HF_DIR[@]}"
-    "${BIND_ATLAS[@]}"
-    "${EXTRA_BINDS[@]}"
-    "$SIF_PATH"
-  )
-
-  # ------------------------------------------------------------------
-  # 2) Pipeline-facing CONTAINER_CMD_PREFIX that lives INSIDE container
+  # 1) Pipeline-facing CONTAINER_CMD_PREFIX that lives INSIDE container
   #    and is used in Perl/SAMBA to build sbatch/scancel commands.
-  #    IMPORTANT: this does NOT reference $ENV_FILE.
+  #    IMPORTANT: no --env-file here, just pure exec + binds.
   # ------------------------------------------------------------------
   local PIPELINE_CMD_PREFIX_A=(
     "$CONTAINER_CMD" exec
@@ -185,28 +167,39 @@ function samba-pipe {
 
   export CONTAINER_CMD_PREFIX="${PIPELINE_CMD_PREFIX_A[*]}"
 
-  # For debugging (optional):
-  # echo "[host] HOST_CMD_PREFIX_A: ${HOST_CMD_PREFIX_A[*]}" >&2
-  # echo "[host] CONTAINER_CMD_PREFIX: $CONTAINER_CMD_PREFIX" >&2
+  # ------------------------------------------------------------------
+  # 2) Host-side env injection for the *initial* container run
+  #    We use "env VAR=... VAR=... singularity exec ..." instead of
+  #    --env-file to avoid the "execution is disabled" error.
+  # ------------------------------------------------------------------
+  local ENV_EXPORT=()
+  ENV_EXPORT+=( env )
 
-  # ------------------------------------------------------------------
-  # Write selected env vars to ENV_FILE (visible INSIDE container)
-  # ------------------------------------------------------------------
   local var val
   for var in USER BIGGUS_DISKUS SIF_PATH ATLAS_FOLDER \
              NOTIFICATION_EMAIL PIPELINE_QUEUE SLURM_RESERVATION \
              CONTAINER_CMD_PREFIX; do
     val="${!var:-}"
     if [[ -n "$val" ]]; then
-      printf '%s=%s\n' "$var" "$val" >> "$ENV_FILE"
+      ENV_EXPORT+=( "${var}=${val}" )
     fi
   done
 
-  # ------------------------------------------------------------------
-  # Finally run SAMBA_startup inside the container using host prefix
-  # ------------------------------------------------------------------
-  # host-only convenience export (not needed inside, but helpful for shell debugging)
-  export HOST_CONTAINER_CMD_PREFIX="${HOST_CMD_PREFIX_A[*]}"
+  # Command prefix actually used on the host for this run
+  local HOST_CMD_PREFIX_A=(
+    "${ENV_EXPORT[@]}"
+    "$CONTAINER_CMD" exec
+    --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
+    "${BIND_HF_DIR[@]}"
+    "${BIND_ATLAS[@]}"
+    "${EXTRA_BINDS[@]}"
+    "$SIF_PATH"
+  )
 
+  # For debugging if needed:
+  # echo "[host] HOST_CMD_PREFIX_A: ${HOST_CMD_PREFIX_A[*]}" >&2
+  # echo "[host] CONTAINER_CMD_PREFIX: $CONTAINER_CMD_PREFIX" >&2
+
+  # Finally run SAMBA_startup inside the container
   eval "${HOST_CMD_PREFIX_A[*]}" SAMBA_startup "$hf_tmp"
 }
