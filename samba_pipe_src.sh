@@ -8,7 +8,8 @@
 #   - figures out BIGGUS_DISKUS
 #   - auto-binds atlas folder if ATLAS_FOLDER is set
 #   - auto-binds Slurm bits + host glibc/lib dirs (Option 2)
-#   - builds a singularity/apptainer exec prefix and launches SAMBA_startup.
+#   - builds a singularity exec prefix and launches SAMBA_startup.
+#
 
 # ----------------------------------------------------------------------
 # Container command + image
@@ -51,9 +52,9 @@ if command -v sbatch >/dev/null 2>&1; then
   if [[ -d /usr/local/bin ]]; then
     EXTRA_BINDS+=( --bind /usr/local/bin:/usr/local/bin )
   fi
-  # If your site uses /usr/bin for Slurm, you *could* also bind that:
+  # If site used /usr/bin for Slurm and you wanted it explicitly:
   # if [[ -d /usr/bin ]]; then
-  #   EXTRA_BINDS+=( --bind /usr/bin:/usr/usr/bin )
+  #   EXTRA_BINDS+=( --bind /usr/bin:/usr/bin )
   # fi
 fi
 
@@ -168,26 +169,10 @@ function samba-pipe {
   export CONTAINER_CMD_PREFIX="${PIPELINE_CMD_PREFIX_A[*]}"
 
   # ------------------------------------------------------------------
-  # 2) Host-side env injection for the *initial* container run
-  #    We use "env VAR=... VAR=... singularity exec ..." instead of
-  #    --env-file to avoid the "execution is disabled" error.
+  # 2) Host-side container launch for this run
+  #    Just use exported env, no --env-file, no env wrapper.
   # ------------------------------------------------------------------
-  local ENV_EXPORT=()
-  ENV_EXPORT+=( env )
-
-  local var val
-  for var in USER BIGGUS_DISKUS SIF_PATH ATLAS_FOLDER \
-             NOTIFICATION_EMAIL PIPELINE_QUEUE SLURM_RESERVATION \
-             CONTAINER_CMD_PREFIX; do
-    val="${!var:-}"
-    if [[ -n "$val" ]]; then
-      ENV_EXPORT+=( "${var}=${val}" )
-    fi
-  done
-
-  # Command prefix actually used on the host for this run
   local HOST_CMD_PREFIX_A=(
-    "${ENV_EXPORT[@]}"
     "$CONTAINER_CMD" exec
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
     "${BIND_HF_DIR[@]}"
