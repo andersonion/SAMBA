@@ -1,84 +1,59 @@
 #!/usr/bin/env bash
-# SAMBA launcher for Apptainer/Singularity with env handoff for Perl jobs.
+#
+# Source this file to get the `samba-pipe` function in your shell.
 
-# ---------- Container runtime ----------
-if command -v apptainer >/dev/null 2>&1; then
-  CONTAINER_CMD="$(command -v apptainer)"
-elif command -v singularity >/dev/null 2>&1; then
-  CONTAINER_CMD="$(command -v singularity)"
-else
-  echo "ERROR: Neither Apptainer nor Singularity found in PATH." >&2
-  return 1
+# ----------------------------------------------------------------------
+# Container command & image (override via env if desired)
+# ----------------------------------------------------------------------
+: "${CONTAINER_CMD:=/home/apps/ubuntu-22.04/singularity/bin/singularity}"
+: "${SIF_PATH:=/home/apps/ubuntu-22.04/singularity/images/samba.sif}"
+
+# Optional: default atlas inside the container (can be overridden by env)
+: "${ATLAS_FOLDER:=/opt/atlases/chass_symmetric3}"
+
+# You can also export NOTIFICATION_EMAIL, PIPELINE_QUEUE, SLURM_RESERVATION
+# in your own shell/profile; we just pass them through if set.
+
+# ----------------------------------------------------------------------
+# Build EXTRA_BINDS: host GLIBC + Slurm bits
+# ----------------------------------------------------------------------
+declare -a EXTRA_BINDS=()
+
+# 1) Host GLIBC / core system libs
+#    We bind these so host-compiled Slurm tools (sbatch, squeue, etc.)
+#    see the host's libc and libstdc++ instead of the container's older ones.
+if [[ -d /lib/x86_64-linux-gnu ]]; then
+  EXTRA_BINDS+=( --bind /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu )
 fi
 
-# ---------- Locate samba.sif ----------
-if [[ -n "${SAMBA_CONTAINER_PATH:-}" && -f "$SAMBA_CONTAINER_PATH" ]]; then
-  SIF_PATH="$SAMBA_CONTAINER_PATH"
-elif [[ -n "${SINGULARITY_IMAGE_DIR:-}" && -f "$SINGULARITY_IMAGE_DIR/samba.sif" ]]; then
-  SIF_PATH="$SINGULARITY_IMAGE_DIR/samba.sif"
-elif [[ -f "$HOME/containers/samba.sif" ]]; then
-  SIF_PATH="$HOME/containers/samba.sif"
-elif [[ -f "/home/apps/ubuntu-22.04/singularity/images/samba.sif" ]]; then
-  # Your current layout
-  SIF_PATH="/home/apps/ubuntu-22.04/singularity/images/samba.sif"
-else
-  echo "Trying to locate samba.sif using find... (this may take a moment)"
-  SEARCH_ROOT="${SAMBA_SEARCH_ROOT:-$HOME}"
-  SIF_PATH="$(find "$SEARCH_ROOT" -type f -name 'samba.sif' 2>/dev/null | head -n 1)"
-  if [[ -z "$SIF_PATH" ]]; then
-    echo "ERROR: Could not locate samba.sif" >&2
-    echo "Set SAMBA_CONTAINER_PATH or place it in one of:" >&2
-    echo "  \$SINGULARITY_IMAGE_DIR/samba.sif" >&2
-    echo "  \$HOME/containers/samba.sif" >&2
-    echo "  /home/apps/ubuntu-22.04/singularity/images/samba.sif" >&2
-    return 1
-  else
-    echo "Found samba.sif at: $SIF_PATH"
-  fi
-fi
-export SIF_PATH
-
-# Export for Perl inside container
-export SAMBA_CONTAINER_RUNTIME="$CONTAINER_CMD"
-export SAMBA_SIF_PATH="$SIF_PATH"
-
-# ---------- Optional: cluster client binds ----------
-EXTRA_BINDS=()
-
-# SLURM
-if command -v sbatch >/dev/null 2>&1; then
-  SBATCH_BIN="$(command -v sbatch)"
-  SBATCH_DIR="$(dirname "$SBATCH_BIN")"
-
-  # Bind the directory containing sbatch/scancel/etc.
-  EXTRA_BINDS+=( --bind "$SBATCH_DIR:$SBATCH_DIR" )
-
-  # Bind slurm.conf / /etc/slurm if present
-  if [[ -n "${SLURM_CONF:-}" && -f "$SLURM_CONF" ]]; then
-    EXTRA_BINDS+=( --bind "$(dirname "$SLURM_CONF")":"$(dirname "$SLURM_CONF")" )
-  elif [[ -f /etc/slurm/slurm.conf ]]; then
-    EXTRA_BINDS+=( --bind /etc/slurm:/etc/slurm )
-  fi
-
-  # Bind directory containing libslurmfull.so / libslurm.so
-  SLURM_LIB_PATH="$(ldd "$SBATCH_BIN" 2>/dev/null | awk '/libslurm(full)?\.so/ {print $3; exit}')"
-  if [[ -n "$SLURM_LIB_PATH" && -f "$SLURM_LIB_PATH" ]]; then
-    SLURM_LIB_DIR="$(dirname "$SLURM_LIB_PATH")"
-    EXTRA_BINDS+=( --bind "$SLURM_LIB_DIR:$SLURM_LIB_DIR" )
-    export SAMBA_SLURM_LIB_DIR="$SLURM_LIB_DIR"
-  fi
+if [[ -d /usr/lib/x86_64-linux-gnu ]]; then
+  EXTRA_BINDS+=( --bind /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu )
 fi
 
-# SGE
-if command -v qsub >/dev/null 2>&1; then
-  QSUB_DIR="$(dirname "$(command -v qsub)")"
-  EXTRA_BINDS+=( --bind "$QSUB_DIR:$QSUB_DIR" )
-  if [[ -n "${SGE_ROOT:-}" && -d "$SGE_ROOT" ]]; then
-    EXTRA_BINDS+=( --bind "$SGE_ROOT:$SGE_ROOT" )
-  fi
+# 2) Slurm client binaries (sbatch, squeue, scancel, etc.)
+#    Prefer /usr/local/bin if that’s where you install Slurm, otherwise
+#    fall back to whatever `command -v sbatch` finds.
+if [[ -x /usr/local/bin/sbatch ]]; then
+  EXTRA_BINDS+=( --bind /usr/local/bin:/usr/local/bin )
+elif command -v sbatch >/dev/null 2>&1; then
+  sbatch_path="$(command -v sbatch)"
+  sbatch_dir="$(dirname "$sbatch_path")"
+  EXTRA_BINDS+=( --bind "$sbatch_dir":"$sbatch_dir" )
 fi
 
-# ---------- Main ----------
+# 3) Slurm config
+if [[ -d /etc/slurm ]]; then
+  EXTRA_BINDS+=( --bind /etc/slurm:/etc/slurm )
+fi
+
+# 4) Slurm libs (your libslurmfull.so lives here)
+if [[ -d /usr/local/lib/slurm ]]; then
+  EXTRA_BINDS+=( --bind /usr/local/lib/slurm:/usr/local/lib/slurm )
+fi
+
+# ----------------------------------------------------------------------
+# Main user-facing entry point: samba-pipe
+# ----------------------------------------------------------------------
 function samba-pipe {
   local hf="$1"
   if [[ -z "$hf" ]]; then
@@ -110,6 +85,7 @@ function samba-pipe {
     echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
     return 1
   fi
+
   # Warn if directory is not group-writable (more accurate than -g/setgid)
   if ! perl -e 'exit((stat($ARGV[0]))[2] & 0020 ? 0 : 1)' "$BIGGUS_DISKUS"; then
     echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
@@ -123,7 +99,7 @@ function samba-pipe {
     echo "Warning: ATLAS_FOLDER not set or does not exist. Proceeding with default atlas."
   fi
 
-  # Export for Perl glue
+  # Export for Perl glue (kept from your version)
   export SAMBA_ATLAS_BIND="${BIND_ATLAS[*]}"
   export SAMBA_BIGGUS_BIND="$BIGGUS_DISKUS:$BIGGUS_DISKUS"
 
@@ -131,22 +107,33 @@ function samba-pipe {
   local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
   cp "$hf" "$hf_tmp"
 
-  # Build command (no --env-file; rely on inherited env)
+  # Env-file for container
+  local ENV_FILE
+  ENV_FILE="$(mktemp /tmp/samba_env.XXXXXX)"
+
+  # Build command prefix (include BIGGUS & HF dir binds, atlas, schedulers)
   local BIND_HF_DIR=( --bind "$(dirname "$hf")":"$(dirname "$hf")" )
-  local CMD=(
+  local CMD_PREFIX_A=(
     "$CONTAINER_CMD" exec
+    --env-file "$ENV_FILE"
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
     "${BIND_HF_DIR[@]}"
     "${BIND_ATLAS[@]}"
     "${EXTRA_BINDS[@]}"
     "$SIF_PATH"
-    SAMBA_startup
-    "$hf_tmp"
   )
+  export CONTAINER_CMD_PREFIX="${CMD_PREFIX_A[*]}"
 
-  # If you want to see what actually gets run, uncomment:
-  # echo "[debug] ${CMD[*]}" >&2
+  # Write selected env vars to ENV_FILE
+  local var val
+  for var in USER BIGGUS_DISKUS SIF_PATH ATLAS_FOLDER NOTIFICATION_EMAIL \
+             PIPELINE_QUEUE SLURM_RESERVATION CONTAINER_CMD_PREFIX; do
+    val="${!var:-}"
+    if [[ -n "$val" ]]; then
+      printf '%s=%s\n' "$var" "$val" >> "$ENV_FILE"
+    fi
+  done
 
-  "${CMD[@]}"
+  # Run inside the container
+  eval "$CONTAINER_CMD_PREFIX" SAMBA_startup "$hf_tmp"
 }
-
