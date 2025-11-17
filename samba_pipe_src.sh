@@ -119,9 +119,9 @@ function samba-pipe {
     fi
   done
 
-  # Build command prefix as an array
+  # Build command as an array; note we now call perl explicitly
   local BIND_HF_DIR=( --bind "$(dirname "$hf")":"$(dirname "$hf")" )
-  local CMD=( 
+  local CMD=(
     "$CONTAINER_CMD" exec
     --env-file "$ENV_FILE"
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
@@ -129,7 +129,8 @@ function samba-pipe {
     "${BIND_ATLAS[@]}"
     "${EXTRA_BINDS[@]}"
     "$SIF_PATH"
-    SAMBA_startup
+    perl
+    /opt/samba/SAMBA/SAMBA_startup
     "$hf_tmp"
   )
 
