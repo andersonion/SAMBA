@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# Slurm wrapper for sbatch. Fronts either the proxy or a native binary.
+# Backend is selected by SAMBA_SCHED_BACKEND:
+#   proxy  -> go through samba_sched_sbatch (daemon IPC)
+#   native -> use sbatch.real if present, else /usr/bin/sbatch
+
+if [[ "${SAMBA_SCHED_BACKEND:-native}" == "proxy" ]]; then
+  exec /opt/samba/bin/samba_sched_sbatch "$@"
+else
+  if command -v sbatch.real >/dev/null 2>&1; then
+    exec sbatch.real "$@"
+  elif command -v /usr/bin/sbatch >/dev/null 2>&1; then
+    exec /usr/bin/sbatch "$@"
+  else
+    echo "ERROR: sbatch wrapper called but no real sbatch available." >&2
+    exit 1
+  fi
+fi

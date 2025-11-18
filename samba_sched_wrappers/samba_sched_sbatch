@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Proxy helper for sbatch
+exec /opt/samba/bin/samba_sched_proxy sbatch "$@"

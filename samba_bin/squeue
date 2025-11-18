@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+# Slurm wrapper for squeue.
+
+if [[ "${SAMBA_SCHED_BACKEND:-native}" == "proxy" ]]; then
+  exec /opt/samba/bin/samba_sched_squeue "$@"
+else
+  if command -v squeue.real >/dev/null 2>&1; then
+    exec squeue.real "$@"
+  elif command -v /usr/bin/squeue >/dev/null 2>&1; then
+    exec /usr/bin/squeue "$@"
+  else
+    echo "ERROR: squeue wrapper called but no real squeue available." >&2
+    exit 1
+  fi
+fi

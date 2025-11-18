@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+# Slurm wrapper for scancel.
+
+if [[ "${SAMBA_SCHED_BACKEND:-native}" == "proxy" ]]; then
+  exec /opt/samba/bin/samba_sched_scancel "$@"
+else
+  if command -v scancel.real >/dev/null 2>&1; then
+    exec scancel.real "$@"
+  elif command -v /usr/bin/scancel >/dev/null 2>&1; then
+    exec /usr/bin/scancel "$@"
+  else
+    echo "ERROR: scancel wrapper called but no real scancel available." >&2
+    exit 1
+  fi
+fi

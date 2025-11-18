@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+# Slurm wrapper for sacct.
+
+if [[ "${SAMBA_SCHED_BACKEND:-native}" == "proxy" ]]; then
+  exec /opt/samba/bin/samba_sched_sacct "$@"
+else
+  if command -v sacct.real >/dev/null 2>&1; then
+    exec sacct.real "$@"
+  elif command -v /usr/bin/sacct >/dev/null 2>&1; then
+    exec /usr/bin/sacct "$@"
+  else
+    echo "ERROR: sacct wrapper called but no real sacct available." >&2
+    exit 1
+  fi
+fi
