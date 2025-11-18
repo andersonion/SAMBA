@@ -58,11 +58,16 @@ From: fsl_mcr.sif
     chmod -R a+rX "${SAMBA_PATH}"
 
     # --------------------------------------------------
-    # Perl deps: local::lib + Carton
-    # (assumes /usr/bin/cpanm exists from fsl_mcr stage)
+    # Perl deps: bootstrap cpanm, then local::lib + Carton
     # --------------------------------------------------
+    echo "[final] bootstrapping cpanm (App::cpanminus) if needed..."
+    if ! command -v cpanm >/dev/null 2>&1; then
+        # This installs cpanm into /usr/local/bin/cpanm by default
+        curl -fsSL https://cpanmin.us | perl - App::cpanminus
+    fi
+
     echo "[final] installing Perl toolchain (local::lib + Carton)..."
-    /usr/bin/cpanm --quiet --notest --local-lib=/opt/samba/perl5libs local::lib Carton
+    cpanm --quiet --notest --local-lib=/opt/samba/perl5libs local::lib Carton
 
     # Carton-managed deps from cpanfile
     echo "[final] running carton install under ${SAMBA_PATH}..."
