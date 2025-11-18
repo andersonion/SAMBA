@@ -62,8 +62,10 @@ From: fsl_mcr.sif
     # --------------------------------------------------
     echo "[final] bootstrapping cpanm (App::cpanminus) if needed..."
     if ! command -v cpanm >/dev/null 2>&1; then
-        # This installs cpanm into /usr/local/bin/cpanm by default
-        curl -fsSL https://cpanmin.us | perl - App::cpanminus
+        # IMPORTANT: run curl with a scrubbed env so MCR libcurl/libstdc++ don't break it
+        env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH= \
+            /usr/bin/curl -fsSL https://cpanmin.us \
+            | perl - App::cpanminus
     fi
 
     echo "[final] installing Perl toolchain (local::lib + Carton)..."
@@ -85,21 +87,21 @@ From: fsl_mcr.sif
 
     # --------------------------------------------------
     # Atlas fetch: Zenodo record 15178373
-    # (uses python3 & curl from base image)
+    # (uses python3 & curl with scrubbed env for curl)
     # --------------------------------------------------
     echo "[final] installing chass_symmetric3 atlas from Zenodo..."
     ATLAS_FOLDER=/opt/atlases
     AZ_ID=15178373
     DEST_DIR="${ATLAS_FOLDER}"
     CACHE_DIR=/opt/zenodo_cache
-    SAMBA_ATLAS_DIR=/opt/atlases/chass_symmetric3
 
     mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
     cd "${DEST_DIR}"
 
     TMP_JSON="/tmp/zenodo_${AZ_ID}.json"
     echo "[atlas] fetching Zenodo record JSON ${AZ_ID} ..."
-    curl -fsSL "https://zenodo.org/api/records/${AZ_ID}" -o "${TMP_JSON}"
+    env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH= \
+        /usr/bin/curl -fsSL "https://zenodo.org/api/records/${AZ_ID}" -o "${TMP_JSON}"
 
     python3 << 'EOF'
 import json, os, sys, subprocess
@@ -132,7 +134,17 @@ for f in to_fetch:
         subprocess.check_call(["cp", "-f", cache, dest])
     else:
         print(f"[atlas] downloading {key} ...")
-        subprocess.check_call(["curl", "-fL", "-o", dest, url])
+        # Run curl in a scrubbed environment so MATLAB MCR libs don't interfere
+        subprocess.check_call([
+            "env",
+            "-i",
+            "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
+            "LD_LIBRARY_PATH=",
+            "/usr/bin/curl",
+            "-fL",
+            "-o", dest,
+            url,
+        ])
         subprocess.check_call(["cp", "-f", dest, cache])
 
 EOF
