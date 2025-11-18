@@ -1,100 +1,66 @@
 #!/usr/bin/env bash
 #
-# SAMBA container wrapper:
-#   source this file, then use:
-#       samba-pipe /path/to/headfile.hf
+# samba_pipe_src.sh
 #
-# This wrapper:
-#   - figures out BIGGUS_DISKUS
-#   - auto-binds atlas folder if ATLAS_FOLDER is set
-#   - auto-binds Slurm bits + host glibc/lib dirs (Option 2)
-#   - builds a singularity exec prefix and launches SAMBA_startup.
+# Host-side helper for launching SAMBA inside the Singularity/Apptainer
+# container via a simple:
+#
+#   samba-pipe /path/to/headfile.hf
+#
+# It:
+#   - Normalizes the headfile path
+#   - Chooses BIGGUS_DISKUS (scratch) if not already set
+#   - Sets up scheduler-proxy env (SAMBA_SCHED_*)
+#   - Builds the Singularity exec command with all necessary binds
+#   - Exposes CONTAINER_CMD_PREFIX (used inside SAMBA to launch jobs)
 #
 
-# ----------------------------------------------------------------------
-# Container command + image
-# ----------------------------------------------------------------------
+# -----------------------------
+#  Core configuration (host)
+# -----------------------------
 
+# Location of samba.sif and Singularity/Apptainer on THIS machine.
 : "${CONTAINER_CMD:=singularity}"
+: "${SIF_PATH:=/opt/containers/samba.sif}"
 
-# Try to auto-detect SIF if not provided.
-if [[ -z "${SIF_PATH:-}" ]]; then
-  if [[ -f "/home/apps/ubuntu-22.04/singularity/images/samba.sif" ]]; then
-    SIF_PATH="/home/apps/ubuntu-22.04/singularity/images/samba.sif"
-  elif [[ -f "/opt/containers/samba.sif" ]]; then
-    SIF_PATH="/opt/containers/samba.sif"
-  elif [[ -f "/opt/samba/samba.sif" ]]; then
-    SIF_PATH="/opt/samba/samba.sif"
+# Where the SAMBA repo is installed on the host (for this helper script).
+# This is not strictly required at runtime but is often useful.
+: "${SAMBA_APPS_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)}"
+
+# Default scratch selection if BIGGUS_DISKUS is not already set.
+_samba_pick_biggus() {
+  if [[ -n "${BIGGUS_DISKUS:-}" ]]; then
+    return 0
   fi
-fi
-
-if [[ -z "${SIF_PATH:-}" ]]; then
-  echo "ERROR: SIF_PATH is not set and samba.sif could not be autodetected." >&2
-  echo "       Please export SIF_PATH=/full/path/to/samba.sif and re-source this file." >&2
-fi
-
-export CONTAINER_CMD
-export SIF_PATH
-
-# ----------------------------------------------------------------------
-# Extra bind detection (Slurm + host libs: Option 2)
-# ----------------------------------------------------------------------
-
-declare -a EXTRA_BINDS=()
-
-# Slurm config
-if [[ -d /etc/slurm ]]; then
-  EXTRA_BINDS+=( --bind /etc/slurm:/etc/slurm )
-fi
-
-# sbatch/scancel (prefer /usr/local/bin if present)
-if command -v sbatch >/dev/null 2>&1; then
-  if [[ -d /usr/local/bin ]]; then
-    EXTRA_BINDS+=( --bind /usr/local/bin:/usr/local/bin )
+  if [[ -d "${SCRATCH:-}" ]]; then
+    export BIGGUS_DISKUS="$SCRATCH"
+  elif [[ -d "${WORK:-}" ]]; then
+    export BIGGUS_DISKUS="$WORK"
+  else
+    export BIGGUS_DISKUS="$HOME/samba_scratch"
+    mkdir -p "$BIGGUS_DISKUS"
   fi
-  # If site used /usr/bin for Slurm and you wanted it explicitly:
-  # if [[ -d /usr/bin ]]; then
-  #   EXTRA_BINDS+=( --bind /usr/bin:/usr/bin )
-  # fi
-fi
+}
 
-# Slurm plugins/libs
-if [[ -d /usr/local/lib/slurm ]]; then
-  EXTRA_BINDS+=( --bind /usr/local/lib/slurm:/usr/local/lib/slurm )
-elif [[ -d /usr/lib/slurm ]]; then
-  EXTRA_BINDS+=( --bind /usr/lib/slurm:/usr/lib/slurm )
-fi
+# Scheduler proxy configuration:
+#   - SAMBA_SCHED_BACKEND=proxy (use host daemon via file-based protocol)
+#   - SAMBA_SCHED_DIR is a shared directory visible to both host & container
+: "${SAMBA_SCHED_DIR:=$HOME/.samba_sched}"
+: "${SAMBA_SCHED_BACKEND:=proxy}"
 
-# Host glibc + system libs (critical for sbatch GLIBC_2.xx mismatch)
-if [[ -d /lib/x86_64-linux-gnu ]]; then
-  EXTRA_BINDS+=( --bind /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu )
-fi
+export SAMBA_SCHED_DIR SAMBA_SCHED_BACKEND
 
-if [[ -d /usr/lib/x86_64-linux-gnu ]]; then
-  EXTRA_BINDS+=( --bind /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu )
-fi
+# Create the scheduler directory on the host so it can be bind-mounted.
+mkdir -p "$SAMBA_SCHED_DIR"
 
-# Optional RHEL-ish:
-# if [[ -d /lib64 ]]; then
-#   EXTRA_BINDS+=( --bind /lib64:/lib64 )
-# fi
-# if [[ -d /usr/lib64 ]]; then
-#   EXTRA_BINDS+=( --bind /usr/lib64:/usr/lib64 )
-# fi
+# Extra binds you want *always* for this site (host-specific).
+# You can customize these to your environment; here we keep it minimal and
+# let headfile & BIGGUS bindings be handled dynamically per call.
+EXTRA_BINDS=()
 
-# Allow user to inject extra binds:
-#   export SAMBA_EXTRA_BINDS="--bind /foo:/foo --bind /bar:/bar"
-if [[ -n "${SAMBA_EXTRA_BINDS:-}" ]]; then
-  # shellcheck disable=SC2206
-  ADDL=( ${SAMBA_EXTRA_BINDS} )
-  EXTRA_BINDS+=( "${ADDL[@]}" )
-fi
-
-export EXTRA_BINDS
-
-# ----------------------------------------------------------------------
-# Main entry point: samba-pipe
-# ----------------------------------------------------------------------
+# -----------------------------
+#  Main entrypoint function
+# -----------------------------
 function samba-pipe {
   local hf="$1"
 
@@ -112,79 +78,81 @@ function samba-pipe {
     return 1
   fi
 
-  # BIGGUS_DISKUS selection & validation
-  if [[ -z "${BIGGUS_DISKUS:-}" ]]; then
-    if [[ -d "${SCRATCH:-}" ]]; then
-      export BIGGUS_DISKUS="$SCRATCH"
-    elif [[ -d "${WORK:-}" ]]; then
-      export BIGGUS_DISKUS="$WORK"
-    else
-      export BIGGUS_DISKUS="$HOME/samba_scratch"
-      mkdir -p "$BIGGUS_DISKUS"
-    fi
-  fi
-
+  # Ensure BIGGUS_DISKUS is set to a writable dir
+  _samba_pick_biggus
   if [[ ! -d "$BIGGUS_DISKUS" || ! -w "$BIGGUS_DISKUS" ]]; then
     echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
     return 1
   fi
 
-  # Warn if directory is not group-writable
+  # Warn if directory is not group-writable (more accurate than -g/setgid)
   if ! perl -e 'exit((stat($ARGV[0]))[2] & 0020 ? 0 : 1)' "$BIGGUS_DISKUS"; then
     echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
   fi
 
-  # Atlas bind (array-safe)
+  # Atlas bind (if a host atlas folder is set)
   local BIND_ATLAS=()
   if [[ -n "${ATLAS_FOLDER:-}" && -d "$ATLAS_FOLDER" ]]; then
     BIND_ATLAS=( --bind "$ATLAS_FOLDER:$ATLAS_FOLDER" )
-  else
-    echo "Warning: ATLAS_FOLDER not set or does not exist. Proceeding with default atlas."
   fi
 
-  # Export for Perl glue
-  export SAMBA_ATLAS_BIND="${BIND_ATLAS[*]}"
-  export SAMBA_BIGGUS_BIND="$BIGGUS_DISKUS:$BIGGUS_DISKUS"
+  # Scheduler directory bind (for proxy backend)
+  local BIND_SCHED=()
+  if [[ "$SAMBA_SCHED_BACKEND" == "proxy" && -d "$SAMBA_SCHED_DIR" ]]; then
+    BIND_SCHED=( --bind "$SAMBA_SCHED_DIR:$SAMBA_SCHED_DIR" )
+  fi
 
-  # Stage HF to /tmp for stable path
+  # Headfile directory bind
+  local HF_DIR
+  HF_DIR="$(dirname "$hf")"
+  local BIND_HF_DIR=( --bind "$HF_DIR:$HF_DIR" )
+
+  # BIGGUS_DISKUS bind
+  local BIND_BIGGUS=( --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS" )
+
+  # Aggregate binds for container invocation
+  local BIND_ALL=(
+    "${BIND_BIGGUS[@]}"
+    "${BIND_HF_DIR[@]}"
+    "${BIND_ATLAS[@]}"
+    "${BIND_SCHED[@]}"
+    "${EXTRA_BINDS[@]}"
+  )
+
+  # Stage HF to /tmp for a stable path inside the container
   local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
   cp "$hf" "$hf_tmp"
 
-  # Bind HF directory (host path visible in container)
-  local BIND_HF_DIR=( --bind "$(dirname "$hf")":"$(dirname "$hf")" )
-
-  # ------------------------------------------------------------------
-  # 1) Pipeline-facing CONTAINER_CMD_PREFIX that lives INSIDE container
-  #    and is used in Perl/SAMBA to build sbatch/scancel commands.
-  #    IMPORTANT: no --env-file here, just pure exec + binds.
-  # ------------------------------------------------------------------
-  local PIPELINE_CMD_PREFIX_A=(
+  # Build command prefix used inside the container for sbatch/squeue logic
+  local CMD_PREFIX_A=(
     "$CONTAINER_CMD" exec
-    --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
-    "${BIND_ATLAS[@]}"
-    "${EXTRA_BINDS[@]}"
+    "${BIND_ALL[@]}"
     "$SIF_PATH"
   )
+  export CONTAINER_CMD_PREFIX="${CMD_PREFIX_A[*]}"
 
-  export CONTAINER_CMD_PREFIX="${PIPELINE_CMD_PREFIX_A[*]}"
+  # Export for the container environment (via singularity env propagation)
+  # NOTE: We call `env VAR=... "$CONTAINER_CMD" exec ...` so that these
+  #       variables are definitely present inside the container.
+  env \
+    USER="$USER" \
+    BIGGUS_DISKUS="$BIGGUS_DISKUS" \
+    SIF_PATH="$SIF_PATH" \
+    ATLAS_FOLDER="${ATLAS_FOLDER:-}" \
+    NOTIFICATION_EMAIL="${NOTIFICATION_EMAIL:-}" \
+    PIPELINE_QUEUE="${PIPELINE_QUEUE:-}" \
+    SLURM_RESERVATION="${SLURM_RESERVATION:-}" \
+    CONTAINER_CMD_PREFIX="${CMD_PREFIX_A[*]}" \
+    SAMBA_SCHED_BACKEND="$SAMBA_SCHED_BACKEND" \
+    SAMBA_SCHED_DIR="$SAMBA_SCHED_DIR" \
+    "$CONTAINER_CMD" exec \
+      "${BIND_ALL[@]}" \
+      "$SIF_PATH" \
+      SAMBA_startup "$hf_tmp"
+}
 
-  # ------------------------------------------------------------------
-  # 2) Host-side container launch for this run
-  #    Just use exported env, no --env-file, no env wrapper.
-  # ------------------------------------------------------------------
-  local HOST_CMD_PREFIX_A=(
-    "$CONTAINER_CMD" exec
-    --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
-    "${BIND_HF_DIR[@]}"
-    "${BIND_ATLAS[@]}"
-    "${EXTRA_BINDS[@]}"
-    "$SIF_PATH"
-  )
-
-  # For debugging if needed:
-  # echo "[host] HOST_CMD_PREFIX_A: ${HOST_CMD_PREFIX_A[*]}" >&2
-  # echo "[host] CONTAINER_CMD_PREFIX: $CONTAINER_CMD_PREFIX" >&2
-
-  # Finally run SAMBA_startup inside the container
-  eval "${HOST_CMD_PREFIX_A[*]}" SAMBA_startup "$hf_tmp"
+# Optional: tiny sanity helper
+function samba-pipe-prefix-debug {
+  samba-pipe /dev/null 2>/dev/null || true
+  env | grep '^CONTAINER_CMD_PREFIX='
 }

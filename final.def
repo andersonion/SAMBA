@@ -2,199 +2,208 @@ Bootstrap: localimage
 From: fsl_mcr.sif
 
 %labels
-    Stage: final
-    Maintainer: BJ Anderson
+    Stage final
+    Maintainer "BJ / SAMBA container"
 
 %environment
-    export SAMBA_ROOT="/opt/samba"
-    export SAMBA_PATH="/opt/samba/SAMBA"
-    export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
-    export PERL5LIB="/opt/samba/perl5libs/lib/perl5"
+    # Core SAMBA paths inside the container
+    export SAMBA_ROOT=/opt/samba
+    export SAMBA_PATH=/opt/samba/SAMBA
+
+    # Perl library setup for Carton-managed deps
+    export PERL_LOCAL_LIB_ROOT=/opt/samba/perl5libs
     export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
-    export PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
-    export SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
-    export PATH="/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/fsl/bin:/opt/samba/ants/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    export PERL_MM_OPT=INSTALL_BASE=/opt/samba/perl5libs
+    export PERL5LIB=/opt/samba/perl5libs/lib/perl5
+
+    # --- NEW: ensure /opt/samba/bin is first on PATH so wrappers win ---
+    export PATH=/opt/samba/bin:/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/fsl/bin:/opt/samba/ants/bin:$PATH
+
+    # Atlas defaults inside the container
+    export ATLAS_FOLDER=/opt/atlases/chass_symmetric3
+    export SAMBA_ATLAS_DIR=/opt/atlases/chass_symmetric3
 
 %post
     set -eu
 
-    # =========================
-    # Vars
-    # =========================
-    SAMBA_ROOT="/opt/samba"
-    SAMBA_PATH="${SAMBA_ROOT}/SAMBA"
-    PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
-    PERL5LIB="/opt/samba/perl5libs/lib/perl5"
-    PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
-    PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
-    ATLAS_FOLDER="/opt/atlases"
-    SAMBA_ATLAS_DIR="${ATLAS_FOLDER}/chass_symmetric3"
-    ZENODO_ID="15178373"
+    SAMBA_ROOT=/opt/samba
+    SAMBA_PATH=/opt/samba/SAMBA
 
-    export SAMBA_ROOT SAMBA_PATH PERL_LOCAL_LIB_ROOT PERL5LIB PERL_MB_OPT PERL_MM_OPT
+    mkdir -p /opt/src "$SAMBA_ROOT" /opt/samba/perl5 /opt/samba/perl5libs /opt/atlases /opt/zenodo_cache
 
-    # =========================
-    # Helpers
-    # =========================
-    _sysrun() {
-        env -i \
-            PATH=/usr/sbin:/usr/bin:/sbin:/bin \
-            LC_ALL=C \
-            DEBIAN_FRONTEND=noninteractive \
-            LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu \
-            "$@"
-    }
+    echo "[final] updating apt index & installing base tools..."
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        wget \
+        git \
+        perl \
+        cpanminus \
+        unzip \
+        less \
+        procps \
+        locales
+    rm -rf /var/lib/apt/lists/*
+    locale-gen en_US.UTF-8 || true
 
-    _mcr_shield_begin() {
-        if [ -f /etc/ld.so.conf.d/mcr_v90.conf ]; then
-            mv /etc/ld.so.conf.d/mcr_v90.conf /etc/ld.so.conf.d/mcr_v90.conf.disabled
-            ldconfig
-            : > /tmp/.mcr_shielded
-        fi
-    }
-
-    _mcr_shield_end() {
-        if [ -f /tmp/.mcr_shielded ]; then
-            mv /etc/ld.so.conf.d/mcr_v90.conf.disabled /etc/ld.so.conf.d/mcr_v90.conf
-            ldconfig
-            rm -f /tmp/.mcr_shielded
-        fi
-    }
-
-    # =========================
-    # System deps (shield MCR so tools see system libstdc++)
-    # =========================
-    _mcr_shield_begin
-    _sysrun apt-get update
-    _sysrun apt-get install -y --no-install-recommends \
-        git rsync ca-certificates curl unzip \
-        make gcc perl-modules cpanminus
-    _sysrun apt-get clean
-    _sysrun rm -rf /var/lib/apt/lists/*
-    _mcr_shield_end
-
-    # =========================
-    # Layout
-    # =========================
-    mkdir -p /opt/src "${SAMBA_ROOT}" /opt/samba/perl5 /opt/samba/perl5libs
-    chmod 0755 "${SAMBA_ROOT}"
-
-    # =========================
-    # Fetch & stage SAMBA (origin/master)
-    # =========================
+    # ------------------------------
+    # Clone SAMBA from GitHub
+    # ------------------------------
+    echo "[final] cloning SAMBA..."
     if [ ! -d /opt/src/SAMBA ]; then
         git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
     fi
     git -C /opt/src/SAMBA fetch --all --tags --prune
-    git -C /opt/src/SAMBA checkout -f -B buildpin origin/master
 
+    # Pin to origin/master into a build branch
+    SAMBA_REF=master
+    if git -C /opt/src/SAMBA show-ref --verify --quiet "refs/remotes/origin/${SAMBA_REF}"; then
+        git -C /opt/src/SAMBA checkout -f -B buildpin "origin/${SAMBA_REF}"
+    else
+        echo "FATAL: cannot resolve SAMBA_REF='${SAMBA_REF}' in /opt/src/SAMBA" >&2
+        git -C /opt/src/SAMBA show-ref | sed 's/^/  /' >&2
+        exit 1
+    fi
+
+    # Sync into /opt/samba/SAMBA
+    echo "[final] installing SAMBA into ${SAMBA_PATH}..."
     rm -rf "${SAMBA_PATH}.tmp"
     rsync -a --delete /opt/src/SAMBA/ "${SAMBA_PATH}.tmp"/
     mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
     chmod -R a+rX "${SAMBA_PATH}"
 
-    # =========================
-    # Install Carton + deps (BAKED IN)
-    # =========================
-    /usr/bin/cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib Carton
+    # ------------------------------
+    # Perl deps: local::lib + Carton
+    # ------------------------------
+    echo "[final] installing Perl toolchain (local::lib + Carton)..."
+    /usr/bin/cpanm --quiet --notest --local-lib=/opt/samba/perl5libs local::lib Carton
 
-    CARTON_BIN="/opt/samba/perl5libs/bin/carton"
-    if [ ! -x "${CARTON_BIN}" ]; then
-        echo "FATAL: ${CARTON_BIN} missing after cpanm install" >&2
-        exit 1
-    fi
-
+    # Carton-managed deps from cpanfile (no --deployment to avoid snapshot issues)
+    echo "[final] running carton install under ${SAMBA_PATH}..."
     cd "${SAMBA_PATH}"
-    echo "[carton] warm install to generate cpanfile.snapshot..."
-    env -i \
-        PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-        LC_ALL=C \
-        DEBIAN_FRONTEND=noninteractive \
-        LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
-        PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
-        "${CARTON_BIN}" install --path "/opt/samba/perl5libs"
+    env \
+      PERL_LOCAL_LIB_ROOT=/opt/samba/perl5libs \
+      PERL_MB_OPT='--install_base "/opt/samba/perl5libs"' \
+      PERL_MM_OPT=INSTALL_BASE=/opt/samba/perl5libs \
+      PERL5LIB=/opt/samba/perl5libs/lib/perl5 \
+      PATH=/opt/samba/perl5libs/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+      carton install
 
-    if [ -f "cpanfile.snapshot" ]; then
-        echo "[carton] snapshot present; locking with --deployment..."
-        env -i \
-            PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-            LC_ALL=C \
-            DEBIAN_FRONTEND=noninteractive \
-            LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
-            PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
-            "${CARTON_BIN}" install --deployment --path "/opt/samba/perl5libs"
-    else
-        echo "[carton] WARNING: no cpanfile.snapshot created; proceeding with non-deployment install."
+    # Ensure the local lib bin dir exists (for any scripts Carton installs)
+    mkdir -p /opt/samba/perl5libs/bin
+
+    # ------------------------------
+    # Atlas fetch: Zenodo record 15178373
+    # ------------------------------
+    echo "[final] installing chass_symmetric3 atlas from Zenodo..."
+    ATLAS_FOLDER=/opt/atlases
+    AZ_ID=15178373
+    DEST_DIR="${ATLAS_FOLDER}"
+    CACHE_DIR=/opt/zenodo_cache
+    SAMBA_ATLAS_DIR=/opt/atlases/chass_symmetric3
+
+    mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
+    cd "${DEST_DIR}"
+
+    TMP_JSON="/tmp/zenodo_${AZ_ID}.json"
+    echo "[atlas] fetching Zenodo record JSON ${AZ_ID} ..."
+    curl -fsSL "https://zenodo.org/api/records/${AZ_ID}" -o "${TMP_JSON}"
+
+    # We want all the chass_symmetric3_* files from this record.
+    # Use Python to parse the JSON reliably.
+    python3 << 'EOF'
+import json, os, sys, subprocess
+
+json_path = "/tmp/zenodo_15178373.json"
+out_dir = "/opt/atlases"
+cache_dir = "/opt/zenodo_cache"
+
+with open(json_path, "r") as f:
+    rec = json.load(f)
+
+files = rec.get("files", [])
+target_prefix = "chass_symmetric3_"
+
+to_fetch = [f for f in files if f.get("key","").startswith(target_prefix)]
+if not to_fetch:
+    print("FATAL: no chass_symmetric3_* files found in Zenodo JSON", file=sys.stderr)
+    sys.exit(1)
+
+os.makedirs(out_dir, exist_ok=True)
+os.makedirs(cache_dir, exist_ok=True)
+
+for f in to_fetch:
+    key = f["key"]
+    url = f["links"]["self"]  # direct content URL
+    dest = os.path.join(out_dir, key)
+    cache = os.path.join(cache_dir, key)
+
+    if os.path.exists(cache):
+        # Use cached copy
+        subprocess.check_call(["cp", "-f", cache, dest])
+    else:
+        print(f"[atlas] downloading {key} ...")
+        subprocess.check_call(["curl", "-fL", "-o", dest, url])
+        subprocess.check_call(["cp", "-f", dest, cache])
+
+EOF
+
+    # Sanity check: make sure a couple of key atlas files exist
+    for f in \
+      chass_symmetric3_T2.nii.gz \
+      chass_symmetric3_labels.nii.gz \
+      chass_symmetric3_labels_lookup.txt \
+      chass_symmetric3_mask.nii.gz; do
+        if [ ! -f "${DEST_DIR}/${f}" ]; then
+            echo "FATAL: atlas file missing: ${DEST_DIR}/${f}" >&2
+            exit 1
+        fi
+    done
+
+    chmod -R a+rX "${DEST_DIR}" /opt/zenodo_cache
+
+    # ------------------------------
+    # NEW: install runtime bin + sched wrappers
+    # ------------------------------
+    echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
+    mkdir -p /opt/samba/bin
+
+    # Helper / utility scripts (your "samba_bin" folder in the repo)
+    if [ -d "${SAMBA_PATH}/samba_bin" ]; then
+        cp -f "${SAMBA_PATH}"/samba_bin/* /opt/samba/bin/ || true
     fi
-    echo "[carton] done."
 
-    # =========================
-    # Embed Atlas from Zenodo (tarball if present; else individual files)
-    # =========================
-    mkdir -p "${ATLAS_FOLDER}" "${SAMBA_ATLAS_DIR}"
-    cd "${ATLAS_FOLDER}"
-
-    TMP_JSON="/tmp/zenodo_${ZENODO_ID}.json"
-    _mcr_shield_begin
-    _sysrun curl -fsSL "https://zenodo.org/api/records/${ZENODO_ID}" -o "${TMP_JSON}"
-    _mcr_shield_end
-
-    TARBALL_NAME="$(
-        python3 - "$TMP_JSON" <<'PY'
-import json,sys
-j=json.load(open(sys.argv[1]))
-files=j.get("files",[])
-t=[f["key"] for f in files if f["key"].endswith(".tar.gz")]
-print(t[0] if t else "")
-PY
-    )"
-
-    if [ -n "${TARBALL_NAME}" ]; then
-        echo "[atlas] fetching tarball: ${TARBALL_NAME}"
-        _mcr_shield_begin
-        _sysrun curl -fL --retry 4 --retry-delay 2 \
-            -o "${TARBALL_NAME}" \
-            "https://zenodo.org/api/records/${ZENODO_ID}/files/${TARBALL_NAME}/content"
-        _mcr_shield_end
-        tar -xzf "${TARBALL_NAME}" -C "${ATLAS_FOLDER}"
-        rm -f "${TARBALL_NAME}"
-    else
-        echo "[atlas] no tarball; fetching individual files..."
-        req="chass_symmetric3_T2.nii.gz chass_symmetric3_DWI.nii.gz chass_symmetric3_FA.nii.gz chass_symmetric3_MD.nii.gz chass_symmetric3_MO.nii.gz chass_symmetric3_labels.nii.gz chass_symmetric3_labels_lookup.txt chass_symmetric3_mask.nii.gz"
-        for k in $req; do
-            _mcr_shield_begin
-            _sysrun curl -fL --retry 4 --retry-delay 2 \
-                -o "${SAMBA_ATLAS_DIR}/${k}" \
-                "https://zenodo.org/api/records/${ZENODO_ID}/files/${k}/content"
-            _mcr_shield_end
-        done
+    # Scheduler wrappers (your "samba_sched_wrappers" folder in the repo)
+    if [ -d "${SAMBA_PATH}/samba_sched_wrappers" ]; then
+        cp -f "${SAMBA_PATH}"/samba_sched_wrappers/* /opt/samba/bin/ || true
     fi
-    chmod -R a+rX "${ATLAS_FOLDER}"
 
-    echo "[final] SAMBA at ${SAMBA_PATH}"
-    echo "[final] atlas at ${SAMBA_ATLAS_DIR}"
-    echo "[final] Carton path: ${CARTON_BIN}"
+    chmod -R a+rx /opt/samba/bin
+
+    echo "[final] done: SAMBA + atlas + wrappers installed."
+
+%runscript
+    # Default container entrypoint: just give an interactive shell.
+    # You typically won't rely on this when using samba-pipe, but it is
+    # convenient for debugging:
+    exec /bin/bash "$@"
 
 %test
     set -eu
-    echo "[test] basic check..."
-    command -v perl >/dev/null
-    if [ ! -x /opt/samba/perl5libs/bin/carton ]; then
-        echo "FATAL: carton not found in /opt/samba/perl5libs/bin"; exit 1
-    fi
-    if [ ! -d "/opt/atlases/chass_symmetric3" ]; then
-        echo "FATAL: atlas directory missing"; exit 1
-    fi
-    # Snapshot is nice-to-have; don’t fail if absent.
-    [ -f "/opt/samba/SAMBA/cpanfile.snapshot" ] && echo "[test] snapshot present"
-    echo "[test] OK"
+    echo "[test] checking atlas..."
+    ls -lh /opt/atlases/chass_symmetric3/chass_symmetric3_T2.nii.gz \
+           /opt/atlases/chass_symmetric3/chass_symmetric3_labels.nii.gz \
+           /opt/atlases/chass_symmetric3/chass_symmetric3_mask.nii.gz
 
-%runscript
-    #!/bin/sh
-    set -eu
-    echo "SAMBA container runtime"
-    echo "  SAMBA: ${SAMBA_PATH}"
-    echo "  Atlas: ${SAMBA_ATLAS_DIR}"
-    echo
-    echo "Use:"
-    echo "  singularity exec samba.sif samba-pipe /path/to/headfile"
+    echo "[test] checking SAMBA bin & wrappers..."
+    ls -lh /opt/samba/bin || true
+
+    echo "[test] checking Carton availability..."
+    perl -MCarton -e 'print "Carton OK\n"' || {
+        echo "FATAL: Carton not available in final image" >&2
+        exit 1
+    }
+
+    echo "[test] final stage OK."
