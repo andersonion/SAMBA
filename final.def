@@ -16,7 +16,7 @@ From: fsl_mcr.sif
     export PERL_MM_OPT=INSTALL_BASE=/opt/samba/perl5libs
     export PERL5LIB=/opt/samba/perl5libs/lib/perl5
 
-    # --- NEW: ensure /opt/samba/bin is first on PATH so wrappers win ---
+    # Ensure /opt/samba/bin is first on PATH so wrappers win
     export PATH=/opt/samba/bin:/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/fsl/bin:/opt/samba/ants/bin:$PATH
 
     # Atlas defaults inside the container
@@ -31,26 +31,9 @@ From: fsl_mcr.sif
 
     mkdir -p /opt/src "$SAMBA_ROOT" /opt/samba/perl5 /opt/samba/perl5libs /opt/atlases /opt/zenodo_cache
 
-    echo "[final] updating apt index & installing base tools..."
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update
-    apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        wget \
-        git \
-        perl \
-        cpanminus \
-        unzip \
-        less \
-        procps \
-        locales
-    rm -rf /var/lib/apt/lists/*
-    locale-gen en_US.UTF-8 || true
-
-    # ------------------------------
+    # --------------------------------------------------
     # Clone SAMBA from GitHub
-    # ------------------------------
+    # --------------------------------------------------
     echo "[final] cloning SAMBA..."
     if [ ! -d /opt/src/SAMBA ]; then
         git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
@@ -74,13 +57,14 @@ From: fsl_mcr.sif
     mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
     chmod -R a+rX "${SAMBA_PATH}"
 
-    # ------------------------------
+    # --------------------------------------------------
     # Perl deps: local::lib + Carton
-    # ------------------------------
+    # (assumes /usr/bin/cpanm exists from fsl_mcr stage)
+    # --------------------------------------------------
     echo "[final] installing Perl toolchain (local::lib + Carton)..."
     /usr/bin/cpanm --quiet --notest --local-lib=/opt/samba/perl5libs local::lib Carton
 
-    # Carton-managed deps from cpanfile (no --deployment to avoid snapshot issues)
+    # Carton-managed deps from cpanfile
     echo "[final] running carton install under ${SAMBA_PATH}..."
     cd "${SAMBA_PATH}"
     env \
@@ -94,9 +78,10 @@ From: fsl_mcr.sif
     # Ensure the local lib bin dir exists (for any scripts Carton installs)
     mkdir -p /opt/samba/perl5libs/bin
 
-    # ------------------------------
+    # --------------------------------------------------
     # Atlas fetch: Zenodo record 15178373
-    # ------------------------------
+    # (uses python3 & curl from base image)
+    # --------------------------------------------------
     echo "[final] installing chass_symmetric3 atlas from Zenodo..."
     ATLAS_FOLDER=/opt/atlases
     AZ_ID=15178373
@@ -111,8 +96,6 @@ From: fsl_mcr.sif
     echo "[atlas] fetching Zenodo record JSON ${AZ_ID} ..."
     curl -fsSL "https://zenodo.org/api/records/${AZ_ID}" -o "${TMP_JSON}"
 
-    # We want all the chass_symmetric3_* files from this record.
-    # Use Python to parse the JSON reliably.
     python3 << 'EOF'
 import json, os, sys, subprocess
 
@@ -141,7 +124,6 @@ for f in to_fetch:
     cache = os.path.join(cache_dir, key)
 
     if os.path.exists(cache):
-        # Use cached copy
         subprocess.check_call(["cp", "-f", cache, dest])
     else:
         print(f"[atlas] downloading {key} ...")
@@ -164,18 +146,19 @@ EOF
 
     chmod -R a+rX "${DEST_DIR}" /opt/zenodo_cache
 
-    # ------------------------------
-    # NEW: install runtime bin + sched wrappers
-    # ------------------------------
+    # --------------------------------------------------
+    # Install runtime bin + scheduler wrappers
+    # (from SAMBA/samba_bin and SAMBA/samba_sched_wrappers)
+    # --------------------------------------------------
     echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
     mkdir -p /opt/samba/bin
 
-    # Helper / utility scripts (your "samba_bin" folder in the repo)
+    # Helper / utility scripts
     if [ -d "${SAMBA_PATH}/samba_bin" ]; then
         cp -f "${SAMBA_PATH}"/samba_bin/* /opt/samba/bin/ || true
     fi
 
-    # Scheduler wrappers (your "samba_sched_wrappers" folder in the repo)
+    # Scheduler wrappers (sbatch/squeue/scancel/sacct/scontrol, etc.)
     if [ -d "${SAMBA_PATH}/samba_sched_wrappers" ]; then
         cp -f "${SAMBA_PATH}"/samba_sched_wrappers/* /opt/samba/bin/ || true
     fi
