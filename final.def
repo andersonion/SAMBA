@@ -58,18 +58,42 @@ From: fsl_mcr.sif
     chmod -R a+rX "${SAMBA_PATH}"
 
     # --------------------------------------------------
-    # Perl deps: bootstrap cpanm, then local::lib + Carton
+    # Perl deps: use existing cpanm from fsl_mcr stage
     # --------------------------------------------------
-    echo "[final] bootstrapping cpanm (App::cpanminus) if needed..."
-    if ! command -v cpanm >/dev/null 2>&1; then
-        # IMPORTANT: run curl with a scrubbed env so MCR libcurl/libstdc++ don't break it
-        env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH= \
-            /usr/bin/curl -fsSL https://cpanmin.us \
-            | perl - App::cpanminus
+    echo "[final] locating cpanm..."
+    CPANM=""
+    if [ -x /opt/samba/perl5/bin/cpanm ]; then
+        CPANM=/opt/samba/perl5/bin/cpanm
+    elif command -v cpanm >/dev/null 2>&1; then
+        CPANM="$(command -v cpanm)"
+    else
+        # Last-resort bootstrap via Python (no curl)
+        echo "[final] cpanm not found, bootstrapping via Python..." >&2
+        /usr/bin/python3 << 'EOF'
+import urllib.request, os, subprocess, tempfile
+
+url = "https://cpanmin.us"
+tmpdir = tempfile.gettempdir()
+cpanm_path = os.path.join(tmpdir, "cpanmin.us")
+
+with urllib.request.urlopen(url) as resp, open(cpanm_path, "wb") as out:
+    out.write(resp.read())
+
+os.chmod(cpanm_path, 0o755)
+subprocess.check_call(["perl", cpanm_path, "App::cpanminus"])
+EOF
+        if command -v cpanm >/dev/null 2>&1; then
+            CPANM="$(command -v cpanm)"
+        else
+            echo "FATAL: unable to install App::cpanminus (cpanm) in final stage." >&2
+            exit 1
+        fi
     fi
 
+    echo "[final] using cpanm at: ${CPANM}"
+
     echo "[final] installing Perl toolchain (local::lib + Carton)..."
-    cpanm --quiet --notest --local-lib=/opt/samba/perl5libs local::lib Carton
+    "${CPANM}" --quiet --notest --local-lib=/opt/samba/perl5libs local::lib Carton
 
     # Carton-managed deps from cpanfile
     echo "[final] running carton install under ${SAMBA_PATH}..."
@@ -87,7 +111,7 @@ From: fsl_mcr.sif
 
     # --------------------------------------------------
     # Atlas fetch: Zenodo record 15178373
-    # (uses python3 & curl with scrubbed env for curl)
+    #   -> Python urllib only (no curl, no libcurl)
     # --------------------------------------------------
     echo "[final] installing chass_symmetric3 atlas from Zenodo..."
     ATLAS_FOLDER=/opt/atlases
@@ -96,57 +120,52 @@ From: fsl_mcr.sif
     CACHE_DIR=/opt/zenodo_cache
 
     mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
-    cd "${DEST_DIR}"
 
-    TMP_JSON="/tmp/zenodo_${AZ_ID}.json"
-    echo "[atlas] fetching Zenodo record JSON ${AZ_ID} ..."
-    env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH= \
-        /usr/bin/curl -fsSL "https://zenodo.org/api/records/${AZ_ID}" -o "${TMP_JSON}"
+    /usr/bin/python3 << 'EOF'
+import json, os, sys, urllib.request, shutil
 
-    python3 << 'EOF'
-import json, os, sys, subprocess
-
-json_path = "/tmp/zenodo_15178373.json"
+AZ_ID = 15178373
+json_url = f"https://zenodo.org/api/records/{AZ_ID}"
+json_path = f"/tmp/zenodo_{AZ_ID}.json"
 out_dir = "/opt/atlases"
 cache_dir = "/opt/zenodo_cache"
+prefix = "chass_symmetric3_"
+
+os.makedirs(out_dir, exist_ok=True)
+os.makedirs(cache_dir, exist_ok=True)
+
+print(f"[atlas] fetching Zenodo record JSON {AZ_ID} ...")
+with urllib.request.urlopen(json_url) as resp, open(json_path, "wb") as out:
+    out.write(resp.read())
 
 with open(json_path, "r") as f:
     rec = json.load(f)
 
 files = rec.get("files", [])
-target_prefix = "chass_symmetric3_"
-
-to_fetch = [f for f in files if f.get("key","").startswith(target_prefix)]
+to_fetch = [f for f in files if f.get("key", "").startswith(prefix)]
 if not to_fetch:
     print("FATAL: no chass_symmetric3_* files found in Zenodo JSON", file=sys.stderr)
     sys.exit(1)
 
-os.makedirs(out_dir, exist_ok=True)
-os.makedirs(cache_dir, exist_ok=True)
-
 for f in to_fetch:
     key = f["key"]
-    url = f["links"]["self"]  # direct content URL
+    url = f["links"]["self"]
     dest = os.path.join(out_dir, key)
     cache = os.path.join(cache_dir, key)
 
-    if os.path.exists(cache):
-        subprocess.check_call(["cp", "-f", cache, dest])
-    else:
-        print(f"[atlas] downloading {key} ...")
-        # Run curl in a scrubbed environment so MATLAB MCR libs don't interfere
-        subprocess.check_call([
-            "env",
-            "-i",
-            "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
-            "LD_LIBRARY_PATH=",
-            "/usr/bin/curl",
-            "-fL",
-            "-o", dest,
-            url,
-        ])
-        subprocess.check_call(["cp", "-f", dest, cache])
+    if os.path.exists(dest):
+        print(f"[atlas] {key} already present, skipping.")
+        continue
 
+    if os.path.exists(cache):
+        print(f"[atlas] copying cached {key} ...")
+        shutil.copy2(cache, dest)
+        continue
+
+    print(f"[atlas] downloading {key} ...")
+    with urllib.request.urlopen(url) as resp, open(dest, "wb") as out:
+        shutil.copyfileobj(resp, out)
+    shutil.copy2(dest, cache)
 EOF
 
     # Sanity check: make sure a couple of key atlas files exist
