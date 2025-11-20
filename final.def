@@ -1,275 +1,575 @@
-Bootstrap: localimage
-From: fsl_mcr.sif
+#!/usr/bin/env python3
+"""
+Cluster Node Temperature Dashboard (Option A + midnight markers)
 
-%labels
-    Stage: final
-    Maintainer: BJ Anderson
+- Live status from:   /var/lib/node-feed
+- History from:       /var/lib/node-feed/history
+- Bigger fonts, taller charts, smart y-limits, consistent colors, dual C/F axis.
+- X-axis:
+    * Normal ticks show HH:MM
+    * Ticks at 00:00 show the date (e.g. "Nov 18")
+    * Dashed vertical line at each midnight
+"""
 
-%environment
-    export SAMBA_ROOT="/opt/samba"
-    export SAMBA_PATH="/opt/samba/SAMBA"
-    export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
-    export PERL5LIB="/opt/samba/perl5libs/lib/perl5"
-    export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
-    export PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
-    export SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
-    export PATH="${SAMBA_ROOT}/bin:${PERL_LOCAL_LIB_ROOT}/bin:${SAMBA_ROOT}/perl5/bin:${SAMBA_ROOT}/fsl/bin:${SAMBA_ROOT}/ants/bin:${SAMBA_ROOT}/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+from __future__ import annotations
 
-%post
-    set -eu
+import datetime as dt
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
-    # =========================
-    # Vars
-    # =========================
-    SAMBA_ROOT="/opt/samba"
-    SAMBA_PATH="${SAMBA_ROOT}/SAMBA"
-    PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
-    PERL5LIB="/opt/samba/perl5libs/lib/perl5"
-    PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
-    PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
-    ATLAS_FOLDER="/opt/atlases"
-    SAMBA_ATLAS_DIR="${ATLAS_FOLDER}/chass_symmetric3"
-    ZENODO_ID="15178373"
+import altair as alt
+import pandas as pd
+import streamlit as st
 
-    export SAMBA_ROOT SAMBA_PATH PERL_LOCAL_LIB_ROOT PERL5LIB PERL_MB_OPT PERL_MM_OPT
+# ---------------------------------------------------------------------
+# Paths & constants
+# ---------------------------------------------------------------------
 
-    # =========================
-    # Helpers
-    # =========================
-    _sysrun() {
-        env -i \
-            PATH=/usr/sbin:/usr/bin:/sbin:/bin \
-            LC_ALL=C \
-            DEBIAN_FRONTEND=noninteractive \
-            LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu \
-            "$@"
-    }
+LIVE_DIR = Path("/var/lib/node-feed")
+HISTORY_DIR = Path("/var/lib/node-feed/history")
 
-    _mcr_shield_begin() {
-        if [ -f /etc/ld.so.conf.d/mcr_v90.conf ]; then
-            mv /etc/ld.so.conf.d/mcr_v90.conf /etc/ld.so.conf.d/mcr_v90.conf.disabled
-            ldconfig
-            : > /tmp/.mcr_shielded
-        fi
-    }
+NODE_ORDER: List[str] = ["andros", "crete", "kythira", "patmos"]
 
-    _mcr_shield_end() {
-        if [ -f /tmp/.mcr_shielded ]; then
-            mv /etc/ld.so.conf.d/mcr_v90.conf.disabled /etc/ld.so.conf.d/mcr_v90.conf
-            ldconfig
-            rm -f /tmp/.mcr_shielded
-        fi
-    }
+NODE_COLORS: Dict[str, str] = {
+    "andros": "#1f77b4",   # blue
+    "crete": "#ff7f0e",    # orange
+    "kythira": "#2ca02c",  # green
+    "patmos": "#d62728",   # red
+}
 
-    # =========================
-    # System deps (shield MCR so tools see system libstdc++)
-    # =========================
-    _mcr_shield_begin
-    _sysrun apt-get update
-    _sysrun apt-get install -y --no-install-recommends \
-        git rsync ca-certificates curl unzip \
-        make gcc perl-modules cpanminus
-    _sysrun apt-get clean
-    _sysrun rm -rf /var/lib/apt/lists/*
-    _mcr_shield_end
+TIME_RANGE_OPTIONS: Dict[str, Optional[dt.timedelta]] = {
+    "Last 6 hours": dt.timedelta(hours=6),
+    "Last 12 hours": dt.timedelta(hours=12),
+    "Last 1 day": dt.timedelta(days=1),
+    "Last 3 days": dt.timedelta(days=3),
+    "Last 7 days": dt.timedelta(days=7),
+    "All history": None,
+}
 
-    # =========================
-    # Layout
-    # =========================
-    mkdir -p /opt/src "${SAMBA_ROOT}" /opt/samba/perl5 /opt/samba/perl5libs
-    chmod 0755 "${SAMBA_ROOT}"
+AUTO_REFRESH_SECONDS = 15
 
-    # =========================
-    # Fetch & stage SAMBA (origin/master)
-    # =========================
-    if [ ! -d /opt/src/SAMBA ]; then
-        git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
-    fi
-    git -C /opt/src/SAMBA fetch --all --tags --prune
-    git -C /opt/src/SAMBA checkout -f -B buildpin origin/master
-
-    rm -rf "${SAMBA_PATH}.tmp"
-    rsync -a --delete /opt/src/SAMBA/ "${SAMBA_PATH}.tmp"/
-    mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
-    chmod -R a+rX "${SAMBA_PATH}"
-
-    # =========================
-    # Install Carton + deps (BAKED IN)
-    # =========================
-    /usr/bin/cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib Carton
-
-    CARTON_BIN="/opt/samba/perl5libs/bin/carton"
-    if [ ! -x "${CARTON_BIN}" ]; then
-        echo "FATAL: ${CARTON_BIN} missing after cpanm install" >&2
-        exit 1
-    fi
-
-    cd "${SAMBA_PATH}"
-    echo "[carton] warm install to generate cpanfile.snapshot..."
-    env -i \
-        PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-        LC_ALL=C \
-        DEBIAN_FRONTEND=noninteractive \
-        LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
-        PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
-        "${CARTON_BIN}" install --path "/opt/samba/perl5libs"
-
-    if [ -f "cpanfile.snapshot" ]; then
-        echo "[carton] snapshot present; locking with --deployment..."
-        env -i \
-            PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-            LC_ALL=C \
-            DEBIAN_FRONTEND=noninteractive \
-            LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
-            PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
-            "${CARTON_BIN}" install --deployment --path "/opt/samba/perl5libs"
-    else
-        echo "[carton] WARNING: no cpanfile.snapshot created; proceeding with non-deployment install."
-    fi
-    echo "[carton] done."
-
-    # =========================
-    # Embed Atlas from Zenodo (tarball if present; else individual files)
-    # =========================
-    mkdir -p "${ATLAS_FOLDER}" "${SAMBA_ATLAS_DIR}"
-    cd "${ATLAS_FOLDER}"
-
-    TMP_JSON="/tmp/zenodo_${ZENODO_ID}.json"
-    _mcr_shield_begin
-    _sysrun curl -fsSL "https://zenodo.org/api/records/${ZENODO_ID}" -o "${TMP_JSON}"
-    _mcr_shield_end
-
-    TARBALL_NAME="$(
-        python3 - "$TMP_JSON" <<'PY'
-import json,sys
-j=json.load(open(sys.argv[1]))
-files=j.get("files",[])
-t=[f["key"] for f in files if f["key"].endswith(".tar.gz")]
-print(t[0] if t else "")
-PY
-    )"
-
-    if [ -n "${TARBALL_NAME}" ]; then
-        echo "[atlas] fetching tarball: ${TARBALL_NAME}"
-        _mcr_shield_begin
-        _sysrun curl -fL --retry 4 --retry-delay 2 \
-            -o "${TARBALL_NAME}" \
-            "https://zenodo.org/api/records/${ZENODO_ID}/files/${TARBALL_NAME}/content"
-        _mcr_shield_end
-        tar -xzf "${TARBALL_NAME}" -C "${ATLAS_FOLDER}"
-        rm -f "${TARBALL_NAME}"
-    else
-        echo "[atlas] no tarball; fetching individual files..."
-        req="chass_symmetric3_T2.nii.gz chass_symmetric3_DWI.nii.gz chass_symmetric3_FA.nii.gz chass_symmetric3_MD.nii.gz chass_symmetric3_MO.nii.gz chass_symmetric3_labels.nii.gz chass_symmetric3_labels_lookup.txt chass_symmetric3_mask.nii.gz"
-        for k in $req; do
-            _mcr_shield_begin
-            _sysrun curl -fL --retry 4 --retry-delay 2 \
-                -o "${SAMBA_ATLAS_DIR}/${k}" \
-                "https://zenodo.org/api/records/${ZENODO_ID}/files/${k}/content"
-            _mcr_shield_end
-        done
-    fi
-    chmod -R a+rX "${ATLAS_FOLDER}"
-
-    echo "[final] SAMBA at ${SAMBA_PATH}"
-    echo "[final] atlas at ${SAMBA_ATLAS_DIR}"
-    echo "[final] Carton path: ${CARTON_BIN}"
-
-    echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
-    mkdir -p /opt/samba/bin
-
-    # Main scheduler command shims (these replace sbatch/squeue/etc. in PATH)
-    if [ -d /opt/samba/SAMBA/samba_bin ]; then
-        cp -f \
-            /opt/samba/SAMBA/samba_bin/sbatch \
-            /opt/samba/SAMBA/samba_bin/squeue \
-            /opt/samba/SAMBA/samba_bin/scancel \
-            /opt/samba/SAMBA/samba_bin/sacct \
-            /opt/samba/SAMBA/samba_bin/scontrol \
-            /opt/samba/bin/
-    else
-        echo "[final] WARNING: /opt/samba/SAMBA/samba_bin not found; no sbatch/squeue/scancel shims installed." >&2
-    fi
-
-    # Scheduler proxy clients (inside container, talk to host or daemon)
-    if [ -d /opt/samba/SAMBA/samba_sched_wrappers ]; then
-        cp -f \
-            /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_sbatch \
-            /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_squeue \
-            /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_scancel \
-            /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_sacct \
-            /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_scontrol \
-            /opt/samba/bin/
-    else
-        echo "[final] WARNING: /opt/samba/SAMBA/samba_sched_wrappers not found; no scheduler proxy helpers installed." >&2
-    fi
-
-    chmod -R a+rx /opt/samba/bin
-
-    echo "[final] done: SAMBA + wrappers installed."
+# ---------------------------------------------------------------------
+# Utility functions
+# ---------------------------------------------------------------------
 
 
-%test
-    #!/bin/bash
-    set -eu
+def _parse_ts_column(df: pd.DataFrame, col: str = "timestamp") -> pd.Series:
+    """
+    Parse a timestamp column into a naive datetime64[ns].
 
-    echo "[test] basic check..."
-    command -v perl >/dev/null
+    We deliberately keep this simple and *local* to avoid tz_convert /
+    astimezone issues that have bitten us repeatedly.
+    """
+    ts = pd.to_datetime(df[col], errors="coerce")
+    return ts
 
-    if [ ! -x /opt/samba/perl5libs/bin/carton ]; then
-        echo "FATAL: carton not found: /opt/samba/perl5libs/bin/carton"
-        exit 1
-    fi
 
-    ATLAS_DIR="/opt/atlases/chass_symmetric3"
-    echo "[test] checking atlas at: $ATLAS_DIR"
+def _compute_y_domain(df: pd.DataFrame, col: str = "cpu_c") -> Tuple[float, float]:
+    """Return (y_min, y_max) with a bit of padding, and zero=False."""
+    if col not in df or df[col].dropna().empty:
+        return 0.0, 1.0
 
-    if [ ! -d "$ATLAS_DIR" ]; then
-        echo "FATAL: atlas directory not found: $ATLAS_DIR"
-        exit 1
-    fi
+    vals = df[col].dropna()
+    vmin, vmax = float(vals.min()), float(vals.max())
+    if vmin == vmax:
+        pad = max(0.5, 0.05 * max(abs(vmax), 1.0))
+        return vmin - pad, vmax + pad
 
-    REQ_FILES=(
-        "chass_symmetric3_FA.nii.gz"
-        "chass_symmetric3_DWI.nii.gz"
-        "chass_symmetric3_labels.nii.gz"
-        "chass_symmetric3_mask.nii.gz"
+    span = vmax - vmin
+    pad = max(0.5, 0.05 * span)
+    return vmin - pad, vmax + pad
+
+
+def _fmt_age(age_s: float) -> str:
+    """Format an age in seconds nicely."""
+    if age_s is None or pd.isna(age_s):
+        return "unknown"
+
+    age_s = int(age_s)
+    if age_s < 90:
+        return f"{age_s}s"
+    if age_s < 3600:
+        return f"{age_s // 60}m {age_s % 60}s"
+    return f"{age_s // 3600}h {(age_s % 3600) // 60}m"
+
+
+def _midnight_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Given a history dataframe with a 'ts' column, return a small dataframe
+    with one row per midnight (00:00) in the covered date range.
+    """
+    if df.empty or "ts" not in df.columns:
+        return pd.DataFrame({"ts": []})
+
+    ts = df["ts"].dropna()
+    if ts.empty:
+        return pd.DataFrame({"ts": []})
+
+    start_date = ts.min().date()
+    end_date = ts.max().date()
+
+    dates = pd.date_range(start_date, end_date, freq="D")
+    mid_df = pd.DataFrame({"ts": dates})
+
+    # Keep only midnights that are actually within data range
+    mid_df = mid_df[(mid_df["ts"] >= ts.min()) & (mid_df["ts"] <= ts.max())]
+
+    return mid_df
+
+
+# ---------------------------------------------------------------------
+# Data loading
+# ---------------------------------------------------------------------
+
+
+def _read_history_file(host: str) -> Optional[pd.DataFrame]:
+    path = HISTORY_DIR / f"{host}.csv"
+    if not path.exists():
+        return None
+
+    df = pd.read_csv(path, comment="#")
+    if "timestamp" not in df.columns:
+        return None
+
+    df["ts"] = _parse_ts_column(df, "timestamp")
+    df["host"] = host  # in case the CSV doesn't include it
+
+    # Enforce expected numeric columns
+    for col in ["cpu_c", "mb_c", "gpu0_c", "nvme0_c", "hdd0_c"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        else:
+            df[col] = pd.NA
+
+    # Precompute Fahrenheit
+    df["cpu_f"] = df["cpu_c"] * 9.0 / 5.0 + 32.0
+    df["gpu0_f"] = df["gpu0_c"] * 9.0 / 5.0 + 32.0
+
+    return df
+
+
+def load_history(time_range_label: str) -> pd.DataFrame:
+    """Load and merge history CSVs for all nodes within the chosen time range."""
+    td = TIME_RANGE_OPTIONS.get(time_range_label)
+
+    frames: List[pd.DataFrame] = []
+    for host in NODE_ORDER:
+        df = _read_history_file(host)
+        if df is not None:
+            frames.append(df)
+
+    if not frames:
+        return pd.DataFrame(
+            columns=["ts", "host", "cpu_c", "cpu_f", "gpu0_c", "gpu0_f"]
+        )
+
+    df_all = pd.concat(frames, ignore_index=True)
+    df_all = df_all.dropna(subset=["ts"])
+    df_all = df_all.sort_values("ts")
+
+    if df_all.empty:
+        return df_all
+
+    if td is not None:
+        cutoff = df_all["ts"].max() - td
+        df_all = df_all[df_all["ts"] >= cutoff]
+
+    df_all = df_all.sort_values(["ts", "host"])
+    return df_all
+
+
+def _read_live_file(host: str) -> Optional[pd.Series]:
+    """
+    Read live status for a single host.
+
+    We assume /var/lib/node-feed/<host>.csv exists and take its *last* row.
+    If it doesn't exist, we return None.
+    """
+    path = LIVE_DIR / f"{host}.csv"
+    if not path.exists():
+        return None
+
+    df = pd.read_csv(path, comment="#")
+    if df.empty:
+        return None
+
+    row = df.iloc[-1].copy()
+
+    # timestamp column name might be 'timestamp' or 'ts'; support both.
+    if "ts" in df.columns:
+        ts = _parse_ts_column(df, "ts").iloc[-1]
+    elif "timestamp" in df.columns:
+        ts = _parse_ts_column(df, "timestamp").iloc[-1]
+    else:
+        ts = pd.NaT
+
+    row["ts"] = ts
+
+    # Common numeric fields
+    for col in ["cpu_c", "gpu0_c"]:
+        if col in row:
+            row[col] = pd.to_numeric(row[col], errors="coerce")
+        else:
+            row[col] = pd.NA
+
+    # Age and status
+    now = dt.datetime.now()
+    if pd.isna(ts):
+        age_s = None
+        status = "unknown"
+    else:
+        age_s = (now - ts).total_seconds()
+        if age_s < 90:
+            status = "OK"
+        elif age_s < 600:
+            status = "STALE"
+        else:
+            status = "OFFLINE"
+
+    row["age_s"] = age_s
+    row["status"] = status
+
+    # Fahrenheit
+    row["cpu_f"] = row["cpu_c"] * 9.0 / 5.0 + 32.0
+    row["gpu0_f"] = row["gpu0_c"] * 9.0 / 5.0 + 32.0
+
+    row["host"] = host
+
+    return row
+
+
+def load_live_status() -> pd.DataFrame:
+    rows: List[pd.Series] = []
+    for host in NODE_ORDER:
+        s = _read_live_file(host)
+        if s is not None:
+            rows.append(s)
+
+    if not rows:
+        return pd.DataFrame(
+            columns=["host", "ts", "age_s", "status", "cpu_c", "cpu_f", "gpu0_c", "gpu0_f"]
+        )
+
+    df = pd.DataFrame(rows)
+    df = df.set_index("host").reindex(NODE_ORDER).reset_index()
+    return df
+
+
+# ---------------------------------------------------------------------
+# Chart builders
+# ---------------------------------------------------------------------
+
+
+def _dual_y_cpu_chart(
+    base: alt.Chart,
+    df: pd.DataFrame,
+    y_title_left: str,
+    y_title_right: str,
+) -> alt.LayerChart:
+    """
+    Given a base chart (with x + color encodings), layer:
+      - CPU °C line with left axis
+      - Invisible CPU °F line just to show the right axis
+
+    NOTE: We *do not* call configure_* here; that must be done on the
+    final LayerChart to avoid Altair's "Objects with config" error.
+    """
+    y_min, y_max = _compute_y_domain(df, "cpu_c")
+
+    c_chart = base.mark_line(point=True).encode(
+        y=alt.Y(
+            "cpu_c:Q",
+            scale=alt.Scale(domain=[y_min, y_max], nice=False),
+            axis=alt.Axis(title=y_title_left),
+        ),
     )
 
-    MISSING=0
-    for f in "${REQ_FILES[@]}"; do
-        if [ ! -f "$ATLAS_DIR/$f" ]; then
-            echo "FATAL: missing atlas file: $ATLAS_DIR/$f"
-            MISSING=1
-        else
-            echo "  OK: $f"
-        fi
-    done
+    f_chart = (
+        base.transform_calculate(cpu_f="datum.cpu_c * 9 / 5 + 32")
+        .mark_line(opacity=0)
+        .encode(
+            y=alt.Y(
+                "cpu_f:Q",
+                axis=alt.Axis(title=y_title_right, orient="right"),
+            )
+        )
+    )
 
-    if [ "$MISSING" -ne 0 ]; then
-        echo "FATAL: one or more required atlas files are missing."
-        exit 1
-    fi
-
-    [ -f "/opt/samba/SAMBA/cpanfile.snapshot" ] && echo "[test] snapshot present"
-
-    echo "[test] checking SAMBA helper bin..."
-    if [ -x /opt/samba/bin/sbatch ] && [ -x /opt/samba/bin/squeue ]; then
-        echo "  OK: scheduler wrappers present"
-    else
-        echo "FATAL: scheduler wrappers missing"
-        exit 1
-    fi
-
-    echo "[test] final stage checks COMPLETE."
+    layered = alt.layer(c_chart, f_chart).resolve_scale(y="independent")
+    return layered
 
 
-%runscript
-    #!/bin/sh
-    set -eu
-    echo "SAMBA container runtime"
-    echo "  SAMBA: ${SAMBA_PATH}"
-    echo "  Atlas: ${SAMBA_ATLAS_DIR}"
-    echo
-    echo "Use:"
-    echo "  singularity exec samba.sif samba-pipe /path/to/headfile"
+def build_cpu_chart_all(df: pd.DataFrame) -> alt.Chart:
+    if df.empty:
+        return alt.Chart(pd.DataFrame({"ts": [], "cpu_c": [], "host": []}))
+
+    mid_df = _midnight_df(df)
+
+    # Axis label: show date at midnight, time otherwise
+    x_axis = alt.Axis(
+        title="Time",
+        labelAngle=45,
+        labelExpr=(
+            "hours(datum.value) == 0 && minutes(datum.value) == 0 ? "
+            "timeFormat(datum.value, '%b %d') : timeFormat(datum.value, '%H:%M')"
+        ),
+    )
+
+    base = (
+        alt.Chart(df)
+        .properties(height=280)
+        .encode(
+            x=alt.X("ts:T", axis=x_axis),
+            color=alt.Color(
+                "host:N",
+                title="Node",
+                scale=alt.Scale(
+                    domain=NODE_ORDER,
+                    range=[NODE_COLORS[h] for h in NODE_ORDER],
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip("host:N", title="Node"),
+                alt.Tooltip("ts:T", title="Time"),
+                alt.Tooltip("cpu_c:Q", title="CPU (°C)", format=".1f"),
+                alt.Tooltip("cpu_f:Q", title="CPU (°F)", format=".1f"),
+            ],
+        )
+    )
+
+    cpu_layer = _dual_y_cpu_chart(base, df, "CPU (°C)", "CPU (°F)")
+
+    if not mid_df.empty:
+        mid_rules = (
+            alt.Chart(mid_df)
+            .mark_rule(strokeDash=[4, 4], strokeWidth=1, color="#00000055")
+            .encode(x=alt.X("ts:T", axis=None))
+        )
+        chart = alt.layer(cpu_layer, mid_rules).resolve_scale(y="independent")
+    else:
+        chart = cpu_layer
+
+    # Apply config on the final layered chart
+    chart = (
+        chart.configure_view(stroke="black", strokeWidth=1)
+        .configure_axis(
+            labelFontSize=12,
+            titleFontSize=14,
+        )
+        .configure_legend(
+            labelFontSize=12,
+            titleFontSize=13,
+        )
+    )
+
+    return chart
+
+
+def build_cpu_chart_single(df: pd.DataFrame, host: str) -> alt.Chart:
+    if df.empty:
+        return alt.Chart(pd.DataFrame({"ts": [], "cpu_c": []}))
+
+    mid_df = _midnight_df(df)
+    color = NODE_COLORS.get(host, "#000000")
+
+    x_axis = alt.Axis(
+        title="Time",
+        labelAngle=45,
+        labelExpr=(
+            "hours(datum.value) == 0 && minutes(datum.value) == 0 ? "
+            "timeFormat(datum.value, '%b %d') : timeFormat(datum.value, '%H:%M')"
+        ),
+    )
+
+    base = (
+        alt.Chart(df)
+        .properties(height=220)
+        .encode(
+            x=alt.X("ts:T", axis=x_axis),
+            color=alt.value(color),
+            tooltip=[
+                alt.Tooltip("ts:T", title="Time"),
+                alt.Tooltip("cpu_c:Q", title=f"{host} CPU (°C)", format=".1f"),
+                alt.Tooltip("cpu_f:Q", title="CPU (°F)", format=".1f"),
+            ],
+        )
+    )
+
+    cpu_layer = _dual_y_cpu_chart(base, df, "CPU (°C)", "CPU (°F)")
+
+    if not mid_df.empty:
+        mid_rules = (
+            alt.Chart(mid_df)
+            .mark_rule(strokeDash=[4, 4], strokeWidth=1, color="#00000055")
+            .encode(x=alt.X("ts:T", axis=None))
+        )
+        chart = alt.layer(cpu_layer, mid_rules).resolve_scale(y="independent")
+    else:
+        chart = cpu_layer
+
+    chart = (
+        chart.configure_view(stroke="black", strokeWidth=1)
+        .configure_axis(
+            labelFontSize=12,
+            titleFontSize=14,
+        )
+        .configure_legend(
+            labelFontSize=12,
+            titleFontSize=13,
+        )
+    )
+
+    return chart
+
+
+# ---------------------------------------------------------------------
+# UI rendering
+# ---------------------------------------------------------------------
+
+
+def render_current_status(df_live: pd.DataFrame) -> None:
+    st.subheader("Current Node Status")
+
+    if df_live.empty:
+        # No live CSVs found
+        st.info(f"No live status data found under `{LIVE_DIR}`.")
+        return
+
+    cols = st.columns(len(NODE_ORDER))
+
+    for col, host in zip(cols, NODE_ORDER):
+        with col:
+            row = df_live[df_live["host"] == host]
+            if row.empty:
+                st.markdown(f"### {host}")
+                st.markdown("CPU\n: —")
+                st.markdown("GPU0\n: —")
+                st.caption("updated: None · age: unknown · status: unknown")
+                continue
+
+            r = row.iloc[0]
+
+            st.markdown(f"### {host}")
+
+            if pd.notna(r.get("cpu_c")):
+                st.markdown(
+                    f"**CPU**  \n"
+                    f"{r.cpu_c:.1f} °C / {r.cpu_f:.1f} °F"
+                )
+            else:
+                st.markdown("**CPU**  \n—")
+
+            if pd.notna(r.get("gpu0_c")):
+                st.markdown(
+                    f"**GPU0**  \n"
+                    f"{r.gpu0_c:.1f} °C / {r.gpu0_f:.1f} °F"
+                )
+            else:
+                st.markdown("**GPU0**  \n—")
+
+            ts = r.get("ts")
+            if pd.isna(ts):
+                updated_str = "None"
+            else:
+                updated_str = ts.strftime("%Y-%m-%d %H:%M:%S")
+
+            age_s = r.get("age_s")
+            age_str = _fmt_age(age_s)
+
+            status = r.get("status", "unknown")
+
+            st.caption(f"updated: {updated_str} · age: {age_str} · status: {status}")
+
+
+def render_node_table(df_live: pd.DataFrame) -> None:
+    st.subheader("Node Details")
+
+    if df_live.empty:
+        st.info(f"No live status data found under `{LIVE_DIR}`.")
+        return
+
+    table = df_live.copy()
+    table = table[["host", "age_s", "status", "cpu_c", "cpu_f", "gpu0_c", "gpu0_f"]]
+    table = table.rename(
+        columns={
+            "age_s": "age (s)",
+            "cpu_c": "CPU (°C)",
+            "cpu_f": "CPU (°F)",
+            "gpu0_c": "GPU0 (°C)",
+            "gpu0_f": "GPU0 (°F)",
+        }
+    )
+
+    st.dataframe(
+        table,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
+# ---------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------
+
+
+def main() -> None:
+    st.set_page_config(
+        page_title="Cluster Node Temperature Dashboard",
+        layout="wide",
+    )
+
+    st.title("Cluster Node Temperature Dashboard")
+
+    st.caption(
+        f"History from `/var/lib/node-feed/history` · "
+        f"Auto-refresh every ~{AUTO_REFRESH_SECONDS}s."
+    )
+
+    # Time range selector
+    default_range = "Last 1 day" if "Last 1 day" in TIME_RANGE_OPTIONS else list(TIME_RANGE_OPTIONS.keys())[0]
+    time_range_label = st.selectbox(
+        "Time range",
+        options=list(TIME_RANGE_OPTIONS.keys()),
+        index=list(TIME_RANGE_OPTIONS.keys()).index(default_range),
+    )
+
+    # Load data
+    df_live = load_live_status()
+    hist_df = load_history(time_range_label)
+
+    # Current status + table
+    render_current_status(df_live)
+    render_node_table(df_live)
+
+    # History charts
+    st.subheader("CPU Temperature Trends")
+
+    if hist_df.empty:
+        st.info(
+            f"No history data found under `{HISTORY_DIR}` "
+            f"for the selected time range."
+        )
+        return
+
+    total_rows = len(hist_df)
+    st.caption(f"{total_rows} history rows in selection.")
+
+    # All nodes
+    st.markdown("**CPU Temperature Trends (All Nodes)**")
+    chart_all = build_cpu_chart_all(hist_df)
+    st.altair_chart(chart_all, use_container_width=True)
+
+    # Per-node
+    st.subheader("Per-Node CPU Trends")
+    for host in NODE_ORDER:
+        df_host = hist_df[hist_df["host"] == host].copy()
+        if df_host.empty:
+            continue
+
+        st.markdown(f"**{host} CPU Trends**")
+        chart_host = build_cpu_chart_single(df_host, host)
+        st.altair_chart(chart_host, use_container_width=True)
+
+
+if __name__ == "__main__":
+    main()
