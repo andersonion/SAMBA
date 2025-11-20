@@ -210,21 +210,25 @@ PY
 
 
 %test
+    #!/bin/bash
     set -eu
+
     echo "[test] basic check..."
     command -v perl >/dev/null
+
     if [ ! -x /opt/samba/perl5libs/bin/carton ]; then
-        echo "FATAL: carton not found in /opt/samba/perl5libs/bin"; exit 1
+        echo "FATAL: carton not found: /opt/samba/perl5libs/bin/carton"
+        exit 1
     fi
 
-    echo "[test] checking atlas at: /opt/atlases/chass_symmetric3"
     ATLAS_DIR="/opt/atlases/chass_symmetric3"
+    echo "[test] checking atlas at: $ATLAS_DIR"
+
     if [ ! -d "$ATLAS_DIR" ]; then
         echo "FATAL: atlas directory not found: $ATLAS_DIR"
         exit 1
     fi
 
-    # Required core files
     REQ_FILES=(
         "chass_symmetric3_FA.nii.gz"
         "chass_symmetric3_DWI.nii.gz"
@@ -246,21 +250,19 @@ PY
         echo "FATAL: one or more required atlas files are missing."
         exit 1
     fi
-    
-    # Snapshot is nice-to-have; don’t fail if absent.
-    [ -f "/opt/samba/SAMBA/cpanfile.snapshot" ] && echo "[test] snapshot present"
-    echo "[test] OK"
 
-    echo "[test] checking SAMBA helper bin is present on PATH..."
+    [ -f "/opt/samba/SAMBA/cpanfile.snapshot" ] && echo "[test] snapshot present"
+
+    echo "[test] checking SAMBA helper bin..."
     if [ -x /opt/samba/bin/sbatch ] && [ -x /opt/samba/bin/squeue ]; then
-        echo "  OK: SAMBA scheduler wrappers installed in /opt/samba/bin."
+        echo "  OK: scheduler wrappers present"
     else
-        echo "FATAL: SAMBA scheduler wrappers missing from /opt/samba/bin."
+        echo "FATAL: scheduler wrappers missing"
         exit 1
     fi
-    
-	echo
+
     echo "[test] final stage checks COMPLETE."
+
 
 %runscript
     #!/bin/sh
