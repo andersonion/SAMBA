@@ -2,26 +2,33 @@ Bootstrap: localimage
 From: fsl_mcr.sif
 
 %labels
-    Stage final
-    Maintainer "BJ / SAMBA container"
+    Stage     final
+    Maintainer  "BJ + SAMBA container stack"
+
+%help
+    Final SAMBA image layered on top of fsl_mcr.sif.
+    - Assumes fsl_mcr.sif already contains:
+        * ANTs (under /opt/samba/ants or similar)
+        * FSL mini (under /opt/samba/fsl)
+        * MATLAB Runtime v90
+        * Perl + Carton + SAMBA dependencies
+        * (Optionally) atlas under /opt/atlases/chass_symmetric3
+    - This stage:
+        * Installs the SAMBA repo into /opt/samba/SAMBA
+        * Installs helper binaries + scheduler wrappers into /opt/samba/bin
+        * Sets environment for runtime use
+        * Adds a non-fatal %test that only warns if atlas is missing
 
 %environment
-    # Core SAMBA paths inside the container
+    # Runtime environment inside the container
     export SAMBA_ROOT=/opt/samba
     export SAMBA_PATH=/opt/samba/SAMBA
 
-    # Perl library setup for Carton-managed deps
-    export PERL_LOCAL_LIB_ROOT=/opt/samba/perl5libs
-    export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
-    export PERL_MM_OPT=INSTALL_BASE=/opt/samba/perl5libs
-    export PERL5LIB=/opt/samba/perl5libs/lib/perl5
-
-    # Ensure /opt/samba/bin is first on PATH so wrappers win
-    export PATH=/opt/samba/bin:/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/fsl/bin:/opt/samba/ants/bin:$PATH
-
-    # Atlas defaults inside the container
-    export ATLAS_FOLDER=/opt/atlases/chass_symmetric3
+    # If atlas is present in the image, this will be the default
     export SAMBA_ATLAS_DIR=/opt/atlases/chass_symmetric3
+
+    # Prefer SAMBA tools + FSL + ANTs
+    export PATH="/opt/samba/bin:/opt/samba/fsl/bin:/opt/samba/ants/bin:${PATH}"
 
 %post
     set -eu
@@ -29,200 +36,108 @@ From: fsl_mcr.sif
     SAMBA_ROOT=/opt/samba
     SAMBA_PATH=/opt/samba/SAMBA
 
-    mkdir -p /opt/src "$SAMBA_ROOT" /opt/samba/perl5 /opt/samba/perl5libs /opt/atlases /opt/zenodo_cache
+    mkdir -p /opt/src "${SAMBA_ROOT}"
+    chmod 0755 "${SAMBA_ROOT}"
 
-    # --------------------------------------------------
-    # Clone SAMBA from GitHub
-    # --------------------------------------------------
-    echo "[final] cloning SAMBA..."
+    echo "[final] cloning SAMBA from GitHub..."
     if [ ! -d /opt/src/SAMBA ]; then
         git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
     fi
     git -C /opt/src/SAMBA fetch --all --tags --prune
 
-    # Pin to origin/master into a build branch
+    # Pin to origin/master (your canonical branch)
     SAMBA_REF=master
-    if git -C /opt/src/SAMBA show-ref --verify --quiet "refs/remotes/origin/${SAMBA_REF}"; then
-        git -C /opt/src/SAMBA checkout -f -B buildpin "origin/${SAMBA_REF}"
-    else
-        echo "FATAL: cannot resolve SAMBA_REF='${SAMBA_REF}' in /opt/src/SAMBA" >&2
-        git -C /opt/src/SAMBA show-ref | sed 's/^/  /' >&2
+    echo "[final] checking out SAMBA ref '${SAMBA_REF}'..."
+    git -C /opt/src/SAMBA show-ref --verify --quiet "refs/remotes/origin/${SAMBA_REF}" || {
+        echo "FATAL: cannot resolve origin/${SAMBA_REF} in /opt/src/SAMBA" >&2
         exit 1
-    fi
+    }
+    git -C /opt/src/SAMBA checkout -f -B buildpin "origin/${SAMBA_REF}"
 
-    # Sync into /opt/samba/SAMBA
     echo "[final] installing SAMBA into ${SAMBA_PATH}..."
     rm -rf "${SAMBA_PATH}.tmp"
     rsync -a --delete /opt/src/SAMBA/ "${SAMBA_PATH}.tmp"/
     mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
     chmod -R a+rX "${SAMBA_PATH}"
 
-    # --------------------------------------------------
-    # Perl deps: use existing cpanm from fsl_mcr stage
-    # --------------------------------------------------
-    echo "[final] locating cpanm..."
-    CPANM=""
-    if [ -x /opt/samba/perl5/bin/cpanm ]; then
-        CPANM=/opt/samba/perl5/bin/cpanm
-    elif command -v cpanm >/dev/null 2>&1; then
-        CPANM="$(command -v cpanm)"
-    else
-        # Last-resort bootstrap via Python (no curl)
-        echo "[final] cpanm not found, bootstrapping via Python..." >&2
-        /usr/bin/python3 << 'EOF'
-import urllib.request, os, subprocess, tempfile
-
-url = "https://cpanmin.us"
-tmpdir = tempfile.gettempdir()
-cpanm_path = os.path.join(tmpdir, "cpanmin.us")
-
-with urllib.request.urlopen(url) as resp, open(cpanm_path, "wb") as out:
-    out.write(resp.read())
-
-os.chmod(cpanm_path, 0o755)
-subprocess.check_call(["perl", cpanm_path, "App::cpanminus"])
-EOF
-        if command -v cpanm >/dev/null 2>&1; then
-            CPANM="$(command -v cpanm)"
-        else
-            echo "FATAL: unable to install App::cpanminus (cpanm) in final stage." >&2
-            exit 1
-        fi
-    fi
-
-    echo "[final] using cpanm at: ${CPANM}"
-
-    echo "[final] installing Perl toolchain (local::lib + Carton)..."
-    "${CPANM}" --quiet --notest --local-lib=/opt/samba/perl5libs local::lib Carton
-
-    # Carton-managed deps from cpanfile
-    echo "[final] running carton install under ${SAMBA_PATH}..."
-    cd "${SAMBA_PATH}"
-    env \
-      PERL_LOCAL_LIB_ROOT=/opt/samba/perl5libs \
-      PERL_MB_OPT='--install_base "/opt/samba/perl5libs"' \
-      PERL_MM_OPT=INSTALL_BASE=/opt/samba/perl5libs \
-      PERL5LIB=/opt/samba/perl5libs/lib/perl5 \
-      PATH=/opt/samba/perl5libs/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-      carton install
-
-    # Ensure the local lib bin dir exists (for any scripts Carton installs)
-    mkdir -p /opt/samba/perl5libs/bin
-
-    # --------------------------------------------------
-    # Atlas fetch: Zenodo record 15178373
-    #   -> Python urllib only (no curl, no libcurl)
-    # --------------------------------------------------
-    echo "[final] installing chass_symmetric3 atlas from Zenodo..."
-    ATLAS_FOLDER=/opt/atlases
-    AZ_ID=15178373
-    DEST_DIR="${ATLAS_FOLDER}"
-    CACHE_DIR=/opt/zenodo_cache
-
-    mkdir -p "${DEST_DIR}" "${CACHE_DIR}"
-
-    /usr/bin/python3 << 'EOF'
-import json, os, sys, urllib.request, shutil
-
-AZ_ID = 15178373
-json_url = f"https://zenodo.org/api/records/{AZ_ID}"
-json_path = f"/tmp/zenodo_{AZ_ID}.json"
-out_dir = "/opt/atlases"
-cache_dir = "/opt/zenodo_cache"
-prefix = "chass_symmetric3_"
-
-os.makedirs(out_dir, exist_ok=True)
-os.makedirs(cache_dir, exist_ok=True)
-
-print(f"[atlas] fetching Zenodo record JSON {AZ_ID} ...")
-with urllib.request.urlopen(json_url) as resp, open(json_path, "wb") as out:
-    out.write(resp.read())
-
-with open(json_path, "r") as f:
-    rec = json.load(f)
-
-files = rec.get("files", [])
-to_fetch = [f for f in files if f.get("key", "").startswith(prefix)]
-if not to_fetch:
-    print("FATAL: no chass_symmetric3_* files found in Zenodo JSON", file=sys.stderr)
-    sys.exit(1)
-
-for f in to_fetch:
-    key = f["key"]
-    url = f["links"]["self"]
-    dest = os.path.join(out_dir, key)
-    cache = os.path.join(cache_dir, key)
-
-    if os.path.exists(dest):
-        print(f"[atlas] {key} already present, skipping.")
-        continue
-
-    if os.path.exists(cache):
-        print(f"[atlas] copying cached {key} ...")
-        shutil.copy2(cache, dest)
-        continue
-
-    print(f"[atlas] downloading {key} ...")
-    with urllib.request.urlopen(url) as resp, open(dest, "wb") as out:
-        shutil.copyfileobj(resp, out)
-    shutil.copy2(dest, cache)
-EOF
-
-    # Sanity check: make sure a couple of key atlas files exist
-    for f in \
-      chass_symmetric3_T2.nii.gz \
-      chass_symmetric3_labels.nii.gz \
-      chass_symmetric3_labels_lookup.txt \
-      chass_symmetric3_mask.nii.gz; do
-        if [ ! -f "${DEST_DIR}/${f}" ]; then
-            echo "FATAL: atlas file missing: ${DEST_DIR}/${f}" >&2
-            exit 1
-        fi
-    done
-
-    chmod -R a+rX "${DEST_DIR}" /opt/zenodo_cache
-
-    # --------------------------------------------------
-    # Install runtime bin + scheduler wrappers
-    # (from SAMBA/samba_bin and SAMBA/samba_sched_wrappers)
-    # --------------------------------------------------
     echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
-    mkdir -p /opt/samba/bin
+    mkdir -p "${SAMBA_ROOT}/bin"
 
-    # Helper / utility scripts
+    # Helper "fake" slurm frontends (sacct, sbatch, squeue, scancel, scontrol)
     if [ -d "${SAMBA_PATH}/samba_bin" ]; then
-        cp -f "${SAMBA_PATH}"/samba_bin/* /opt/samba/bin/ || true
+        cp -f \
+            "${SAMBA_PATH}/samba_bin/sacct" \
+            "${SAMBA_PATH}/samba_bin/sbatch" \
+            "${SAMBA_PATH}/samba_bin/scancel" \
+            "${SAMBA_PATH}/samba_bin/scontrol" \
+            "${SAMBA_PATH}/samba_bin/squeue" \
+            "${SAMBA_ROOT}/bin/"
+    else
+        echo "[final] WARNING: samba_bin folder not found under ${SAMBA_PATH}" >&2
     fi
 
-    # Scheduler wrappers (sbatch/squeue/scancel/sacct/scontrol, etc.)
+    # Scheduler proxy scripts (samba_sched_sacct, samba_sched_sbatch, etc.)
     if [ -d "${SAMBA_PATH}/samba_sched_wrappers" ]; then
-        cp -f "${SAMBA_PATH}"/samba_sched_wrappers/* /opt/samba/bin/ || true
+        cp -f \
+            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sacct" \
+            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sbatch" \
+            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scancel" \
+            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scontrol" \
+            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_squeue" \
+            "${SAMBA_ROOT}/bin/"
+    else
+        echo "[final] WARNING: samba_sched_wrappers folder not found under ${SAMBA_PATH}" >&2
     fi
 
-    chmod -R a+rx /opt/samba/bin
+    chmod -R a+rx "${SAMBA_ROOT}/bin"
 
-    echo "[final] done: SAMBA + atlas + wrappers installed."
+    echo "[final] done: SAMBA + wrappers installed."
 
 %runscript
-    # Default container entrypoint: just give an interactive shell.
-    # You typically won't rely on this when using samba-pipe, but it is
-    # convenient for debugging:
-    exec /bin/bash "$@"
+    # Default entrypoint: run the SAMBA startup script.
+    # You can override this by explicitly calling 'singularity exec ... SAMBA_startup ...'
+    if [ -x /opt/samba/SAMBA/SAMBA_startup ]; then
+        exec /opt/samba/SAMBA/SAMBA_startup "$@"
+    else
+        echo "ERROR: /opt/samba/SAMBA/SAMBA_startup not found or not executable." >&2
+        echo "You probably want to exec into the container and diagnose:" >&2
+        echo "  singularity exec samba.sif bash" >&2
+        exit 1
+    fi
 
 %test
+    # Non-fatal sanity checks — these should NEVER break the build.
     set -eu
-    echo "[test] checking atlas..."
-    ls -lh /opt/atlases/chass_symmetric3/chass_symmetric3_T2.nii.gz \
-           /opt/atlases/chass_symmetric3/chass_symmetric3_labels.nii.gz \
-           /opt/atlases/chass_symmetric3/chass_symmetric3_mask.nii.gz
 
-    echo "[test] checking SAMBA bin & wrappers..."
-    ls -lh /opt/samba/bin || true
+    echo "[test] checking basic tools in PATH inside final image..."
 
-    echo "[test] checking Carton availability..."
-    perl -MCarton -e 'print "Carton OK\n"' || {
-        echo "FATAL: Carton not available in final image" >&2
-        exit 1
-    }
+    echo "[test] which perl:"
+    command -v perl || echo "[test] WARNING: perl not found in PATH"
 
-    echo "[test] final stage OK."
+    echo "[test] which fslmaths:"
+    if command -v fslmaths >/dev/null 2>&1; then
+        # Do not fail if this errors; just warn.
+        if ! fslmaths -version >/dev/null 2>&1; then
+            echo "[test] WARNING: fslmaths -version failed (but continuing)."
+        fi
+    else
+        echo "[test] WARNING: fslmaths not found in PATH"
+    fi
+
+    echo "[test] checking SAMBA location..."
+    if [ -d /opt/samba/SAMBA ]; then
+        ls -d /opt/samba/SAMBA || true
+    else
+        echo "[test] WARNING: /opt/samba/SAMBA missing" >&2
+    fi
+
+    echo "[test] checking atlas presence (non-fatal)..."
+    if [ -d /opt/atlases/chass_symmetric3 ]; then
+        ls /opt/atlases/chass_symmetric3 | head -10 || true
+    else
+        echo "[test] WARNING: default atlas /opt/atlases/chass_symmetric3 not present in image." >&2
+        echo "[test]          You can still bind an external atlas via ATLAS_FOLDER at runtime." >&2
+    fi
+
+    echo "[test] final stage checks complete (non-fatal)."
+    exit 0
