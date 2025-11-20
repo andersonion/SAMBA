@@ -2,8 +2,8 @@ Bootstrap: localimage
 From: fsl_mcr.sif
 
 %labels
-    Stage     final
-    Maintainer  "BJ / SAMBA container"
+    Stage final
+    Maintainer "BJ / SAMBA container"
 
 %environment
     # Core SAMBA locations
@@ -13,32 +13,29 @@ From: fsl_mcr.sif
     # Default atlas location inside the image
     export SAMBA_ATLAS_DIR=${SAMBA_ATLAS_DIR:-/opt/atlases/chass_symmetric3}
 
-    # Add SAMBA bin (wrappers & helpers) and existing toolchains to PATH
+    # Add SAMBA bin + tools
     export PATH="/opt/samba/bin:/opt/samba/fsl/bin:/opt/samba/ants/bin:$PATH"
 
 %post
     set -eu
 
-    # Core paths
     SAMBA_ROOT=/opt/samba
     SAMBA_PATH=/opt/samba/SAMBA
 
     mkdir -p /opt/src "${SAMBA_ROOT}"
 
-    echo "[final] cloning / refreshing SAMBA repo into /opt/src/SAMBA..."
+    echo "[final] cloning/refreshing SAMBA repo..."
     if [ ! -d /opt/src/SAMBA ]; then
         git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
     else
         git -C /opt/src/SAMBA fetch --all --tags --prune
     fi
 
-    # Pin to origin/master (your current default branch)
     SAMBA_REF=master
     if git -C /opt/src/SAMBA show-ref --verify --quiet "refs/remotes/origin/${SAMBA_REF}"; then
         git -C /opt/src/SAMBA checkout -f -B buildpin "origin/${SAMBA_REF}"
     else
-        echo "FATAL: could not resolve SAMBA_REF='${SAMBA_REF}' in /opt/src/SAMBA" >&2
-        git -C /opt/src/SAMBA show-ref | sed 's/^/  /'
+        echo "FATAL: unable to resolve branch ${SAMBA_REF}" >&2
         exit 1
     fi
 
@@ -48,76 +45,45 @@ From: fsl_mcr.sif
     mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
     chmod -R a+rX "${SAMBA_PATH}"
 
-    # ------------------------------------------------------------------
-    # Install SAMBA helper binaries and scheduler wrappers
-    #   - samba_bin/*      -> /opt/samba/bin
-    #   - samba_sched_wrappers/* -> /opt/samba/bin
-    # ------------------------------------------------------------------
-    echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
+    echo "[final] installing SAMBA helper binaries + scheduler wrappers..."
     mkdir -p /opt/samba/bin
 
+    # --- helper binaries ---
     if [ -d "${SAMBA_PATH}/samba_bin" ]; then
-        cp -f \
-            "${SAMBA_PATH}/samba_bin/sacct" \
-            "${SAMBA_PATH}/samba_bin/sbatch" \
-            "${SAMBA_PATH}/samba_bin/scancel" \
-            "${SAMBA_PATH}/samba_bin/scontrol" \
-            "${SAMBA_PATH}/samba_bin/squeue" \
-            /opt/samba/bin/  || {
-            echo "FATAL: failed to copy samba_bin helpers into /opt/samba/bin" >&2
-            exit 1
-        }
+        cp -f ${SAMBA_PATH}/samba_bin/* /opt/samba/bin/
     else
-        echo "FATAL: expected directory ${SAMBA_PATH}/samba_bin not found." >&2
+        echo "FATAL: missing directory ${SAMBA_PATH}/samba_bin" >&2
         exit 1
     fi
 
+    # --- scheduler wrappers ---
     if [ -d "${SAMBA_PATH}/samba_sched_wrappers" ]; then
-        cp -f \
-            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sacct" \
-            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sbatch" \
-            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scancel" \
-            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scontrol" \
-            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_squeue" \
-            /opt/samba/bin/  || {
-            echo "FATAL: failed to copy samba_sched_wrappers into /opt/samba/bin" >&2
-            exit 1
-        }
+        cp -f ${SAMBA_PATH}/samba_sched_wrappers/* /opt/samba/bin/
     else
-        echo "FATAL: expected directory ${SAMBA_PATH}/samba_sched_wrappers not found." >&2
+        echo "FATAL: missing directory ${SAMBA_PATH}/samba_sched_wrappers" >&2
         exit 1
     fi
 
     chmod -R a+rx /opt/samba/bin
 
-    echo "[final] done: SAMBA + wrappers installed. (Atlas is expected from base image or via bind.)"
+    echo "[final] done: SAMBA + wrappers installed."
 
 %runscript
-    # Default runscript: just drop into a shell,
-    # you generally drive this image via singularity exec + samba-pipe.
     exec /bin/bash "$@"
 
 %test
     set -eu
-    echo "[test] === final stage sanity checks (no FSL tests here) ==="
+    echo "[test] === final stage sanity checks ==="
 
-    # ---------------------------------------------------------------
-    # 1) SAMBA presence (strict)
-    # ---------------------------------------------------------------
     echo
     echo "[test] checking SAMBA_PATH..."
     if [ -d "${SAMBA_PATH:-/opt/samba/SAMBA}" ]; then
-        echo "  SAMBA_PATH='${SAMBA_PATH:-/opt/samba/SAMBA}' exists."
+        echo "  OK: SAMBA_PATH exists."
     else
-        echo "FATAL: SAMBA_PATH='${SAMBA_PATH:-/opt/samba/SAMBA}' does NOT exist." >&2
+        echo "FATAL: SAMBA_PATH missing." >&2
         exit 1
     fi
 
-    # ---------------------------------------------------------------
-    # 2) Atlas presence (STRICT / FATAL)
-    #    We expect this to have been installed in a prior stage
-    #    (e.g. fsl_mcr.def) or bind-mounted identically.
-    # ---------------------------------------------------------------
     echo
     ATLAS_DIR="${SAMBA_ATLAS_DIR:-/opt/atlases/chass_symmetric3}"
     echo "[test] checking atlas at: ${ATLAS_DIR}"
@@ -128,22 +94,22 @@ From: fsl_mcr.sif
     fi
 
     REQUIRED_ATLAS_FILES="
-chass_symmetric3_T2.nii.gz
-chass_symmetric3_labels.nii.gz
-chass_symmetric3_mask.nii.gz
+chass_symmetric3_FA.nii.gz
+chass_symmetric3_DWI.nii.gz
 "
+
     missing=0
     for f in ${REQUIRED_ATLAS_FILES}; do
         if [ ! -f "${ATLAS_DIR}/${f}" ]; then
-            echo "FATAL: required atlas file missing: ${ATLAS_DIR}/${f}" >&2
+            echo "FATAL: missing required atlas file: ${ATLAS_DIR}/${f}" >&2
             missing=1
         fi
     done
 
     if [ "${missing}" -ne 0 ]; then
-        echo "FATAL: one or more required atlas files are missing; fix base image or binds." >&2
+        echo "FATAL: atlas validation failed." >&2
         exit 1
     fi
 
     echo
-    echo "[test] final.def sanity checks PASSED (SAMBA + atlas OK, FSL not re-tested here)."
+    echo "[test] final.def sanity checks PASSED (SAMBA + atlas OK)."
