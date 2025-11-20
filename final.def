@@ -2,171 +2,208 @@ Bootstrap: localimage
 From: fsl_mcr.sif
 
 %labels
-    Author      BJ Anderson
-    Application SAMBA
-    Stage       final
-
-%post
-#!/bin/sh
-set -eu
-
-echo "[final] === starting final stage setup ==="
-
-# Core locations
-SAMBA_ROOT=/opt/samba
-SAMBA_PATH=/opt/samba/SAMBA
-ATLAS_ROOT=/opt/atlases
-ATLAS_SUBDIR=chass_symmetric3
-SAMBA_ATLAS_DIR="${ATLAS_ROOT}/${ATLAS_SUBDIR}"
-
-# Basic directories (do NOT touch MCR or FSL here)
-mkdir -p /opt/src "${SAMBA_ROOT}" "${ATLAS_ROOT}" /opt/zenodo_cache
-
-###############################################################################
-# 1) Install / refresh SAMBA code under /opt/samba/SAMBA
-###############################################################################
-echo "[final] installing SAMBA into ${SAMBA_PATH}..."
-
-if [ ! -d /opt/src/SAMBA ]; then
-    git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
-else
-    # Refresh remote refs but don't explode if this fails
-    git -C /opt/src/SAMBA fetch --all --tags --prune || true
-fi
-
-SAMBA_REF=master
-if git -C /opt/src/SAMBA show-ref --verify --quiet refs/remotes/origin/master; then
-    git -C /opt/src/SAMBA checkout -f -B buildpin origin/master
-else
-    # Fallback if remote branch resolution ever changes
-    git -C /opt/src/SAMBA checkout -f -B buildpin "${SAMBA_REF}"
-fi
-
-rm -rf "${SAMBA_PATH}.tmp"
-rsync -a --delete /opt/src/SAMBA/ "${SAMBA_PATH}.tmp"/
-mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
-chmod -R a+rX "${SAMBA_PATH}"
-
-echo "[final] SAMBA installed at ${SAMBA_PATH}"
-
-###############################################################################
-# 2) Install SAMBA helper binaries + scheduler wrappers into /opt/samba/bin
-###############################################################################
-echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
-
-mkdir -p "${SAMBA_ROOT}/bin"
-
-# Plain helper shims (sacct, sbatch, etc.)
-if [ -d "${SAMBA_PATH}/samba_bin" ]; then
-    cp -f "${SAMBA_PATH}"/samba_bin/* "${SAMBA_ROOT}/bin"/
-fi
-
-# Scheduler proxy binaries (samba_sched_*)
-if [ -d "${SAMBA_PATH}/samba_sched_wrappers" ]; then
-    cp -f "${SAMBA_PATH}"/samba_sched_wrappers/* "${SAMBA_ROOT}/bin"/
-fi
-
-chmod -R a+rx "${SAMBA_ROOT}/bin"
-echo "[final] SAMBA helper binaries + wrappers installed under ${SAMBA_ROOT}/bin"
-
-###############################################################################
-# 3) Install chass_symmetric3 atlas from Zenodo into /opt/atlases/chass_symmetric3
-###############################################################################
-echo "[final] installing chass_symmetric3 atlas into ${SAMBA_ATLAS_DIR}..."
-
-if [ ! -d "${SAMBA_ATLAS_DIR}" ]; then
-    mkdir -p "${SAMBA_ATLAS_DIR}"
-    cd "${SAMBA_ATLAS_DIR}"
-
-    AZ_ID=15178373
-    BASE_URL="https://zenodo.org/api/records/${AZ_ID}/files"
-
-    # Explicit list so we don't rely on JSON parsing in this stage
-    FILES="
-        chass_symmetric3_DWI.nii.gz
-        chass_symmetric3_FA.nii.gz
-        chass_symmetric3_MD.nii.gz
-        chass_symmetric3_MO.nii.gz
-        chass_symmetric3_T2.nii.gz
-        chass_symmetric3_labels.nii.gz
-        chass_symmetric3_labels_lookup.txt
-        chass_symmetric3_mask.nii.gz
-    "
-
-    for f in ${FILES}; do
-        f_trim=$(printf "%s" "${f}" | tr -d '[:space:]')
-        [ -z "${f_trim}" ] && continue
-        echo "  [atlas] fetching ${f_trim} ..."
-        # Use clean env so MATLAB's libcurl/libstdc++ don't poison curl
-        env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH= \
-            /usr/bin/curl -fsSL \
-            "${BASE_URL}/${f_trim}/content" \
-            -o "${f_trim}"
-    done
-
-    chmod -R a+rX "${ATLAS_ROOT}"
-else
-    echo "[final] atlas directory already present; not re-downloading."
-fi
-
-echo "[final] done: SAMBA + atlas + wrappers installed."
-echo "[final] === end of final stage setup ==="
+  Stage: final
+  Maintainer: "BJ / SAMBA container"
 
 %environment
-# Core SAMBA paths
-export SAMBA_ROOT=/opt/samba
-export SAMBA_PATH=/opt/samba/SAMBA
-export SAMBA_ATLAS_DIR=/opt/atlases/chass_symmetric3
+  # Core SAMBA env exported at container runtime
+  export SAMBA_ROOT=/opt/samba
+  export SAMBA_PATH=/opt/samba/SAMBA
 
-# Perl libraries (installed in earlier stages, e.g., fsl_mcr.sif)
-export PERL5LIB=/opt/samba/perl5libs/lib/perl5${PERL5LIB:+:${PERL5LIB}}
+  # Perl local::lib location installed in the base image (fsl_mcr stage)
+  export PERL_LOCAL_LIB_ROOT=/opt/samba/perl5libs
+  export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
+  export PERL_MM_OPT=INSTALL_BASE=/opt/samba/perl5libs
+  export PERL5LIB=/opt/samba/perl5libs/lib/perl5
 
-# Make sure SAMBA helper binaries + sched wrappers come first
-export PATH=/opt/samba/bin:/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:$PATH
+  # Add SAMBA + toolchain + FSL + ANTs to PATH
+  export PATH=/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/ants/bin:/opt/samba/fsl/bin:/opt/samba/SAMBA:$PATH
+
+  # Default atlas location inside the image
+  export SAMBA_ATLAS_DIR=/opt/atlases/chass_symmetric3
+
+%post
+  #!/bin/bash
+  set -eu
+
+  echo "[final] starting final-stage setup..."
+
+  SAMBA_ROOT=/opt/samba
+  SAMBA_PATH=/opt/samba/SAMBA
+  ATLAS_FOLDER=/opt/atlases
+  SAMBA_ATLAS_DIR=${ATLAS_FOLDER}/chass_symmetric3
+  CACHE_DIR=/opt/zenodo_cache
+
+  export SAMBA_ROOT SAMBA_PATH
+
+  echo "[final] creating core directories..."
+  mkdir -p /opt/src "${SAMBA_ROOT}" "${ATLAS_FOLDER}" "${CACHE_DIR}"
+
+  # ---------------------------------------------------------------------------
+  # 1) Install / update SAMBA tree into /opt/samba/SAMBA
+  # ---------------------------------------------------------------------------
+  if [ ! -d /opt/src/SAMBA ]; then
+    echo "[final] cloning SAMBA repository into /opt/src/SAMBA..."
+    git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
+  else
+    echo "[final] updating existing /opt/src/SAMBA..."
+    (
+      cd /opt/src/SAMBA
+      git fetch --all --tags --prune
+    )
+  fi
+
+  echo "[final] checking out SAMBA origin/master as buildpin..."
+  (
+    cd /opt/src/SAMBA
+    git checkout -f -B buildpin origin/master
+  )
+
+  echo "[final] installing SAMBA into ${SAMBA_PATH}..."
+  rm -rf "${SAMBA_PATH}.tmp"
+  rsync -a --delete /opt/src/SAMBA/ "${SAMBA_PATH}.tmp"/
+  mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
+  chmod -R a+rX "${SAMBA_PATH}"
+
+  # ---------------------------------------------------------------------------
+  # 2) Install SAMBA helper binaries and scheduler wrappers into /opt/samba/bin
+  # ---------------------------------------------------------------------------
+  echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
+  mkdir -p "${SAMBA_ROOT}/bin"
+
+  if [ -d "${SAMBA_PATH}/samba_bin" ]; then
+    cp -f \
+      "${SAMBA_PATH}/samba_bin/sacct" \
+      "${SAMBA_PATH}/samba_bin/sbatch" \
+      "${SAMBA_PATH}/samba_bin/scancel" \
+      "${SAMBA_PATH}/samba_bin/scontrol" \
+      "${SAMBA_PATH}/samba_bin/squeue" \
+      "${SAMBA_ROOT}/bin/" || true
+  fi
+
+  if [ -d "${SAMBA_PATH}/samba_sched_wrappers" ]; then
+    cp -f \
+      "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sacct" \
+      "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sbatch" \
+      "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scancel" \
+      "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scontrol" \
+      "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_squeue" \
+      "${SAMBA_ROOT}/bin/" || true
+  fi
+
+  chmod -R a+rx "${SAMBA_ROOT}/bin"
+  echo "[final] SAMBA + wrappers installed under ${SAMBA_ROOT}."
+
+  # ---------------------------------------------------------------------------
+  # 3) Install chass_symmetric3 atlas from Zenodo (record 15178373)
+  #    Use python3 instead of curl to avoid MATLAB libcurl conflicts.
+  # ---------------------------------------------------------------------------
+  echo "[final] installing chass_symmetric3 atlas into ${SAMBA_ATLAS_DIR}..."
+  mkdir -p "${SAMBA_ATLAS_DIR}" "${CACHE_DIR}"
+  cd "${SAMBA_ATLAS_DIR}"
+
+  fetch_one() {
+    local fname="$1"
+    local url="$2"
+    local cached="${CACHE_DIR}/${fname}"
+
+    if [ -f "${fname}" ]; then
+      echo "  [atlas] already present: ${fname}"
+      return 0
+    fi
+
+    if [ -f "${cached}" ]; then
+      echo "  [atlas] using cached: ${cached}"
+      cp -f "${cached}" "${fname}"
+      return 0
+    fi
+
+    echo "  [atlas] downloading via python: ${fname}"
+    python3 - "${fname}" "${url}" << 'PY'
+import sys
+import urllib.request
+
+out_fname = sys.argv[1]
+url = sys.argv[2]
+
+with urllib.request.urlopen(url) as resp, open(out_fname, "wb") as out:
+    out.write(resp.read())
+PY
+    if [ $? -ne 0 ]; then
+      echo "FATAL: download failed for ${fname} from ${url}" >&2
+      exit 1
+    fi
+    cp -f "${fname}" "${cached}" || true
+  }
+
+  # Exact file URLs from Zenodo record 15178373 (public dataset)
+  fetch_one "chass_symmetric3_FA.nii.gz"          "https://zenodo.org/api/records/15178373/files/chass_symmetric3_FA.nii.gz/content"
+  fetch_one "chass_symmetric3_MD.nii.gz"          "https://zenodo.org/api/records/15178373/files/chass_symmetric3_MD.nii.gz/content"
+  fetch_one "chass_symmetric3_MO.nii.gz"          "https://zenodo.org/api/records/15178373/files/chass_symmetric3_MO.nii.gz/content"
+  fetch_one "chass_symmetric3_DWI.nii.gz"         "https://zenodo.org/api/records/15178373/files/chass_symmetric3_DWI.nii.gz/content"
+  fetch_one "chass_symmetric3_T2.nii.gz"          "https://zenodo.org/api/records/15178373/files/chass_symmetric3_T2.nii.gz/content"
+  fetch_one "chass_symmetric3_labels.nii.gz"      "https://zenodo.org/api/records/15178373/files/chass_symmetric3_labels.nii.gz/content"
+  fetch_one "chass_symmetric3_labels_lookup.txt"  "https://zenodo.org/api/records/15178373/files/chass_symmetric3_labels_lookup.txt/content"
+  fetch_one "chass_symmetric3_mask.nii.gz"        "https://zenodo.org/api/records/15178373/files/chass_symmetric3_mask.nii.gz/content"
+
+  # FATAL sanity: you asked to key on FA + DWI presence
+  if [ ! -f "${SAMBA_ATLAS_DIR}/chass_symmetric3_FA.nii.gz" ]; then
+    echo "FATAL: missing atlas file: ${SAMBA_ATLAS_DIR}/chass_symmetric3_FA.nii.gz" >&2
+    exit 1
+  fi
+
+  if [ ! -f "${SAMBA_ATLAS_DIR}/chass_symmetric3_DWI.nii.gz" ]; then
+    echo "FATAL: missing atlas file: ${SAMBA_ATLAS_DIR}/chass_symmetric3_DWI.nii.gz" >&2
+    exit 1
+  fi
+
+  chmod -R a+rX "${ATLAS_FOLDER}" "${CACHE_DIR}"
+  echo "[final] atlas installation complete."
+  echo "[final] done: SAMBA + wrappers + atlas installed."
 
 %runscript
-# Default entrypoint: just chain to SAMBA_startup inside the container.
-exec /opt/samba/SAMBA/SAMBA_startup "$@"
+  #!/bin/bash
+  set -eu
+  if [ -x /opt/samba/SAMBA/SAMBA_startup ]; then
+    exec /opt/samba/SAMBA/SAMBA_startup "$@"
+  else
+    echo "ERROR: /opt/samba/SAMBA/SAMBA_startup not found or not executable." >&2
+    exit 1
+  fi
 
 %test
-#!/bin/sh
-set -eu
+  #!/bin/sh
+  echo "[test] === final stage sanity checks ==="
 
-echo "[test] === final stage sanity checks ==="
-
-# 1) SAMBA_PATH must exist
-SAMBA_PATH="${SAMBA_PATH:-/opt/samba/SAMBA}"
-echo "[test] checking SAMBA_PATH at: ${SAMBA_PATH}"
-if [ ! -d "${SAMBA_PATH}" ]; then
-    echo "FATAL: SAMBA_PATH missing: ${SAMBA_PATH}"
+  # 1) SAMBA presence
+  if [ -d "/opt/samba/SAMBA" ]; then
+    echo "  OK: SAMBA_PATH exists at /opt/samba/SAMBA."
+  else
+    echo "FATAL: SAMBA_PATH '/opt/samba/SAMBA' not found." >&2
     exit 1
-fi
-echo "  OK: SAMBA_PATH exists."
+  fi
 
-# 2) Atlas directory + key files (FATAL if missing)
-ATLAS_DIR="${SAMBA_ATLAS_DIR:-/opt/atlases/chass_symmetric3}"
-echo "[test] checking atlas at: ${ATLAS_DIR}"
+  # 2) Atlas presence (FATAL if missing)
+  ATLAS_DIR="/opt/atlases/chass_symmetric3"
+  echo "[test] checking atlas at: ${ATLAS_DIR}"
 
-if [ ! -d "${ATLAS_DIR}" ]; then
-    echo "FATAL: atlas directory not found: ${ATLAS_DIR}"
+  if [ ! -d "${ATLAS_DIR}" ]; then
+    echo "FATAL: atlas directory not found: ${ATLAS_DIR}" >&2
     exit 1
-fi
+  fi
 
-REQUIRED_FILES="
-    chass_symmetric3_FA.nii.gz
-    chass_symmetric3_DWI.nii.gz
-    chass_symmetric3_labels.nii.gz
-    chass_symmetric3_mask.nii.gz
-"
+  FA_FILE="${ATLAS_DIR}/chass_symmetric3_FA.nii.gz"
+  DWI_FILE="${ATLAS_DIR}/chass_symmetric3_DWI.nii.gz"
 
-for f in ${REQUIRED_FILES}; do
-    f_trim=$(printf "%s" "${f}" | tr -d '[:space:]')
-    [ -z "${f_trim}" ] && continue
-    if [ ! -f "${ATLAS_DIR}/${f_trim}" ]; then
-        echo "FATAL: missing atlas file: ${ATLAS_DIR}/${f_trim}"
-        exit 1
-    fi
-done
+  if [ ! -f "${FA_FILE}" ]; then
+    echo "FATAL: missing FA atlas file: ${FA_FILE}" >&2
+    exit 1
+  fi
 
-echo "[test] atlas check passed."
-echo "[test] final stage checks passed."
+  if [ ! -f "${DWI_FILE}" ]; then
+    echo "FATAL: missing DWI atlas file: ${DWI_FILE}" >&2
+    exit 1
+  fi
+
+  echo "[test] atlas looks OK (FA + DWI present)."
+  echo "[test] final stage checks complete."
