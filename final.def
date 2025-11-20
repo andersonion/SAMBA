@@ -2,33 +2,8 @@ Bootstrap: localimage
 From: fsl_mcr.sif
 
 %labels
-    Stage     final
-    Maintainer  "BJ + SAMBA container stack"
-
-%help
-    Final SAMBA image layered on top of fsl_mcr.sif.
-    - Assumes fsl_mcr.sif already contains:
-        * ANTs (under /opt/samba/ants or similar)
-        * FSL mini (under /opt/samba/fsl)
-        * MATLAB Runtime v90
-        * Perl + Carton + SAMBA dependencies
-        * (Optionally) atlas under /opt/atlases/chass_symmetric3
-    - This stage:
-        * Installs the SAMBA repo into /opt/samba/SAMBA
-        * Installs helper binaries + scheduler wrappers into /opt/samba/bin
-        * Sets environment for runtime use
-        * Adds a non-fatal %test that only warns if atlas is missing
-
-%environment
-    # Runtime environment inside the container
-    export SAMBA_ROOT=/opt/samba
-    export SAMBA_PATH=/opt/samba/SAMBA
-
-    # If atlas is present in the image, this will be the default
-    export SAMBA_ATLAS_DIR=/opt/atlases/chass_symmetric3
-
-    # Prefer SAMBA tools + FSL + ANTs
-    export PATH="/opt/samba/bin:/opt/samba/fsl/bin:/opt/samba/ants/bin:${PATH}"
+    Stage: final
+    Maintainer: "SAMBA pipeline container (final stage)"
 
 %post
     set -eu
@@ -36,108 +11,187 @@ From: fsl_mcr.sif
     SAMBA_ROOT=/opt/samba
     SAMBA_PATH=/opt/samba/SAMBA
 
-    mkdir -p /opt/src "${SAMBA_ROOT}"
-    chmod 0755 "${SAMBA_ROOT}"
+    mkdir -p /opt/src \
+             /opt/samba \
+             /opt/samba/perl5 \
+             /opt/samba/perl5libs \
+             /opt/atlases \
+             /opt/zenodo_cache
 
-    echo "[final] cloning SAMBA from GitHub..."
+    echo "[final] installing SAMBA into ${SAMBA_PATH}..."
+
+    # --- Clone SAMBA source into /opt/src/SAMBA ---
     if [ ! -d /opt/src/SAMBA ]; then
         git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
     fi
+
     git -C /opt/src/SAMBA fetch --all --tags --prune
 
-    # Pin to origin/master (your canonical branch)
     SAMBA_REF=master
-    echo "[final] checking out SAMBA ref '${SAMBA_REF}'..."
-    git -C /opt/src/SAMBA show-ref --verify --quiet "refs/remotes/origin/${SAMBA_REF}" || {
-        echo "FATAL: cannot resolve origin/${SAMBA_REF} in /opt/src/SAMBA" >&2
+    if git -C /opt/src/SAMBA show-ref --verify --quiet "refs/remotes/origin/${SAMBA_REF}"; then
+        git -C /opt/src/SAMBA checkout -f -B buildpin "origin/${SAMBA_REF}"
+    else
+        echo "FATAL: Unable to resolve SAMBA_REF='${SAMBA_REF}'" >&2
+        git -C /opt/src/SAMBA show-ref | sed 's/^/  /' || true
         exit 1
-    }
-    git -C /opt/src/SAMBA checkout -f -B buildpin "origin/${SAMBA_REF}"
+    fi
 
-    echo "[final] installing SAMBA into ${SAMBA_PATH}..."
-    rm -rf "${SAMBA_PATH}.tmp"
-    rsync -a --delete /opt/src/SAMBA/ "${SAMBA_PATH}.tmp"/
-    mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
+    # --- Install SAMBA into /opt/samba/SAMBA (rsync) ---
+    rm -rf /opt/samba/SAMBA.tmp
+    rsync -a --delete /opt/src/SAMBA/ /opt/samba/SAMBA.tmp/
+    mv -f /opt/samba/SAMBA.tmp "${SAMBA_PATH}"
     chmod -R a+rX "${SAMBA_PATH}"
 
     echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
-    mkdir -p "${SAMBA_ROOT}/bin"
 
-    # Helper "fake" slurm frontends (sacct, sbatch, squeue, scancel, scontrol)
+    mkdir -p /opt/samba/bin
+
+    # Helper binaries (sacct/sbatch/scancel/scontrol/squeue wrappers)
     if [ -d "${SAMBA_PATH}/samba_bin" ]; then
         cp -f \
-            "${SAMBA_PATH}/samba_bin/sacct" \
-            "${SAMBA_PATH}/samba_bin/sbatch" \
-            "${SAMBA_PATH}/samba_bin/scancel" \
-            "${SAMBA_PATH}/samba_bin/scontrol" \
-            "${SAMBA_PATH}/samba_bin/squeue" \
-            "${SAMBA_ROOT}/bin/"
+          "${SAMBA_PATH}/samba_bin/sacct" \
+          "${SAMBA_PATH}/samba_bin/sbatch" \
+          "${SAMBA_PATH}/samba_bin/scancel" \
+          "${SAMBA_PATH}/samba_bin/scontrol" \
+          "${SAMBA_PATH}/samba_bin/squeue" \
+          /opt/samba/bin/
     else
-        echo "[final] WARNING: samba_bin folder not found under ${SAMBA_PATH}" >&2
+        echo "[final] WARNING: ${SAMBA_PATH}/samba_bin not found; scheduler wrapper entrypoints missing." >&2
     fi
 
-    # Scheduler proxy scripts (samba_sched_sacct, samba_sched_sbatch, etc.)
+    # Scheduler proxy scripts
     if [ -d "${SAMBA_PATH}/samba_sched_wrappers" ]; then
         cp -f \
-            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sacct" \
-            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sbatch" \
-            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scancel" \
-            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scontrol" \
-            "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_squeue" \
-            "${SAMBA_ROOT}/bin/"
+          "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sacct" \
+          "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sbatch" \
+          "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scancel" \
+          "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scontrol" \
+          "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_squeue" \
+          /opt/samba/bin/
     else
-        echo "[final] WARNING: samba_sched_wrappers folder not found under ${SAMBA_PATH}" >&2
+        echo "[final] WARNING: ${SAMBA_PATH}/samba_sched_wrappers not found; scheduler proxy scripts missing." >&2
     fi
 
-    chmod -R a+rx "${SAMBA_ROOT}/bin"
+    chmod -R a+rx /opt/samba/bin
 
-    echo "[final] done: SAMBA + wrappers installed."
+    echo "[final] done: SAMBA + wrappers installed. (Atlas is expected from base image or via bind.)"
+
+%environment
+    # Core SAMBA paths
+    export SAMBA_ROOT=/opt/samba
+    export SAMBA_PATH=/opt/samba/SAMBA
+
+    # Perl local::lib used by Carton (installed in fsl_mcr stage)
+    export PERL_LOCAL_LIB_ROOT=/opt/samba/perl5libs
+    export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
+    export PERL_MM_OPT=INSTALL_BASE=/opt/samba/perl5libs
+    export PERL5LIB=/opt/samba/perl5libs/lib/perl5
+
+    # FSL skinny (installed in fsl_mcr stage, with /opt/samba/fsl -> /opt/samba/.fsl_mini)
+    export FSLDIR=/opt/samba/fsl
+
+    # Default atlas location inside the image (if present)
+    export SAMBA_ATLAS_DIR=/opt/atlases/chass_symmetric3
+
+    # If ATLAS_FOLDER not set by the user at runtime, default to SAMBA_ATLAS_DIR
+    if [ -z "${ATLAS_FOLDER:-}" ]; then
+        export ATLAS_FOLDER="${SAMBA_ATLAS_DIR}"
+    fi
+
+    # PATH: SAMBA bin, scheduler wrappers, Perl libs, FSL, ANTs, SAMBA scripts, then system
+    export PATH="/opt/samba/bin:/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/ants/bin:/opt/samba/fsl/bin:/opt/samba/SAMBA:${PATH}"
 
 %runscript
-    # Default entrypoint: run the SAMBA startup script.
-    # You can override this by explicitly calling 'singularity exec ... SAMBA_startup ...'
-    if [ -x /opt/samba/SAMBA/SAMBA_startup ]; then
-        exec /opt/samba/SAMBA/SAMBA_startup "$@"
+    # Default: drop into a shell unless overridden by the caller.
+    exec /bin/bash "$@"
+
+%test
+    set -eu
+
+    echo "[test] === final stage sanity checks (strict for core tools) ==="
+
+    echo
+    echo "[test] checking SAMBA_PATH..."
+    if [ -d "${SAMBA_PATH:-/opt/samba/SAMBA}" ]; then
+        echo "  SAMBA_PATH='${SAMBA_PATH:-/opt/samba/SAMBA}' exists."
     else
-        echo "ERROR: /opt/samba/SAMBA/SAMBA_startup not found or not executable." >&2
-        echo "You probably want to exec into the container and diagnose:" >&2
-        echo "  singularity exec samba.sif bash" >&2
+        echo "FATAL: SAMBA_PATH='${SAMBA_PATH:-/opt/samba/SAMBA}' does not exist in image." >&2
         exit 1
     fi
 
-%test
-    # Non-fatal sanity checks — these should NEVER break the build.
-    set -eu
-
-    echo "[test] checking basic tools in PATH inside final image..."
-
-    echo "[test] which perl:"
-    command -v perl || echo "[test] WARNING: perl not found in PATH"
-
-    echo "[test] which fslmaths:"
+    echo
+    echo "[test] checking fslmaths presence & behavior..."
     if command -v fslmaths >/dev/null 2>&1; then
-        # Do not fail if this errors; just warn.
-        if ! fslmaths -version >/dev/null 2>&1; then
-            echo "[test] WARNING: fslmaths -version failed (but continuing)."
+        FSLMATHS_BIN="$(command -v fslmaths)"
+        echo "  fslmaths found at: ${FSLMATHS_BIN}"
+    else
+        echo "FATAL: fslmaths not found in PATH inside image." >&2
+        exit 1
+    fi
+
+    echo
+    echo "[test] fslmaths -version (for information only; may be non-zero)..."
+    set +e
+    fslmaths -version
+    FSLMATHS_VER_RC=$?
+    echo "  [test] fslmaths -version exit code: ${FSLMATHS_VER_RC}"
+    set -e
+
+    echo
+    echo "[test] fslmaths functional smoke test using MNI152_T1_2mm.nii.gz (strict)..."
+    MNI_IN="/opt/samba/.fsl_mini/share/fsl/data/standard/MNI152_T1_2mm.nii.gz"
+    if [ ! -f "${MNI_IN}" ]; then
+        echo "FATAL: Expected test image not found at: ${MNI_IN}" >&2
+        echo "       Cannot perform fslmaths functional smoke test." >&2
+        exit 1
+    fi
+
+    TMP_OUT="$(mktemp /tmp/fslsmoke.XXXXXX.nii.gz)"
+    if fslmaths "${MNI_IN}" -mul 1 "${TMP_OUT}" >/dev/null 2>&1; then
+        echo "  [test] fslmaths functional test OK → ${TMP_OUT}"
+        rm -f "${TMP_OUT}" || true
+    else
+        echo "FATAL: fslmaths functional smoke test FAILED using '${MNI_IN}'." >&2
+        echo "       Check FSL skinny install and dependent libraries." >&2
+        rm -f "${TMP_OUT}" || true
+        exit 1
+    fi
+
+    echo
+    echo "[test] checking built-in atlas (non-fatal but verbose)..."
+    ATLAS_DIR="${SAMBA_ATLAS_DIR:-/opt/atlases/chass_symmetric3}"
+    echo "  Expected atlas dir: ${ATLAS_DIR}"
+
+    if [ -d "${ATLAS_DIR}" ]; then
+        echo "  [test] Atlas directory exists; listing contents:"
+        ls -lh "${ATLAS_DIR}" || true
+
+        # Check for the key files; warn if missing
+        MISSING_ATLAS=0
+        for f in \
+            chass_symmetric3_T2.nii.gz \
+            chass_symmetric3_labels.nii.gz \
+            chass_symmetric3_mask.nii.gz
+        do
+            if [ -f "${ATLAS_DIR}/${f}" ]; then
+                echo "    OK: ${f}"
+            else
+                echo "    WARNING: missing atlas file: ${ATLAS_DIR}/${f}"
+                MISSING_ATLAS=1
+            fi
+        done
+
+        if [ "${MISSING_ATLAS}" -ne 0 ]; then
+            echo "  [test] NOTE: Built-in atlas is incomplete. You may instead bind an external atlas"
+            echo "        via ATLAS_FOLDER at runtime (e.g. export ATLAS_FOLDER=/path/to/chass_symmetric3)."
+        else
+            echo "  [test] Built-in atlas looks complete."
         fi
     else
-        echo "[test] WARNING: fslmaths not found in PATH"
+        echo "  WARNING: Atlas directory '${ATLAS_DIR}' not present in image."
+        echo "           This is OK if you always bind ATLAS_FOLDER from the host at runtime."
     fi
 
-    echo "[test] checking SAMBA location..."
-    if [ -d /opt/samba/SAMBA ]; then
-        ls -d /opt/samba/SAMBA || true
-    else
-        echo "[test] WARNING: /opt/samba/SAMBA missing" >&2
-    fi
-
-    echo "[test] checking atlas presence (non-fatal)..."
-    if [ -d /opt/atlases/chass_symmetric3 ]; then
-        ls /opt/atlases/chass_symmetric3 | head -10 || true
-    else
-        echo "[test] WARNING: default atlas /opt/atlases/chass_symmetric3 not present in image." >&2
-        echo "[test]          You can still bind an external atlas via ATLAS_FOLDER at runtime." >&2
-    fi
-
-    echo "[test] final stage checks complete (non-fatal)."
+    echo
+    echo "[test] final stage checks complete."
     exit 0
