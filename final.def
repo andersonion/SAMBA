@@ -2,114 +2,272 @@ Bootstrap: localimage
 From: fsl_mcr.sif
 
 %labels
-    Stage final
-    Maintainer "BJ / SAMBA container"
+    Stage: final
+    Maintainer: BJ Anderson
 
 %environment
-    # Core SAMBA locations
-    export SAMBA_ROOT=/opt/samba
-    export SAMBA_PATH=/opt/samba/SAMBA
-
-    # Default atlas location inside the image
-    export SAMBA_ATLAS_DIR=${SAMBA_ATLAS_DIR:-/opt/atlases/chass_symmetric3}
-
-    # Add SAMBA bin + tools
-    export PATH="/opt/samba/bin:/opt/samba/fsl/bin:/opt/samba/ants/bin:$PATH"
+    export SAMBA_ROOT="/opt/samba"
+    export SAMBA_PATH="/opt/samba/SAMBA"
+    export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
+    export PERL5LIB="/opt/samba/perl5libs/lib/perl5"
+    export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
+    export PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
+    export SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
+    export PATH="${SAMBA_ROOT}/bin:${PERL_LOCAL_LIB_ROOT}/bin:${SAMBA_ROOT}/perl5/bin:${SAMBA_ROOT}/fsl/bin:${SAMBA_ROOT}/ants/bin:${SAMBA_ROOT}/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 %post
     set -eu
 
-    SAMBA_ROOT=/opt/samba
-    SAMBA_PATH=/opt/samba/SAMBA
+    # =========================
+    # Vars
+    # =========================
+    SAMBA_ROOT="/opt/samba"
+    SAMBA_PATH="${SAMBA_ROOT}/SAMBA"
+    PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
+    PERL5LIB="/opt/samba/perl5libs/lib/perl5"
+    PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
+    PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
+    ATLAS_FOLDER="/opt/atlases"
+    SAMBA_ATLAS_DIR="${ATLAS_FOLDER}/chass_symmetric3"
+    ZENODO_ID="15178373"
 
-    mkdir -p /opt/src "${SAMBA_ROOT}"
+    export SAMBA_ROOT SAMBA_PATH PERL_LOCAL_LIB_ROOT PERL5LIB PERL_MB_OPT PERL_MM_OPT
 
-    echo "[final] cloning/refreshing SAMBA repo..."
+    # =========================
+    # Helpers
+    # =========================
+    _sysrun() {
+        env -i \
+            PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            LC_ALL=C \
+            DEBIAN_FRONTEND=noninteractive \
+            LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu \
+            "$@"
+    }
+
+    _mcr_shield_begin() {
+        if [ -f /etc/ld.so.conf.d/mcr_v90.conf ]; then
+            mv /etc/ld.so.conf.d/mcr_v90.conf /etc/ld.so.conf.d/mcr_v90.conf.disabled
+            ldconfig
+            : > /tmp/.mcr_shielded
+        fi
+    }
+
+    _mcr_shield_end() {
+        if [ -f /tmp/.mcr_shielded ]; then
+            mv /etc/ld.so.conf.d/mcr_v90.conf.disabled /etc/ld.so.conf.d/mcr_v90.conf
+            ldconfig
+            rm -f /tmp/.mcr_shielded
+        fi
+    }
+
+    # =========================
+    # System deps (shield MCR so tools see system libstdc++)
+    # =========================
+    _mcr_shield_begin
+    _sysrun apt-get update
+    _sysrun apt-get install -y --no-install-recommends \
+        git rsync ca-certificates curl unzip \
+        make gcc perl-modules cpanminus
+    _sysrun apt-get clean
+    _sysrun rm -rf /var/lib/apt/lists/*
+    _mcr_shield_end
+
+    # =========================
+    # Layout
+    # =========================
+    mkdir -p /opt/src "${SAMBA_ROOT}" /opt/samba/perl5 /opt/samba/perl5libs
+    chmod 0755 "${SAMBA_ROOT}"
+
+    # =========================
+    # Fetch & stage SAMBA (origin/master)
+    # =========================
     if [ ! -d /opt/src/SAMBA ]; then
         git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
-    else
-        git -C /opt/src/SAMBA fetch --all --tags --prune
     fi
+    git -C /opt/src/SAMBA fetch --all --tags --prune
+    git -C /opt/src/SAMBA checkout -f -B buildpin origin/master
 
-    SAMBA_REF=master
-    if git -C /opt/src/SAMBA show-ref --verify --quiet "refs/remotes/origin/${SAMBA_REF}"; then
-        git -C /opt/src/SAMBA checkout -f -B buildpin "origin/${SAMBA_REF}"
-    else
-        echo "FATAL: unable to resolve branch ${SAMBA_REF}" >&2
-        exit 1
-    fi
-
-    echo "[final] installing SAMBA into ${SAMBA_PATH}..."
     rm -rf "${SAMBA_PATH}.tmp"
     rsync -a --delete /opt/src/SAMBA/ "${SAMBA_PATH}.tmp"/
     mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
     chmod -R a+rX "${SAMBA_PATH}"
 
-    echo "[final] installing SAMBA helper binaries + scheduler wrappers..."
-    mkdir -p /opt/samba/bin
+    # =========================
+    # Install Carton + deps (BAKED IN)
+    # =========================
+    /usr/bin/cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib Carton
 
-    # --- helper binaries ---
-    if [ -d "${SAMBA_PATH}/samba_bin" ]; then
-        cp -f ${SAMBA_PATH}/samba_bin/* /opt/samba/bin/
-    else
-        echo "FATAL: missing directory ${SAMBA_PATH}/samba_bin" >&2
+    CARTON_BIN="/opt/samba/perl5libs/bin/carton"
+    if [ ! -x "${CARTON_BIN}" ]; then
+        echo "FATAL: ${CARTON_BIN} missing after cpanm install" >&2
         exit 1
     fi
 
-    # --- scheduler wrappers ---
-    if [ -d "${SAMBA_PATH}/samba_sched_wrappers" ]; then
-        cp -f ${SAMBA_PATH}/samba_sched_wrappers/* /opt/samba/bin/
+    cd "${SAMBA_PATH}"
+    echo "[carton] warm install to generate cpanfile.snapshot..."
+    env -i \
+        PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+        LC_ALL=C \
+        DEBIAN_FRONTEND=noninteractive \
+        LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
+        PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
+        "${CARTON_BIN}" install --path "/opt/samba/perl5libs"
+
+    if [ -f "cpanfile.snapshot" ]; then
+        echo "[carton] snapshot present; locking with --deployment..."
+        env -i \
+            PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            LC_ALL=C \
+            DEBIAN_FRONTEND=noninteractive \
+            LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
+            PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
+            "${CARTON_BIN}" install --deployment --path "/opt/samba/perl5libs"
     else
-        echo "FATAL: missing directory ${SAMBA_PATH}/samba_sched_wrappers" >&2
-        exit 1
+        echo "[carton] WARNING: no cpanfile.snapshot created; proceeding with non-deployment install."
+    fi
+    echo "[carton] done."
+
+    # =========================
+    # Embed Atlas from Zenodo (tarball if present; else individual files)
+    # =========================
+    mkdir -p "${ATLAS_FOLDER}" "${SAMBA_ATLAS_DIR}"
+    cd "${ATLAS_FOLDER}"
+
+    TMP_JSON="/tmp/zenodo_${ZENODO_ID}.json"
+    _mcr_shield_begin
+    _sysrun curl -fsSL "https://zenodo.org/api/records/${ZENODO_ID}" -o "${TMP_JSON}"
+    _mcr_shield_end
+
+    TARBALL_NAME="$(
+        python3 - "$TMP_JSON" <<'PY'
+import json,sys
+j=json.load(open(sys.argv[1]))
+files=j.get("files",[])
+t=[f["key"] for f in files if f["key"].endswith(".tar.gz")]
+print(t[0] if t else "")
+PY
+    )"
+
+    if [ -n "${TARBALL_NAME}" ]; then
+        echo "[atlas] fetching tarball: ${TARBALL_NAME}"
+        _mcr_shield_begin
+        _sysrun curl -fL --retry 4 --retry-delay 2 \
+            -o "${TARBALL_NAME}" \
+            "https://zenodo.org/api/records/${ZENODO_ID}/files/${TARBALL_NAME}/content"
+        _mcr_shield_end
+        tar -xzf "${TARBALL_NAME}" -C "${ATLAS_FOLDER}"
+        rm -f "${TARBALL_NAME}"
+    else
+        echo "[atlas] no tarball; fetching individual files..."
+        req="chass_symmetric3_T2.nii.gz chass_symmetric3_DWI.nii.gz chass_symmetric3_FA.nii.gz chass_symmetric3_MD.nii.gz chass_symmetric3_MO.nii.gz chass_symmetric3_labels.nii.gz chass_symmetric3_labels_lookup.txt chass_symmetric3_mask.nii.gz"
+        for k in $req; do
+            _mcr_shield_begin
+            _sysrun curl -fL --retry 4 --retry-delay 2 \
+                -o "${SAMBA_ATLAS_DIR}/${k}" \
+                "https://zenodo.org/api/records/${ZENODO_ID}/files/${k}/content"
+            _mcr_shield_end
+        done
+    fi
+    chmod -R a+rX "${ATLAS_FOLDER}"
+
+    echo "[final] SAMBA at ${SAMBA_PATH}"
+    echo "[final] atlas at ${SAMBA_ATLAS_DIR}"
+    echo "[final] Carton path: ${CARTON_BIN}"
+
+    echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
+    mkdir -p /opt/samba/bin
+
+    # Main scheduler command shims (these replace sbatch/squeue/etc. in PATH)
+    if [ -d /opt/samba/SAMBA/samba_bin ]; then
+        cp -f \
+            /opt/samba/SAMBA/samba_bin/sbatch \
+            /opt/samba/SAMBA/samba_bin/squeue \
+            /opt/samba/SAMBA/samba_bin/scancel \
+            /opt/samba/SAMBA/samba_bin/sacct \
+            /opt/samba/SAMBA/samba_bin/scontrol \
+            /opt/samba/bin/
+    else
+        echo "[final] WARNING: /opt/samba/SAMBA/samba_bin not found; no sbatch/squeue/scancel shims installed." >&2
+    fi
+
+    # Scheduler proxy clients (inside container, talk to host or daemon)
+    if [ -d /opt/samba/SAMBA/samba_sched_wrappers ]; then
+        cp -f \
+            /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_sbatch \
+            /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_squeue \
+            /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_scancel \
+            /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_sacct \
+            /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_scontrol \
+            /opt/samba/bin/
+    else
+        echo "[final] WARNING: /opt/samba/SAMBA/samba_sched_wrappers not found; no scheduler proxy helpers installed." >&2
     fi
 
     chmod -R a+rx /opt/samba/bin
 
     echo "[final] done: SAMBA + wrappers installed."
 
-%runscript
-    exec /bin/bash "$@"
 
 %test
     set -eu
-    echo "[test] === final stage sanity checks ==="
+    echo "[test] basic check..."
+    command -v perl >/dev/null
+    if [ ! -x /opt/samba/perl5libs/bin/carton ]; then
+        echo "FATAL: carton not found in /opt/samba/perl5libs/bin"; exit 1
+    fi
 
-    echo
-    echo "[test] checking SAMBA_PATH..."
-    if [ -d "${SAMBA_PATH:-/opt/samba/SAMBA}" ]; then
-        echo "  OK: SAMBA_PATH exists."
-    else
-        echo "FATAL: SAMBA_PATH missing." >&2
+    echo "[test] checking atlas at: /opt/atlases/chass_symmetric3"
+    ATLAS_DIR="/opt/atlases/chass_symmetric3"
+    if [ ! -d "$ATLAS_DIR" ]; then
+        echo "FATAL: atlas directory not found: $ATLAS_DIR"
         exit 1
     fi
 
-    echo
-    ATLAS_DIR="${SAMBA_ATLAS_DIR:-/opt/atlases/chass_symmetric3}"
-    echo "[test] checking atlas at: ${ATLAS_DIR}"
+    # Required core files
+    REQ_FILES=(
+        "chass_symmetric3_FA.nii.gz"
+        "chass_symmetric3_DWI.nii.gz"
+        "chass_symmetric3_labels.nii.gz"
+        "chass_symmetric3_mask.nii.gz"
+    )
 
-    if [ ! -d "${ATLAS_DIR}" ]; then
-        echo "FATAL: atlas directory not found: ${ATLAS_DIR}" >&2
-        exit 1
-    fi
-
-    REQUIRED_ATLAS_FILES="
-chass_symmetric3_FA.nii.gz
-chass_symmetric3_DWI.nii.gz
-"
-
-    missing=0
-    for f in ${REQUIRED_ATLAS_FILES}; do
-        if [ ! -f "${ATLAS_DIR}/${f}" ]; then
-            echo "FATAL: missing required atlas file: ${ATLAS_DIR}/${f}" >&2
-            missing=1
+    MISSING=0
+    for f in "${REQ_FILES[@]}"; do
+        if [ ! -f "$ATLAS_DIR/$f" ]; then
+            echo "FATAL: missing atlas file: $ATLAS_DIR/$f"
+            MISSING=1
+        else
+            echo "  OK: $f"
         fi
     done
 
-    if [ "${missing}" -ne 0 ]; then
-        echo "FATAL: atlas validation failed." >&2
+    if [ "$MISSING" -ne 0 ]; then
+        echo "FATAL: one or more required atlas files are missing."
         exit 1
     fi
+    
+    # Snapshot is nice-to-have; don’t fail if absent.
+    [ -f "/opt/samba/SAMBA/cpanfile.snapshot" ] && echo "[test] snapshot present"
+    echo "[test] OK"
 
+    echo "[test] checking SAMBA helper bin is present on PATH..."
+    if [ -x /opt/samba/bin/sbatch ] && [ -x /opt/samba/bin/squeue ]; then
+        echo "  OK: SAMBA scheduler wrappers installed in /opt/samba/bin."
+    else
+        echo "FATAL: SAMBA scheduler wrappers missing from /opt/samba/bin."
+        exit 1
+    fi
+    
+	echo
+    echo "[test] final stage checks COMPLETE."
+
+%runscript
+    #!/bin/sh
+    set -eu
+    echo "SAMBA container runtime"
+    echo "  SAMBA: ${SAMBA_PATH}"
+    echo "  Atlas: ${SAMBA_ATLAS_DIR}"
     echo
-    echo "[test] final.def sanity checks PASSED (SAMBA + atlas OK)."
+    echo "Use:"
+    echo "  singularity exec samba.sif samba-pipe /path/to/headfile"
