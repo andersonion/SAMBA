@@ -1,209 +1,151 @@
-Bootstrap: localimage
-From: fsl_mcr.sif
+#!/usr/bin/env bash
+#
+# samba_pipe_src.sh
+#
+# Host-side helper for launching SAMBA inside the Singularity/Apptainer
+# container via:
+#
+#   samba-pipe /path/to/headfile.hf
+#
+# It:
+#   - Normalizes headfile to an absolute path
+#   - Chooses BIGGUS_DISKUS (scratch/work/home fallback)
+#   - Sets scheduler-proxy env (SAMBA_SCHED_*)
+#   - Builds singularity exec with per-call binds
+#   - Exposes CONTAINER_CMD_PREFIX (used INSIDE container to dispatch jobs)
+#
 
-%labels
-  Stage: final
-  Maintainer: "BJ / SAMBA container"
+# -----------------------------
+#  Core configuration (host)
+# -----------------------------
 
-%environment
-  # Core SAMBA env exported at container runtime
-  export SAMBA_ROOT=/opt/samba
-  export SAMBA_PATH=/opt/samba/SAMBA
+# Location of singularity/apptainer + image on THIS machine.
+: "${CONTAINER_CMD:=singularity}"
+: "${SIF_PATH:=/opt/containers/samba.sif}"
 
-  # Perl local::lib location installed in the base image (fsl_mcr stage)
-  export PERL_LOCAL_LIB_ROOT=/opt/samba/perl5libs
-  export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
-  export PERL_MM_OPT=INSTALL_BASE=/opt/samba/perl5libs
-  export PERL5LIB=/opt/samba/perl5libs/lib/perl5
+# Where the SAMBA repo lives on the host (mostly for convenience).
+: "${SAMBA_APPS_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)}"
 
-  # Add SAMBA + toolchain + FSL + ANTs to PATH
-  export PATH=${SAMBA_ROOT}/bin:/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/ants/bin:/opt/samba/fsl/bin:/opt/samba/SAMBA:$PATH
+# Default scratch selection if BIGGUS_DISKUS is not already set.
+_samba_pick_biggus() {
+    if [[ -n "${BIGGUS_DISKUS:-}" ]]; then
+        return 0
+    fi
+    if [[ -d "${SCRATCH:-}" ]]; then
+        export BIGGUS_DISKUS="$SCRATCH"
+    elif [[ -d "${WORK:-}" ]]; then
+        export BIGGUS_DISKUS="$WORK"
+    else
+        export BIGGUS_DISKUS="$HOME/samba_scratch"
+        mkdir -p "$BIGGUS_DISKUS"
+    fi
+}
 
-  # Default atlas location inside the image
-  export SAMBA_ATLAS_DIR=/opt/atlases/chass_symmetric3
+# Scheduler proxy configuration:
+#   proxy  -> container uses /opt/samba/bin/samba_sched_* which call samba_sched_proxy
+#   native -> wrappers fall through to sbatch.real or /usr/bin/sbatch
+: "${SAMBA_SCHED_DIR:=$HOME/.samba_sched}"
+: "${SAMBA_SCHED_BACKEND:=proxy}"
 
-%post
-  #!/bin/bash
-  set -eu
+export SAMBA_SCHED_DIR SAMBA_SCHED_BACKEND
+mkdir -p "$SAMBA_SCHED_DIR"
 
-  echo "[final] starting final-stage setup..."
+# Site-specific always-on binds (leave empty unless you need them).
+EXTRA_BINDS=()
 
-  SAMBA_ROOT=/opt/samba
-  SAMBA_PATH=/opt/samba/SAMBA
-  ATLAS_FOLDER=/opt/atlases
-  SAMBA_ATLAS_DIR=${ATLAS_FOLDER}/chass_symmetric3
-  CACHE_DIR=/opt/zenodo_cache
+# -----------------------------
+#  Main entrypoint function
+# -----------------------------
+function samba-pipe {
+    local hf="$1"
 
-  export SAMBA_ROOT SAMBA_PATH
+    if [[ -z "$hf" ]]; then
+        echo "Usage: samba-pipe headfile.hf" >&2
+        return 1
+    fi
 
-  echo "[final] creating core directories..."
-  mkdir -p /opt/src "${SAMBA_ROOT}" "${ATLAS_FOLDER}" "${CACHE_DIR}"
+    # Make headfile absolute once
+    if [[ "${hf:0:1}" != "/" && "${hf:0:2}" != "~/" ]]; then
+        hf="${PWD}/${hf}"
+    fi
+    if [[ ! -f "$hf" ]]; then
+        echo "ERROR: headfile not found: $hf" >&2
+        return 1
+    fi
 
-  # ---------------------------------------------------------------------------
-  # 1) Install / update SAMBA tree into /opt/samba/SAMBA
-  # ---------------------------------------------------------------------------
-  if [ ! -d /opt/src/SAMBA ]; then
-    echo "[final] cloning SAMBA repository into /opt/src/SAMBA..."
-    git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
-  else
-    echo "[final] updating existing /opt/src/SAMBA..."
-    (
-      cd /opt/src/SAMBA
-      git fetch --all --tags --prune
+    # Ensure BIGGUS_DISKUS is set to a writable dir
+    _samba_pick_biggus
+    if [[ ! -d "$BIGGUS_DISKUS" || ! -w "$BIGGUS_DISKUS" ]]; then
+        echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
+        return 1
+    fi
+
+    # Warn if dir not group-writable (multi-user issues)
+    if ! perl -e 'exit((stat($ARGV[0]))[2] & 0020 ? 0 : 1)' "$BIGGUS_DISKUS"; then
+        echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
+    fi
+
+    # Atlas bind (if host atlas folder is set)
+    local BIND_ATLAS=()
+    if [[ -n "${ATLAS_FOLDER:-}" && -d "$ATLAS_FOLDER" ]]; then
+        BIND_ATLAS=( --bind "$ATLAS_FOLDER:$ATLAS_FOLDER" )
+    fi
+
+    # Scheduler dir bind (needed for proxy backend)
+    local BIND_SCHED=()
+    if [[ "$SAMBA_SCHED_BACKEND" == "proxy" && -d "$SAMBA_SCHED_DIR" ]]; then
+        BIND_SCHED=( --bind "$SAMBA_SCHED_DIR:$SAMBA_SCHED_DIR" )
+    fi
+
+    # Headfile directory bind
+    local HF_DIR
+    HF_DIR="$(dirname "$hf")"
+    local BIND_HF_DIR=( --bind "$HF_DIR:$HF_DIR" )
+
+    # BIGGUS_DISKUS bind
+    local BIND_BIGGUS=( --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS" )
+
+    # Aggregate binds for container invocation
+    local BIND_ALL=(
+        "${BIND_BIGGUS[@]}"
+        "${BIND_HF_DIR[@]}"
+        "${BIND_ATLAS[@]}"
+        "${BIND_SCHED[@]}"
+        "${EXTRA_BINDS[@]}"
     )
-  fi
 
-  echo "[final] checking out SAMBA origin/master as buildpin..."
-  (
-    cd /opt/src/SAMBA
-    git checkout -f -B buildpin origin/master
-  )
+    # Stage HF to /tmp for a stable path inside the container
+    local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
+    cp "$hf" "$hf_tmp"
 
-  echo "[final] installing SAMBA into ${SAMBA_PATH}..."
-  rm -rf "${SAMBA_PATH}.tmp"
-  rsync -a --delete /opt/src/SAMBA/ "${SAMBA_PATH}.tmp"/
-  mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
-  chmod -R a+rX "${SAMBA_PATH}"
+    # Build command prefix used inside container for scheduler calls
+    local CMD_PREFIX_A=(
+        "$CONTAINER_CMD" exec
+        "${BIND_ALL[@]}"
+        "$SIF_PATH"
+    )
+    export CONTAINER_CMD_PREFIX="${CMD_PREFIX_A[*]}"
 
-  # ---------------------------------------------------------------------------
-  # 2) Install SAMBA helper binaries and scheduler wrappers into /opt/samba/bin
-  # ---------------------------------------------------------------------------
-  echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
-  mkdir -p "${SAMBA_ROOT}/bin"
+    # Run inside container with env propagated
+    env \
+        USER="$USER" \
+        BIGGUS_DISKUS="$BIGGUS_DISKUS" \
+        SIF_PATH="$SIF_PATH" \
+        ATLAS_FOLDER="${ATLAS_FOLDER:-}" \
+        NOTIFICATION_EMAIL="${NOTIFICATION_EMAIL:-}" \
+        PIPELINE_QUEUE="${PIPELINE_QUEUE:-}" \
+        SLURM_RESERVATION="${SLURM_RESERVATION:-}" \
+        CONTAINER_CMD_PREFIX="${CMD_PREFIX_A[*]}" \
+        SAMBA_SCHED_BACKEND="$SAMBA_SCHED_BACKEND" \
+        SAMBA_SCHED_DIR="$SAMBA_SCHED_DIR" \
+        "$CONTAINER_CMD" exec \
+            "${BIND_ALL[@]}" \
+            "$SIF_PATH" \
+            SAMBA_startup "$hf_tmp"
+}
 
-  if [ -d "${SAMBA_PATH}/samba_bin" ]; then
-    cp -f \
-      "${SAMBA_PATH}/samba_bin/sacct" \
-      "${SAMBA_PATH}/samba_bin/sbatch" \
-      "${SAMBA_PATH}/samba_bin/scancel" \
-      "${SAMBA_PATH}/samba_bin/scontrol" \
-      "${SAMBA_PATH}/samba_bin/squeue" \
-      "${SAMBA_ROOT}/bin/" || true
-  fi
-
-  if [ -d "${SAMBA_PATH}/samba_sched_wrappers" ]; then
-    cp -f \
-      "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sacct" \
-      "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sbatch" \
-      "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scancel" \
-      "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scontrol" \
-      "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_squeue" \
-      "${SAMBA_ROOT}/bin/" || true
-  fi
-
-  chmod -R a+rx "${SAMBA_ROOT}/bin"
-  echo "[final] SAMBA + wrappers installed under ${SAMBA_ROOT}."
-
-  # ---------------------------------------------------------------------------
-  # 3) Install chass_symmetric3 atlas from Zenodo (record 15178373)
-  #    Use python3 instead of curl to avoid MATLAB libcurl conflicts.
-  # ---------------------------------------------------------------------------
-  echo "[final] installing chass_symmetric3 atlas into ${SAMBA_ATLAS_DIR}..."
-  mkdir -p "${SAMBA_ATLAS_DIR}" "${CACHE_DIR}"
-  cd "${SAMBA_ATLAS_DIR}"
-
-  fetch_one() {
-    local fname="$1"
-    local url="$2"
-    local cached="${CACHE_DIR}/${fname}"
-
-    if [ -f "${fname}" ]; then
-      echo "  [atlas] already present: ${fname}"
-      return 0
-    fi
-
-    if [ -f "${cached}" ]; then
-      echo "  [atlas] using cached: ${cached}"
-      cp -f "${cached}" "${fname}"
-      return 0
-    fi
-
-    echo "  [atlas] downloading via python: ${fname}"
-    python3 - "${fname}" "${url}" << 'PY'
-import sys
-import urllib.request
-
-out_fname = sys.argv[1]
-url = sys.argv[2]
-
-with urllib.request.urlopen(url) as resp, open(out_fname, "wb") as out:
-    out.write(resp.read())
-PY
-    if [ $? -ne 0 ]; then
-      echo "FATAL: download failed for ${fname} from ${url}" >&2
-      exit 1
-    fi
-    cp -f "${fname}" "${cached}" || true
-  }
-
-  # Exact file URLs from Zenodo record 15178373 (public dataset)
-  fetch_one "chass_symmetric3_FA.nii.gz"          "https://zenodo.org/api/records/15178373/files/chass_symmetric3_FA.nii.gz/content"
-  fetch_one "chass_symmetric3_MD.nii.gz"          "https://zenodo.org/api/records/15178373/files/chass_symmetric3_MD.nii.gz/content"
-  fetch_one "chass_symmetric3_MO.nii.gz"          "https://zenodo.org/api/records/15178373/files/chass_symmetric3_MO.nii.gz/content"
-  fetch_one "chass_symmetric3_DWI.nii.gz"         "https://zenodo.org/api/records/15178373/files/chass_symmetric3_DWI.nii.gz/content"
-  fetch_one "chass_symmetric3_T2.nii.gz"          "https://zenodo.org/api/records/15178373/files/chass_symmetric3_T2.nii.gz/content"
-  fetch_one "chass_symmetric3_labels.nii.gz"      "https://zenodo.org/api/records/15178373/files/chass_symmetric3_labels.nii.gz/content"
-  fetch_one "chass_symmetric3_labels_lookup.txt"  "https://zenodo.org/api/records/15178373/files/chass_symmetric3_labels_lookup.txt/content"
-  fetch_one "chass_symmetric3_mask.nii.gz"        "https://zenodo.org/api/records/15178373/files/chass_symmetric3_mask.nii.gz/content"
-
-  # FATAL sanity: you asked to key on FA + DWI presence
-  if [ ! -f "${SAMBA_ATLAS_DIR}/chass_symmetric3_FA.nii.gz" ]; then
-    echo "FATAL: missing atlas file: ${SAMBA_ATLAS_DIR}/chass_symmetric3_FA.nii.gz" >&2
-    exit 1
-  fi
-
-  if [ ! -f "${SAMBA_ATLAS_DIR}/chass_symmetric3_DWI.nii.gz" ]; then
-    echo "FATAL: missing atlas file: ${SAMBA_ATLAS_DIR}/chass_symmetric3_DWI.nii.gz" >&2
-    exit 1
-  fi
-
-  chmod -R a+rX "${ATLAS_FOLDER}" "${CACHE_DIR}"
-  echo "[final] atlas installation complete."
-  echo "[final] done: SAMBA + wrappers + atlas installed."
-
-%runscript
-  #!/bin/bash
-  set -eu
-  if [ -x /opt/samba/SAMBA/SAMBA_startup ]; then
-    exec /opt/samba/SAMBA/SAMBA_startup "$@"
-  else
-    echo "ERROR: /opt/samba/SAMBA/SAMBA_startup not found or not executable." >&2
-    exit 1
-  fi
-
-%test
-  #!/bin/sh
-  echo "[test] === final stage sanity checks ==="
-
-  # 1) SAMBA presence
-  if [ -d "/opt/samba/SAMBA" ]; then
-    echo "  OK: SAMBA_PATH exists at /opt/samba/SAMBA."
-  else
-    echo "FATAL: SAMBA_PATH '/opt/samba/SAMBA' not found." >&2
-    exit 1
-  fi
-
-  # 2) Atlas presence (FATAL if missing)
-  ATLAS_DIR="/opt/atlases/chass_symmetric3"
-  echo "[test] checking atlas at: ${ATLAS_DIR}"
-
-  if [ ! -d "${ATLAS_DIR}" ]; then
-    echo "FATAL: atlas directory not found: ${ATLAS_DIR}" >&2
-    exit 1
-  fi
-
-  FA_FILE="${ATLAS_DIR}/chass_symmetric3_FA.nii.gz"
-  DWI_FILE="${ATLAS_DIR}/chass_symmetric3_DWI.nii.gz"
-
-  if [ ! -f "${FA_FILE}" ]; then
-    echo "FATAL: missing FA atlas file: ${FA_FILE}" >&2
-    exit 1
-  fi
-
-  if [ ! -f "${DWI_FILE}" ]; then
-    echo "FATAL: missing DWI atlas file: ${DWI_FILE}" >&2
-    exit 1
-  fi
-
-  echo "[test] atlas looks OK (FA + DWI present)."
-  echo "[test] final stage checks complete."
+# Optional tiny sanity helper
+function samba-pipe-prefix-debug {
+    samba-pipe /dev/null 2>/dev/null || true
+    env | grep '^CONTAINER_CMD_PREFIX='
+}
