@@ -2,28 +2,44 @@
 #
 # samba_pipe_src.sh
 #
-# Host-side helper for launching SAMBA inside Singularity/Apptainer.
-# Also auto-manages scheduler proxy daemon when SAMBA_SCHED_BACKEND=proxy.
-#
-# Usage:
+# Host-side helper for launching SAMBA inside Singularity/Apptainer:
 #   source /path/to/samba_pipe_src.sh
-#   samba-pipe /path/to/headfile
+#   samba-pipe /path/to/headfile.hf
 #
-
-set -euo pipefail
+# Responsibilities:
+#   - Normalize headfile path
+#   - Pick BIGGUS_DISKUS if unset
+#   - Configure scheduler backend (proxy or native)
+#   - Auto-start samba_sched_daemon for proxy backend (no root needed)
+#   - Build container exec prefix + binds
+#   - Export CONTAINER_CMD_PREFIX into container env for in-container dispatch
+#
 
 # -----------------------------
 #  Core configuration (host)
 # -----------------------------
 
-# Location of singularity/apptainer and samba.sif on THIS machine.
+# Singularity/Apptainer executable and image path on THIS machine
 : "${CONTAINER_CMD:=singularity}"
 : "${SIF_PATH:=/opt/containers/samba.sif}"
 
-# Where THIS SAMBA repo lives on the host (for finding daemon, etc.)
+# Location of SAMBA repo on the host (used to locate daemon if not in PATH)
 : "${SAMBA_APPS_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)}"
 
-# Default scratch selection if BIGGUS_DISKUS is not already set.
+# Scheduler proxy configuration
+: "${SAMBA_SCHED_BACKEND:=proxy}"          # proxy | native
+: "${SAMBA_SCHED_DIR:=$HOME/.samba_sched}" # host+container shared IPC dir
+
+export SAMBA_SCHED_BACKEND SAMBA_SCHED_DIR
+
+# Extra binds that you ALWAYS want for this site (optional)
+EXTRA_BINDS=()
+
+# -----------------------------
+#  Helpers
+# -----------------------------
+
+# Default scratch selection if BIGGUS_DISKUS is not already set
 _samba_pick_biggus() {
     if [[ -n "${BIGGUS_DISKUS:-}" ]]; then
         return 0
@@ -38,119 +54,84 @@ _samba_pick_biggus() {
     fi
 }
 
-# -----------------------------
-#  Scheduler proxy configuration
-# -----------------------------
-
-# Default to proxy unless user overrides before sourcing.
-: "${SAMBA_SCHED_BACKEND:=proxy}"
-: "${SAMBA_SCHED_DIR:=$HOME/.samba_sched}"
-
-# If user wants proxy to be mandatory, set SAMBA_SCHED_REQUIRE_PROXY=1
-: "${SAMBA_SCHED_REQUIRE_PROXY:=0}"
-
-export SAMBA_SCHED_BACKEND SAMBA_SCHED_DIR SAMBA_SCHED_REQUIRE_PROXY
-
-# Ensure dir exists and is writable.
-mkdir -p "$SAMBA_SCHED_DIR"
-if [[ ! -d "$SAMBA_SCHED_DIR" || ! -w "$SAMBA_SCHED_DIR" ]]; then
-    echo "FATAL: SAMBA_SCHED_DIR not writable: $SAMBA_SCHED_DIR" >&2
-    return 1
-fi
-
-# Find daemon executable.
-_samba_find_sched_daemon() {
+# Locate samba_sched_daemon on host
+_samba_find_daemon() {
     local d=""
 
-    # 1) explicit override
-    if [[ -n "${SAMBA_SCHED_DAEMON:-}" && -x "${SAMBA_SCHED_DAEMON}" ]]; then
-        d="${SAMBA_SCHED_DAEMON}"
+    if command -v samba_sched_daemon >/dev/null 2>&1; then
+        d="$(command -v samba_sched_daemon)"
         echo "$d"
         return 0
     fi
 
-    # 2) in PATH
-    if command -v samba_sched_daemon >/dev/null 2>&1; then
-        d="$(command -v samba_sched_daemon)"
-        [[ -x "$d" ]] && { echo "$d"; return 0; }
+    # Expected repo locations (per your org):
+    #   SAMBA/samba_sched_wrappers/samba_sched_daemon
+    #   SAMBA/samba_sched_wrappers/samba_sched_daemon.sh
+    if [[ -x "${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon" ]]; then
+        d="${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon"
+        echo "$d"
+        return 0
     fi
 
-    # 3) in repo (common locations)
-    for cand in \
-        "${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon" \
-        "${SAMBA_APPS_DIR}/samba_sched_daemon" \
-        "${SAMBA_APPS_DIR}/bin/samba_sched_daemon" \
-        "${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon.sh"
-    do
-        if [[ -x "$cand" ]]; then
-            echo "$cand"
-            return 0
-        fi
-    done
+    if [[ -x "${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon.sh" ]]; then
+        d="${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon.sh"
+        echo "$d"
+        return 0
+    fi
 
     return 1
 }
 
-# Start daemon if needed (per-user, no sudo).
-_samba_start_sched_daemon_if_needed() {
-    [[ "${SAMBA_SCHED_BACKEND}" == "proxy" ]] || return 0
-
+# Check if an existing daemon is alive
+_samba_daemon_alive() {
     local pidfile="${SAMBA_SCHED_DIR}/daemon.pid"
-    local logfile="${SAMBA_SCHED_DIR}/daemon.log"
+    local pid=""
 
-    # If pidfile exists and process alive, we’re good.
-    if [[ -f "$pidfile" ]]; then
-        local pid
-        pid="$(cat "$pidfile" 2>/dev/null || true)"
-        if [[ -n "$pid" ]] && ps -p "$pid" >/dev/null 2>&1; then
-            return 0
-        fi
-        rm -f "$pidfile"
+    [[ -f "$pidfile" ]] || return 1
+    pid="$(cat "$pidfile" 2>/dev/null || true)"
+    [[ -n "$pid" ]] || return 1
+    kill -0 "$pid" 2>/dev/null
+}
+
+# Start daemon (user-level, no special perms)
+_samba_start_daemon() {
+    mkdir -p "$SAMBA_SCHED_DIR"
+
+    if _samba_daemon_alive; then
+        return 0
     fi
 
     local daemon
-    if ! daemon="$(_samba_find_sched_daemon)"; then
-        if [[ "$SAMBA_SCHED_REQUIRE_PROXY" -eq 1 ]]; then
-            echo "FATAL: SAMBA_SCHED_BACKEND=proxy but samba_sched_daemon not found." >&2
-            echo "       Looked in PATH and in ${SAMBA_APPS_DIR}/samba_sched_wrappers/." >&2
-            return 1
-        fi
-
-        # Soft-fallback to native if possible.
-        if command -v sbatch >/dev/null 2>&1; then
-            echo "[sched] WARNING: proxy requested but daemon not found; falling back to native backend." >&2
-            export SAMBA_SCHED_BACKEND="native"
-            return 0
-        else
-            echo "FATAL: proxy daemon missing AND no native sbatch found on host." >&2
-            return 1
-        fi
+    if ! daemon="$(_samba_find_daemon)"; then
+        echo "FATAL: SAMBA_SCHED_BACKEND=proxy but samba_sched_daemon not found." >&2
+        echo "       Looked in PATH and in ${SAMBA_APPS_DIR}/samba_sched_wrappers/." >&2
+        echo "       You should have samba_sched_daemon committed in the repo there." >&2
+        return 1
     fi
 
     echo "[sched] starting samba_sched_daemon as user ${USER}"
     echo "[sched] daemon=${daemon}"
     echo "[sched] dir=${SAMBA_SCHED_DIR}"
 
-    # Start in background, record pid.
+    # Use nohup so daemon survives shell exit; log+pid in SAMBA_SCHED_DIR
     nohup "${daemon}" \
         --ipc-dir "${SAMBA_SCHED_DIR}" \
-        >"${logfile}" 2>&1 &
+        > "${SAMBA_SCHED_DIR}/daemon.log" 2>&1 &
 
-    echo $! > "${pidfile}"
-    disown || true
+    local pid=$!
+    echo "$pid" > "${SAMBA_SCHED_DIR}/daemon.pid"
 
-    # Tiny wait to let it initialize.
-    sleep 0.1
-    return 0
+    # Tiny wait to avoid race with first request
+    sleep 0.05
+
+    if ! kill -0 "$pid" 2>/dev/null; then
+        echo "FATAL: samba_sched_daemon failed to start. See ${SAMBA_SCHED_DIR}/daemon.log" >&2
+        return 1
+    fi
 }
 
 # -----------------------------
-# Extra binds always used here
-# -----------------------------
-EXTRA_BINDS=()
-
-# -----------------------------
-#  Main entrypoint function
+#  Main entrypoint
 # -----------------------------
 function samba-pipe {
     local hf="$1"
@@ -160,7 +141,7 @@ function samba-pipe {
         return 1
     fi
 
-    # Normalize headfile path
+    # Make headfile absolute once
     if [[ "${hf:0:1}" != "/" && "${hf:0:2}" != "~/" ]]; then
         hf="${PWD}/${hf}"
     fi
@@ -169,39 +150,44 @@ function samba-pipe {
         return 1
     fi
 
-    # Ensure BIGGUS_DISKUS
+    # BIGGUS_DISKUS selection & validation
     _samba_pick_biggus
     if [[ ! -d "$BIGGUS_DISKUS" || ! -w "$BIGGUS_DISKUS" ]]; then
         echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
         return 1
     fi
 
-    # Warn if not group-writable
+    # Warn if directory is not group-writable
     if ! perl -e 'exit((stat($ARGV[0]))[2] & 0020 ? 0 : 1)' "$BIGGUS_DISKUS"; then
         echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
     fi
 
-    # Start proxy daemon if needed
-    _samba_start_sched_daemon_if_needed
+    # If proxy backend, ensure daemon is running *before* container starts
+    if [[ "${SAMBA_SCHED_BACKEND}" == "proxy" ]]; then
+        _samba_start_daemon || return 1
+    fi
 
-    # Atlas bind (host atlas folder)
+    # Atlas bind (array-safe)
     local BIND_ATLAS=()
     if [[ -n "${ATLAS_FOLDER:-}" && -d "$ATLAS_FOLDER" ]]; then
         BIND_ATLAS=( --bind "$ATLAS_FOLDER:$ATLAS_FOLDER" )
+    else
+        echo "Warning: ATLAS_FOLDER not set or does not exist. Proceeding with default atlas."
     fi
 
-    # Scheduler dir bind (proxy backend)
+    # Scheduler dir bind (needed for proxy)
     local BIND_SCHED=()
-    if [[ "$SAMBA_SCHED_BACKEND" == "proxy" && -d "$SAMBA_SCHED_DIR" ]]; then
+    if [[ "${SAMBA_SCHED_BACKEND}" == "proxy" ]]; then
+        mkdir -p "$SAMBA_SCHED_DIR"
         BIND_SCHED=( --bind "$SAMBA_SCHED_DIR:$SAMBA_SCHED_DIR" )
     fi
 
-    # Headfile dir bind
+    # Headfile directory bind
     local HF_DIR
     HF_DIR="$(dirname "$hf")"
     local BIND_HF_DIR=( --bind "$HF_DIR:$HF_DIR" )
 
-    # BIGGUS_DISKUS bind
+    # BIGGUS bind
     local BIND_BIGGUS=( --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS" )
 
     # Aggregate binds
@@ -213,11 +199,15 @@ function samba-pipe {
         "${EXTRA_BINDS[@]}"
     )
 
-    # Stage HF to /tmp
+    # Export for Perl glue (kept from your version)
+    export SAMBA_ATLAS_BIND="${BIND_ATLAS[*]}"
+    export SAMBA_BIGGUS_BIND="$BIGGUS_DISKUS:$BIGGUS_DISKUS"
+
+    # Stage HF to /tmp for stable path in container
     local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
     cp "$hf" "$hf_tmp"
 
-    # Build command prefix for use INSIDE container
+    # Build CONTAINER_CMD_PREFIX for in-container job dispatch
     local CMD_PREFIX_A=(
         "$CONTAINER_CMD" exec
         "${BIND_ALL[@]}"
@@ -225,7 +215,7 @@ function samba-pipe {
     )
     export CONTAINER_CMD_PREFIX="${CMD_PREFIX_A[*]}"
 
-    # Run startup in container with env propagation
+    # Run inside the container with env propagation
     env \
         USER="$USER" \
         BIGGUS_DISKUS="$BIGGUS_DISKUS" \
@@ -243,7 +233,7 @@ function samba-pipe {
             SAMBA_startup "$hf_tmp"
 }
 
-# Tiny helper for debugging prefix/binds quickly
+# Tiny sanity helper
 function samba-pipe-prefix-debug {
     samba-pipe /dev/null 2>/dev/null || true
     env | grep '^CONTAINER_CMD_PREFIX='
