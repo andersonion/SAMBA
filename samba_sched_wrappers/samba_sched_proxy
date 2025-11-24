@@ -2,18 +2,10 @@
 #
 # samba_sched_proxy
 #
-# Runs inside container, sends scheduler requests to host daemon.
+# Container-side client. Sends requests to host daemon for:
+#   sbatch, squeue, sacct, scontrol, scancel
 #
-# Usage:
-#   samba_sched_proxy sbatch  [args...]
-#   samba_sched_proxy squeue  [args...]
-#   samba_sched_proxy sacct   [args...]
-#   samba_sched_proxy scontrol [args...]
-#   samba_sched_proxy scancel [args...]
-#
-# Environment:
-#   SAMBA_SCHED_DIR : shared IPC dir visible to host and container
-#   BIGGUS_DISKUS   : fallback for IPC dir if SAMBA_SCHED_DIR unset
+# Expected daemon behavior: sources *.req files.
 #
 
 set -euo pipefail
@@ -53,21 +45,26 @@ out="${SCHED_DIR}/${req_id}.out"
 err="${SCHED_DIR}/${req_id}.err"
 st="${SCHED_DIR}/${req_id}.status"
 
-# --- Build quoted args string (NO leading space) ---
+# --- Build a single safely-quoted args string, NO leading space ---
 args_q=""
 if [[ "$#" -gt 0 ]]; then
     for a in "$@"; do
-        args_q+=$(printf '%q' "$a")
-        args_q+=" "
+        if [[ -z "$args_q" ]]; then
+            args_q="$(printf '%q' "$a")"
+        else
+            args_q+=" $(printf '%q' "$a")"
+        fi
     done
-    args_q="${args_q% }"
 fi
 
-# --- Write request file ---
+# --- Write request file (safe to source) ---
+# Ensure no spaces around '=' and wrap string values in single quotes.
+cwd_q="$(printf '%q' "$PWD")"
+
 cat >"$req" <<EOF
-CMD=$cmd
-CWD=$(printf '%q' "$PWD")
-ARGS_Q=$args_q
+CMD=${cmd}
+CWD=${cwd_q}
+ARGS_Q='${args_q}'
 EOF
 
 # --- Wait for daemon to create .status file ---
@@ -80,7 +77,7 @@ if [[ -f "$st" ]]; then
     rc="$(cat "$st" 2>/dev/null || echo 1)"
 fi
 
-# --- Relay stdout/stderr back to caller ---
+# --- Relay stdout/stderr ---
 if [[ -f "$out" ]]; then
     cat "$out"
 fi
@@ -89,7 +86,7 @@ if [[ -f "$err" ]]; then
     cat "$err" >&2
 fi
 
-# --- Best-effort cleanup ---
+# --- Cleanup ---
 rm -f "$req" "$out" "$err" "$st" 2>/dev/null || true
 
 exit "$rc"
