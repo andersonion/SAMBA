@@ -1,151 +1,237 @@
-#!/usr/bin/env bash
-#
-# samba_pipe_src.sh
-#
-# Host-side helper for launching SAMBA inside the Singularity/Apptainer
-# container via:
-#
-#   samba-pipe /path/to/headfile.hf
-#
-# It:
-#   - Normalizes headfile to an absolute path
-#   - Chooses BIGGUS_DISKUS (scratch/work/home fallback)
-#   - Sets scheduler-proxy env (SAMBA_SCHED_*)
-#   - Builds singularity exec with per-call binds
-#   - Exposes CONTAINER_CMD_PREFIX (used INSIDE container to dispatch jobs)
-#
+Bootstrap: localimage
+From: fsl_mcr.sif
 
-# -----------------------------
-#  Core configuration (host)
-# -----------------------------
+%labels
+    Stage       final
+    Maintainer  BJ + ChatGPT (final stage: SAMBA + atlas + scheduler proxy)
 
-# Location of singularity/apptainer + image on THIS machine.
-: "${CONTAINER_CMD:=singularity}"
-: "${SIF_PATH:=/opt/containers/samba.sif}"
+%environment
+    export SAMBA_ROOT=/opt/samba
+    export SAMBA_PATH=/opt/samba/SAMBA
+    export PERL_LOCAL_LIB_ROOT=/opt/samba/perl5libs
+    export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
+    export PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
+    export PERL5LIB=/opt/samba/perl5libs/lib/perl5
+    export PATH="/opt/samba/bin:/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/ants/bin:/opt/samba/fsl/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# Where the SAMBA repo lives on the host (mostly for convenience).
-: "${SAMBA_APPS_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)}"
+%post
+    set -eu
 
-# Default scratch selection if BIGGUS_DISKUS is not already set.
-_samba_pick_biggus() {
-    if [[ -n "${BIGGUS_DISKUS:-}" ]]; then
-        return 0
+    SAMBA_ROOT=/opt/samba
+    SAMBA_PATH=/opt/samba/SAMBA
+    PERL_LOCAL_LIB_ROOT=/opt/samba/perl5libs
+
+    ATLAS_FOLDER=/opt/atlases
+    ZENODO_ID=15178373
+    DEST_DIR=/opt/atlases
+    CACHE_DIR=/opt/zenodo_cache
+    SAMBA_ATLAS_DIR=/opt/atlases/chass_symmetric3
+
+    mkdir -p /opt/src "${SAMBA_ROOT}" /opt/samba/perl5 /opt/samba/perl5libs \
+             "${ATLAS_FOLDER}" "${CACHE_DIR}"
+
+    echo "[final] starting final stage..."
+
+    # ------------------------------------------------------------------
+    # Helper: always run curl with SYSTEM libs (avoid MCR libcurl hijack)
+    # ------------------------------------------------------------------
+    syscurl() {
+        env -i \
+            PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu \
+            /usr/bin/curl "$@"
+    }
+
+    # ------------------------------------------------------------------
+    # Fetch & stage SAMBA (origin/master)
+    # ------------------------------------------------------------------
+    echo "[final] fetching SAMBA repo..."
+    if [ ! -d /opt/src/SAMBA ]; then
+        git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
     fi
-    if [[ -d "${SCRATCH:-}" ]]; then
-        export BIGGUS_DISKUS="$SCRATCH"
-    elif [[ -d "${WORK:-}" ]]; then
-        export BIGGUS_DISKUS="$WORK"
+    git -C /opt/src/SAMBA fetch --all --tags --prune
+    git -C /opt/src/SAMBA checkout -f -B buildpin origin/master
+
+    echo "[final] installing SAMBA into ${SAMBA_PATH}..."
+    rm -rf "${SAMBA_PATH}.tmp"
+    rsync -a --delete /opt/src/SAMBA/ "${SAMBA_PATH}.tmp"/
+    mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
+    chmod -R a+rX "${SAMBA_PATH}"
+
+    # ------------------------------------------------------------------
+    # Install Carton + deps (baked in)
+    # ------------------------------------------------------------------
+    echo "[final] bootstrapping cpanm (App::cpanminus) if needed..."
+    if ! command -v cpanm >/dev/null 2>&1; then
+        syscurl -fsSL https://cpanmin.us | perl - App::cpanminus
+    fi
+
+    echo "[final] installing Perl toolchain (local::lib + Carton)..."
+    cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib Carton
+
+    CARTON_BIN="/opt/samba/perl5libs/bin/carton"
+    if [ ! -x "${CARTON_BIN}" ]; then
+        echo "FATAL: ${CARTON_BIN} missing after cpanm install" >&2
+        exit 1
+    fi
+
+    cd "${SAMBA_PATH}"
+    echo "[carton] warm install to generate cpanfile.snapshot..."
+    env -i \
+        PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+        LC_ALL=C \
+        DEBIAN_FRONTEND=noninteractive \
+        LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
+        PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
+        "${CARTON_BIN}" install --path "/opt/samba/perl5libs"
+
+    if [ -f "cpanfile.snapshot" ]; then
+        echo "[carton] snapshot present; locking with --deployment..."
+        env -i \
+            PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            LC_ALL=C \
+            DEBIAN_FRONTEND=noninteractive \
+            LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
+            PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
+            "${CARTON_BIN}" install --deployment --path "/opt/samba/perl5libs"
     else
-        export BIGGUS_DISKUS="$HOME/samba_scratch"
-        mkdir -p "$BIGGUS_DISKUS"
+        echo "[carton] WARNING: no cpanfile.snapshot created; proceeding with non-deployment install."
     fi
-}
+    echo "[carton] done."
 
-# Scheduler proxy configuration:
-#   proxy  -> container uses /opt/samba/bin/samba_sched_* which call samba_sched_proxy
-#   native -> wrappers fall through to sbatch.real or /usr/bin/sbatch
-: "${SAMBA_SCHED_DIR:=$HOME/.samba_sched}"
-: "${SAMBA_SCHED_BACKEND:=proxy}"
+    # ------------------------------------------------------------------
+    # Embed Atlas from Zenodo (tarball if present; else individual files)
+    # ------------------------------------------------------------------
+    echo "[atlas] embedding atlas from Zenodo record ${ZENODO_ID}..."
+    mkdir -p "${ATLAS_FOLDER}" "${SAMBA_ATLAS_DIR}"
+    cd "${ATLAS_FOLDER}"
 
-export SAMBA_SCHED_DIR SAMBA_SCHED_BACKEND
-mkdir -p "$SAMBA_SCHED_DIR"
+    TMP_JSON="/tmp/zenodo_${ZENODO_ID}.json"
+    syscurl -fsSL "https://zenodo.org/api/records/${ZENODO_ID}" -o "${TMP_JSON}"
 
-# Site-specific always-on binds (leave empty unless you need them).
-EXTRA_BINDS=()
+    TARBALL_NAME="$(
+        python3 - "$TMP_JSON" <<'PY'
+import json,sys
+j=json.load(open(sys.argv[1]))
+files=j.get("files",[])
+t=[f["key"] for f in files if f["key"].endswith(".tar.gz")]
+print(t[0] if t else "")
+PY
+    )"
 
-# -----------------------------
-#  Main entrypoint function
-# -----------------------------
-function samba-pipe {
-    local hf="$1"
-
-    if [[ -z "$hf" ]]; then
-        echo "Usage: samba-pipe headfile.hf" >&2
-        return 1
-    fi
-
-    # Make headfile absolute once
-    if [[ "${hf:0:1}" != "/" && "${hf:0:2}" != "~/" ]]; then
-        hf="${PWD}/${hf}"
-    fi
-    if [[ ! -f "$hf" ]]; then
-        echo "ERROR: headfile not found: $hf" >&2
-        return 1
-    fi
-
-    # Ensure BIGGUS_DISKUS is set to a writable dir
-    _samba_pick_biggus
-    if [[ ! -d "$BIGGUS_DISKUS" || ! -w "$BIGGUS_DISKUS" ]]; then
-        echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
-        return 1
+    if [ -n "${TARBALL_NAME}" ]; then
+        echo "[atlas] fetching tarball: ${TARBALL_NAME}"
+        syscurl -fL --retry 4 --retry-delay 2 \
+            -o "${TARBALL_NAME}" \
+            "https://zenodo.org/api/records/${ZENODO_ID}/files/${TARBALL_NAME}/content"
+        tar -xzf "${TARBALL_NAME}" -C "${ATLAS_FOLDER}"
+        rm -f "${TARBALL_NAME}"
+    else
+        echo "[atlas] no tarball; fetching individual files."
+        req="chass_symmetric3_T2.nii.gz chass_symmetric3_DWI.nii.gz chass_symmetric3_FA.nii.gz chass_symmetric3_MD.nii.gz chass_symmetric3_MO.nii.gz chass_symmetric3_labels.nii.gz chass_symmetric3_labels_lookup.txt chass_symmetric3_mask.nii.gz"
+        for k in $req; do
+            echo "  [atlas] fetching ${k} ..."
+            syscurl -fL --retry 4 --retry-delay 2 \
+                -o "${SAMBA_ATLAS_DIR}/${k}" \
+                "https://zenodo.org/api/records/${ZENODO_ID}/files/${k}/content"
+        done
     fi
 
-    # Warn if dir not group-writable (multi-user issues)
-    if ! perl -e 'exit((stat($ARGV[0]))[2] & 0020 ? 0 : 1)' "$BIGGUS_DISKUS"; then
-        echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
+    chmod -R a+rX "${ATLAS_FOLDER}"
+
+    echo "[final] SAMBA at ${SAMBA_PATH}"
+    echo "[final] atlas at ${SAMBA_ATLAS_DIR}"
+    echo "[final] Carton path: ${CARTON_BIN}"
+
+    # ------------------------------------------------------------------
+    # Install SAMBA helper binaries + scheduler wrappers (copy ALL)
+    # ------------------------------------------------------------------
+    echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
+    mkdir -p /opt/samba/bin
+
+    if [ -d /opt/samba/SAMBA/samba_bin ]; then
+        cp -f /opt/samba/SAMBA/samba_bin/* /opt/samba/bin/ || true
+    else
+        echo "[final] WARNING: /opt/samba/SAMBA/samba_bin not found." >&2
     fi
 
-    # Atlas bind (if host atlas folder is set)
-    local BIND_ATLAS=()
-    if [[ -n "${ATLAS_FOLDER:-}" && -d "$ATLAS_FOLDER" ]]; then
-        BIND_ATLAS=( --bind "$ATLAS_FOLDER:$ATLAS_FOLDER" )
+    if [ -d /opt/samba/SAMBA/samba_sched_wrappers ]; then
+        cp -f /opt/samba/SAMBA/samba_sched_wrappers/* /opt/samba/bin/ || true
+    else
+        echo "[final] WARNING: /opt/samba/SAMBA/samba_sched_wrappers not found." >&2
     fi
 
-    # Scheduler dir bind (needed for proxy backend)
-    local BIND_SCHED=()
-    if [[ "$SAMBA_SCHED_BACKEND" == "proxy" && -d "$SAMBA_SCHED_DIR" ]]; then
-        BIND_SCHED=( --bind "$SAMBA_SCHED_DIR:$SAMBA_SCHED_DIR" )
+    chmod -R a+rx /opt/samba/bin
+
+    echo "[final] done: SAMBA + atlas + wrappers installed."
+
+%test
+    set -eu
+    echo "[test] === final stage sanity checks ==="
+
+    echo
+    echo "[test] checking SAMBA_PATH..."
+    SAMBA_PATH="/opt/samba/SAMBA"
+    if [ ! -d "${SAMBA_PATH}" ]; then
+        echo "FATAL: SAMBA_PATH missing: ${SAMBA_PATH}" >&2
+        exit 1
+    fi
+    echo "  OK: SAMBA_PATH exists."
+
+    echo
+    echo "[test] checking atlas at: /opt/atlases/chass_symmetric3"
+    ATLAS_DIR="/opt/atlases/chass_symmetric3"
+    if [ ! -d "${ATLAS_DIR}" ]; then
+        echo "FATAL: atlas directory not found: ${ATLAS_DIR}" >&2
+        exit 1
     fi
 
-    # Headfile directory bind
-    local HF_DIR
-    HF_DIR="$(dirname "$hf")"
-    local BIND_HF_DIR=( --bind "$HF_DIR:$HF_DIR" )
-
-    # BIGGUS_DISKUS bind
-    local BIND_BIGGUS=( --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS" )
-
-    # Aggregate binds for container invocation
-    local BIND_ALL=(
-        "${BIND_BIGGUS[@]}"
-        "${BIND_HF_DIR[@]}"
-        "${BIND_ATLAS[@]}"
-        "${BIND_SCHED[@]}"
-        "${EXTRA_BINDS[@]}"
+    REQ_FILES=(
+        "chass_symmetric3_FA.nii.gz"
+        "chass_symmetric3_DWI.nii.gz"
+        "chass_symmetric3_labels.nii.gz"
+        "chass_symmetric3_mask.nii.gz"
     )
 
-    # Stage HF to /tmp for a stable path inside the container
-    local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
-    cp "$hf" "$hf_tmp"
+    MISSING=0
+    for f in "${REQ_FILES[@]}"; do
+        if [ ! -f "${ATLAS_DIR}/${f}" ]; then
+            echo "FATAL: missing atlas file: ${ATLAS_DIR}/${f}" >&2
+            MISSING=1
+        else
+            echo "  OK: ${f}"
+        fi
+    done
 
-    # Build command prefix used inside container for scheduler calls
-    local CMD_PREFIX_A=(
-        "$CONTAINER_CMD" exec
-        "${BIND_ALL[@]}"
-        "$SIF_PATH"
-    )
-    export CONTAINER_CMD_PREFIX="${CMD_PREFIX_A[*]}"
+    if [ "${MISSING}" -ne 0 ]; then
+        echo "FATAL: one or more required atlas files are missing." >&2
+        exit 1
+    fi
 
-    # Run inside container with env propagated
-    env \
-        USER="$USER" \
-        BIGGUS_DISKUS="$BIGGUS_DISKUS" \
-        SIF_PATH="$SIF_PATH" \
-        ATLAS_FOLDER="${ATLAS_FOLDER:-}" \
-        NOTIFICATION_EMAIL="${NOTIFICATION_EMAIL:-}" \
-        PIPELINE_QUEUE="${PIPELINE_QUEUE:-}" \
-        SLURM_RESERVATION="${SLURM_RESERVATION:-}" \
-        CONTAINER_CMD_PREFIX="${CMD_PREFIX_A[*]}" \
-        SAMBA_SCHED_BACKEND="$SAMBA_SCHED_BACKEND" \
-        SAMBA_SCHED_DIR="$SAMBA_SCHED_DIR" \
-        "$CONTAINER_CMD" exec \
-            "${BIND_ALL[@]}" \
-            "$SIF_PATH" \
-            SAMBA_startup "$hf_tmp"
-}
+    echo
+    echo "[test] checking scheduler shims + proxy helpers in /opt/samba/bin..."
+    for c in sbatch squeue scancel sacct scontrol \
+             samba_sched_sbatch samba_sched_squeue samba_sched_scancel samba_sched_sacct samba_sched_scontrol \
+             samba_sched_proxy
+    do
+        if [ ! -x "/opt/samba/bin/${c}" ]; then
+            echo "FATAL: missing required scheduler helper: /opt/samba/bin/${c}" >&2
+            exit 1
+        else
+            echo "  OK: ${c}"
+        fi
+    done
 
-# Optional tiny sanity helper
-function samba-pipe-prefix-debug {
-    samba-pipe /dev/null 2>/dev/null || true
-    env | grep '^CONTAINER_CMD_PREFIX='
-}
+    echo
+    echo "[test] final stage checks COMPLETE."
+
+%runscript
+    #!/bin/sh
+    set -eu
+    echo "SAMBA container runtime"
+    echo "  SAMBA: ${SAMBA_PATH}"
+    echo "  Atlas: ${SAMBA_ATLAS_DIR}"
+    echo
+    echo "Use from host:"
+    echo "  source /path/to/samba_pipe_src.sh"
+    echo "  samba-pipe /path/to/headfile"
