@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+#
+# samba_sched_daemon
+#
+# Host-side daemon. Watches IPC dir for *.req files created by container proxy.
+# Executes scheduler commands on host and returns stdout/stderr/rc via files.
+#
+# Usage:
+#   samba_sched_daemon --dir /path/to/ipc --backend slurm|sge
+#
+
+set -euo pipefail
+
+usage() {
+    echo "Usage: $0 --dir <ipc_dir> [--backend slurm|sge]" >&2
+    exit 1
+}
+
+IPC_DIR=""
+BACKEND="slurm"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dir)
+            IPC_DIR="$2"
+            shift 2
+            ;;
+        --backend)
+            BACKEND="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo "ERROR: unknown arg '$1'" >&2
+            usage
+            ;;
+    esac
+done
+
+if [[ -z "$IPC_DIR" ]]; then
+    usage
+fi
+
+mkdir -p "$IPC_DIR"
+
+echo "[daemon] Using IPC dir: $IPC_DIR"
+echo "[daemon] Backend: $BACKEND"
+
+# Resolve real scheduler commands on host
+case "$BACKEND" in
+    slurm)
+        REAL_sbatch="$(command -v sbatch || true)"
+        REAL_squeue="$(command -v squeue || true)"
+        REAL_sacct="$(command -v sacct  || true)"
+        REAL_scontrol="$(command -v scontrol || true)"
+        REAL_scancel="$(command -v scancel || true)"
+        ;;
+    sge)
+        REAL_sbatch="$(command -v qsub || true)"
+        REAL_squeue="$(command -v qstat || true)"
+        REAL_sacct="$(command -v qacct || true)"
+        REAL_scontrol="$(command -v qconf || true)"
+        REAL_scancel="$(command -v qdel || true)"
+        ;;
+    *)
+        echo "ERROR: unsupported backend '$BACKEND'" >&2
+        exit 1
+        ;;
+esac
+
+echo "[daemon] Host commands:"
+echo "  sbatch   = ${REAL_sbatch:-<none>}"
+echo "  squeue   = ${REAL_squeue:-<none>}"
+echo "  sacct    = ${REAL_sacct:-<none>}"
+echo "  scontrol = ${REAL_scontrol:-<none>}"
+echo "  scancel  = ${REAL_scancel:-<none>}"
+echo "[daemon] Waiting for requests..."
+
+# Main loop
+while true; do
+    shopt -s nullglob
+    for req in "$IPC_DIR"/*.req; do
+        [[ -f "$req" ]] || continue
+
+        base="${req%.req}"
+        out_tmp="${base}.out.tmp"
+        err_tmp="${base}.err.tmp"
+        st_tmp="${base}.status.tmp"
+
+        out="${base}.out"
+        err="${base}.err"
+        st="${base}.status"
+
+        # Parse KEY=VALUE lines safely
+        CMD=""
+        CWD=""
+        ARGS_Q=""
+
+        while IFS='=' read -r k v; do
+            case "$k" in
+                CMD)    CMD="$v" ;;
+                CWD)    CWD="$v" ;;
+                ARGS_Q) ARGS_Q="$v" ;;
+            esac
+        done < "$req"
+
+        if [[ -z "$CMD" ]]; then
+            echo "1" > "$st_tmp"
+            echo "ERROR: missing CMD in $req" > "$err_tmp"
+            mv -f "$out_tmp" "$out" 2>/dev/null || true
+            mv -f "$err_tmp" "$err"
+            mv -f "$st_tmp" "$st"
+            rm -f "$req"
+            continue
+        fi
+
+        # Map to real host binary
+        REAL=""
+        case "$BACKEND:$CMD" in
+            slurm:sbatch)   REAL="$REAL_sbatch" ;;
+            slurm:squeue)   REAL="$REAL_squeue" ;;
+            slurm:sacct)    REAL="$REAL_sacct" ;;
+            slurm:scontrol) REAL="$REAL_scontrol" ;;
+            slurm:scancel)  REAL="$REAL_scancel" ;;
+
+            sge:sbatch)     REAL="$REAL_sbatch" ;;   # qsub
+            sge:squeue)     REAL="$REAL_squeue" ;;   # qstat
+            sge:sacct)      REAL="$REAL_sacct" ;;    # qacct
+            sge:scontrol)   REAL="$REAL_scontrol" ;; # qconf
+            sge:scancel)    REAL="$REAL_scancel" ;;  # qdel
+            *)
+                REAL=""
+                ;;
+        esac
+
+        if [[ -z "$REAL" || ! -x "$REAL" ]]; then
+            echo "1" > "$st_tmp"
+            echo "ERROR: real command for '$CMD' not found on host" > "$err_tmp"
+            mv -f "$err_tmp" "$err"
+            mv -f "$st_tmp" "$st"
+            rm -f "$req"
+            continue
+        fi
+
+        # Move to requested CWD if provided
+        if [[ -n "$CWD" ]]; then
+            eval "cd $CWD" 2>/dev/null || true
+        fi
+
+        # Execute with safe quoted args
+        set +e
+        if [[ -n "$ARGS_Q" ]]; then
+            eval "$REAL $ARGS_Q" >"$out_tmp" 2>"$err_tmp"
+        else
+            "$REAL" >"$out_tmp" 2>"$err_tmp"
+        fi
+        rc=$?
+        set -e
+
+        echo "$rc" > "$st_tmp"
+
+        # Atomically publish results
+        mv -f "$out_tmp" "$out"
+        mv -f "$err_tmp" "$err"
+        mv -f "$st_tmp" "$st"
+
+        rm -f "$req"
+    done
+
+    sleep 0.01
+done

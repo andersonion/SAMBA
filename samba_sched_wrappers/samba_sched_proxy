@@ -2,20 +2,18 @@
 #
 # samba_sched_proxy
 #
-# Run on the container side. It sends a request to the host daemon for
-# one of: sbatch, squeue, sacct, scontrol, scancel
+# Runs inside container, sends scheduler requests to host daemon.
 #
-# Usage (inside container):
+# Usage:
 #   samba_sched_proxy sbatch  [args...]
 #   samba_sched_proxy squeue  [args...]
 #   samba_sched_proxy sacct   [args...]
 #   samba_sched_proxy scontrol [args...]
 #   samba_sched_proxy scancel [args...]
 #
-# Environment (inside container):
-#   SAMBA_SCHED_DIR : IPC directory (must be the *same path* the daemon sees)
-#                     Usually passed in via samba-pipe env-file.
-#                     If unset, falls back to "$BIGGUS_DISKUS/samba_sched_ipc" or /tmp/samba_sched_ipc
+# Environment:
+#   SAMBA_SCHED_DIR : shared IPC dir visible to host and container
+#   BIGGUS_DISKUS   : fallback for IPC dir if SAMBA_SCHED_DIR unset
 #
 
 set -euo pipefail
@@ -55,12 +53,14 @@ out="${SCHED_DIR}/${req_id}.out"
 err="${SCHED_DIR}/${req_id}.err"
 st="${SCHED_DIR}/${req_id}.status"
 
-# --- Build quoted args string (safe shell quoting) ---
+# --- Build quoted args string (NO leading space) ---
 args_q=""
 if [[ "$#" -gt 0 ]]; then
     for a in "$@"; do
-        args_q+=" $(printf '%q' "$a")"
+        args_q+=$(printf '%q' "$a")
+        args_q+=" "
     done
+    args_q="${args_q% }"
 fi
 
 # --- Write request file ---
