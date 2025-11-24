@@ -17,7 +17,7 @@ From: fsl_mcr.sif
   export PERL5LIB=/opt/samba/perl5libs/lib/perl5
 
   # Add SAMBA + toolchain + FSL + ANTs to PATH
-  export PATH=/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/ants/bin:/opt/samba/fsl/bin:/opt/samba/SAMBA:$PATH
+  export PATH=${SAMBA_ROOT}/bin:/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/ants/bin:/opt/samba/fsl/bin:/opt/samba/SAMBA:$PATH
 
   # Default atlas location inside the image
   export SAMBA_ATLAS_DIR=/opt/atlases/chass_symmetric3
