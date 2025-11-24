@@ -129,6 +129,16 @@ PY
         cp -f /opt/samba/SAMBA/samba_sched_wrappers/* /opt/samba/bin/
     fi
 
+    # ---- REQUIRED: samba_sched_proxy must be present in repo and baked in ----
+    if [ -f /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_proxy ]; then
+        cp -f /opt/samba/SAMBA/samba_sched_wrappers/samba_sched_proxy /opt/samba/bin/
+    elif [ -f /opt/samba/SAMBA/samba_bin/samba_sched_proxy ]; then
+        cp -f /opt/samba/SAMBA/samba_bin/samba_sched_proxy /opt/samba/bin/
+    else
+        echo "FATAL: samba_sched_proxy not found in SAMBA repo (expected in samba_sched_wrappers/ or samba_bin/)." >&2
+        exit 1
+    fi
+
     chmod -R a+rx /opt/samba/bin
     echo "[final] done."
 
