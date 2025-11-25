@@ -23,12 +23,20 @@
 : "${CONTAINER_CMD:=singularity}"
 : "${SIF_PATH:=/opt/containers/samba.sif}"
 
-# Location of SAMBA repo on the host (used to locate daemon if not in PATH)
-: "${SAMBA_APPS_DIR:=$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)}"
+# Preferred SAMBA apps dir (site-wide install). If present, use it.
+# Otherwise fall back to directory containing this source script.
+if [[ -z "${SAMBA_APPS_DIR:-}" ]]; then
+    if [[ -d /home/apps/SAMBA ]]; then
+        SAMBA_APPS_DIR=/home/apps/SAMBA
+    else
+        SAMBA_APPS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+    fi
+fi
+export SAMBA_APPS_DIR
 
 # Scheduler proxy configuration
-: "${SAMBA_SCHED_BACKEND:=proxy}"          # proxy | native
-: "${SAMBA_SCHED_DIR:=$HOME/.samba_sched}" # host+container shared IPC dir
+: "${SAMBA_SCHED_BACKEND:=proxy}"           # proxy | native
+: "${SAMBA_SCHED_DIR:=$HOME/.samba_sched}"  # host+container shared IPC dir
 
 export SAMBA_SCHED_BACKEND SAMBA_SCHED_DIR
 
@@ -58,23 +66,33 @@ _samba_pick_biggus() {
 _samba_find_daemon() {
     local d=""
 
+    # 1) PATH
     if command -v samba_sched_daemon >/dev/null 2>&1; then
         d="$(command -v samba_sched_daemon)"
         echo "$d"
         return 0
     fi
 
-    # Expected repo locations (per your org):
-    #   SAMBA/samba_sched_wrappers/samba_sched_daemon
-    #   SAMBA/samba_sched_wrappers/samba_sched_daemon.sh
+    # 2) Site install layout: /home/apps/SAMBA/samba_sched_wrappers/...
     if [[ -x "${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon" ]]; then
         d="${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon"
         echo "$d"
         return 0
     fi
-
     if [[ -x "${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon.sh" ]]; then
         d="${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon.sh"
+        echo "$d"
+        return 0
+    fi
+
+    # 3) Repo-inside-repo fallback: .../SAMBA/samba_sched_wrappers/...
+    if [[ -x "${SAMBA_APPS_DIR}/SAMBA/samba_sched_wrappers/samba_sched_daemon" ]]; then
+        d="${SAMBA_APPS_DIR}/SAMBA/samba_sched_wrappers/samba_sched_daemon"
+        echo "$d"
+        return 0
+    fi
+    if [[ -x "${SAMBA_APPS_DIR}/SAMBA/samba_sched_wrappers/samba_sched_daemon.sh" ]]; then
+        d="${SAMBA_APPS_DIR}/SAMBA/samba_sched_wrappers/samba_sched_daemon.sh"
         echo "$d"
         return 0
     fi
@@ -104,8 +122,10 @@ _samba_start_daemon() {
     local daemon
     if ! daemon="$(_samba_find_daemon)"; then
         echo "FATAL: SAMBA_SCHED_BACKEND=proxy but samba_sched_daemon not found." >&2
-        echo "       Looked in PATH and in ${SAMBA_APPS_DIR}/samba_sched_wrappers/." >&2
-        echo "       You should have samba_sched_daemon committed in the repo there." >&2
+        echo "       Looked in PATH and in:" >&2
+        echo "         ${SAMBA_APPS_DIR}/samba_sched_wrappers/" >&2
+        echo "         ${SAMBA_APPS_DIR}/SAMBA/samba_sched_wrappers/" >&2
+        echo "       You should have samba_sched_daemon committed in one of those." >&2
         return 1
     fi
 
@@ -113,7 +133,6 @@ _samba_start_daemon() {
     echo "[sched] daemon=${daemon}"
     echo "[sched] dir=${SAMBA_SCHED_DIR}"
 
-    # Use nohup so daemon survives shell exit; log+pid in SAMBA_SCHED_DIR
     nohup "${daemon}" \
         --ipc-dir "${SAMBA_SCHED_DIR}" \
         > "${SAMBA_SCHED_DIR}/daemon.log" 2>&1 &
@@ -121,7 +140,6 @@ _samba_start_daemon() {
     local pid=$!
     echo "$pid" > "${SAMBA_SCHED_DIR}/daemon.pid"
 
-    # Tiny wait to avoid race with first request
     sleep 0.05
 
     if ! kill -0 "$pid" 2>/dev/null; then
@@ -199,7 +217,7 @@ function samba-pipe {
         "${EXTRA_BINDS[@]}"
     )
 
-    # Export for Perl glue (kept from your version)
+    # Export for Perl glue
     export SAMBA_ATLAS_BIND="${BIND_ATLAS[*]}"
     export SAMBA_BIGGUS_BIND="$BIGGUS_DISKUS:$BIGGUS_DISKUS"
 
