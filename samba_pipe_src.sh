@@ -35,15 +35,27 @@ if [[ -z "${CONTAINER_CMD:-}" ]]; then
 fi
 export CONTAINER_CMD
 
-# Resolve SIF_PATH if not explicitly set
-if [[ -z "${SIF_PATH:-}" ]]; then
-  if [[ -n "${SINGULARITY_IMAGE_DIR:-}" && -f "${SINGULARITY_IMAGE_DIR}/samba.sif" ]]; then
+# Resolve SIF_PATH robustly:
+# 1) If SIF_PATH is set AND points to a real file, keep it.
+# 2) Else, try $SINGULARITY_IMAGE_DIR/samba.sif
+# 3) Else, try /opt/containers/samba.sif
+# 4) Else, hard fail.
+if [[ -n "${SIF_PATH:-}" && -f "${SIF_PATH}" ]]; then
+  :  # keep as-is
+else
+  # clear bogus value
+  SIF_PATH=""
+
+  if [[ -n "${SINGULARITY_IMAGE_DIR:-}" && -f "${SINGULARITY_IMAGE_DIR%/}/samba.sif" ]]; then
     SIF_PATH="${SINGULARITY_IMAGE_DIR%/}/samba.sif"
   elif [[ -f "/opt/containers/samba.sif" ]]; then
     SIF_PATH="/opt/containers/samba.sif"
   else
-    echo "ERROR: SIF_PATH not set and could not find samb a.sif." >&2
-    echo "       Tried: \$SINGULARITY_IMAGE_DIR/samba.sif and /opt/containers/samba.sif" >&2
+    echo "ERROR: could not determine SIF_PATH for samba.sif." >&2
+    echo "       Tried:" >&2
+    echo "         - existing \$SIF_PATH (invalid or missing)" >&2
+    echo "         - \$SINGULARITY_IMAGE_DIR/samba.sif" >&2
+    echo "         - /opt/containers/samba.sif" >&2
     echo "       Export SIF_PATH explicitly and re-source." >&2
     return 1 2>/dev/null || exit 1
   fi
@@ -111,7 +123,7 @@ _samba_ensure_daemon() {
 
   # IPC directory visible to both host + container
   if [[ -z "${SAMBA_SCHED_DIR:-}" ]]; then
-    SAMBA_SCHED_DIR="${HOME}/.samba_sched"
+    SAMBA_SCHED_DIR="${HOME}/samba_sched_ipc"
   fi
   export SAMBA_SCHED_DIR
   mkdir -p "${SAMBA_SCHED_DIR}"
@@ -144,8 +156,8 @@ _samba_ensure_daemon() {
   echo "[sched] daemon=${daemon}"
   echo "[sched] dir=${SAMBA_SCHED_DIR}"
 
-  # Start daemon with correct flag names
-  nohup "${daemon}" --dir "${SAMBA_SCHED_DIR}" --backend slurm > "${SAMBA_SCHED_DIR}/daemon.log" 2>&1 &
+  nohup "${daemon}" --dir "${SAMBA_SCHED_DIR}" --backend slurm \
+    > "${SAMBA_SCHED_DIR}/daemon.log" 2>&1 &
   dpid=$!
   echo "${dpid}" > "${pid_file}"
 
@@ -201,8 +213,6 @@ function samba-pipe {
 
   # Ensure scheduler daemon (if using proxy)
   if ! _samba_ensure_daemon; then
-    # If daemon truly missing and we want to fall back, we could flip to native here.
-    # For now, honor the failure so you notice it.
     return 1
   fi
 
