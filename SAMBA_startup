@@ -1,8 +1,10 @@
 #!/bin/bash
 # SAMBA startup script for running the main pipeline as a cluster job.
 
-# --- Locate SAMBA path ------------------------------------------------------
-if [[ -d "$SAMBA_PATH" ]]; then
+# -------------------------
+# Locate SAMBA root (SPath)
+# -------------------------
+if [[ -d "${SAMBA_PATH}" ]]; then
     SPath="${SAMBA_PATH}"
 elif [[ -d "${SAMBA_APPS_DIR}/SAMBA" ]]; then
     SPath="${SAMBA_APPS_DIR}/SAMBA"
@@ -10,38 +12,68 @@ else
     SPath="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 fi
 
-# --- Choose how to launch the pipeline -------------------------------------
-# If CONTAINER_CMD_PREFIX is set (from samba_pipe_src.sh on the host),
-# we use it so that:
-#   - direct runs   call:  $CONTAINER_CMD_PREFIX vbm_pipeline_start.pl ...
-#   - Slurm / SGE jobs also call the same thing on the host.
+# -------------------------
+# Perl environment
+# -------------------------
+local_perl="${SPath}/local/lib/perl5"
+PERL5LIB="${local_perl}"
+export PERL5LIB
+
+# -------------------------
+# Decide how to launch pipeline
+#   - If CONTAINER_CMD_PREFIX is set (from samba-pipe),
+#     we *wrap* the vbm_pipeline_start.pl call so that:
+#       - direct (no-cluster) runs are in the container
+#       - sbatch/qsub scripts also run inside the container
+#   - Otherwise we just run the perl script directly.
+# -------------------------
 if [[ -n "${CONTAINER_CMD_PREFIX:-}" ]]; then
     PIPELINE_LAUNCH="${CONTAINER_CMD_PREFIX} ${SPath}/vbm_pipeline_start.pl"
 else
     PIPELINE_LAUNCH="${SPath}/vbm_pipeline_start.pl"
 fi
 
-# --- Perl env ---------------------------------------------------------------
-local_perl="${SPath}/local/lib/perl5"
-PERL5LIB="${local_perl}"
-export PERL5LIB
-
-# --- Echo what we're going to run ------------------------------------------
+# Debug: show what we are about to run from this process
 echo "${PIPELINE_LAUNCH} $@"
 echo " "
 echo " "
 
-# Detect whether we’re on a cluster (Slurm=1, SGE=2, 0=local)
-cluster_code=$(bash "${SPath}/cluster_test.bash")
+# -------------------------
+# Detect cluster type
+#   cluster_code = 0 : no cluster
+#   cluster_code = 1 : Slurm
+#   cluster_code = 2 : SGE
+# -------------------------
+cluster_code="$(bash "${SPath}/cluster_test.bash")"
 
-# --- No scheduler: run directly --------------------------------------------
+# Normalize / sanity
+if [[ -z "${cluster_code}" ]]; then
+    cluster_code=0
+fi
+
 if ((! cluster_code)); then
-    # Direct invocation: respect PIPELINE_LAUNCH (container or bare)
-    ${PIPELINE_LAUNCH} "$@"
+    # ---------------------------------------------
+    # No cluster: run pipeline directly via launcher
+    # ---------------------------------------------
+    # Build a safely quoted command line for eval
+    qargs=()
+    for a in "$@"; do
+        qargs+=( "$(printf '%q' "$a")" )
+    done
+
+    cmd="${PIPELINE_LAUNCH}"
+    for qa in "${qargs[@]}"; do
+        cmd+=" ${qa}"
+    done
+
+    eval "${cmd}"
 else
-    # --- Common scheduler setup ---------------------------------------------
+    # ---------------------------------------------
+    # Cluster case (Slurm or SGE)
+    # ---------------------------------------------
+
     # Notification email
-    if [[ "x${NOTIFICATION_EMAIL}x" == "xx" ]]; then
+    if [[ -z "${NOTIFICATION_EMAIL:-}" ]]; then
         email="${USER}@duke.edu"
     else
         email="${NOTIFICATION_EMAIL}"
@@ -53,82 +85,92 @@ else
         mkdir -m 775 "${sb_dir}"
     fi
 
-    date_tag=$(date --rfc-3339=seconds | tr ' ' '_' | tr ':' '.' | tr -d '-')
+    date_tag="$(date --rfc-3339=seconds | tr ' ' '_' | tr ':' '.' | tr -d '-')"
     name="SAMBA_pipeline_${date_tag}"
     sbatch_file="${sb_dir}/${name}.bash"
     outfix="${sb_dir}/slurm-"
 
-    echo '#! /bin/env bash' > "${sbatch_file}"
+    # -----------------------------
+    # Write scheduler script
+    # -----------------------------
+    {
+        echo '#! /bin/env bash'
 
-    # --- Slurm --------------------------------------------------------------
+        if [[ "${cluster_code}" == 1 ]]; then
+            # ----- Slurm -----
+            echo '#SBATCH  --mem=8000'
+            echo '#SBATCH  -v'
+            echo '#SBATCH  -s'
+            echo "#SBATCH --mail-user=${email}"
+            echo '#SBATCH --mail-type=END,FAIL'
+            echo "#SBATCH --output=${outfix}%j.out"
+            echo "#SBATCH --error=${outfix}%j.out"
+            echo "#SBATCH --job-name=${name}"
+
+            # IMPORTANT: use PIPELINE_LAUNCH so jobs run in container when available
+            echo "${PIPELINE_LAUNCH} $@"
+
+        elif [[ "${cluster_code}" == 2 ]]; then
+            # ----- SGE -----
+            echo "#\$ -N ${name}"
+            echo "#\$ -M ${email}"
+            echo '#\$ -m ea'
+            echo "#\$ -o ${outfix}"'$JOB_ID.out'
+            echo "#\$ -e ${outfix}"'$JOB_ID.out'
+            echo '#\$ -l h_vmem=8000M,vf=8000M'
+
+            # Same here: use PIPELINE_LAUNCH
+            echo "${PIPELINE_LAUNCH} $@"
+        fi
+    } > "${sbatch_file}"
+
+    # -----------------------------
+    # Submit to scheduler
+    # -----------------------------
     if [[ "${cluster_code}" == 1 ]]; then
-        echo "#SBATCH  --mem=8000"                   >> "${sbatch_file}"
-        echo "#SBATCH  -v"                           >> "${sbatch_file}"
-        echo "#SBATCH  -s"                           >> "${sbatch_file}"
-        echo "#SBATCH --mail-user=${email}"          >> "${sbatch_file}"
-        echo "#SBATCH --mail-type=END,FAIL"          >> "${sbatch_file}"
-        echo "#SBATCH --output=${outfix}%j.out"      >> "${sbatch_file}"
-        echo "#SBATCH --error=${outfix}%j.out"       >> "${sbatch_file}"
-        echo "#SBATCH --job-name=${name}"            >> "${sbatch_file}"
-
-        # *** IMPORTANT: use PIPELINE_LAUNCH here ***
-        echo "${PIPELINE_LAUNCH} $@"                 >> "${sbatch_file}"
-
+        # Slurm
         cmd="sbatch ${sbatch_file}"
-
         echo "${cmd}"
         echo " "
         echo " "
-
-        job_id=$(${cmd} | cut -d ' ' -f 4)
+        job_id="$(${cmd} | awk '{print $4}')"
         kill_cmd="scancel ${job_id}"
 
-    # --- SGE ----------------------------------------------------------------
     elif [[ "${cluster_code}" == 2 ]]; then
-        echo "#\$ -N ${name}"                         >> "${sbatch_file}"
-        echo "#\$ -M ${USER}@duke.edu"               >> "${sbatch_file}"
-        echo "#\$ -m ea"                             >> "${sbatch_file}"
-        echo "#\$ -o ${outfix}"'$JOB_ID.out'         >> "${sbatch_file}"
-        echo "#\$ -e ${outfix}"'$JOB_ID.out'         >> "${sbatch_file}"
-        echo "#\$ -l h_vmem=8000M,vf=8000M"          >> "${sbatch_file}"
-
-        # *** IMPORTANT: use PIPELINE_LAUNCH here too ***
-        echo "${PIPELINE_LAUNCH} $@"                 >> "${sbatch_file}"
-
-        # For BIAC cluster, want long.q if on a blade host
+        # SGE
         q_string=''
         host="${HOSTNAME}"
-        host_test=$(echo "${host}" | sed 's/blade[0-9]*.dhe.duke.edu//g')
+        host_test="$(echo "${host}" | sed 's/blade[0-9]*.dhe.duke.edu//g')"
         if [[ "x${host_test}x" == "xx" ]]; then
             q_string="-q long.q "
         fi
-
         cmd="qsub ${q_string}-terse -V ${sbatch_file}"
         echo "${cmd}"
         echo " "
         echo " "
-
-        job_id=$(${cmd} | tail -1)
+        job_id="$(${cmd} | tail -1)"
         kill_cmd="qdel ${job_id}"
     fi
 
-    # --- User feedback ------------------------------------------------------
     echo "JOB ID = ${job_id}"
     echo ""
 
-    pb_test=$(which pbcopy 2>&1 | grep 'no pbcopy in' | wc -l)
-    if [[ "x${pb_test}x" == 'x0x' ]]; then
+    # -----------------------------
+    # Kill command hint / clipboard
+    # -----------------------------
+    pb_test="$(which pbcopy 2>&1 | grep 'no pbcopy in' | wc -l)"
+    if [[ "x${pb_test}x" == "x0x" ]]; then
         echo "To stop this instance of SAMBA pipeline please use the following command, and will be automatically copied to your clipboard :"
-        # keep original behavior: expects a file or string; we’ll keep it simple
         printf '%s\n' "${kill_cmd}" | pbcopy
     else
         echo "To stop this instance of SAMBA pipeline please use the following command:"
         echo "${kill_cmd}"
     fi
+
     sleep 3
 
     sb_file="${sb_dir}/slurm-${job_id}.out"
-    touch "${sb_file}"   # ensure it exists before tail
+    touch "${sb_file}"   # ensure existence
     tail -f "${sb_file}"
 fi
 
