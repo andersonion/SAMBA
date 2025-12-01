@@ -128,8 +128,8 @@ sub new
 	#print "Is $in_headfile_path writable? = ${writeable}\n"; #DEBUGGING
 
     } elsif ( $mode eq 'new' ) {
-	if ( open SESAME, ">$in_headfile_path") {
-	    close SESAME;
+	if ( open my $SESAME, ">$in_headfile_path") {
+	    close $SESAME;
 	} else {
 	    $readable = 0;
 	    $writeable = 0;
@@ -210,9 +210,9 @@ sub read_headfile {
 	) {
 	my @all_lines;
 	# stream to list, open ro
-	if (open SESAME, $self->{'__in_path'}) {
-	    @all_lines = <SESAME>; 
-	    close SESAME;
+	if (open my $SESAME, $self->{'__in_path'}) {
+	    @all_lines = <$SESAME>; 
+	    close $SESAME;
 	}
 	else {
 	    print STDERR "Unable to open headfile to read\n"; 
@@ -458,9 +458,9 @@ sub read_pfile_header {
 	my @all_lines;
 	# assume this reader app program dumps to standard output
 	# stream to list
-	if (open SESAME, "$pfile_header_reader_app $self->{'__in_path'} |") {
-	    @all_lines = <SESAME>;
-	    close SESAME;
+	if (open my $SESAME, "$pfile_header_reader_app $self->{'__in_path'} |") {
+	    @all_lines = <$SESAME>;
+	    close $SESAME;
 	} else {
 	    print STDERR "Unable to open pfile to read\n";
 	    return (0);
