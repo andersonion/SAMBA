@@ -29,6 +29,8 @@ use strict;
 ## doesn't work on intel mac: use diagnostics;
 ###use IO::File;
 use IO qw(Handle File);
+use vars qw(*SESAME);
+
 my $VERSION = "181211";
 my $COMMENT = 0;
 
