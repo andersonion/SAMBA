@@ -130,14 +130,13 @@ else
     echo "JOB ID = ${job_id}"
     echo ""
 
-    pb_test=$(which pbcopy 2>&1 | grep 'no pbcopy in' | wc -l)
-    if [[ "x${pb_test}x" == 'x0x' ]]; then
-        echo "To stop this instance of SAMBA pipeline please use the following command, and will be automatically copied to your clipboard :"
-        pbcopy < <(printf '%s\n' "${kill_cmd}")
-    else
-        echo "To stop this instance of SAMBA pipeline please use the following command:"
-        echo "${kill_cmd}"
-    fi
+	if command -v pbcopy >/dev/null 2>&1; then
+		echo "To stop this instance of SAMBA pipeline please use the following command, and it will be automatically copied to your clipboard:"
+		echo "${kill_cmd}" | pbcopy
+	else
+		echo "To stop this instance of SAMBA pipeline please use the following command:"
+		echo "${kill_cmd}"
+	fi
 
     sleep 3
 
