@@ -30,11 +30,32 @@ else
 fi
 export PIPELINE_LAUNCH
 
+##############################################################################
+# Discover real Slurm sbatch (bypass any SAMBA wrapper named "sbatch")
+##############################################################################
+
+REAL_SBATCH=""
+# Prefer standard system locations
+for cand in /usr/bin/sbatch /usr/local/bin/sbatch; do
+    if [[ -x "$cand" ]]; then
+        REAL_SBATCH="$cand"
+        break
+    fi
+done
+
+# Fallback to whatever "sbatch" resolves to, if not found above
+if [[ -z "$REAL_SBATCH" ]]; then
+    if command -v sbatch >/dev/null 2>&1; then
+        REAL_SBATCH="$(command -v sbatch)"
+    fi
+fi
+
 # Optional debug
 if [[ "${SAMBA_DEBUG:-0}" != "0" ]]; then
     echo "[SAMBA_startup] SPath=${SPath}" >&2
     echo "[SAMBA_startup] CONTAINER_CMD_PREFIX=${CONTAINER_CMD_PREFIX:-<unset>}" >&2
     echo "[SAMBA_startup] PIPELINE_LAUNCH=${PIPELINE_LAUNCH}" >&2
+    echo "[SAMBA_startup] REAL_SBATCH=${REAL_SBATCH:-<unset>}" >&2
     echo "[SAMBA_startup] ARGS: $@" >&2
 fi
 
@@ -86,7 +107,13 @@ else
         # *** CRITICAL: use PIPELINE_LAUNCH so sbatch runs via container ***
         echo "${PIPELINE_LAUNCH} $@"                  >> "${sbatch_file}"
 
-        cmd="sbatch ${sbatch_file}"
+        # Use real Slurm sbatch to avoid SAMBA's sbatch shim for this top-level submit
+        if [[ -z "${REAL_SBATCH}" ]]; then
+            echo "ERROR: REAL_SBATCH could not be resolved; cannot submit Slurm job." >&2
+            exit 1
+        fi
+
+        cmd="${REAL_SBATCH} ${sbatch_file}"
 
         echo "${cmd}"
         echo " "
