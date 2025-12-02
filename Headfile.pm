@@ -215,9 +215,9 @@ sub read_headfile {
         my @all_lines;
 
         # stream to list, open ro
-        if ( open SESAME, "<", $path ) {
-            @all_lines = <SESAME>;
-            close SESAME;
+        if ( open my $SESAME, "<", $path ) {
+            @all_lines = <$SESAME>;
+            close $SESAME;
         }
         else {
             # *** Better error message so we know what the OS actually said ***
