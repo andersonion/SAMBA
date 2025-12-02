@@ -204,58 +204,63 @@ sub read_headfile {
 #------------
 # returns 1 when good, else returns 0 for errors.
     my ($self) = @_;
-    if ( ($self->{'__mode'} eq "ro") 
-	 || ($self->{'__mode'} eq "rw") 
-	 || ($self->{'__mode'} eq "rc")
-	) {
-	my @all_lines;
-	# stream to list, open ro
-	if (open my $SESAME, $self->{'__in_path'}) {
-	    @all_lines = <$SESAME>; 
-	    close $SESAME;
-	}
-	else {
-	    print STDERR "Unable to open headfile to read\n"; 
-	    return (0);
-	}
+    my $mode = $self->{'__mode'};
+    my $path = $self->{'__in_path'};
 
-	#--- convert list form to hash
-	my $l;
-	my @header_comments = ();
-	my %header_hash = (); # local 
-	foreach $l (@all_lines) {
+    if ( ($mode eq "ro")
+         || ($mode eq "rw")
+         || ($mode eq "rc")
+       ) {
 
-	    #print STDERR "parsing $l\n";
-	    my ($is_empty, $field, $value, $is_comment, $the_comment, $error) =
-		private_parse_line($l);
+        my @all_lines;
 
-	    if ($error) { 
-		print STDERR "Unable to parse headfile $self->{'__in_path'}\n problem line: $l\n"; 
-		return 0;
-	    }
+        # stream to list, open ro
+        if ( open SESAME, "<", $path ) {
+            @all_lines = <SESAME>;
+            close SESAME;
+        }
+        else {
+            # *** Better error message so we know what the OS actually said ***
+            print STDERR "Unable to open headfile to read: $path ($!)\n";
+            return 0;
+        }
 
-	    if (! $is_empty) {
-		if ($is_comment) {
-		    private_set_comment($self, $the_comment);
-		}
-		else {
-		    my $temp = $value; # remove any spaces at beginning or end of value before saving
-		    $temp =~ s/^\s+//; 
-		    $temp =~ s/\s+$//; 
-		    $value = $temp;
-		    private_set_value($self, $field, $value);
-		}
-	    }
-	}
+        #--- convert list form to hash
+        my $l;
+        my @header_comments = ();
+        my %header_hash = (); # local
+        foreach $l (@all_lines) {
+
+            #print STDERR "parsing $l\n";
+            my ($is_empty, $field, $value, $is_comment, $the_comment, $error) =
+                private_parse_line($l);
+
+            if ($error) {
+                print STDERR "Unable to parse headfile $self->{'__in_path'}\n problem line: $l\n";
+                return 0;
+            }
+
+            if (! $is_empty) {
+                if ($is_comment) {
+                    private_set_comment($self, $the_comment);
+                }
+                else {
+                    my $temp = $value; # remove any spaces at beginning or end of value before saving
+                    $temp =~ s/^\s+//;
+                    $temp =~ s/\s+$//;
+                    $value = $temp;
+                    private_set_value($self, $field, $value);
+                }
+            }
+        }
     }
     else {
-	# insert other read types here?
-	#if ($self{'__mode'} !~ /^n..?/ && ! $exists ) { 
-	# mode is something besides new or nf(nofile) then it must exist, 
-	# So, throw error.
-	print STDERR "Attempt to read new or non headfile! ".
-	    "Use specific loaders ?!\n"; 
-	return (0);
+        # insert other read types here?
+        # mode is something besides new or nf(nofile) then it must exist,
+        # So, throw error.
+        print STDERR "Attempt to read new or non headfile! ".
+            "Use specific loaders ?!\n";
+        return (0);
     }
     return (1);
 }
