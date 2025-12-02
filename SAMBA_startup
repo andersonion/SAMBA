@@ -15,6 +15,9 @@ local_perl="${SPath}/local/lib/perl5"
 PERL5LIB="${local_perl}"
 export PERL5LIB
 
+# Preserve original argument list (first arg is the headfile)
+orig_args=("$@")
+
 ##############################################################################
 # Decide how to launch the pipeline
 #
@@ -35,10 +38,10 @@ if [[ "${SAMBA_DEBUG:-0}" != "0" ]]; then
     echo "[SAMBA_startup] SPath=${SPath}" >&2
     echo "[SAMBA_startup] CONTAINER_CMD_PREFIX=${CONTAINER_CMD_PREFIX:-<unset>}" >&2
     echo "[SAMBA_startup] PIPELINE_LAUNCH=${PIPELINE_LAUNCH}" >&2
-    echo "[SAMBA_startup] ARGS: $@" >&2
+    echo "[SAMBA_startup] ARGS: ${orig_args[*]}" >&2
 fi
 
-echo "${PIPELINE_LAUNCH} $@"
+echo "${PIPELINE_LAUNCH} ${orig_args[*]}"
 echo " "
 echo " "
 
@@ -47,7 +50,7 @@ cluster_code=$(bash "${SPath}/cluster_test.bash")
 
 if ((! cluster_code)); then
     # No cluster: run directly (still via container if PIPELINE_LAUNCH uses it)
-    eval "${PIPELINE_LAUNCH} $@"
+    eval "${PIPELINE_LAUNCH} ${orig_args[*]}"
 else
 
     ## It is recommended to setup NOTIFICATION_EMAIL in env, bashrc, or bashrc_for_SAMBA
@@ -55,6 +58,21 @@ else
         email="${USER}@duke.edu"
     else
         email="${NOTIFICATION_EMAIL}"
+    fi
+
+    ######################################################################
+    # When running on a cluster, move the headfile to a shared,
+    # container-visible location (BIGGUS_DISKUS) so compute nodes
+    # can see it, instead of leaving it in /tmp on the login node.
+    ######################################################################
+    final_args=("${orig_args[@]}")
+    if [[ -n "${BIGGUS_DISKUS:-}" && -d "${BIGGUS_DISKUS}" ]]; then
+        hf_in="${orig_args[0]}"
+        if [[ -f "${hf_in}" ]]; then
+            hf_new="${BIGGUS_DISKUS}/${USER}_samba_$(date +%s)_$(basename "${hf_in}")"
+            cp "${hf_in}" "${hf_new}"
+            final_args=("${hf_new}" "${orig_args[@]:1}")
+        fi
     fi
 
     kill_cmd=''
@@ -84,7 +102,7 @@ else
         echo "#SBATCH --job-name=${name}"             >> "${sbatch_file}"
 
         # *** CRITICAL: use PIPELINE_LAUNCH so sbatch runs via container ***
-        echo "${PIPELINE_LAUNCH} $@"                  >> "${sbatch_file}"
+        echo "${PIPELINE_LAUNCH} ${final_args[*]}"    >> "${sbatch_file}"
 
         cmd="sbatch ${sbatch_file}"
 
@@ -106,8 +124,8 @@ else
         echo "#\$ -e ${outfix}"'$JOB_ID.out'         >> "${sbatch_file}"
         echo "#\$ -l h_vmem=8000M,vf=8000M"          >> "${sbatch_file}"
 
-        # Again, use PIPELINE_LAUNCH here
-        echo "${PIPELINE_LAUNCH} $@"                 >> "${sbatch_file}"
+        # Again, use PIPELINE_LAUNCH here with updated args
+        echo "${PIPELINE_LAUNCH} ${final_args[*]}"   >> "${sbatch_file}"
 
         # 9 January 2020 (Thurs): '-b y' was not the right thing to do here.
         # 27 February 2020 BJA: For BIAC cluster, want to run on long queue.

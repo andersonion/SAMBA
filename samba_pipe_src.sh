@@ -218,15 +218,15 @@ samba-pipe() {
   # Ensure scheduler daemon if proxy backend
   _samba_ensure_daemon || return 1
 
-  # Stage HF to /tmp for stable path
-  local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
+  # Stage HF to BIGGUS_DISKUS for a shared, container-visible path
+  local hf_tmp="${BIGGUS_DISKUS}/${USER}_samba_$(date +%s)_$(basename "$hf")"
   cp "$hf" "$hf_tmp"
 
   # Auto-detect Slurm libs/bins for binds
   _samba_auto_bind_slurm
 
-  # Headfile dir bind
-  local BIND_HF_DIR=( --bind "$(dirname "$hf")":"$(dirname "$hf")" )
+  # Headfile dir bind (use the staged tmp headfile location)
+  local BIND_HF_DIR=( --bind "$(dirname "$hf_tmp")":"$(dirname "$hf_tmp")" )
 
   # Build container command prefix (host-side)
   local CMD_PREFIX_A=(
@@ -250,6 +250,7 @@ samba-pipe() {
 
   # For debugging you can uncomment:
   # echo "[DEBUG] CONTAINER_CMD_PREFIX=${CONTAINER_CMD_PREFIX}" >&2
+  # echo "[DEBUG] hf_tmp=${hf_tmp}" >&2
 
   # Launch SAMBA_startup inside the container
   eval "${CONTAINER_CMD_PREFIX}" /opt/samba/SAMBA/SAMBA_startup "${hf_tmp}"
