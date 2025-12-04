@@ -2519,33 +2519,44 @@ sub _shell_quote {
 
 
 # ------------------
-sub write_array_to_file { # (path,array_ref[,debug_val]) writes text to array ref.
+sub write_array_to_file { # (path,array_ref[,debug_val]) writes text from array ref to file.
 # ------------------
-    my (@input)=@_;
-#    my ($file,$array_ref)=@_;
-    my $file=shift @input;
-    my $array_ref=shift @input; 
-    my $old_debug=$debug_val;
-    $debug_val = shift @input or $debug_val=$old_debug;
+    my (@input) = @_;
+
+    my $file      = shift @input;
+    my $array_ref = shift @input;
+
+    my $old_debug = $debug_val;
+    my $maybe_dbg = shift @input;
+    if (defined $maybe_dbg) {
+        $debug_val = $maybe_dbg;
+    }
+
     SAMBA_pipeline_utilities::debugloc();
     SAMBA_pipeline_utilities::whoami();
-    SAMBA_pipeline_utilities::printd(30,"Opening file $file.\n");
-    #use IO::Handle;
-    open my $text_fid, ">", "$file" or croak "could not open $file, $!";
-    croak "file <$file> not Text\n" unless -T $text_fid ;
-    #croak "file <$file> open failed\n" unless $text_fid > 0;
-    my $old_fid=select($text_fid);
-    foreach ( @{$array_ref} ) {
-        print $_;
-        #if ( ! print $_ ) {
-        #   confess "ERROR on write! FD:$text_fid file:$file data:($_)! $!";
-        #}
+    SAMBA_pipeline_utilities::printd(30, "Opening file $file.\n");
+
+    # Open file for writing using a lexical filehandle
+    open my $text_fid, ">", "$file"
+      or croak "could not open $file, $!";
+
+    # Sanity check: ensure it's treated as text
+    croak "file <$file> not Text\n"
+      unless -T $text_fid;
+
+    # Write each line explicitly to this handle – no select(), no symbolic refs
+    foreach (@{$array_ref}) {
+        print {$text_fid} $_
+          or confess "ERROR on write! file:$file data:($_) $!";
     }
-    #$text_fid->flush();
-    # ITS IMPORTANT CLOSE AND SELECT ARE BACK TO BACK! 
-    close $text_fid;  select($old_fid);
-    SAMBA_pipeline_utilities::printd(30,"... Closed.\n");
-    return;
+
+    close $text_fid
+      or confess "ERROR on close of $file: $!";
+
+    # Restore previous debug level
+    $debug_val = $old_debug;
+
+    return 1;
 }
 
 #---------------------
