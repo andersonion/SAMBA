@@ -2513,7 +2513,11 @@ sub _shell_quote {
         }
 
         # Anything else (regular file opens, modes, layers) → pass through
-        return CORE::open(@_);
+        {
+            no strict 'refs';
+            return CORE::open(@_);
+        }
+
     };
 }
 
