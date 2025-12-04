@@ -2544,16 +2544,16 @@ sub write_array_to_file { # (path,array_ref[,debug_val]) writes text from array 
     croak "file <$file> not Text\n"
       unless -T $text_fid;
 
-    # Write each line explicitly to this handle – no select(), no symbolic refs
-    foreach (@{$array_ref}) {
-        print {$text_fid} $_
-          or confess "ERROR on write! file:$file data:($_) $!";
+    # Write each line explicitly to this filehandle
+    foreach my $line (@{$array_ref}) {
+        print {$text_fid} $line
+          or croak "ERROR on write to $file: $!";
     }
 
     close $text_fid
-      or confess "ERROR on close of $file: $!";
+      or croak "ERROR closing $file: $!";
 
-    # Restore previous debug level
+    # restore previous debug value
     $debug_val = $old_debug;
 
     return 1;
