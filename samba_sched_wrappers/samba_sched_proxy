@@ -5,7 +5,9 @@
 # Container-side client. Sends requests to host daemon for:
 #   sbatch, squeue, sacct, scontrol, scancel
 #
-# Expected daemon behavior: sources *.req files.
+# The daemon watches an IPC directory for *.req files, runs the
+# corresponding real scheduler command on the host, and writes:
+#   *.out, *.err, *.status
 #
 
 set -euo pipefail
@@ -28,6 +30,8 @@ case "$cmd" in
 esac
 
 # --- IPC directory (must match daemon) ---
+# Prefer SAMBA_SCHED_DIR (set by samba-pipe / _samba_ensure_daemon),
+# otherwise fall back to BIGGUS_DISKUS, then /tmp.
 if [[ -n "${SAMBA_SCHED_DIR:-}" ]]; then
     SCHED_DIR="$SAMBA_SCHED_DIR"
 elif [[ -n "${BIGGUS_DISKUS:-}" ]]; then
@@ -38,14 +42,17 @@ fi
 
 mkdir -p "$SCHED_DIR"
 
-# --- Unique request id ---
+# --- Unique request id & file paths ---
 req_id="$(date +%s%N)_$$"
-req="${SCHED_DIR}/${req_id}.req"
-out="${SCHED_DIR}/${req_id}.out"
-err="${SCHED_DIR}/${req_id}.err"
-st="${SCHED_DIR}/${req_id}.status"
+base="${SCHED_DIR}/${req_id}"
 
-# --- Build a single safely-quoted args string, NO leading space ---
+req_tmp="${base}.req.tmp"
+req="${base}.req"
+out="${base}.out"
+err="${base}.err"
+st="${base}.status"
+
+# --- Build a single safely-quoted args string (for eval on host) ---
 args_q=""
 if [[ "$#" -gt 0 ]]; then
     for a in "$@"; do
@@ -57,15 +64,18 @@ if [[ "$#" -gt 0 ]]; then
     done
 fi
 
-# --- Write request file (safe to source) ---
-# Ensure no spaces around '=' and wrap string values in single quotes.
+# --- Write request file atomically ---
+# No surrounding quotes on ARGS_Q; it already contains shell-escaped tokens.
 cwd_q="$(printf '%q' "$PWD")"
 
-cat >"$req" <<EOF
+cat >"$req_tmp" <<EOF
 CMD=${cmd}
 CWD=${cwd_q}
-ARGS_Q='${args_q}'
+ARGS_Q=${args_q}
 EOF
+
+# Atomic publish so daemon never sees a half-written .req
+mv -f "$req_tmp" "$req"
 
 # --- Wait for daemon to create .status file ---
 while [[ ! -f "$st" ]]; do
@@ -77,7 +87,7 @@ if [[ -f "$st" ]]; then
     rc="$(cat "$st" 2>/dev/null || echo 1)"
 fi
 
-# --- Relay stdout/stderr ---
+# --- Relay stdout/stderr from host command ---
 if [[ -f "$out" ]]; then
     cat "$out"
 fi
