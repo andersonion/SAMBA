@@ -2519,7 +2519,11 @@ sub _shell_quote {
 
 
 # ------------------
-sub write_array_to_file { # (path,array_ref[,debug_val]) writes text from array ref to file.
+# (path,array_ref[,debug_val]) writes text from array ref to file.
+# We locally relax strict 'refs' here because Perl's internal FH
+# handling + our hooks can trigger "string as symbol ref" warnings.
+no strict 'refs';
+sub write_array_to_file {
 # ------------------
     my (@input) = @_;
 
@@ -2558,6 +2562,7 @@ sub write_array_to_file { # (path,array_ref[,debug_val]) writes text from array 
 
     return 1;
 }
+use strict 'refs';
 
 #---------------------
 sub write_refspace_txt {
