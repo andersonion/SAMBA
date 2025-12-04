@@ -2519,12 +2519,10 @@ sub _shell_quote {
 
 
 # ------------------
-# (path,array_ref[,debug_val]) writes text from array ref to file.
-# We locally relax strict 'refs' here because Perl's internal FH
-# handling + our hooks can trigger "string as symbol ref" warnings.
-no strict 'refs';
-sub write_array_to_file {
+# write_array_to_file
+# (path, array_ref[, debug_val]) writes text from array ref to file.
 # ------------------
+sub write_array_to_file {
     my (@input) = @_;
 
     my $file      = shift @input;
@@ -2541,7 +2539,7 @@ sub write_array_to_file {
     SAMBA_pipeline_utilities::printd(30, "Opening file $file.\n");
 
     # Open file for writing using a lexical filehandle
-    open my $text_fid, ">", "$file"
+    open my $text_fid, '>', $file
       or croak "could not open $file, $!";
 
     # Sanity check: ensure it's treated as text
@@ -2562,7 +2560,7 @@ sub write_array_to_file {
 
     return 1;
 }
-use strict 'refs';
+
 
 #---------------------
 sub write_refspace_txt {
