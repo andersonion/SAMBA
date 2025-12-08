@@ -220,6 +220,20 @@ $project_id =  join('',@project_components);
 $project_id = $main_folder_prefix.$project_id.'_'.$rigid_atlas_name.$optional_suffix; #create_identifer($project_name);
 
 ($pristine_input_dir,$dir_work,$results_dir,$result_headfile) = make_process_dirs($project_id); #new_get_engine_dependencies($project_id);
+# Sanity check: make_process_dirs *must* return all four paths
+foreach my $pair (
+	[ 'pristine_input_dir', \$pristine_input_dir ],
+	[ 'dir_work',           \$dir_work ],
+	[ 'results_dir',        \$results_dir ],
+	[ 'result_headfile',    \$result_headfile ],
+) {
+	my ($name, $ref) = @$pair;
+	if (!defined $$ref || $$ref eq '') {
+		die "INTERNAL ERROR: make_process_dirs('$project_id') returned undef/empty $name\n";
+	}
+	# Lightweight debug so we can see what it actually produced
+	print "$name = $$ref\n";
+}
 
 
 ## 23 January 2020 (Thursday), BJA: This code is expected to point the -inputs directory as an arbitrarily defined folder, via a symbolic link.
@@ -279,22 +293,37 @@ if ((defined $start_file) && ( -f $start_file)) {
 }
 
 ## Headfile setup code starts here
-if ( -e $result_headfile) {
-    my $last_result_headfile = $result_headfile =~ s/\.headfile/_last\.headfile/;
+
+# These should have been set by make_process_dirs($project_id).
+# If they're not, that's a logic error we want to see loudly.
+if (!defined $results_dir || $results_dir eq '') {
+    croak("INTERNAL ERROR: results_dir is undefined/empty before headfile setup (project_id=$project_id)");
+}
+
+if (!defined $result_headfile || $result_headfile eq '') {
+    croak("INTERNAL ERROR: result_headfile is undefined/empty before headfile setup (project_id=$project_id)");
+}
+
+# If a previous result headfile exists, rotate it to *_last.headfile
+if (-e $result_headfile) {
+    my $last_result_headfile = $result_headfile;
+    $last_result_headfile =~ s/\.headfile$/_last.headfile/;
     `mv -f ${result_headfile} ${last_result_headfile}`;
 }
-$Hf = new Headfile ('nf',$result_headfile );
-if (! $Hf->check()){
-    # We expect this to happen when a file with the same name as $result_headfile was not successfully moved a few lines above-
-    # probably due to permissions issues, which is a huge red flag.
-    croak("Is this your data? If not, you will need the original owner to run the pipeline.")
+
+$Hf = new Headfile('nf', $result_headfile);
+if (! $Hf->check()) {
+    # We expect this to happen when a file with the same name as $result_headfile
+    # was not successfully moved a few lines above—probably due to permissions issues,
+    # which is a huge red flag.
+    croak("Is this your data? If not, you will need the original owner to run the pipeline.");
 }
 
-my $papertrail_dir="${results_dir}/papertrail";
-if (! -e $papertrail_dir) {
-    mkdir($papertrail_dir,0777);
+my $papertrail_dir = "${results_dir}/papertrail";
+if (! -d $papertrail_dir) {
+    mkdir($papertrail_dir, 0777)
+        or croak("Could not create papertrail dir $papertrail_dir: $!");
 }
-
 
 $log_file = open_log($papertrail_dir); # 26 Feb 2019--changed from results_dir to "papertrail" subfolder
 
@@ -302,7 +331,8 @@ $log_file = open_log($papertrail_dir); # 26 Feb 2019--changed from results_dir t
 $stats_file = $log_file =~ s/pipeline_info/job_stats/r;
 
 $preprocess_dir = $dir_work.'/preprocess';
-$inputs_dir = $preprocess_dir.'/base_images';
+$inputs_dir     = $preprocess_dir.'/base_images';
+
 
 
 ## The following work is to remove duplicates from processing lists (adding the 'uniq' subroutine). 15 June 2016
