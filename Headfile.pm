@@ -61,88 +61,88 @@ now_date_db
 # Constructor --------
 sub new
 {
-# Constructor of object of headfile class
+    # Constructor of object of headfile class
     my ($classname, $mode, $in_headfile_path) = @_;
     # mode = ro, new, rw, rc, pfile, nf correspond to
     #  nf   = no file: just use hash, never write a file.
     #  new  = new file,
-    #  ro   = existing file/read only,    
-    #  rw   = existing/update, 
+    #  ro   = existing file/read only,
+    #  rw   = existing/update,
     #  rc   = existing/(but write to copy, not original),
     #  pfile= read pfile header,
     #  nifti= read nifti header,
     #  nrrd
-    #  
-    #  in_headfile_path: input headfile to be read, for "rw" you spec output file at time of write. 
-    #                   for "pfile" you spec path of pfile to read. 
+    #
+    #  in_headfile_path: input headfile to be read, for "rw" you spec output file at time of write.
+    #                   for "pfile" you spec path of pfile to read.
     # When you call, the first argument is automatically added to the argument list
     # and contains the class name, so use no explicit $classname in call.
     # call this like: my $input_headfile = new headfile ("rw", "/analyzea/N12345T2W.headfile");
-    # then to use your object, for example: $input_headfile->check; 
+    # then to use your object, for example: $input_headfile->check;
 
     my $self = {}; # an anonymous reference
-    # WEOW No error checking, MY Favorite!.
-    my $valid_modes="new|ro|rw|rc|pfile|nf|nii|nifti|nrrd";
-    if ( $mode !~ /^$valid_modes$/ ){
-	print STDERR "Unrecognized mode! $mode not in $valid_modes";
+
+    my $valid_modes = "new|ro|rw|rc|pfile|nf|nii|nifti|nrrd";
+    if ( $mode !~ /^$valid_modes$/ ) {
+        print STDERR "Unrecognized mode! $mode not in $valid_modes";
         return 0;
     }
+
     # convert nifti/nrrd shorthand so our check code is simpler
     if ( $mode eq "nii" ) {
-	print STDERR "switching mode nii -> nifti, please update your code\n";
-	$mode="nifti";
-    } elsif ( $mode eq "nhdr" ) { 
-	print STDERR "switching mode nhdr -> nrrd, please update your code\n";
-	$mode="nrrd";
+        print STDERR "switching mode nii -> nifti, please update your code\n";
+        $mode = "nifti";
+    } elsif ( $mode eq "nhdr" ) {
+        print STDERR "switching mode nhdr -> nrrd, please update your code\n";
+        $mode = "nrrd";
     }
+
     $self->{'__in_path'} = $in_headfile_path;
-    $self->{'__mode'} = $mode;
+    $self->{'__mode'}    = $mode;
 
-    my %h = ();  # for values 
+    my %h = ();  # for values
     $self->{'__hashref'} = \%h;
-    my @c = (); # for comments 
+    my @c = ();  # for comments
     $self->{'__comment_arrayref'} = \@c;
-    # $in_headfile_path= "/home/rja20/linux/test.headfile"; #DEBUGGING
-    my $exists = `ls ${in_headfile_path} 2> /dev/null | wc -l`; # It's ridiculous to use this hack, but alas, this where we find ourselves...
-    chomp($exists); # Because previous return had a newline at the end, and this not truly evaulating as '0'
-    my $readable = 1;
-    my $writeable = 1;
 
-    #print "Does $in_headfile_path exist? = ${exists}\n"; #DEBUGGING
+    my $exists    = 0;
+    my $readable  = 0;
+    my $writeable = 0;
 
-    # if (-e $in_file_path){
-    if ( $exists ) { 
-        #exist= = 1;
-	#$readable = (-r $in_headfile_path); 
-	#open(my $fh, "<","$in_headfile_path") or  $readable = 0; close($fh);
-	#$readable=`if [[ -r ${in_headfile_path} ]]; then echo 1; else echo 0;fi`;
-	$readable=`if [ -r ${in_headfile_path} ]; then echo 1; else echo 0;fi`;
-	
-	#print "Is $in_headfile_path readable? = ${readable}\n"; #DEBUGGING
+    # For modes that should reference an existing file, check real filesystem
+    if (defined $in_headfile_path && length $in_headfile_path) {
 
-	#$writeable = (-w $in_headfile_path);
-	#open(my $fh2, ">","$in_headfile_path") or  $writeable = 0; close($fh2); # This will create a new file just by "checking"--unwanted behaviour!
-	#$writeable=`if [[ -w ${in_headfile_path} ]]; then echo 1; else echo 0;fi`;
-	$writeable=`if [ -w ${in_headfile_path} ]; then echo 1; else echo 0;fi`;
-
-	#print "Is $in_headfile_path writable? = ${writeable}\n"; #DEBUGGING
-
-    } elsif ( $mode eq 'new' ) {
-	if ( open my $SESAME, ">$in_headfile_path") {
-	    close $SESAME;
-	} else {
-	    $readable = 0;
-	    $writeable = 0;
-	}
+        if (-e $in_headfile_path) {
+            $exists    = 1;
+            $readable  = (-r $in_headfile_path) ? 1 : 0;
+            $writeable = (-w $in_headfile_path) ? 1 : 0;
+        }
+        elsif ( $mode eq 'new' ) {
+            # Try to create a new file for mode=new
+            if ( open my $SESAME, '>', $in_headfile_path ) {
+                close $SESAME;
+                $exists    = 1;
+                $readable  = (-r $in_headfile_path) ? 1 : 0;
+                $writeable = (-w $in_headfile_path) ? 1 : 0;
+            } else {
+                $readable  = 0;
+                $writeable = 0;
+            }
+        }
+        # nf mode = no file; exists/readable/writeable stay 0
     }
-    
-    if ($mode eq 'rc') { $writeable = 1};  # this is a bit of a cheat cause we don't check that different file written to.
-    $self->{'__exists'} = $exists;
+
+    # rc mode cheats: we allow writing to a different output later
+    if ($mode eq 'rc') {
+        $writeable = 1;
+    }
+
+    $self->{'__exists'}   = $exists;
     $self->{'__readable'} = $readable;
-    $self->{'__writeable'} = $writeable;
-    
-    bless $self, $classname; # Tell $self it contains the address of an object of package classname
-    return ($self); 
+    $self->{'__writeable'}= $writeable;
+
+    bless $self, $classname;
+    return $self;
 }
 
 # Public Methods -------
