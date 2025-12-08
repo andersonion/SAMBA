@@ -2071,31 +2071,57 @@ sub log_info {
    }
 }
 
-sub make_process_dirs {
 # ------------------
-# make_process_dirs (Thing, no_change_dir_bool)
-# makes our standard triplicate of processing directories,
-#  Thing-inputs, Thing-work, Thing-results, and figures out our result headfile path.
-# NEW: switches working directory into our work path so garbage files end up there.
-# can be turned off with the no_change_dir_bool.
-    my ( $identifier,$nocd) =@_;
-    use Env qw(BIGGUS_DISKUS);
-    my @errors;
-    if (! defined($BIGGUS_DISKUS))       { push(@errors, "Environment variable BIGGUS_DISKUS must be set."); }
-    if (! -d $BIGGUS_DISKUS)             { push(@errors, "unable to find disk location: $BIGGUS_DISKUS"); }
-    #if (! -w $BIGGUS_DISKUS)             { push(@errors, "unable to write to disk location: $BIGGUS_DISKUS notify IT support!"); }
-    error_out(join(", ",@errors)) if ( scalar(@errors) > 0 );
-    my @dirs;
-    foreach ( qw/inputs work results/ ){
-        push(@dirs,"$BIGGUS_DISKUS/$identifier\-$_"); }
-    foreach (@dirs ){
-        if (! -d ){
-            mkdir( $_,0777) or push(@errors,"couldnt create dir $_");}}
-    error_out(join(", ",@errors)) if ( scalar(@errors) > 0 );
-    # switch to the working dir. This is hidden behavior, so its optional, and on by default.
-    chdir ($dirs[1]) unless $nocd; 
-    return(@dirs,File::Spec->catdir($dirs[2],$identifier.".headfile"));
+# Ensure a processing directory exists.
+# Treat an existing directory OR a symlink to a directory as success.
+# ------------------
+sub make_process_dirs {
+    my ($dir) = @_;
+
+    SAMBA_pipeline_utilities::debugloc();
+    SAMBA_pipeline_utilities::whoami();
+    SAMBA_pipeline_utilities::printd(30, "make_process_dirs: ensuring $dir exists\n");
+
+    # If it already exists as a real directory, we’re done.
+    if ( -d $dir ) {
+        SAMBA_pipeline_utilities::printd(30, "make_process_dirs: $dir already exists (dir), OK\n");
+        return 1;
+    }
+
+    # If it’s a symlink, and the target is a directory, also OK.
+    if ( -l $dir ) {
+        my $target = readlink $dir;
+        if ( defined $target && -d $target ) {
+            SAMBA_pipeline_utilities::printd(
+                30,
+                "make_process_dirs: $dir is a symlink to directory $target, OK\n"
+            );
+            return 1;
+        } else {
+            # Symlink exists but does not point to a directory → that’s bad.
+            croak "make_process_dirs: $dir is a symlink but target '$target' is not a directory";
+        }
+    }
+
+    # Otherwise, try to create the directory.
+    unless ( mkdir $dir ) {
+        # If we race with another process and it appears between the -d test
+        # and mkdir, treat that as success.
+        if ( -d $dir ) {
+            SAMBA_pipeline_utilities::printd(
+                30,
+                "make_process_dirs: mkdir reported failure but $dir now exists, treating as OK\n"
+            );
+            return 1;
+        }
+
+        croak "couldnt create dir $dir: $!";
+    }
+
+    SAMBA_pipeline_utilities::printd(30, "make_process_dirs: created $dir\n");
+    return 1;
 }
+
 
 #---------------------
 sub memory_estimator {
