@@ -82,7 +82,7 @@ our $float_ex ="$n_ex$int_ex(?:[.]$int_ex)?";
 our $plain_num=$float_ex;
 our $full_nex ="$float_ex(?:[E]$n_ex$int_ex)?";
 our $num_ex=$full_nex;
-our $BIGGUS_DISKUS;
+our $BIGGUS_DISKUS = $ENV{BIGGUS_DISKUS};
 
 
 our $OSNAME="$^O\n";
