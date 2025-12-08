@@ -2,260 +2,201 @@
 #
 # samba_pipe_src.sh
 #
-# Shell helpers for launching SAMBA inside a Singularity/Apptainer
-# container, with optional Slurm/SGE scheduler proxying.
+# Host-side launcher for SAMBA inside Singularity.
+#  - Sets up CONTAINER_CMD_PREFIX so Perl inside the container can wrap
+#    system/`/open.
+#  - Dynamically adds extra --binds for any host paths referenced in the
+#    startup headfile that are *not* already covered by existing binds.
 #
-# This file is meant to be sourced, not executed:
-#   source /home/apps/SAMBA/samba_pipe_src.sh
+
+########################################
+# 0. Basic defaults / env
+########################################
+
+# Where the Singularity image lives (override if needed before sourcing)
+: "${SINGULARITY_IMAGE_DIR:=/home/apps//ubuntu-22.04/singularity/images}"
+: "${SAMBA_SIF_NAME:=samba.sif}"
+
+SAMBA_SIF_PATH="${SINGULARITY_IMAGE_DIR}/${SAMBA_SIF_NAME}"
+
+# Where SAMBA lives *inside* the container
+SAMBA_IN_CONTAINER_DIR="/opt/samba/SAMBA"
+
+# BIGGUS_DISKUS is used by Perl as the root for project paths.
+# We *expect* you to export this in your environment before calling samba-pipe.
+# Example:
+#   export BIGGUS_DISKUS=/mnt/newStor/paros/paros_WORK/mouse
+# We deliberately do not set a default here.
+
+
+########################################
+# 1. Helper: parse SAMBA_BASE_BINDS → array
+########################################
+# SAMBA_BASE_BINDS is optional. If set, it should look like:
+#   SAMBA_BASE_BINDS="/host1:/ctr1;/host2:/ctr2;..."
 #
+# If SAMBA_BASE_BINDS is *not* set, we fall back to:
+#   BIGGUS_DISKUS -> BIGGUS_DISKUS   (and with trailing slash variant)
+#
+_samba_collect_base_binds() {
+    local -n _out_arr="$1"
+    _out_arr=()
 
-##############################################################################
-# Core config: where SAMBA + container live
-##############################################################################
-
-# Base SAMBA install directory on the *host*
-: "${SAMBA_APPS_DIR:=/home/apps/}"
-
-# Default image dir (e.g., used on your clusters)
-: "${SINGULARITY_IMAGE_DIR:=/opt/containers}"
-
-# Default Singularity binary
-: "${CONTAINER_CMD:=singularity}"
-
-# Default SIF path; can be overridden by exporting SIF_PATH beforehand
-: "${SIF_PATH:=${SINGULARITY_IMAGE_DIR}/samba.sif}"
-
-# Default scheduler backend:
-#   native -> call sbatch/squeue/etc directly
-#   proxy  -> go via samba_sched_daemon on host
-: "${SAMBA_SCHED_BACKEND:=proxy}"
-
-export SAMBA_APPS_DIR
-export SINGULARITY_IMAGE_DIR
-export CONTAINER_CMD
-export SIF_PATH
-export SAMBA_SCHED_BACKEND
-
-##############################################################################
-# Slurm / system auto-binds
-##############################################################################
-
-# EXTRA_BINDS is an array of "--bind src:dest ..." elements
-EXTRA_BINDS=()
-
-_samba_auto_bind_slurm() {
-  EXTRA_BINDS=()
-
-  # Slurm config
-  if [[ -d /etc/slurm ]]; then
-    EXTRA_BINDS+=( --bind /etc/slurm:/etc/slurm )
-  fi
-
-  # Slurm libraries
-  if [[ -d /usr/local/lib/slurm ]]; then
-    EXTRA_BINDS+=( --bind /usr/local/lib/slurm:/usr/local/lib/slurm )
-  fi
-
-  # Slurm binaries (sbatch, squeue, etc.)
-  if command -v sbatch >/dev/null 2>&1; then
-    sbatch_path="$(command -v sbatch)"
-    sbatch_dir="$(dirname "$sbatch_path")"
-    EXTRA_BINDS+=( --bind "${sbatch_dir}:${sbatch_dir}" )
-  fi
-}
-
-##############################################################################
-# Scheduler daemon discovery
-##############################################################################
-
-_samba_find_daemon() {
-  local d=""
-
-  # 1) PATH
-  if command -v samba_sched_daemon >/dev/null 2>&1; then
-    d="$(command -v samba_sched_daemon)"
-    echo "$d"
-    return 0
-  fi
-
-  # 2) In SAMBA repo: ${SAMBA_APPS_DIR}/samba_sched_wrappers
-  if [[ -x "${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon" ]]; then
-    d="${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon"
-    echo "$d"
-    return 0
-  fi
-
-  if [[ -x "${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon.sh" ]]; then
-    d="${SAMBA_APPS_DIR}/samba_sched_wrappers/samba_sched_daemon.sh"
-    echo "$d"
-    return 0
-  fi
-
-  # 3) In SAMBA repo: ${SAMBA_APPS_DIR}/SAMBA/samba_sched_wrappers
-  if [[ -x "${SAMBA_APPS_DIR}/SAMBA/samba_sched_wrappers/samba_sched_daemon" ]]; then
-    d="${SAMBA_APPS_DIR}/SAMBA/samba_sched_wrappers/samba_sched_daemon"
-    echo "$d"
-    return 0
-  fi
-
-  if [[ -x "${SAMBA_APPS_DIR}/SAMBA/samba_sched_wrappers/samba_sched_daemon.sh" ]]; then
-    d="${SAMBA_APPS_DIR}/SAMBA/samba_sched_wrappers/samba_sched_daemon.sh"
-    echo "$d"
-    return 0
-  fi
-
-  return 1
-}
-
-##############################################################################
-# Ensure scheduler daemon is running (host side, not in container)
-##############################################################################
-
-_samba_ensure_daemon() {
-  # Only do anything if we're in proxy mode
-  if [[ "${SAMBA_SCHED_BACKEND:-native}" != "proxy" ]]; then
-    return 0
-  fi
-
-  # IPC dir visible to both host and container
-  if [[ -z "${SAMBA_SCHED_DIR:-}" ]]; then
-    SAMBA_SCHED_DIR="${HOME}/.samba_sched"
-  fi
-  export SAMBA_SCHED_DIR
-  mkdir -p "${SAMBA_SCHED_DIR}"
-
-  # Find daemon binary
-  local daemon
-  daemon="$(_samba_find_daemon || true)"
-
-  if [[ -z "${daemon}" ]]; then
-    echo "FATAL: SAMBA_SCHED_BACKEND=proxy but samba_sched_daemon not found." >&2
-    echo "       Looked in PATH and in ${SAMBA_APPS_DIR}/samba_sched_wrappers/ and ${SAMBA_APPS_DIR}/SAMBA/samba_sched_wrappers/." >&2
-    return 1
-  fi
-
-  # Check if already running
-  local pid_file="${SAMBA_SCHED_DIR}/daemon.pid"
-  local dpid=""
-  if [[ -f "${pid_file}" ]]; then
-    dpid="$(cat "${pid_file}" 2>/dev/null || true)"
-  fi
-
-  if [[ -n "${dpid}" && "${dpid}" =~ ^[0-9]+$ ]] && kill -0 "${dpid}" 2>/dev/null; then
-    # Already running
-    return 0
-  fi
-
-  echo "[sched] starting samba_sched_daemon as user ${USER}"
-  echo "[sched] daemon=${daemon}"
-  echo "[sched] dir=${SAMBA_SCHED_DIR}"
-
-  nohup "${daemon}" --dir "${SAMBA_SCHED_DIR}" --backend slurm \
-    > "${SAMBA_SCHED_DIR}/daemon.log" 2>&1 &
-  dpid=$!
-  echo "${dpid}" > "${pid_file}"
-
-  # Give it a moment and confirm it's alive
-  sleep 0.1
-  if ! kill -0 "${dpid}" 2>/dev/null; then
-    echo "FATAL: samba_sched_daemon failed to start. See ${SAMBA_SCHED_DIR}/daemon.log" >&2
-    return 1
-  fi
-}
-
-##############################################################################
-# Main entrypoint: samba-pipe
-##############################################################################
-
-samba-pipe() {
-  local hf="$1"
-
-  if [[ -z "$hf" ]]; then
-    echo "Usage: samba-pipe headfile.hf" >&2
-    return 1
-  fi
-
-  # Make headfile absolute
-  if [[ "${hf:0:1}" != "/" && "${hf:0:2}" != "~/" ]]; then
-    hf="${PWD}/${hf}"
-  fi
-  if [[ ! -f "$hf" ]]; then
-    echo "ERROR: headfile not found: $hf" >&2
-    return 1
-  fi
-
-  # BIGGUS_DISKUS selection & validation
-  if [[ -z "${BIGGUS_DISKUS:-}" ]]; then
-    if [[ -d "${SCRATCH:-}" ]]; then
-      export BIGGUS_DISKUS="$SCRATCH"
-    elif [[ -d "${WORK:-}" ]]; then
-      export BIGGUS_DISKUS="$WORK"
-    else
-      export BIGGUS_DISKUS="$HOME/samba_scratch"
-      mkdir -p "$BIGGUS_DISKUS"
+    # 1) User-configurable base binds (highest priority)
+    if [ -n "${SAMBA_BASE_BINDS:-}" ]; then
+        # Split on ';'
+        IFS=';' read -r -a _tmp <<< "${SAMBA_BASE_BINDS}"
+        for pair in "${_tmp[@]}"; do
+            # skip empties
+            [ -z "$pair" ] && continue
+            _out_arr+=("$pair")
+        done
     fi
-  fi
 
-  if [[ ! -d "$BIGGUS_DISKUS" || ! -w "$BIGGUS_DISKUS" ]]; then
-    echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
-    return 1
-  fi
+    # 2) If nothing provided, fall back to BIGGUS_DISKUS if available
+    if [ ${#_out_arr[@]} -eq 0 ] && [ -n "${BIGGUS_DISKUS:-}" ]; then
+        local root="$BIGGUS_DISKUS"
+        # Strip trailing slash for consistency
+        root="${root%/}"
+        _out_arr+=("${root}:${root}")
+        _out_arr+=("${root}/:${root}/")
+    fi
 
-  # Warn if not group-writable
-  if ! perl -e 'exit((stat($ARGV[0]))[2] & 0020 ? 0 : 1)' "$BIGGUS_DISKUS"; then
-    echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
-  fi
-
-  # Atlas bind
-  local BIND_ATLAS=()
-  if [[ -n "${ATLAS_FOLDER:-}" && -d "$ATLAS_FOLDER" ]]; then
-    BIND_ATLAS=( --bind "$ATLAS_FOLDER:$ATLAS_FOLDER" )
-  fi
-
-  export SAMBA_ATLAS_BIND="${BIND_ATLAS[*]}"
-  export SAMBA_BIGGUS_BIND="$BIGGUS_DISKUS:$BIGGUS_DISKUS"
-
-  # Ensure scheduler daemon if proxy backend
-  _samba_ensure_daemon || return 1
-
-  # Stage HF to BIGGUS_DISKUS for a shared, container-visible path
-  local hf_tmp="${BIGGUS_DISKUS}/${USER}_samba_$(date +%s)_$(basename "$hf")"
-  cp "$hf" "$hf_tmp"
-
-  # Auto-detect Slurm libs/bins for binds
-  _samba_auto_bind_slurm
-
-  # Headfile dir bind (use the staged tmp headfile location)
-  local BIND_HF_DIR=( --bind "$(dirname "$hf_tmp")":"$(dirname "$hf_tmp")" )
-
-  # Build container command prefix (host-side)
-  local CMD_PREFIX_A=(
-    "$CONTAINER_CMD" exec
-    --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
-    "${BIND_HF_DIR[@]}"
-    "${BIND_ATLAS[@]}"
-    "${EXTRA_BINDS[@]}"
-    "$SIF_PATH"
-  )
-
-  # *** CRITICAL: export into env so SAMBA_startup can see it ***
-  export CONTAINER_CMD_PREFIX="${CMD_PREFIX_A[*]}"
-
-  # Also export scheduler env for inside-container code to see
-  export SAMBA_SCHED_BACKEND
-  export SAMBA_SCHED_DIR
-  export BIGGUS_DISKUS
-  export ATLAS_FOLDER
-  export SIF_PATH
-
-  # For debugging you can uncomment:
-  # echo "[DEBUG] CONTAINER_CMD_PREFIX=${CONTAINER_CMD_PREFIX}" >&2
-  # echo "[DEBUG] hf_tmp=${hf_tmp}" >&2
-
-  # Launch SAMBA_startup inside the container
-  eval "${CONTAINER_CMD_PREFIX}" /opt/samba/SAMBA/SAMBA_startup "${hf_tmp}"
+    # 3) Generic cluster-ish binds that are safe everywhere
+    _out_arr+=("/etc/slurm:/etc/slurm")
+    _out_arr+=("/usr/local/lib/slurm:/usr/local/lib/slurm")
+    _out_arr+=("/usr/local/bin:/usr/local/bin")
 }
 
-##############################################################################
-# End of samba_pipe_src.sh
-##############################################################################
+
+########################################
+# 2. Helper: derive extra binds from headfile
+########################################
+# _samba_dynamic_binds_from_headfile HEADFILE base_bind_array...
+#
+#   HEADFILE: path to startup .headfile (host path)
+#   base_bind_array: entries of the form "/host/path:/container/path"
+#
+# Emits zero or more lines:
+#   --bind /host/root:/host/root
+#
+# Only binds directories that:
+#   - appear as absolute paths in the headfile
+#   - exist on the host
+#   - are NOT already covered by one of the base binds
+#
+_samba_dynamic_binds_from_headfile() {
+    local hf="$1"; shift
+    local -a existing=("$@")
+
+    # If we can't read the headfile, bail quietly.
+    [ -r "$hf" ] || return 0
+
+    # Grab all absolute path-looking tokens from the headfile.
+    local raw_paths
+    raw_paths=$(grep -Eo '/[A-Za-z0-9._/\-]+' "$hf" 2>/dev/null | sort -u) || return 0
+
+    # For each path, reduce to a "root" directory (moderately high-level)
+    while read -r p; do
+        [ -z "$p" ] && continue
+
+        local d
+        d=$(dirname "$p")
+
+        [[ "$d" != /* ]] && continue
+
+        # Collapse to something like: /a/b/c/d/e
+        # If fewer components, leave as-is.
+        local r
+        r=$(printf '%s\n' "$d" | awk -F/ '
+            NF>=6 {printf "/%s/%s/%s/%s/%s\n",$2,$3,$4,$5,$6; next}
+            {print $0}
+        ')
+        [ -z "$r" ] && continue
+        [ -d "$r" ] || continue  # only bind real directories
+
+        printf '%s\n' "$r"
+    done <<< "$raw_paths" | sort -u | while read -r root; do
+        [ -z "$root" ] && continue
+
+        # Skip if root is already covered by an existing host bind path
+        local skip=0
+        local pair host
+        for pair in "${existing[@]}"; do
+            host="${pair%%:*}"
+            # host might not have trailing slash; normalize both mildly
+            host="${host%/}"
+            if [[ "$root" == "$host"* ]]; then
+                skip=1
+                break
+            fi
+        done
+        [ "$skip" -eq 1 ] && continue
+
+        # Emit a bind mapping host-root -> same path inside container
+        printf -- '--bind %s:%s\n' "$root" "$root"
+    done
+}
+
+
+########################################
+# 3. Main entry point: samba-pipe
+########################################
+# Usage:
+#   source /home/apps/SAMBA/samba_pipe_src.sh
+#   samba-pipe /path/to/startup.headfile
+########################################
+samba-pipe() {
+    local hf="$1"
+
+    if [ -z "$hf" ]; then
+        echo "Usage: samba-pipe /path/to/startup.headfile" >&2
+        return 1
+    fi
+    if [ ! -r "$hf" ]; then
+        echo "ERROR: cannot read headfile: $hf" >&2
+        return 1
+    fi
+
+    if [ ! -f "$SAMBA_SIF_PATH" ]; then
+        echo "ERROR: Singularity image not found at: $SAMBA_SIF_PATH" >&2
+        return 1
+    fi
+
+    ########################################
+    # 3.1 Collect base binds (env-driven)
+    ########################################
+    local -a base_binds
+    _samba_collect_base_binds base_binds
+
+    ########################################
+    # 3.2 Build full bind list: base + headfile-derived extras
+    ########################################
+    local bind_opts=""
+    local pair
+
+    for pair in "${base_binds[@]}"; do
+        bind_opts+=" --bind ${pair}"
+    done
+
+    # Headfile-driven binds (extra roots referenced in hf)
+    while read -r extra_bind; do
+        [ -n "$extra_bind" ] || continue
+        bind_opts+=" ${extra_bind}"
+    done < <(_samba_dynamic_binds_from_headfile "$hf" "${base_binds[@]}")
+
+    ########################################
+    # 3.3 Export CONTAINER_CMD_PREFIX for Perl
+    ########################################
+    export CONTAINER_CMD_PREFIX="singularity exec${bind_opts} ${SAMBA_SIF_PATH}"
+
+    echo "[SAMBA_startup] SPath=${SAMBA_IN_CONTAINER_DIR}"
+    echo "[SAMBA_startup] CONTAINER_CMD_PREFIX=${CONTAINER_CMD_PREFIX}"
+    echo "[SAMBA_startup] PIPELINE_LAUNCH=${CONTAINER_CMD_PREFIX} ${SAMBA_IN_CONTAINER_DIR}/vbm_pipeline_start.pl"
+    echo "[SAMBA_startup] ARGS: ${hf}"
+
+    ########################################
+    # 3.4 Actually launch the pipeline
+    ########################################
+    singularity exec ${bind_opts} "${SAMBA_SIF_PATH}" "${SAMBA_IN_CONTAINER_DIR}/vbm_pipeline_start.pl" "$hf"
+}
