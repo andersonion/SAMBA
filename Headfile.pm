@@ -29,7 +29,6 @@ use strict;
 ## doesn't work on intel mac: use diagnostics;
 ###use IO::File;
 use IO qw(Handle File);
-use vars qw(*SESAME);
 
 my $VERSION = "181211";
 my $COMMENT = 0;
@@ -117,17 +116,16 @@ sub new
             $readable  = (-r $in_headfile_path) ? 1 : 0;
             $writeable = (-w $in_headfile_path) ? 1 : 0;
         }
-        elsif ( $mode eq 'new' ) {
-            # Try to create a new file for mode=new
-            if ( open my $SESAME, '>', $in_headfile_path ) {
-                close $SESAME;
-                $exists    = 1;
-                $readable  = (-r $in_headfile_path) ? 1 : 0;
-                $writeable = (-w $in_headfile_path) ? 1 : 0;
-            } else {
-                $readable  = 0;
-                $writeable = 0;
-            }
+		elsif ( $mode eq 'new' ) {
+			# For new headfiles, create an empty file using CORE::open so we
+			# bypass any global open() overrides in SAMBA_pipeline_utilities.
+			if ( CORE::open( my $SESAME, ">$in_headfile_path" ) ) {
+				close $SESAME;
+			} else {
+				$readable  = 0;
+				$writeable = 0;
+			}
+
         }
         # nf mode = no file; exists/readable/writeable stay 0
     }
@@ -204,31 +202,24 @@ sub read_headfile {
 #------------
 # returns 1 when good, else returns 0 for errors.
     my ($self) = @_;
-    my $mode = $self->{'__mode'};
-    my $path = $self->{'__in_path'};
+    my $mode   = $self->{'__mode'};
+    my $path   = $self->{'__in_path'};
 
-    if ( ($mode eq "ro")
-         || ($mode eq "rw")
-         || ($mode eq "rc")
-       ) {
-
-        # Optional DEBUG: uncomment if you want to see what Perl thinks
-        # about the path at runtime.
-        # print STDERR "Headfile::read_headfile DEBUG: path = [$path]\n";
-        # my $exists   = -e $path ? 1 : 0;
-        # my $readable = -r $path ? 1 : 0;
-        # my $size     = defined(-s $path) ? -s $path : 'undef';
-        # print STDERR "Headfile::read_headfile DEBUG: -e=$exists -r=$readable -s=$size\n";
+    if (   $mode eq "ro"
+        || $mode eq "rw"
+        || $mode eq "rc" )
+    {
 
         my @all_lines;
 
-        # stream to list, open read-only using a lexical filehandle
-        if ( open my $SESAME, "<", $path ) {
+        # Stream to list, open read-only using CORE::open so we bypass
+        # the global open() wrapper in SAMBA_pipeline_utilities.
+        if ( CORE::open( my $SESAME, "<", $path ) ) {
             @all_lines = <$SESAME>;
             close $SESAME;
         }
         else {
-            # *** Better error message so we know what the OS actually said ***
+            # Better error message so we know what the OS actually said
             print STDERR "Unable to open headfile to read: $path ($!)\n";
             return 0;
         }
@@ -236,40 +227,41 @@ sub read_headfile {
         #--- convert list form to hash
         my $l;
         my @header_comments = ();
-        my %header_hash = (); # local
-        foreach $l (@all_lines) {
+        my %header_hash     = ();    # local
 
-            my ($is_empty, $field, $value, $is_comment, $the_comment, $error) =
-                private_parse_line($l);
+        foreach $l (@all_lines) {
+            my ( $is_empty, $field, $value, $is_comment, $the_comment, $error ) =
+              private_parse_line($l);
 
             if ($error) {
-                print STDERR "Unable to parse headfile $self->{'__in_path'}\n problem line: $l\n";
+                print STDERR
+                  "Unable to parse headfile $self->{'__in_path'}\n problem line: $l\n";
                 return 0;
             }
 
-            if (! $is_empty) {
+            if ( !$is_empty ) {
                 if ($is_comment) {
-                    private_set_comment($self, $the_comment);
+                    private_set_comment( $self, $the_comment );
                 }
                 else {
-                    my $temp = $value; # remove any spaces at beginning or end of value before saving
+                    # Trim leading/trailing whitespace on values
+                    my $temp = $value;
                     $temp =~ s/^\s+//;
                     $temp =~ s/\s+$//;
                     $value = $temp;
-                    private_set_value($self, $field, $value);
+
+                    private_set_value( $self, $field, $value );
                 }
             }
         }
     }
     else {
-        # insert other read types here?
-        # mode is something besides new or nf(nofile) then it must exist,
-        # So, throw error.
-        print STDERR "Attempt to read new or non headfile! ".
-            "Use specific loaders ?!\n";
-        return (0);
+        # Mode is something besides new or nf(no file)
+        print STDERR "Attempt to read new or non headfile! Use specific loaders ?!\n";
+        return 0;
     }
-    return (1);
+
+    return 1;
 }
 
 #------------
