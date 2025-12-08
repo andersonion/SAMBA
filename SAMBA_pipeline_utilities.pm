@@ -2072,19 +2072,20 @@ sub log_info {
 }
 
 # ------------------
-# Ensure a processing directory exists.
-# Treat an existing directory OR a symlink to a directory as success.
+# Ensure that a directory *or symlink to a directory* exists.
+# This is a private helper, not the main interface used by
+# vbm_pipeline_workflow.pm.
 # ------------------
-sub make_process_dirs {
+sub _ensure_dir_or_symlink {
     my ($dir) = @_;
 
     SAMBA_pipeline_utilities::debugloc();
     SAMBA_pipeline_utilities::whoami();
-    SAMBA_pipeline_utilities::printd(30, "make_process_dirs: ensuring $dir exists\n");
+    SAMBA_pipeline_utilities::printd(30, "_ensure_dir_or_symlink: ensuring $dir exists\n");
 
     # If it already exists as a real directory, we’re done.
     if ( -d $dir ) {
-        SAMBA_pipeline_utilities::printd(30, "make_process_dirs: $dir already exists (dir), OK\n");
+        SAMBA_pipeline_utilities::printd(30, "_ensure_dir_or_symlink: $dir already exists (dir), OK\n");
         return 1;
     }
 
@@ -2094,12 +2095,11 @@ sub make_process_dirs {
         if ( defined $target && -d $target ) {
             SAMBA_pipeline_utilities::printd(
                 30,
-                "make_process_dirs: $dir is a symlink to directory $target, OK\n"
+                "_ensure_dir_or_symlink: $dir is a symlink to directory $target, OK\n"
             );
             return 1;
         } else {
-            # Symlink exists but does not point to a directory → that’s bad.
-            croak "make_process_dirs: $dir is a symlink but target '$target' is not a directory";
+            croak "_ensure_dir_or_symlink: $dir is a symlink but target '$target' is not a directory";
         }
     }
 
@@ -2110,7 +2110,7 @@ sub make_process_dirs {
         if ( -d $dir ) {
             SAMBA_pipeline_utilities::printd(
                 30,
-                "make_process_dirs: mkdir reported failure but $dir now exists, treating as OK\n"
+                "_ensure_dir_or_symlink: mkdir reported failure but $dir now exists, treating as OK\n"
             );
             return 1;
         }
@@ -2118,10 +2118,70 @@ sub make_process_dirs {
         croak "couldnt create dir $dir: $!";
     }
 
-    SAMBA_pipeline_utilities::printd(30, "make_process_dirs: created $dir\n");
+    SAMBA_pipeline_utilities::printd(30, "_ensure_dir_or_symlink: created $dir\n");
     return 1;
 }
 
+# ------------------
+# make_process_dirs($project_id)
+#
+# Given a project_id like "VBM_25ADRCPublic01_IITmean_RPI",
+# return:
+#   ($pristine_input_dir, $dir_work, $results_dir, $result_headfile)
+#
+# This is the interface expected by vbm_pipeline_workflow.pm:
+#     ($pristine_input_dir,$dir_work,$results_dir,$result_headfile)
+#         = make_process_dirs($project_id);
+# ------------------
+sub make_process_dirs {
+    my ($project_id) = @_;
+
+    SAMBA_pipeline_utilities::debugloc();
+    SAMBA_pipeline_utilities::whoami();
+
+    unless (defined $project_id && $project_id ne '') {
+        croak "make_process_dirs: project_id not provided";
+    }
+
+    my $root = $BIGGUS_DISKUS;
+    unless (defined $root && $root ne '') {
+        croak "make_process_dirs: BIGGUS_DISKUS not defined";
+    }
+
+    # Normalize root (no trailing slash)
+    $root =~ s{/$}{};
+
+    # Historical pattern in SAMBA: use project_id to derive base paths.
+    # Example for your current run:
+    #   project_id          = VBM_25ADRCPublic01_IITmean_RPI
+    #   pristine_input_dir  = /mnt/.../mouse/VBM_25ADRCPublic01_IITmean_RPI-inputs
+    #   dir_work            = /mnt/.../mouse/VBM_25ADRCPublic01_IITmean_RPI-work
+    #   results_dir         = /mnt/.../mouse/VBM_25ADRCPublic01_IITmean_RPI-results
+    my $base = "${root}/${project_id}";
+
+    my $pristine_input_dir = "${base}-inputs";
+    my $dir_work           = "${base}-work";
+    my $results_dir        = "${base}-results";
+
+    # Result headfile lives under the results directory.
+    my $result_headfile    = "${results_dir}/${project_id}_result.headfile";
+
+    # Ensure each directory (or its symlink) exists / is sane.
+    _ensure_dir_or_symlink($pristine_input_dir);
+    _ensure_dir_or_symlink($dir_work);
+    _ensure_dir_or_symlink($results_dir);
+
+    SAMBA_pipeline_utilities::printd(
+        20,
+        "make_process_dirs: project_id=$project_id\n" .
+        "    pristine_input_dir = $pristine_input_dir\n" .
+        "    dir_work           = $dir_work\n" .
+        "    results_dir        = $results_dir\n" .
+        "    result_headfile    = $result_headfile\n"
+    );
+
+    return ($pristine_input_dir, $dir_work, $results_dir, $result_headfile);
+}
 
 #---------------------
 sub memory_estimator {
