@@ -212,20 +212,20 @@ sub read_headfile {
          || ($mode eq "rc")
        ) {
 
-        # DEBUG: sanity-check what Perl sees
-        print STDERR "Headfile::read_headfile DEBUG: path = [$path]\n";
-        my $exists    = -e $path ? 1 : 0;
-        my $readable  = -r $path ? 1 : 0;
-        my $size      = -s $path;
-        $size = defined $size ? $size : 'undef';
-        print STDERR "Headfile::read_headfile DEBUG: -e=$exists -r=$readable -s=$size\n";
+        # Optional DEBUG: uncomment if you want to see what Perl thinks
+        # about the path at runtime.
+        # print STDERR "Headfile::read_headfile DEBUG: path = [$path]\n";
+        # my $exists   = -e $path ? 1 : 0;
+        # my $readable = -r $path ? 1 : 0;
+        # my $size     = defined(-s $path) ? -s $path : 'undef';
+        # print STDERR "Headfile::read_headfile DEBUG: -e=$exists -r=$readable -s=$size\n";
 
         my @all_lines;
 
-        # stream to list, open ro
-        if ( open SESAME, "<", $path ) {
-            @all_lines = <SESAME>;
-            close SESAME;
+        # stream to list, open read-only using a lexical filehandle
+        if ( open my $SESAME, "<", $path ) {
+            @all_lines = <$SESAME>;
+            close $SESAME;
         }
         else {
             # *** Better error message so we know what the OS actually said ***
@@ -239,7 +239,6 @@ sub read_headfile {
         my %header_hash = (); # local
         foreach $l (@all_lines) {
 
-            #print STDERR "parsing $l\n";
             my ($is_empty, $field, $value, $is_comment, $the_comment, $error) =
                 private_parse_line($l);
 
