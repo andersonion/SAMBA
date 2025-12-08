@@ -212,12 +212,20 @@ sub read_headfile {
          || ($mode eq "rc")
        ) {
 
+        # DEBUG: sanity-check what Perl sees
+        print STDERR "Headfile::read_headfile DEBUG: path = [$path]\n";
+        my $exists    = -e $path ? 1 : 0;
+        my $readable  = -r $path ? 1 : 0;
+        my $size      = -s $path;
+        $size = defined $size ? $size : 'undef';
+        print STDERR "Headfile::read_headfile DEBUG: -e=$exists -r=$readable -s=$size\n";
+
         my @all_lines;
 
         # stream to list, open ro
-        if ( open my $SESAME, "<", $path ) {
-            @all_lines = <$SESAME>;
-            close $SESAME;
+        if ( open SESAME, "<", $path ) {
+            @all_lines = <SESAME>;
+            close SESAME;
         }
         else {
             # *** Better error message so we know what the OS actually said ***

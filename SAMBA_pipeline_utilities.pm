@@ -2523,14 +2523,22 @@ sub _shell_quote {
 
 
 # ------------------
-# write_array_to_file
-# (path, array_ref[, debug_val]) writes text from array ref to file.
+# write_array_to_file(path,array_ref[,debug_val])
+#   writes text from array ref to file.
 # ------------------
 sub write_array_to_file {
     my (@input) = @_;
 
     my $file      = shift @input;
     my $array_ref = shift @input;
+
+    # Basic sanity checks
+    if ( !defined $file || $file eq '' ) {
+        croak "write_array_to_file: undefined or empty filename";
+    }
+    if ( !defined $array_ref || ref($array_ref) ne 'ARRAY' ) {
+        croak "write_array_to_file: second argument must be an array reference";
+    }
 
     my $old_debug = $debug_val;
     my $maybe_dbg = shift @input;
@@ -2544,20 +2552,20 @@ sub write_array_to_file {
 
     # Open file for writing using a lexical filehandle
     open my $text_fid, '>', $file
-      or croak "could not open $file, $!";
+      or croak "write_array_to_file: could not open $file, $!";
 
-    # Sanity check: ensure it's treated as text
-    croak "file <$file> not Text\n"
+    # Optional sanity check: ensure it's treated as text
+    croak "write_array_to_file: file <$file> not Text\n"
       unless -T $text_fid;
 
     # Write each line explicitly to this filehandle
     foreach my $line (@{$array_ref}) {
         print {$text_fid} $line
-          or croak "ERROR on write to $file: $!";
+          or croak "write_array_to_file: ERROR on write to $file: $!";
     }
 
     close $text_fid
-      or croak "ERROR closing $file: $!";
+      or croak "write_array_to_file: ERROR closing $file: $!";
 
     # restore previous debug value
     $debug_val = $old_debug;
