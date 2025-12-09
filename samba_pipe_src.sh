@@ -1,227 +1,238 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh
+# SAMBA container wrapper:
+#   source this file, then use:
+#       samba-pipe /path/to/headfile.hf
 #
-# Host-side launcher for SAMBA inside Singularity.
-# - Builds a singularity command with:
-#     * data binds inferred from the startup headfile
-#     * Slurm-related binds for sbatch/squeue/etc.
-#     * environment forwarding for BIGGUS_DISKUS (if set or in headfile)
-#     * SAMBA_WRAP_DISABLE=1 so in-container Perl does NOT double-wrap
-# - Exports CONTAINER_CMD_PREFIX for in-pipeline use.
+# This wrapper:
+#   - figures out BIGGUS_DISKUS
+#   - auto-binds atlas folder if ATLAS_FOLDER is set
+#   - auto-binds Slurm bits + host glibc/lib dirs (Option 2)
+#   - scans the startup headfile for absolute paths and binds their directories
+#   - builds a singularity exec prefix and launches SAMBA_startup.
 #
-# Usage:
-#   source /home/apps/SAMBA/samba_pipe_src.sh
-#   samba-pipe /path/to/startup.headfile
-#
+# NOTE:
+#   This is your original logic plus a small helper that infers extra
+#   --binds from the startup headfile. No SAMBA_WRAP_DISABLE, no hardcoded
+#   mouse/human binds, no changes to BIGGUS_DISKUS semantics.
 
-########################################
-# 0. Basic defaults / env
-########################################
+# ----------------------------------------------------------------------
+# Container command + image
+# ----------------------------------------------------------------------
 
-# Directory where samba.sif lives (can override before sourcing)
-: "${SINGULARITY_IMAGE_DIR:=/home/apps//ubuntu-22.04/singularity/images}"
-: "${SAMBA_SIF_NAME:=samba.sif}"
+: "${CONTAINER_CMD:=singularity}"
 
-SAMBA_SIF_PATH="${SINGULARITY_IMAGE_DIR}/${SAMBA_SIF_NAME}"
+# Try to auto-detect SIF if not provided.
+if [[ -z "${SIF_PATH:-}" ]]; then
+  if [[ -f "/home/apps/ubuntu-22.04/singularity/images/samba.sif" ]]; then
+    SIF_PATH="/home/apps/ubuntu-22.04/singularity/images/samba.sif"
+  elif [[ -f "/opt/containers/samba.sif" ]]; then
+    SIF_PATH="/opt/containers/samba.sif"
+  elif [[ -f "/opt/samba/samba.sif" ]]; then
+    SIF_PATH="/opt/samba/samba.sif"
+  fi
+fi
 
-# Where SAMBA lives *inside* the container
-SAMBA_IN_CONTAINER_DIR="/opt/samba/SAMBA"
+if [[ -z "${SIF_PATH:-}" ]]; then
+  echo "ERROR: SIF_PATH is not set and samba.sif could not be autodetected." >&2
+  echo "       Please export SIF_PATH=/full/path/to/samba.sif and re-source this file." >&2
+fi
 
-########################################
-# 1. Helper: derive extra data binds from headfile
-########################################
-# _samba_dynamic_binds_from_headfile HEADFILE BASE_BIND1 BASE_BIND2 ...
+export CONTAINER_CMD
+export SIF_PATH
+
+# ----------------------------------------------------------------------
+# Extra bind detection (Slurm + host libs: Option 2)
+# ----------------------------------------------------------------------
+
+declare -a EXTRA_BINDS=()
+
+# Slurm config
+if [[ -d /etc/slurm ]]; then
+  EXTRA_BINDS+=( --bind /etc/slurm:/etc/slurm )
+fi
+
+# sbatch/scancel (prefer /usr/local/bin if present)
+if command -v sbatch >/dev/null 2>&1; then
+  if [[ -d /usr/local/bin ]]; then
+    EXTRA_BINDS+=( --bind /usr/local/bin:/usr/local/bin )
+  fi
+  # If site used /usr/bin for Slurm and you wanted it explicitly:
+  # if [[ -d /usr/bin ]]; then
+  #   EXTRA_BINDS+=( --bind /usr/bin:/usr/bin )
+  # fi
+fi
+
+# Slurm plugins/libs
+if [[ -d /usr/local/lib/slurm ]]; then
+  EXTRA_BINDS+=( --bind /usr/local/lib/slurm:/usr/local/lib/slurm )
+elif [[ -d /usr/lib/slurm ]]; then
+  EXTRA_BINDS+=( --bind /usr/lib/slurm:/usr/lib/slurm )
+fi
+
+# Host glibc + system libs (critical for sbatch GLIBC_2.xx mismatch)
+if [[ -d /lib/x86_64-linux-gnu ]]; then
+  EXTRA_BINDS+=( --bind /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu )
+fi
+
+if [[ -d /usr/lib/x86_64-linux-gnu ]]; then
+  EXTRA_BINDS+=( --bind /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu )
+fi
+
+# Optional RHEL-ish:
+# if [[ -d /lib64 ]]; then
+#   EXTRA_BINDS+=( --bind /lib64:/lib64 )
+# fi
+# if [[ -d /usr/lib64 ]]; then
+#   EXTRA_BINDS+=( --bind /usr/lib64:/usr/lib64 )
+# fi
+
+# Allow user to inject extra binds:
+#   export SAMBA_EXTRA_BINDS="--bind /foo:/foo --bind /bar:/bar"
+if [[ -n "${SAMBA_EXTRA_BINDS:-}" ]]; then
+  # shellcheck disable=SC2206
+  ADDL=( ${SAMBA_EXTRA_BINDS} )
+  EXTRA_BINDS+=( "${ADDL[@]}" )
+fi
+
+export EXTRA_BINDS
+
+# ----------------------------------------------------------------------
+# Helper: extract dynamic binds from startup headfile
+# ----------------------------------------------------------------------
+# Reads the headfile, finds absolute paths (/something/...), and for each one:
+#   - takes dirname(path)
+#   - if that directory exists, emits: " --bind DIR:DIR"
 #
-#   HEADFILE:  path to startup .headfile
-#   BASE_BIND: entries of the form "/host/path:/container/path"
-#
-# Emits zero or more lines:
-#   --bind /host/root:/host/root
-#
-# Only binds directories that:
-#   - appear as absolute paths in the headfile
-#   - exist on the host
-#   - are NOT already covered by one of the base binds
+# We intentionally keep this simple and tolerant. Duplicate binds are harmless.
 #
 _samba_dynamic_binds_from_headfile() {
-    local hf="$1"; shift
-    local -a existing=("$@")
+  local hf="$1"
+  [ -r "$hf" ] || return 0
 
-    # If we can't read the headfile, bail quietly.
-    [ -r "$hf" ] || return 0
+  # Grab absolute path-like tokens, unique them
+  local raw_paths
+  raw_paths=$(grep -Eo '/[A-Za-z0-9._/\-]+' "$hf" 2>/dev/null | sort -u) || return 0
 
-    # 1) Grab all absolute path-looking tokens from the headfile.
-    local raw_paths
-    raw_paths=$(grep -Eo '/[A-Za-z0-9._/\-]+' "$hf" 2>/dev/null | sort -u) || return 0
+  while read -r p; do
+    [ -n "$p" ] || continue
 
-    # 2) For each path, reduce to a "root" directory (up to depth 6),
-    #    and only keep roots that actually exist on the host.
-    while read -r p; do
-        [ -z "$p" ] && continue
+    local d
+    d=$(dirname "$p")
 
-        local d
-        d=$(dirname "$p")
+    # Only absolute dirs
+    [[ "$d" != /* ]] && continue
+    [ -d "$d" ] || continue
 
-        # Only care about absolute paths
-        [[ "$d" != /* ]] && continue
-
-        # Collapse to a reasonably high-level root:
-        #   /<2>/<3>/<4>/<5>/<6>
-        # If fewer than 6 components, keep it as-is.
-        local r
-        r=$(printf '%s\n' "$d" | awk -F/ '
-            NF>=6 {printf "/%s/%s/%s/%s/%s\n",$2,$3,$4,$5,$6; next}
-            {print $0}
-        ')
-
-        [ -z "$r" ] && continue
-        [ -d "$r" ] || continue  # only bind things that exist on the host
-
-        printf '%s\n' "$r"
-    done <<< "$raw_paths" | sort -u | while read -r root; do
-        [ -z "$root" ] && continue
-
-        # 3) Skip any root that's already covered by an existing bind.
-        local skip=0
-        local pair host
-        for pair in "${existing[@]}"; do
-            host="${pair%%:*}"
-            # If root is under an already bound host path, skip it
-            if [[ "$root" == "$host"* ]]; then
-                skip=1
-                break
-            fi
-        done
-        [ "$skip" -eq 1 ] && continue
-
-        # 4) Emit a --bind directive mapping host → same path inside container.
-        printf -- '--bind %s:%s\n' "$root" "$root"
-    done
+    # Emit as a bind (note: prefixed with a space so it splices cleanly into strings)
+    printf ' --bind %s:%s' "$d" "$d"
+  done <<< "$raw_paths"
 }
 
-########################################
-# 2. Helper: ensure BIGGUS_DISKUS is set (env or headfile)
-########################################
-# _samba_ensure_env_BIGGUS_DISKUS_FROM_HF HEADFILE
-#
-# Behavior:
-#   - If BIGGUS_DISKUS is already set in the env, leave it alone.
-#   - Otherwise, look in the headfile for a line like:
-#         BIGGUS_DISKUS = /some/path
-#     and export BIGGUS_DISKUS=/some/path if found.
-#   - If nothing found, we do NOT invent a default.
-#
-_samba_ensure_env_BIGGUS_DISKUS_FROM_HF() {
-    local hf="$1"
 
-    # If already set in the environment, trust that.
-    if [[ -n "${BIGGUS_DISKUS:-}" ]]; then
-        return 0
+# ----------------------------------------------------------------------
+# Main entry point: samba-pipe
+# ----------------------------------------------------------------------
+function samba-pipe {
+  local hf="$1"
+
+  if [[ -z "$hf" ]]; then
+    echo "Usage: samba-pipe headfile.hf" >&2
+    return 1
+  fi
+
+  # Make headfile absolute once
+  if [[ "${hf:0:1}" != "/" && "${hf:0:2}" != "~/" ]]; then
+    hf="${PWD}/${hf}"
+  fi
+  if [[ ! -f "$hf" ]]; then
+    echo "ERROR: headfile not found: $hf" >&2
+    return 1
+  fi
+
+  # BIGGUS_DISKUS selection & validation  (unchanged from your version)
+  if [[ -z "${BIGGUS_DISKUS:-}" ]]; then
+    if [[ -d "${SCRATCH:-}" ]]; then
+      export BIGGUS_DISKUS="$SCRATCH"
+    elif [[ -d "${WORK:-}" ]]; then
+      export BIGGUS_DISKUS="$WORK"
+    else
+      export BIGGUS_DISKUS="$HOME/samba_scratch"
+      mkdir -p "$BIGGUS_DISKUS"
     fi
+  fi
 
-    [[ -r "$hf" ]] || return 0
+  if [[ ! -d "$BIGGUS_DISKUS" || ! -w "$BIGGUS_DISKUS" ]]; then
+    echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
+    return 1
+  fi
 
-    local line val
-    line=$(grep -E '^[[:space:]]*BIGGUS_DISKUS[[:space:]]*=' "$hf" 2>/dev/null | head -n1) || true
-    [[ -z "$line" ]] && return 0
+  # Warn if directory is not group-writable
+  if ! perl -e 'exit((stat($ARGV[0]))[2] & 0020 ? 0 : 1)' "$BIGGUS_DISKUS"; then
+    echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
+  fi
 
-    # Strip "key =" part
-    val="${line#*=}"
+  # Atlas bind (array-safe)
+  local BIND_ATLAS=()
+  if [[ -n "${ATLAS_FOLDER:-}" && -d "$ATLAS_FOLDER" ]]; then
+    BIND_ATLAS=( --bind "$ATLAS_FOLDER:$ATLAS_FOLDER" )
+  else
+    echo "Warning: ATLAS_FOLDER not set or does not exist. Proceeding with default atlas."
+  fi
 
-    # Strip inline comments (after #)
-    val="${val%%#*}"
+  # Export for Perl glue (unchanged)
+  export SAMBA_ATLAS_BIND="${BIND_ATLAS[*]}"
+  export SAMBA_BIGGUS_BIND="$BIGGUS_DISKUS:$BIGGUS_DISKUS"
 
-    # Trim leading/trailing whitespace
-    val="$(printf '%s' "$val" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+  # Stage HF to /tmp for stable path (unchanged behavior)
+  local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
+  cp "$hf" "$hf_tmp"
 
-    # Strip optional quotes
-    val="${val%\"}"; val="${val#\"}"
-    val="${val%\'}"; val="${val#\'}"
+  # Bind HF directory (host path visible in container)
+  local BIND_HF_DIR=( --bind "$(dirname "$hf")":"$(dirname "$hf")" )
 
-    if [[ -n "$val" ]]; then
-        export BIGGUS_DISKUS="$val"
-    fi
-}
+  # ------------------------------------------------------------------
+  # 0) Dynamic binds inferred from the headfile itself
+  #     (e.g. will pick up /mnt/newStor/paros/paros_WORK/human/ADRC_symlink_pool)
+  # ------------------------------------------------------------------
+  local dyn_binds
+  dyn_binds="$(_samba_dynamic_binds_from_headfile "$hf")"
 
-########################################
-# 3. Main entry point: samba-pipe
-########################################
-# Usage:
-#   samba-pipe /path/to/startup.headfile
-########################################
-samba-pipe() {
-    local hf="$1"
+  # For debugging if needed:
+  # echo "[samba-pipe] dynamic binds from headfile:${dyn_binds}" >&2
 
-    if [[ -z "$hf" ]]; then
-        echo "Usage: samba-pipe /path/to/startup.headfile" >&2
-        return 1
-    fi
-    if [[ ! -r "$hf" ]]; then
-        echo "ERROR: cannot read headfile: $hf" >&2
-        return 1
-    fi
+  # ------------------------------------------------------------------
+  # 1) Pipeline-facing CONTAINER_CMD_PREFIX that lives INSIDE container
+  #    and is used in Perl/SAMBA to build sbatch/scancel commands.
+  #    IMPORTANT: no SAMBA_WRAP_DISABLE here, just your original intent.
+  # ------------------------------------------------------------------
+  local PIPELINE_CMD_PREFIX_STR
+  PIPELINE_CMD_PREFIX_STR="${CONTAINER_CMD} exec \
+ --bind ${BIGGUS_DISKUS}:${BIGGUS_DISKUS} \
+ ${BIND_ATLAS[*]} \
+ ${EXTRA_BINDS[*]}\
+${dyn_binds} \
+ ${SIF_PATH}"
 
-    if [[ ! -f "$SAMBA_SIF_PATH" ]]; then
-        echo "ERROR: Singularity image not found at: $SAMBA_SIF_PATH" >&2
-        return 1
-    fi
+  export CONTAINER_CMD_PREFIX="${PIPELINE_CMD_PREFIX_STR}"
 
-    ################################################################
-    # 3.1 Base binds: Slurm + tools ONLY (no data paths hardcoded)
-    ################################################################
-    local -a base_binds=(
-        "/etc/slurm:/etc/slurm"
-        "/usr/local/lib/slurm:/usr/local/lib/slurm"
-        "/usr/local/bin:/usr/local/bin"
-    )
+  # ------------------------------------------------------------------
+  # 2) Host-side container launch for this run
+  #    Just use exported env, no env wrappers.
+  # ------------------------------------------------------------------
+  local HOST_CMD_STR
+  HOST_CMD_STR="${CONTAINER_CMD} exec \
+ --bind ${BIGGUS_DISKUS}:${BIGGUS_DISKUS} \
+ ${BIND_HF_DIR[*]} \
+ ${BIND_ATLAS[*]} \
+ ${EXTRA_BINDS[*]}\
+${dyn_binds} \
+ ${SIF_PATH}"
 
-    ################################################################
-    # 3.2 Build bind options: base + headfile-derived data roots
-    ################################################################
-    local bind_opts=""
-    local pair
-    for pair in "${base_binds[@]}"; do
-        bind_opts+=" --bind ${pair}"
-    done
+  # For debugging if needed:
+  # echo "[host] HOST_CMD_STR: ${HOST_CMD_STR}" >&2
+  # echo "[host] CONTAINER_CMD_PREFIX: ${CONTAINER_CMD_PREFIX}" >&2
 
-    # Headfile-driven binds for data (e.g. /mnt/newStor/.../mouse, /human, etc.)
-    while read -r extra_bind; do
-        [[ -n "$extra_bind" ]] || continue
-        bind_opts+=" ${extra_bind}"
-    done < <(_samba_dynamic_binds_from_headfile "$hf" "${base_binds[@]}")
-
-    ################################################################
-    # 3.3 Ensure BIGGUS_DISKUS is in the environment
-    #     (env wins; otherwise try to discover in headfile)
-    ################################################################
-    _samba_ensure_env_BIGGUS_DISKUS_FROM_HF "$hf"
-
-    ################################################################
-    # 3.4 Environment options:
-    #     - Pass BIGGUS_DISKUS into container if we have it
-    #     - Disable in-container re-wrapping (SAMBA_WRAP_DISABLE=1)
-    ################################################################
-    local env_opts=""
-    if [[ -n "${BIGGUS_DISKUS:-}" ]]; then
-        env_opts+=" --env BIGGUS_DISKUS=${BIGGUS_DISKUS}"
-    fi
-    # We are already inside the container, so do NOT re-wrap things
-    env_opts+=" --env SAMBA_WRAP_DISABLE=1"
-
-    ################################################################
-    # 3.5 Export CONTAINER_CMD_PREFIX for in-pipeline use
-    ################################################################
-    export CONTAINER_CMD_PREFIX="singularity exec${env_opts}${bind_opts} ${SAMBA_SIF_PATH}"
-
-    echo "[SAMBA_startup] SPath=${SAMBA_IN_CONTAINER_DIR}"
-    echo "[SAMBA_startup] CONTAINER_CMD_PREFIX=${CONTAINER_CMD_PREFIX}"
-    echo "[SAMBA_startup] PIPELINE_LAUNCH=${CONTAINER_CMD_PREFIX} ${SAMBA_IN_CONTAINER_DIR}/vbm_pipeline_start.pl"
-    echo "[SAMBA_startup] ARGS: ${hf}"
-
-    ################################################################
-    # 3.6 Actually launch the pipeline start script inside container
-    ################################################################
-    singularity exec ${env_opts} ${bind_opts} "${SAMBA_SIF_PATH}" \
-        "${SAMBA_IN_CONTAINER_DIR}/vbm_pipeline_start.pl" "$hf"
+  # Finally run SAMBA_startup inside the container
+  eval "${HOST_CMD_STR} SAMBA_startup \"${hf_tmp}\""
 }
