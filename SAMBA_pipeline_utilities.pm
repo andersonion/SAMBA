@@ -2485,9 +2485,33 @@ sub whoami {  return ( caller(1) )[3]; }
 # ------------------
 sub whowasi { return ( caller(2) )[3]; }
 
+sub wrap_in_container {
+    my ($cmd) = @_;
+
+    open my $LOG, ">>", "/tmp/samba_wrap_debug.log";
+    print $LOG "wrap_in_container() called with cmd=[$cmd]\n";
+    if ($ENV{CONTAINER_CMD_PREFIX}) {
+        print $LOG "  CONTAINER_CMD_PREFIX=[$ENV{CONTAINER_CMD_PREFIX}]\n";
+    } else {
+        print $LOG "  CONTAINER_CMD_PREFIX is NOT set here\n";
+    }
+    close $LOG;
+
+    return $cmd unless $ENV{CONTAINER_CMD_PREFIX};
+
+    $cmd =~ s/'/'\\''/g;
+    my $quoted_cmd = "'$cmd'";
+    my $container_cmd = "$ENV{CONTAINER_CMD_PREFIX} bash -c $quoted_cmd";
+
+    open my $LOG2, ">>", "/tmp/samba_wrap_debug.log";
+    print $LOG2 "  -> wrapped cmd=[$container_cmd]\n";
+    close $LOG2;
+
+    return $container_cmd;
+}
 
 # ------------------
-sub wrap_in_container {
+sub wrap_in_container_current {
 # ------------------
     my ($cmd) = @_;
 
