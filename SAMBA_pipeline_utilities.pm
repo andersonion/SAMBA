@@ -2488,7 +2488,7 @@ sub whowasi { return ( caller(2) )[3]; }
 sub wrap_in_container {
     my ($cmd) = @_;
 
-    open my $LOG, ">>", "/tmp/samba_wrap_debug.log";
+    open my $LOG, ">>", "${BIGGUS_DISKUS}//samba_wrap_debug.log";
     print $LOG "wrap_in_container() called with cmd=[$cmd]\n";
     if ($ENV{CONTAINER_CMD_PREFIX}) {
         print $LOG "  CONTAINER_CMD_PREFIX=[$ENV{CONTAINER_CMD_PREFIX}]\n";
@@ -2503,7 +2503,7 @@ sub wrap_in_container {
     my $quoted_cmd = "'$cmd'";
     my $container_cmd = "$ENV{CONTAINER_CMD_PREFIX} bash -c $quoted_cmd";
 
-    open my $LOG2, ">>", "/tmp/samba_wrap_debug.log";
+    open my $LOG2, ">>", "${BIGGUS_DISKUS}/samba_wrap_debug.log";
     print $LOG2 "  -> wrapped cmd=[$container_cmd]\n";
     close $LOG2;
 
