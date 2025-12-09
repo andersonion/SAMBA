@@ -1391,37 +1391,55 @@ sub visualize_ws {
 
 sub _read348 {
     my ($path) = @_;
+
+    # Open once
     sysopen(my $fh, $path, O_RDONLY) or die "open $path: $!";
     binmode($fh);
+
+    # Peek at first two bytes to detect gzip
     my $sig = '';
     my $got = read($fh, $sig, 2);
     die "short read($path)" unless defined $got && $got == 2;
 
-    if ($sig eq "\x1f\x8b") {   # gzip
-        close $fh;
+    # GZIP case
+    if ($sig eq "\x1f\x8b") {
+
+        # Rewind so Gunzip sees the full header
+        sysseek($fh, 0, 0) or die "seek $path: $!";
+
         if (_have_gunzip()) {
-            my $z = IO::Uncompress::Gunzip->new($path)
-              or die "gunzip($path): $IO::Uncompress::Gunzip::GunzipError";
-            my $buf = ''; my $need = 348;
+            my $z = IO::Uncompress::Gunzip->new($fh)
+              or die "gunzip($path via fh): $IO::Uncompress::Gunzip::GunzipError";
+
+            my $buf  = '';
+            my $need = 348;
             while ($need > 0) {
                 my $chunk = '';
-                my $n = $z->read($chunk, $need);
+                my $n     = $z->read($chunk, $need);
                 die "gunzip read error on $path" unless defined $n;
                 last if $n == 0;
                 $buf  .= $chunk;
                 $need -= $n;
             }
             $z->close();
+            close($fh);
+
             die "decompressed header too short in $path" unless length($buf) == 348;
             return $buf;
+
         } else {
+            # Fallback if IO::Uncompress::Gunzip is not available.
+            # NOTE: This is the only place that *might* shell out; in your
+            #       environment _have_gunzip() is true, so this path won't run.
+            close($fh);
             open my $z, "-|", "gzip", "-dc", "--", $path
               or die "spawn gzip -dc $path: $!";
             binmode($z);
-            my $buf = ''; my $need = 348;
+            my $buf  = '';
+            my $need = 348;
             while ($need > 0) {
                 my $chunk = '';
-                my $n = read($z, $chunk, $need);
+                my $n     = read($z, $chunk, $need);
                 die "gzip pipe read error on $path" unless defined $n;
                 last if $n == 0;
                 $buf  .= $chunk;
@@ -1431,9 +1449,12 @@ sub _read348 {
             die "decompressed header too short in $path" unless length($buf) == 348;
             return $buf;
         }
+
     } else {
+        # Non-gzipped file: rewind and just read 348 bytes
         sysseek($fh, 0, 0) or die "seek $path: $!";
-        my $hdr = ''; my $n = read($fh, $hdr, 348);
+        my $hdr = '';
+        my $n   = read($fh, $hdr, 348);
         close($fh);
         die "short header ($n bytes) in $path" unless defined $n && $n == 348;
         return $hdr;
