@@ -7,14 +7,10 @@
 # This wrapper:
 #   - figures out BIGGUS_DISKUS
 #   - auto-binds atlas folder if ATLAS_FOLDER is set
-#   - auto-binds Slurm bits + host glibc/lib dirs (Option 2)
+#   - auto-binds Slurm bits (no / bind, no glibc experiments here)
 #   - scans the startup headfile for absolute paths and binds their directories
 #   - builds a singularity exec prefix and launches SAMBA_startup.
 #
-# NOTE:
-#   This is your original logic plus a small helper that infers extra
-#   --binds from the startup headfile. No SAMBA_WRAP_DISABLE, no hardcoded
-#   mouse/human binds, no changes to BIGGUS_DISKUS semantics.
 
 # ----------------------------------------------------------------------
 # Container command + image
@@ -42,7 +38,7 @@ export CONTAINER_CMD
 export SIF_PATH
 
 # ----------------------------------------------------------------------
-# Extra bind detection (Slurm + host libs: Option 2)
+# Extra bind detection (Slurm bits)
 # ----------------------------------------------------------------------
 
 declare -a EXTRA_BINDS=()
@@ -57,7 +53,7 @@ if command -v sbatch >/dev/null 2>&1; then
   if [[ -d /usr/local/bin ]]; then
     EXTRA_BINDS+=( --bind /usr/local/bin:/usr/local/bin )
   fi
-  # If site used /usr/bin for Slurm and you wanted it explicitly:
+  # If you later want /usr/bin explicitly:
   # if [[ -d /usr/bin ]]; then
   #   EXTRA_BINDS+=( --bind /usr/bin:/usr/bin )
   # fi
@@ -69,23 +65,6 @@ if [[ -d /usr/local/lib/slurm ]]; then
 elif [[ -d /usr/lib/slurm ]]; then
   EXTRA_BINDS+=( --bind /usr/lib/slurm:/usr/lib/slurm )
 fi
-
-# Host glibc + system libs (critical for sbatch GLIBC_2.xx mismatch)
-if [[ -d /lib/x86_64-linux-gnu ]]; then
-  EXTRA_BINDS+=( --bind /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu )
-fi
-
-if [[ -d /usr/lib/x86_64-linux-gnu ]]; then
-  EXTRA_BINDS+=( --bind /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu )
-fi
-
-# Optional RHEL-ish:
-# if [[ -d /lib64 ]]; then
-#   EXTRA_BINDS+=( --bind /lib64:/lib64 )
-# fi
-# if [[ -d /usr/lib64 ]]; then
-#   EXTRA_BINDS+=( --bind /usr/lib64:/usr/lib64 )
-# fi
 
 # Allow user to inject extra binds:
 #   export SAMBA_EXTRA_BINDS="--bind /foo:/foo --bind /bar:/bar"
@@ -102,9 +81,7 @@ export EXTRA_BINDS
 # ----------------------------------------------------------------------
 # Reads the headfile, finds absolute paths (/something/...), and for each one:
 #   - takes dirname(path)
-#   - if that directory exists, emits: " --bind DIR:DIR"
-#
-# We intentionally keep this simple and tolerant. Duplicate binds are harmless.
+#   - if that directory exists and is not "/", emits: " --bind DIR:DIR"
 #
 _samba_dynamic_binds_from_headfile() {
   local hf="$1"
@@ -120,15 +97,14 @@ _samba_dynamic_binds_from_headfile() {
     local d
     d=$(dirname "$p")
 
-    # Only absolute dirs
+    # Only absolute dirs, and explicitly skip root "/"
     [[ "$d" != /* ]] && continue
+    [[ "$d" == "/" ]] && continue
     [ -d "$d" ] || continue
 
-    # Emit as a bind (note: prefixed with a space so it splices cleanly into strings)
     printf ' --bind %s:%s' "$d" "$d"
   done <<< "$raw_paths"
 }
-
 
 # ----------------------------------------------------------------------
 # Main entry point: samba-pipe
@@ -150,7 +126,7 @@ function samba-pipe {
     return 1
   fi
 
-  # BIGGUS_DISKUS selection & validation  (unchanged from your version)
+  # BIGGUS_DISKUS selection & validation (your original logic)
   if [[ -z "${BIGGUS_DISKUS:-}" ]]; then
     if [[ -d "${SCRATCH:-}" ]]; then
       export BIGGUS_DISKUS="$SCRATCH"
@@ -184,27 +160,19 @@ function samba-pipe {
   export SAMBA_ATLAS_BIND="${BIND_ATLAS[*]}"
   export SAMBA_BIGGUS_BIND="$BIGGUS_DISKUS:$BIGGUS_DISKUS"
 
-  # Stage HF to /tmp for stable path (unchanged behavior)
+  # Stage HF to /tmp for stable path
   local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
   cp "$hf" "$hf_tmp"
 
   # Bind HF directory (host path visible in container)
   local BIND_HF_DIR=( --bind "$(dirname "$hf")":"$(dirname "$hf")" )
 
-  # ------------------------------------------------------------------
-  # 0) Dynamic binds inferred from the headfile itself
-  #     (e.g. will pick up /mnt/newStor/paros/paros_WORK/human/ADRC_symlink_pool)
-  # ------------------------------------------------------------------
+  # Dynamic binds inferred from the headfile (e.g. ADRC_symlink_pool)
   local dyn_binds
   dyn_binds="$(_samba_dynamic_binds_from_headfile "$hf")"
 
-  # For debugging if needed:
-  # echo "[samba-pipe] dynamic binds from headfile:${dyn_binds}" >&2
-
   # ------------------------------------------------------------------
-  # 1) Pipeline-facing CONTAINER_CMD_PREFIX that lives INSIDE container
-  #    and is used in Perl/SAMBA to build sbatch/scancel commands.
-  #    IMPORTANT: no SAMBA_WRAP_DISABLE here, just your original intent.
+  # 1) Pipeline-facing CONTAINER_CMD_PREFIX used inside container
   # ------------------------------------------------------------------
   local PIPELINE_CMD_PREFIX_STR
   PIPELINE_CMD_PREFIX_STR="${CONTAINER_CMD} exec \
@@ -218,7 +186,6 @@ ${dyn_binds} \
 
   # ------------------------------------------------------------------
   # 2) Host-side container launch for this run
-  #    Just use exported env, no env wrappers.
   # ------------------------------------------------------------------
   local HOST_CMD_STR
   HOST_CMD_STR="${CONTAINER_CMD} exec \
@@ -229,7 +196,7 @@ ${dyn_binds} \
 ${dyn_binds} \
  ${SIF_PATH}"
 
-  # For debugging if needed:
+  # Debug hook if you want to see the exact singularity command:
   # echo "[host] HOST_CMD_STR: ${HOST_CMD_STR}" >&2
   # echo "[host] CONTAINER_CMD_PREFIX: ${CONTAINER_CMD_PREFIX}" >&2
 
