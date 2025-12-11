@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh  (cluster-agnostic version)
+# samba_pipe_src.sh  (cluster-agnostic version, bypassing SAMBA_startup)
 #
 # Usage:
 #   source /home/apps/SAMBA/samba_pipe_src.sh
 #   samba-pipe /path/to/startup.headfile
-#
-# Responsibilities:
-#   - Resolve + validate BIGGUS_DISKUS
-#   - Find samba.sif without hardcoding any cluster-specific paths
-#   - Add Slurm + host lib binds when present
-#   - Export CONTAINER_CMD_PREFIX for in-pipeline wrapping
-#   - Launch SAMBA_startup inside the container via bash
 #
 
 # ----------------------------------------------------------------------
@@ -31,13 +24,12 @@ export CONTAINER_CMD
 # ----------------------------------------------------------------------
 # Priority:
 #   1. SAMBA_CONTAINER_PATH (explicit)
-#   2. existing SIF_PATH if it points to a file
-#   3. ${SINGULARITY_IMAGE_DIR}/samba.sif
-#   4. ${HOME}/containers/samba.sif
-#   5. /opt/containers/samba.sif (generic-ish)
-#   6. /opt/samba/samba.sif (generic-ish)
-#   7. find under ${SAMBA_SEARCH_ROOT:-$HOME}
-unset SIF_PATH   # we will recompute it deterministically
+#   2. ${SINGULARITY_IMAGE_DIR}/samba.sif
+#   3. ${HOME}/containers/samba.sif
+#   4. /opt/containers/samba.sif
+#   5. /opt/samba/samba.sif
+#   6. find under ${SAMBA_SEARCH_ROOT:-$HOME}
+unset SIF_PATH
 
 if [[ -n "${SAMBA_CONTAINER_PATH:-}" && -f "$SAMBA_CONTAINER_PATH" ]]; then
   SIF_PATH="$SAMBA_CONTAINER_PATH"
@@ -191,7 +183,7 @@ function samba-pipe {
   export CONTAINER_CMD_PREFIX="${PIPELINE_CMD_PREFIX_A[*]}"
 
   # ------------------------------------------------------------------
-  # 2) Host-side singularity exec for SAMBA_startup
+  # 2) Host-side singularity exec for the *pipeline* (bypass SAMBA_startup)
   # ------------------------------------------------------------------
   local HOST_CMD_PREFIX_A=(
     "$CONTAINER_CMD_BIN" exec
@@ -204,9 +196,9 @@ function samba-pipe {
   )
 
   echo "samba-pipe: launching:"
-  printf '  %q' "${HOST_CMD_PREFIX_A[@]}" bash /opt/samba/SAMBA/SAMBA_startup "$hf_tmp"
+  printf '  %q' "${HOST_CMD_PREFIX_A[@]}" /opt/samba/SAMBA/vbm_pipeline_start.pl "$hf_tmp"
   echo
 
-  # Run SAMBA_startup via bash inside the image
-  eval "${HOST_CMD_PREFIX_A[*]}" bash /opt/samba/SAMBA/SAMBA_startup "$hf_tmp"
+  # Run the main pipeline driver directly
+  eval "${HOST_CMD_PREFIX_A[*]}" /opt/samba/SAMBA/vbm_pipeline_start.pl "$hf_tmp"
 }
