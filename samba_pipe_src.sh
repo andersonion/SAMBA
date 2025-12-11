@@ -8,13 +8,6 @@
 #   source /home/apps/SAMBA/samba_pipe_src.sh
 #   samba-pipe /path/to/startup.headfile
 #
-# This wrapper:
-#   - figures out BIGGUS_DISKUS (or uses existing env)
-#   - locates samba.sif in a cluster-agnostic way
-#   - AUTO-BINDS directories referenced in the headfile
-#   - builds CONTAINER_CMD_PREFIX for in-pipeline wrapping
-#   - launches vbm_pipeline_start.pl inside the container
-#
 
 # ----------------------------------------------------------------------
 # 0. Container binary (host-side)
@@ -28,10 +21,8 @@ export CONTAINER_CMD
 # ----------------------------------------------------------------------
 _trim() {
   local s="$1"
-  # remove leading
-  s="${s#"${s%%[![:space:]]*}"}"
-  # remove trailing
-  s="${s%"${s##*[![:space:]]}"}"
+  s="${s#"${s%%[![:space:]]*}"}"  # leading
+  s="${s%"${s##*[![:space:]]}"}"  # trailing
   printf '%s' "$s"
 }
 
@@ -40,7 +31,7 @@ _trim() {
 #
 # Priority:
 #   1. SAMBA_CONTAINER_PATH (explicit)
-#   2. SIF_PATH (if already exported)
+#   2. SIF_PATH (if already exported and exists)
 #   3. $SINGULARITY_IMAGE_DIR/samba.sif
 #   4. $HOME/containers/samba.sif
 #   5. search in $SAMBA_SEARCH_ROOT or $HOME
@@ -66,7 +57,6 @@ _locate_sif() {
     return 0
   fi
 
-  # Last resort: search
   local root="${SAMBA_SEARCH_ROOT:-$HOME}"
   echo "Trying to locate samba.sif using find under ${root}... (this may take a moment)" >&2
   local found
@@ -87,14 +77,10 @@ _locate_sif() {
 # ----------------------------------------------------------------------
 # 3. Helper: parse headfile and derive bind dirs
 #
-# Strategy:
-#   - read "key = value" lines
-#   - ignore comments / blank lines
-#   - any value that is an absolute path (/...) is kept
-#   - if that path is a dir → bind dir
-#   - if it looks like a file → bind its parent dir
-#   - de-duplicate dirs; return as:
-#        --bind /dir:/dir --bind /other:/other ...
+# - scan "key = value" lines
+# - ignore comments / blank lines
+# - any absolute value (/...) → if dir: bind dir, if file: bind parent dir
+# - de-duplicate
 # ----------------------------------------------------------------------
 _headfile_auto_binds() {
   local hf="$1"
@@ -103,16 +89,13 @@ _headfile_auto_binds() {
   [[ -f "$hf" ]] || return 0
 
   while IFS='=' read -r key rawval; do
-    # strip comments
     rawval=${rawval%%#*}
     key=$(_trim "$key")
     local val=$(_trim "$rawval")
 
-    # skip empties / non-absolute
     [[ -z "$val" ]] && continue
     [[ "$val" != /* ]] && continue
 
-    # normalize
     local path="$val"
     [[ "$path" != "/" ]] && path="${path%/}"
 
@@ -127,7 +110,6 @@ _headfile_auto_binds() {
     dirs+=( "$bind_dir" )
   done < "$hf"
 
-  # de-duplicate
   declare -A seen=()
   local -a unique=()
   local d
@@ -137,7 +119,6 @@ _headfile_auto_binds() {
     unique+=( "$d" )
   done
 
-  # emit as bind args
   local -a out=()
   for d in "${unique[@]}"; do
     out+=( --bind "$d:$d" )
@@ -184,10 +165,21 @@ samba-pipe() {
     return 1
   fi
 
-  # Optional warning about group writability (multi-user workflow)
+  # Optional warning about group writability
   if ! perl -e 'exit((stat($ARGV[0]))[2] & 0020 ? 0 : 1)' "$BIGGUS_DISKUS"; then
     echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
   fi
+
+  # ---------------- ATLAS FOLDER BIND (RESTORED) ----------------
+  # If you export ATLAS_FOLDER=/mnt/newStor/paros//paros_WORK/atlas,
+  # we will bind that 1:1 into the container.
+  local BIND_ATLAS=()
+  if [[ -n "${ATLAS_FOLDER:-}" && -d "$ATLAS_FOLDER" ]]; then
+    BIND_ATLAS=( --bind "$ATLAS_FOLDER:$ATLAS_FOLDER" )
+  else
+    echo "Warning: ATLAS_FOLDER not set or does not exist. Proceeding without explicit atlas bind." >&2
+  fi
+  export SAMBA_ATLAS_BIND="${BIND_ATLAS[*]}"
 
   # Locate the container image
   local sif
@@ -198,20 +190,18 @@ samba-pipe() {
   local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
   cp "$hf" "$hf_tmp"
 
-  # Bind original headfile directory so any relative links there still make sense
+  # Bind original headfile directory
   local hf_dir
   hf_dir="$(dirname "$hf")"
   local BIND_HF_DIR=( --bind "$hf_dir:$hf_dir" )
 
-  # Headfile-driven auto-binds (optional_external_inputs_dir, etc.)
-  # emitted as: --bind /dir:/dir ...
+  # Headfile-driven auto-binds
   local HF_AUTO_BINDS_STR
   HF_AUTO_BINDS_STR="$(_headfile_auto_binds "$hf")"
   # shellcheck disable=SC2206
   local HF_AUTO_BINDS=( $HF_AUTO_BINDS_STR )
 
-  # User-injected extra binds, if any
-  #   export SAMBA_EXTRA_BINDS="--bind /foo:/foo --bind /bar:/bar"
+  # User-injected extra binds
   local EXTRA=()
   if [[ -n "${SAMBA_EXTRA_BINDS:-}" ]]; then
     # shellcheck disable=SC2206
@@ -220,14 +210,11 @@ samba-pipe() {
 
   # ------------------------------------------------------------------
   # 5. Build pipeline-facing CONTAINER_CMD_PREFIX (used inside Perl)
-  #
-  #    This is what wrap_in_container() will prepend for sbatch payloads.
-  #    It should NOT be cluster-specific; we just re-use $CONTAINER_CMD
-  #    and $SIF_PATH plus the same binding logic.
   # ------------------------------------------------------------------
   local PIPELINE_CMD_PREFIX_A=(
     "$CONTAINER_CMD" exec
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
+    "${BIND_ATLAS[@]}"
     "${HF_AUTO_BINDS[@]}"
     "${EXTRA[@]}"
     "$SIF_PATH"
@@ -236,22 +223,21 @@ samba-pipe() {
 
   # ------------------------------------------------------------------
   # 6. Host-side container launch for this run
-  #    We inject CONTAINER_CMD_PREFIX into the container's env.
   # ------------------------------------------------------------------
   local HOST_CMD_PREFIX_A=(
     "$CONTAINER_CMD" exec
     --env CONTAINER_CMD_PREFIX="$CONTAINER_CMD_PREFIX"
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
     "${BIND_HF_DIR[@]}"
+    "${BIND_ATLAS[@]}"
     "${HF_AUTO_BINDS[@]}"
     "${EXTRA[@]}"
     "$SIF_PATH"
   )
 
   echo "samba-pipe: launching:" >&2
-  printf '  %q ' "${HOST_CMD_PREFIX_A[@]}" "/opt/samba/SAMBA/vbm_pipeline_start.pl" "$hf_tmp" >&2
+  printf '  %q ' "${HOST_CMD_PREFIX_A[@]}" /opt/samba/SAMBA/vbm_pipeline_start.pl "$hf_tmp" >&2
   echo >&2
 
-  # Fire it off
   "${HOST_CMD_PREFIX_A[@]}" /opt/samba/SAMBA/vbm_pipeline_start.pl "$hf_tmp"
 }
