@@ -149,7 +149,7 @@ function samba-pipe {
   # We IGNORE any host SAMBA_APPS_DIR and force the in-image path.
   # Adjust this if your staged build used a different layout.
   # ------------------------------------------------------------------
-  export SAMBA_APPS_DIR="/opt/samba/SAMBA"
+  export SAMBA_APPS_DIR="/opt/samba"
 
   # Prefix used *inside* the container when submitting jobs, etc.
   local PIPELINE_CMD_PREFIX_A=(
