@@ -1,84 +1,155 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh  (portable, no hard-coded host layout)
+# samba_pipe_src.sh
+#
+# Host-side launcher for SAMBA inside Singularity.
 #
 # Usage:
 #   source /home/apps/SAMBA/samba_pipe_src.sh
 #   samba-pipe /path/to/startup.headfile
 #
-# Cluster-specific bits (Slurm, weird library locations, etc.) must be
-# supplied via:
-#   export SAMBA_EXTRA_BINDS="--bind /foo:/foo --bind /bar:/bar"
+# This wrapper:
+#   - figures out BIGGUS_DISKUS (or uses existing env)
+#   - locates samba.sif in a cluster-agnostic way
+#   - AUTO-BINDS directories referenced in the headfile
+#   - builds CONTAINER_CMD_PREFIX for in-pipeline wrapping
+#   - launches vbm_pipeline_start.pl inside the container
 #
 
 # ----------------------------------------------------------------------
-# Container command (absolute binary)
+# 0. Container binary (host-side)
 # ----------------------------------------------------------------------
-CONTAINER_CMD_BIN="$(command -v singularity || true)"
-if [[ -z "$CONTAINER_CMD_BIN" ]]; then
-  echo "ERROR: singularity not found in PATH" >&2
-  return 1
-fi
 
-CONTAINER_CMD="$CONTAINER_CMD_BIN"
+CONTAINER_CMD="${CONTAINER_CMD:-singularity}"
 export CONTAINER_CMD
 
 # ----------------------------------------------------------------------
-# Locate the container image in a portable way
+# 1. Helper: trim leading/trailing whitespace
 # ----------------------------------------------------------------------
-unset SIF_PATH
-
-# 1. Explicit override
-if [[ -n "${SAMBA_CONTAINER_PATH:-}" && -f "$SAMBA_CONTAINER_PATH" ]]; then
-  SIF_PATH="$SAMBA_CONTAINER_PATH"
-
-# 2. $SINGULARITY_IMAGE_DIR/samba.sif
-elif [[ -n "${SINGULARITY_IMAGE_DIR:-}" && -f "${SINGULARITY_IMAGE_DIR}/samba.sif" ]]; then
-  SIF_PATH="${SINGULARITY_IMAGE_DIR}/samba.sif"
-
-# 3. $HOME/containers/samba.sif
-elif [[ -f "${HOME}/containers/samba.sif" ]]; then
-  SIF_PATH="${HOME}/containers/samba.sif"
-
-# 4. Fallback: search under SAMBA_SEARCH_ROOT or $HOME
-else
-  echo "Trying to locate samba.sif using find... (this may take a moment)" >&2
-  SEARCH_ROOT="${SAMBA_SEARCH_ROOT:-$HOME}"
-  SIF_PATH="$(find "$SEARCH_ROOT" -type f -name 'samba.sif' 2>/dev/null | head -n 1 || true)"
-
-  if [[ -z "$SIF_PATH" ]]; then
-    echo "ERROR: Could not locate samba.sif" >&2
-    echo "Set SAMBA_CONTAINER_PATH or place samba.sif in one of:" >&2
-    echo "  \$SINGULARITY_IMAGE_DIR/samba.sif" >&2
-    echo "  \$HOME/containers/samba.sif" >&2
-    echo "Or define SAMBA_SEARCH_ROOT for find()-based search." >&2
-    return 1
-  else
-    echo "Found samba.sif at: $SIF_PATH"
-  fi
-fi
-
-export SIF_PATH
+_trim() {
+  local s="$1"
+  # remove leading
+  s="${s#"${s%%[![:space:]]*}"}"
+  # remove trailing
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
 
 # ----------------------------------------------------------------------
-# Extra bind mounts (cluster-specific, via env)
-# ----------------------------------------------------------------------
-# Example usage in your shell/cluster config:
-#   export SAMBA_EXTRA_BINDS="--bind /etc/slurm:/etc/slurm --bind /usr/local/lib/slurm:/usr/local/lib/slurm"
+# 2. Helper: locate SIF_PATH in a cluster-agnostic way
 #
-declare -a EXTRA_BINDS=()
+# Priority:
+#   1. SAMBA_CONTAINER_PATH (explicit)
+#   2. SIF_PATH (if already exported)
+#   3. $SINGULARITY_IMAGE_DIR/samba.sif
+#   4. $HOME/containers/samba.sif
+#   5. search in $SAMBA_SEARCH_ROOT or $HOME
+# ----------------------------------------------------------------------
+_locate_sif() {
+  if [[ -n "${SAMBA_CONTAINER_PATH:-}" ]]; then
+    echo "$SAMBA_CONTAINER_PATH"
+    return 0
+  fi
 
-if [[ -n "${SAMBA_EXTRA_BINDS:-}" ]]; then
-  # shellcheck disable=SC2206
-  EXTRA_BINDS=( ${SAMBA_EXTRA_BINDS} )
-fi
+  if [[ -n "${SIF_PATH:-}" && -f "${SIF_PATH}" ]]; then
+    echo "$SIF_PATH"
+    return 0
+  fi
 
-export EXTRA_BINDS
+  if [[ -n "${SINGULARITY_IMAGE_DIR:-}" && -f "${SINGULARITY_IMAGE_DIR}/samba.sif" ]]; then
+    echo "${SINGULARITY_IMAGE_DIR}/samba.sif"
+    return 0
+  fi
+
+  if [[ -f "${HOME}/containers/samba.sif" ]]; then
+    echo "${HOME}/containers/samba.sif"
+    return 0
+  fi
+
+  # Last resort: search
+  local root="${SAMBA_SEARCH_ROOT:-$HOME}"
+  echo "Trying to locate samba.sif using find under ${root}... (this may take a moment)" >&2
+  local found
+  found=$(find "$root" -type f -name "samba.sif" 2>/dev/null | head -n 1 || true)
+  if [[ -n "$found" ]]; then
+    echo "Found samba.sif at: $found" >&2
+    echo "$found"
+    return 0
+  fi
+
+  echo "ERROR: Could not locate samba.sif" >&2
+  echo "Set SAMBA_CONTAINER_PATH or place it in one of:" >&2
+  echo "  \$SINGULARITY_IMAGE_DIR/samba.sif" >&2
+  echo "  \$HOME/containers/samba.sif" >&2
+  return 1
+}
 
 # ----------------------------------------------------------------------
-# Main entry point: samba-pipe
+# 3. Helper: parse headfile and derive bind dirs
+#
+# Strategy:
+#   - read "key = value" lines
+#   - ignore comments / blank lines
+#   - any value that is an absolute path (/...) is kept
+#   - if that path is a dir → bind dir
+#   - if it looks like a file → bind its parent dir
+#   - de-duplicate dirs; return as:
+#        --bind /dir:/dir --bind /other:/other ...
 # ----------------------------------------------------------------------
-function samba-pipe {
+_headfile_auto_binds() {
+  local hf="$1"
+  local -a dirs=()
+
+  [[ -f "$hf" ]] || return 0
+
+  while IFS='=' read -r key rawval; do
+    # strip comments
+    rawval=${rawval%%#*}
+    key=$(_trim "$key")
+    local val=$(_trim "$rawval")
+
+    # skip empties / non-absolute
+    [[ -z "$val" ]] && continue
+    [[ "$val" != /* ]] && continue
+
+    # normalize
+    local path="$val"
+    [[ "$path" != "/" ]] && path="${path%/}"
+
+    local bind_dir=""
+    if [[ -d "$path" ]]; then
+      bind_dir="$path"
+    else
+      bind_dir="${path%/*}"
+      [[ -z "$bind_dir" ]] && continue
+      [[ -d "$bind_dir" ]] || continue
+    fi
+    dirs+=( "$bind_dir" )
+  done < "$hf"
+
+  # de-duplicate
+  declare -A seen=()
+  local -a unique=()
+  local d
+  for d in "${dirs[@]}"; do
+    [[ -n "${seen[$d]:-}" ]] && continue
+    seen["$d"]=1
+    unique+=( "$d" )
+  done
+
+  # emit as bind args
+  local -a out=()
+  for d in "${unique[@]}"; do
+    out+=( --bind "$d:$d" )
+  done
+
+  echo "${out[@]}"
+}
+
+# ----------------------------------------------------------------------
+# 4. Main entry point: samba-pipe
+# ----------------------------------------------------------------------
+samba-pipe() {
   local hf="$1"
 
   if [[ -z "$hf" ]]; then
@@ -90,13 +161,12 @@ function samba-pipe {
   if [[ "${hf:0:1}" != "/" && "${hf:0:2}" != "~/" ]]; then
     hf="${PWD}/${hf}"
   fi
-
   if [[ ! -f "$hf" ]]; then
     echo "ERROR: headfile not found: $hf" >&2
     return 1
   fi
 
-  # ---------------- BIGGUS_DISKUS resolution ----------------
+  # Auto-select BIGGUS_DISKUS if not set
   if [[ -z "${BIGGUS_DISKUS:-}" ]]; then
     if [[ -d "${SCRATCH:-}" ]]; then
       export BIGGUS_DISKUS="$SCRATCH"
@@ -108,68 +178,80 @@ function samba-pipe {
     fi
   fi
 
+  # Validate BIGGUS_DISKUS
   if [[ ! -d "$BIGGUS_DISKUS" || ! -w "$BIGGUS_DISKUS" ]]; then
     echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
     return 1
   fi
 
-  # Warn if directory is not group-writable (multi-user sanity)
+  # Optional warning about group writability (multi-user workflow)
   if ! perl -e 'exit((stat($ARGV[0]))[2] & 0020 ? 0 : 1)' "$BIGGUS_DISKUS"; then
     echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
   fi
 
-  # Atlas bind
-  local BIND_ATLAS=()
-  if [[ -n "${ATLAS_FOLDER:-}" && -d "$ATLAS_FOLDER" ]]; then
-    BIND_ATLAS=( --bind "$ATLAS_FOLDER:$ATLAS_FOLDER" )
-  else
-    echo "Warning: ATLAS_FOLDER not set or does not exist. Proceeding with default atlas."
-  fi
+  # Locate the container image
+  local sif
+  sif=$(_locate_sif) || return 1
+  export SIF_PATH="$sif"
 
-  # Export for Perl glue if needed
-  export SAMBA_ATLAS_BIND="${BIND_ATLAS[*]}"
-  export SAMBA_BIGGUS_BIND="$BIGGUS_DISKUS:$BIGGUS_DISKUS"
+  # Stage HF to /tmp for stable path
+  local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
+  cp "$hf" "$hf_tmp"
 
-  # Bind HF directory (host path visible inside container)
+  # Bind original headfile directory so any relative links there still make sense
   local hf_dir
   hf_dir="$(dirname "$hf")"
   local BIND_HF_DIR=( --bind "$hf_dir:$hf_dir" )
 
-  # Stage HF to /tmp for stable path inside container
-  local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
-  cp "$hf" "$hf_tmp"
+  # Headfile-driven auto-binds (optional_external_inputs_dir, etc.)
+  # emitted as: --bind /dir:/dir ...
+  local HF_AUTO_BINDS_STR
+  HF_AUTO_BINDS_STR="$(_headfile_auto_binds "$hf")"
+  # shellcheck disable=SC2206
+  local HF_AUTO_BINDS=( $HF_AUTO_BINDS_STR )
+
+  # User-injected extra binds, if any
+  #   export SAMBA_EXTRA_BINDS="--bind /foo:/foo --bind /bar:/bar"
+  local EXTRA=()
+  if [[ -n "${SAMBA_EXTRA_BINDS:-}" ]]; then
+    # shellcheck disable=SC2206
+    EXTRA=( ${SAMBA_EXTRA_BINDS} )
+  fi
 
   # ------------------------------------------------------------------
-  # 1) Build CONTAINER_CMD_PREFIX for use *inside* the pipeline
+  # 5. Build pipeline-facing CONTAINER_CMD_PREFIX (used inside Perl)
+  #
+  #    This is what wrap_in_container() will prepend for sbatch payloads.
+  #    It should NOT be cluster-specific; we just re-use $CONTAINER_CMD
+  #    and $SIF_PATH plus the same binding logic.
   # ------------------------------------------------------------------
   local PIPELINE_CMD_PREFIX_A=(
-    "$CONTAINER_CMD_BIN" exec
+    "$CONTAINER_CMD" exec
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
-    "${BIND_ATLAS[@]}"
-    "${EXTRA_BINDS[@]}"
+    "${HF_AUTO_BINDS[@]}"
+    "${EXTRA[@]}"
     "$SIF_PATH"
   )
-
-  # NOTE: this is *only* for wrap_in_container() in Perl
   export CONTAINER_CMD_PREFIX="${PIPELINE_CMD_PREFIX_A[*]}"
 
   # ------------------------------------------------------------------
-  # 2) Host-side singularity exec for the pipeline (NO eval)
+  # 6. Host-side container launch for this run
+  #    We inject CONTAINER_CMD_PREFIX into the container's env.
   # ------------------------------------------------------------------
   local HOST_CMD_PREFIX_A=(
-    "$CONTAINER_CMD_BIN" exec
-    --env "CONTAINER_CMD_PREFIX=${CONTAINER_CMD_PREFIX}"
+    "$CONTAINER_CMD" exec
+    --env CONTAINER_CMD_PREFIX="$CONTAINER_CMD_PREFIX"
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
     "${BIND_HF_DIR[@]}"
-    "${BIND_ATLAS[@]}"
-    "${EXTRA_BINDS[@]}"
+    "${HF_AUTO_BINDS[@]}"
+    "${EXTRA[@]}"
     "$SIF_PATH"
   )
 
-  echo "samba-pipe: launching:"
-  printf '  %q' "${HOST_CMD_PREFIX_A[@]}" /opt/samba/SAMBA/vbm_pipeline_start.pl "$hf_tmp"
-  echo
+  echo "samba-pipe: launching:" >&2
+  printf '  %q ' "${HOST_CMD_PREFIX_A[@]}" "/opt/samba/SAMBA/vbm_pipeline_start.pl" "$hf_tmp" >&2
+  echo >&2
 
-  # IMPORTANT: no eval here – run the array directly
+  # Fire it off
   "${HOST_CMD_PREFIX_A[@]}" /opt/samba/SAMBA/vbm_pipeline_start.pl "$hf_tmp"
 }
