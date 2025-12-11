@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh  (portable, no hard-coded /home/apps paths, no eval)
+# samba_pipe_src.sh  (portable, no hard-coded host layout)
 #
 # Usage:
 #   source /home/apps/SAMBA/samba_pipe_src.sh
 #   samba-pipe /path/to/startup.headfile
+#
+# Cluster-specific bits (Slurm, weird library locations, etc.) must be
+# supplied via:
+#   export SAMBA_EXTRA_BINDS="--bind /foo:/foo --bind /bar:/bar"
 #
 
 # ----------------------------------------------------------------------
@@ -57,44 +61,16 @@ fi
 export SIF_PATH
 
 # ----------------------------------------------------------------------
-# Extra bind detection (Slurm + host libs)
+# Extra bind mounts (cluster-specific, via env)
 # ----------------------------------------------------------------------
+# Example usage in your shell/cluster config:
+#   export SAMBA_EXTRA_BINDS="--bind /etc/slurm:/etc/slurm --bind /usr/local/lib/slurm:/usr/local/lib/slurm"
+#
 declare -a EXTRA_BINDS=()
 
-# Slurm config
-if [[ -d /etc/slurm ]]; then
-  EXTRA_BINDS+=( --bind /etc/slurm:/etc/slurm )
-fi
-
-# sbatch/scancel (prefer /usr/local/bin if present)
-if command -v sbatch >/dev/null 2>&1; then
-  if [[ -d /usr/local/bin ]]; then
-    EXTRA_BINDS+=( --bind /usr/local/bin:/usr/local/bin )
-  fi
-fi
-
-# Slurm plugins/libs
-if [[ -d /usr/local/lib/slurm ]]; then
-  EXTRA_BINDS+=( --bind /usr/local/lib/slurm:/usr/local/lib/slurm )
-elif [[ -d /usr/lib/slurm ]]; then
-  EXTRA_BINDS+=( --bind /usr/lib/slurm:/usr/lib/slurm )
-fi
-
-# Host glibc + system libs (for sbatch GLIBC mismatch)
-if [[ -d /lib/x86_64-linux-gnu ]]; then
-  EXTRA_BINDS+=( --bind /lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu )
-fi
-
-if [[ -d /usr/lib/x86_64-linux-gnu ]]; then
-  EXTRA_BINDS+=( --bind /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu )
-fi
-
-# User-injected extra binds:
-#   export SAMBA_EXTRA_BINDS="--bind /foo:/foo --bind /bar:/bar"
 if [[ -n "${SAMBA_EXTRA_BINDS:-}" ]]; then
   # shellcheck disable=SC2206
-  ADDL=( ${SAMBA_EXTRA_BINDS} )
-  EXTRA_BINDS+=( "${ADDL[@]}" )
+  EXTRA_BINDS=( ${SAMBA_EXTRA_BINDS} )
 fi
 
 export EXTRA_BINDS
