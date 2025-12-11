@@ -10,19 +10,18 @@
 #
 # This wrapper:
 #   - figures out BIGGUS_DISKUS (or uses existing env)
-#   - auto-binds atlas folder if ATLAS_FOLDER is set
-#   - adds Slurm + host lib binds
-#   - builds a singularity exec prefix for in-pipeline wrapping
-#   - LAUNCHES SAMBA_startup inside the container, explicitly
-#     passing CONTAINER_CMD_PREFIX into the container env.
+#   - optionally binds ATLAS_FOLDER
+#   - binds Slurm + host libs
+#   - builds CONTAINER_CMD_PREFIX for in-pipeline wrapping
+#   - launches SAMBA_startup inside the container
 #
 
 # ----------------------------------------------------------------------
 # Container command + image
 # ----------------------------------------------------------------------
 
-# Always use raw singularity here; ignore any inherited wrapper.
-CONTAINER_CMD=singularity
+# DO NOT wrap this; use the real singularity binary.
+CONTAINER_CMD=${CONTAINER_CMD:-singularity}
 export CONTAINER_CMD
 
 # Try to auto-detect SIF if not provided.
@@ -88,7 +87,7 @@ fi
 export EXTRA_BINDS
 
 # ----------------------------------------------------------------------
-# Main entry point: samba-pipe
+# samba-pipe: main entry point
 # ----------------------------------------------------------------------
 function samba-pipe {
   local hf="$1"
@@ -98,7 +97,7 @@ function samba-pipe {
     return 1
   fi
 
-  # Make headfile absolute once
+  # Canonicalize headfile path
   if [[ "${hf:0:1}" != "/" && "${hf:0:2}" != "~/" ]]; then
     hf="${PWD}/${hf}"
   fi
@@ -107,7 +106,7 @@ function samba-pipe {
     return 1
   fi
 
-  # BIGGUS_DISKUS selection & validation
+  # ---------------- BIGGUS_DISKUS ----------------
   if [[ -z "${BIGGUS_DISKUS:-}" ]]; then
     if [[ -d "${SCRATCH:-}" ]]; then
       export BIGGUS_DISKUS="$SCRATCH"
@@ -129,30 +128,28 @@ function samba-pipe {
     echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
   fi
 
-  # Atlas bind
-  local BIND_ATLAS=()
+  # ---------------- Atlas bind ----------------
+  local -a BIND_ATLAS=()
   if [[ -n "${ATLAS_FOLDER:-}" && -d "$ATLAS_FOLDER" ]]; then
     BIND_ATLAS=( --bind "$ATLAS_FOLDER:$ATLAS_FOLDER" )
   else
     echo "Warning: ATLAS_FOLDER not set or does not exist. Proceeding with default atlas."
   fi
 
-  # Export for Perl glue if you want them later
+  # Export for Perl (if needed)
   export SAMBA_ATLAS_BIND="${BIND_ATLAS[*]}"
   export SAMBA_BIGGUS_BIND="$BIGGUS_DISKUS:$BIGGUS_DISKUS"
 
-  # Stage HF to /tmp for stable path
+  # ---------------- Headfile staging ----------------
   local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
   cp "$hf" "$hf_tmp"
 
-  # Bind HF directory (host path visible in container)
-  local BIND_HF_DIR=( --bind "$(dirname "$hf")":"$(dirname "$hf")" )
+  local -a BIND_HF_DIR=( --bind "$(dirname "$hf")":"$(dirname "$hf")" )
 
   # ------------------------------------------------------------------
-  # 1) Pipeline-facing CONTAINER_CMD_PREFIX that lives in the env
-  #    and is used INSIDE the container to wrap sbatch commands.
+  # 1) Build CONTAINER_CMD_PREFIX for inside-container sbatch commands
   # ------------------------------------------------------------------
-  local PIPELINE_CMD_PREFIX_A=(
+  local -a PIPELINE_CMD_PREFIX_A=(
     "$CONTAINER_CMD" exec
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
     "${BIND_ATLAS[@]}"
@@ -160,22 +157,29 @@ function samba-pipe {
     "$SIF_PATH"
   )
 
-  export CONTAINER_CMD_PREFIX="${PIPELINE_CMD_PREFIX_A[*]}"
+  # Join array to single string for env var (this is *meant* to be a shell snippet)
+  CONTAINER_CMD_PREFIX="${PIPELINE_CMD_PREFIX_A[*]}"
+  export CONTAINER_CMD_PREFIX
 
   # ------------------------------------------------------------------
-  # 2) Host-side container launch for this run
-  #    Inject CONTAINER_CMD_PREFIX into container env.
+  # 2) Host-side singularity exec to start SAMBA_startup
   # ------------------------------------------------------------------
-  local HOST_CMD_PREFIX_A=(
+  local -a CMD=(
     "$CONTAINER_CMD" exec
-    --env CONTAINER_CMD_PREFIX="$CONTAINER_CMD_PREFIX"
+    --env "CONTAINER_CMD_PREFIX=${CONTAINER_CMD_PREFIX}"
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
     "${BIND_HF_DIR[@]}"
     "${BIND_ATLAS[@]}"
     "${EXTRA_BINDS[@]}"
     "$SIF_PATH"
+    SAMBA_startup
+    "$hf_tmp"
   )
 
-  # Finally run SAMBA_startup inside the container
-  eval "${HOST_CMD_PREFIX_A[*]}" SAMBA_startup "$hf_tmp"
+  echo "samba-pipe: launching:"
+  printf '  %q' "${CMD[@]}"
+  echo
+
+  # No eval, no cleverness: exec exactly this argv vector.
+  "${CMD[@]}"
 }
