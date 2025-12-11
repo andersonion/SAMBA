@@ -22,6 +22,7 @@ use Carp qw(carp croak cluck confess);
 use File::Temp qw(tempfile);
 use Scalar::Util qw(looks_like_number);
 use Fcntl qw(O_RDONLY);
+use Data::Dumper;
 
 
 ## Multiple cluster type support, 27 June 2019, BJ Anderson
@@ -2487,6 +2488,7 @@ sub whowasi { return ( caller(2) )[3]; }
 
 sub wrap_in_container {
     my ($cmd) = @_;
+	SAMBA_pipeline_utilities::printd(10, "ENV in wrap_in_container: " . Dumper(\%ENV));
 
     open my $LOG, ">>", "${BIGGUS_DISKUS}//samba_wrap_debug.log";
     print $LOG "wrap_in_container() called with cmd=[$cmd]\n";
