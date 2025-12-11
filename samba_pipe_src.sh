@@ -8,14 +8,14 @@
 #   source /home/apps/SAMBA/samba_pipe_src.sh
 #   samba-pipe /path/to/startup.headfile
 #
-# Design goals:
-#   - Cluster-agnostic: no hardcoded site-specific paths.
-#   - Container-centric: MATLAB execs, MCR, etc. live in the SIF.
-#   - Pipeline jobs (sbatch) use CONTAINER_CMD_PREFIX from env.
+# Goals:
+#   - Cluster-agnostic, no site-specific paths.
+#   - All code (MATLAB execs, MCR, etc.) lives inside the SIF.
+#   - Jobs use CONTAINER_CMD_PREFIX from env inside the container.
 #
 
 # ----------------------------------------------------------------------
-# Discover a usable singularity binary, without relying on aliases
+# Discover a usable singularity binary without aliases
 # ----------------------------------------------------------------------
 if command -v singularity >/dev/null 2>&1; then
   CONTAINER_CMD="$(command -v singularity)"
@@ -112,19 +112,28 @@ function samba-pipe {
   fi
 
   # ------------------------------------------------------------------
-  # Extra binds are *only* what the user supplies via SAMBA_EXTRA_BINDS
-  # plus BIGGUS_DISKUS and the HF directory.
-  # No cluster-specific paths baked in.
+  # Extra binds: HF dir, BIGGUS_DISKUS, optional external inputs, user extras
   # ------------------------------------------------------------------
   local EXTRA=()
 
-  # Headfile directory bind (so the pipeline can see whatever is alongside HF)
+  # Headfile directory bind (anything next to the HF)
   local hf_dir
   hf_dir="$(dirname "$hf")"
   EXTRA+=( --bind "${hf_dir}:${hf_dir}" )
 
-  # Scratch/work root bind
+  # Scratch/work root
   EXTRA+=( --bind "${BIGGUS_DISKUS}:${BIGGUS_DISKUS}" )
+
+  # Bind atlas (if any)
+  EXTRA+=( "${BIND_ATLAS[@]}" )
+
+  # Bind optional_external_inputs_dir if present in HF
+  local ext_dir
+  ext_dir="$(grep -E '^\s*optional_external_inputs_dir\s*=' "$hf" \
+              | sed 's/.*=\s*//; s/[[:space:]]*$//')"
+  if [[ -n "$ext_dir" && -d "$ext_dir" ]]; then
+    EXTRA+=( --bind "${ext_dir}:${ext_dir}" )
+  fi
 
   # Optional user-specified extra binds:
   #   export SAMBA_EXTRA_BINDS="--bind /foo:/foo --bind /bar:/bar"
@@ -134,26 +143,13 @@ function samba-pipe {
     EXTRA+=( "${ADDL[@]}" )
   fi
 
-  # Atlas bind, if any
-  EXTRA+=( "${BIND_ATLAS[@]}" )
-
   # ------------------------------------------------------------------
   # Environment for *inside* the container
   #
-  # Key pieces:
-  #   - CONTAINER_CMD_PREFIX: used by cluster_exec()/wrap_in_container()
-  #   - SAMBA_APPS_DIR: base for matlab_execs_for_SAMBA, etc.
-  #
-  # We assume SAMBA (and its MATLAB execs) live under /opt/samba inside
-  # the SIF. If your staged build puts them elsewhere, adjust the
-  # default below—but that is a property of the image, not the cluster.
+  # We IGNORE any host SAMBA_APPS_DIR and force the in-image path.
+  # Adjust this if your staged build used a different layout.
   # ------------------------------------------------------------------
-
-  # If user hasn't explicitly set SAMBA_APPS_DIR, default to the in-image path.
-  if [[ -z "${SAMBA_APPS_DIR:-}" ]]; then
-    # This is the only in-container assumption we make:
-    export SAMBA_APPS_DIR="/opt/samba"
-  fi
+  export SAMBA_APPS_DIR="/opt/samba/SAMBA"
 
   # Prefix used *inside* the container when submitting jobs, etc.
   local PIPELINE_CMD_PREFIX_A=(
@@ -175,7 +171,7 @@ function samba-pipe {
   # ------------------------------------------------------------------
   # Host-side launch of the containerized pipeline
   #   - inject CONTAINER_CMD_PREFIX
-  #   - inject SAMBA_APPS_DIR (so Perl builds /opt/samba/... paths)
+  #   - inject SAMBA_APPS_DIR
   # ------------------------------------------------------------------
   local HOST_CMD_A=(
     "${CONTAINER_CMD}" exec
