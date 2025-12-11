@@ -1,54 +1,50 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh
-#
-# Host-side launcher for SAMBA inside Singularity.
+# samba_pipe_src.sh  (cluster-agnostic version)
 #
 # Usage:
 #   source /home/apps/SAMBA/samba_pipe_src.sh
 #   samba-pipe /path/to/startup.headfile
 #
-# This wrapper:
-#   - resolves/validates BIGGUS_DISKUS (or uses existing env)
-#   - auto-binds atlas folder if ATLAS_FOLDER is set
-#   - adds Slurm + host lib binds
-#   - discovers samba.sif in a portable way
-#   - builds a singularity exec prefix for in-pipeline wrapping
-#   - launches SAMBA_startup inside the container via /bin/bash,
-#     passing CONTAINER_CMD_PREFIX into the container env.
+# Responsibilities:
+#   - Resolve + validate BIGGUS_DISKUS
+#   - Find samba.sif without hardcoding any cluster-specific paths
+#   - Add Slurm + host lib binds when present
+#   - Export CONTAINER_CMD_PREFIX for in-pipeline wrapping
+#   - Launch SAMBA_startup inside the container via bash
 #
 
 # ----------------------------------------------------------------------
-# Container command (raw singularity, no exec here)
+# Container command (use absolute binary via `command -v`)
 # ----------------------------------------------------------------------
-CONTAINER_CMD=singularity
+CONTAINER_CMD_BIN="$(command -v singularity || true)"
+if [[ -z "$CONTAINER_CMD_BIN" ]]; then
+  echo "ERROR: singularity not found in PATH" >&2
+  return 1
+fi
+
+CONTAINER_CMD="$CONTAINER_CMD_BIN"
 export CONTAINER_CMD
 
 # ----------------------------------------------------------------------
-# Locate the container image (reconciled with your original logic)
+# Locate the container image in a *portable* way
 # ----------------------------------------------------------------------
 # Priority:
 #   1. SAMBA_CONTAINER_PATH (explicit)
-#   2. Existing SIF_PATH if it points to a file
+#   2. existing SIF_PATH if it points to a file
 #   3. ${SINGULARITY_IMAGE_DIR}/samba.sif
 #   4. ${HOME}/containers/samba.sif
-#   5. Cluster-specific fallbacks (but only as *options*, not hardcoded)
-#   6. find under ${SAMBA_SEARCH_ROOT:-$HOME}
+#   5. /opt/containers/samba.sif (generic-ish)
+#   6. /opt/samba/samba.sif (generic-ish)
+#   7. find under ${SAMBA_SEARCH_ROOT:-$HOME}
+unset SIF_PATH   # we will recompute it deterministically
+
 if [[ -n "${SAMBA_CONTAINER_PATH:-}" && -f "$SAMBA_CONTAINER_PATH" ]]; then
   SIF_PATH="$SAMBA_CONTAINER_PATH"
-elif [[ -n "${SIF_PATH:-}" && -f "$SIF_PATH" ]]; then
-  # Honor pre-set SIF_PATH if it points to a real file
-  :
 elif [[ -n "${SINGULARITY_IMAGE_DIR:-}" && -f "${SINGULARITY_IMAGE_DIR}/samba.sif" ]]; then
   SIF_PATH="${SINGULARITY_IMAGE_DIR}/samba.sif"
 elif [[ -f "${HOME}/containers/samba.sif" ]]; then
   SIF_PATH="${HOME}/containers/samba.sif"
-elif [[ -f "/home/apps/ubuntu-22.04/singularity/images/samba.sif" ]]; then
-  # Your current cluster default
-  SIF_PATH="/home/apps/ubuntu-22.04/singularity/images/samba.sif"
-elif [[ -f "/home/apps/singularity/images/samba.sif" ]]; then
-  # Older/default path on some systems
-  SIF_PATH="/home/apps/singularity/images/samba.sif"
 elif [[ -f "/opt/containers/samba.sif" ]]; then
   SIF_PATH="/opt/containers/samba.sif"
 elif [[ -f "/opt/samba/samba.sif" ]]; then
@@ -56,17 +52,16 @@ elif [[ -f "/opt/samba/samba.sif" ]]; then
 else
   echo "Trying to locate samba.sif using find... (this may take a moment)" >&2
   SEARCH_ROOT="${SAMBA_SEARCH_ROOT:-$HOME}"
-  SIF_PATH=$(find "$SEARCH_ROOT" -type f -name "samba.sif" 2>/dev/null | head -n 1)
+  SIF_PATH="$(find "$SEARCH_ROOT" -type f -name 'samba.sif' 2>/dev/null | head -n 1 || true)"
 
   if [[ -z "$SIF_PATH" ]]; then
     echo "ERROR: Could not locate samba.sif" >&2
-    echo "Set SAMBA_CONTAINER_PATH or place it in one of:" >&2
+    echo "Set SAMBA_CONTAINER_PATH or place samba.sif in one of:" >&2
     echo "  \$SINGULARITY_IMAGE_DIR/samba.sif" >&2
     echo "  \$HOME/containers/samba.sif" >&2
-    echo "  /home/apps/ubuntu-22.04/singularity/images/samba.sif" >&2
-    echo "  /home/apps/singularity/images/samba.sif" >&2
     echo "  /opt/containers/samba.sif" >&2
     echo "  /opt/samba/samba.sif" >&2
+    echo "Or define SAMBA_SEARCH_ROOT for find()-based search." >&2
     return 1
   else
     echo "Found samba.sif at: $SIF_PATH"
@@ -129,7 +124,7 @@ function samba-pipe {
     return 1
   fi
 
-  # Make headfile absolute if needed (your original logic)
+  # Make headfile absolute if needed
   if [[ "${hf:0:1}" != "/" && "${hf:0:2}" != "~/" ]]; then
     hf="${PWD}/${hf}"
   fi
@@ -139,7 +134,7 @@ function samba-pipe {
     return 1
   fi
 
-  # Auto-select BIGGUS_DISKUS if not set (your original decision tree)
+  # ---------------- BIGGUS_DISKUS resolution ----------------
   if [[ -z "${BIGGUS_DISKUS:-}" ]]; then
     if [[ -d "${SCRATCH:-}" ]]; then
       export BIGGUS_DISKUS="$SCRATCH"
@@ -151,18 +146,17 @@ function samba-pipe {
     fi
   fi
 
-  # Validate BIGGUS_DISKUS
   if [[ ! -d "$BIGGUS_DISKUS" || ! -w "$BIGGUS_DISKUS" ]]; then
     echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
     return 1
   fi
 
-  # Optional warning for group-writability (use stat mask instead of -g)
+  # Warn if directory is not group-writable
   if ! perl -e 'exit((stat($ARGV[0]))[2] & 0020 ? 0 : 1)' "$BIGGUS_DISKUS"; then
     echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
   fi
 
-  # Atlas bind (if ATLAS_FOLDER is defined and exists)
+  # Atlas bind
   local BIND_ATLAS=()
   if [[ -n "${ATLAS_FOLDER:-}" && -d "$ATLAS_FOLDER" ]]; then
     BIND_ATLAS=( --bind "$ATLAS_FOLDER:$ATLAS_FOLDER" )
@@ -170,11 +164,11 @@ function samba-pipe {
     echo "Warning: ATLAS_FOLDER not set or does not exist. Proceeding with default atlas."
   fi
 
-  # Export for Perl glue if you want them later
+  # Export for Perl glue if needed
   export SAMBA_ATLAS_BIND="${BIND_ATLAS[*]}"
   export SAMBA_BIGGUS_BIND="$BIGGUS_DISKUS:$BIGGUS_DISKUS"
 
-  # Bind HF directory (host path visible in container)
+  # Bind HF directory (host path visible inside container)
   local hf_dir
   hf_dir="$(dirname "$hf")"
   local BIND_HF_DIR=( --bind "$hf_dir:$hf_dir" )
@@ -184,26 +178,23 @@ function samba-pipe {
   cp "$hf" "$hf_tmp"
 
   # ------------------------------------------------------------------
-  # 1) Pipeline-facing CONTAINER_CMD_PREFIX that lives in the env
-  #    and is used INSIDE the container to wrap sbatch commands.
+  # 1) Build CONTAINER_CMD_PREFIX for use *inside* the pipeline
   # ------------------------------------------------------------------
   local PIPELINE_CMD_PREFIX_A=(
-    "$CONTAINER_CMD" exec
+    "$CONTAINER_CMD_BIN" exec
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
     "${BIND_ATLAS[@]}"
     "${EXTRA_BINDS[@]}"
     "$SIF_PATH"
   )
 
-  # Export as a flat string so Perl can just prepend it
   export CONTAINER_CMD_PREFIX="${PIPELINE_CMD_PREFIX_A[*]}"
 
   # ------------------------------------------------------------------
-  # 2) Host-side container launch for this run
-  #    Inject CONTAINER_CMD_PREFIX into container env.
+  # 2) Host-side singularity exec for SAMBA_startup
   # ------------------------------------------------------------------
   local HOST_CMD_PREFIX_A=(
-    "$CONTAINER_CMD" exec
+    "$CONTAINER_CMD_BIN" exec
     --env CONTAINER_CMD_PREFIX="$CONTAINER_CMD_PREFIX"
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
     "${BIND_HF_DIR[@]}"
@@ -212,11 +203,10 @@ function samba-pipe {
     "$SIF_PATH"
   )
 
-  # Debug print of the exact launch command (for sanity)
   echo "samba-pipe: launching:"
   printf '  %q' "${HOST_CMD_PREFIX_A[@]}" bash /opt/samba/SAMBA/SAMBA_startup "$hf_tmp"
   echo
 
-  # Finally run SAMBA_startup inside the container, explicitly via bash
+  # Run SAMBA_startup via bash inside the image
   eval "${HOST_CMD_PREFIX_A[*]}" bash /opt/samba/SAMBA/SAMBA_startup "$hf_tmp"
 }
