@@ -21,7 +21,9 @@
 # Container command + image
 # ----------------------------------------------------------------------
 
-: "${CONTAINER_CMD:=singularity}"
+# Always use raw singularity here; ignore any inherited wrapper.
+CONTAINER_CMD=singularity
+export CONTAINER_CMD
 
 # Try to auto-detect SIF if not provided.
 if [[ -z "${SIF_PATH:-}" ]]; then
@@ -39,7 +41,6 @@ if [[ -z "${SIF_PATH:-}" ]]; then
   echo "       Please export SIF_PATH=/full/path/to/samba.sif and re-source this file." >&2
 fi
 
-export CONTAINER_CMD
 export SIF_PATH
 
 # ----------------------------------------------------------------------
@@ -58,10 +59,6 @@ if command -v sbatch >/dev/null 2>&1; then
   if [[ -d /usr/local/bin ]]; then
     EXTRA_BINDS+=( --bind /usr/local/bin:/usr/local/bin )
   fi
-  # If your site uses /usr/bin for Slurm and you want it:
-  # if [[ -d /usr/bin ]]; then
-  #   EXTRA_BINDS+=( --bind /usr/bin:/usr/bin )
-  # fi
 fi
 
 # Slurm plugins/libs
@@ -152,9 +149,8 @@ function samba-pipe {
   local BIND_HF_DIR=( --bind "$(dirname "$hf")":"$(dirname "$hf")" )
 
   # ------------------------------------------------------------------
-  # 1) Pipeline-facing CONTAINER_CMD_PREFIX that lives IN THE HOST ENV
-  #    but is used INSIDE the container to wrap sbatch commands.
-  #    This is the exact string that `wrap_in_container()` will prepend.
+  # 1) Pipeline-facing CONTAINER_CMD_PREFIX that lives in the env
+  #    and is used INSIDE the container to wrap sbatch commands.
   # ------------------------------------------------------------------
   local PIPELINE_CMD_PREFIX_A=(
     "$CONTAINER_CMD" exec
@@ -168,8 +164,7 @@ function samba-pipe {
 
   # ------------------------------------------------------------------
   # 2) Host-side container launch for this run
-  #    IMPORTANT: we explicitly inject CONTAINER_CMD_PREFIX into the
-  #    container's environment so SAMBA_pipeline_utilities.pm can see it.
+  #    Inject CONTAINER_CMD_PREFIX into container env.
   # ------------------------------------------------------------------
   local HOST_CMD_PREFIX_A=(
     "$CONTAINER_CMD" exec
@@ -180,10 +175,6 @@ function samba-pipe {
     "${EXTRA_BINDS[@]}"
     "$SIF_PATH"
   )
-
-  # For debugging if needed:
-  # echo "[host] HOST_CMD_PREFIX_A: ${HOST_CMD_PREFIX_A[*]}" >&2
-  # echo "[host] CONTAINER_CMD_PREFIX: $CONTAINER_CMD_PREFIX" >&2
 
   # Finally run SAMBA_startup inside the container
   eval "${HOST_CMD_PREFIX_A[*]}" SAMBA_startup "$hf_tmp"
