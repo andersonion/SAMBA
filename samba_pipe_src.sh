@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh  (cluster-agnostic version, bypassing SAMBA_startup)
+# samba_pipe_src.sh  (portable, no hard-coded /home/apps paths, no eval)
 #
 # Usage:
 #   source /home/apps/SAMBA/samba_pipe_src.sh
@@ -8,7 +8,7 @@
 #
 
 # ----------------------------------------------------------------------
-# Container command (use absolute binary via `command -v`)
+# Container command (absolute binary)
 # ----------------------------------------------------------------------
 CONTAINER_CMD_BIN="$(command -v singularity || true)"
 if [[ -z "$CONTAINER_CMD_BIN" ]]; then
@@ -20,27 +20,23 @@ CONTAINER_CMD="$CONTAINER_CMD_BIN"
 export CONTAINER_CMD
 
 # ----------------------------------------------------------------------
-# Locate the container image in a *portable* way
+# Locate the container image in a portable way
 # ----------------------------------------------------------------------
-# Priority:
-#   1. SAMBA_CONTAINER_PATH (explicit)
-#   2. ${SINGULARITY_IMAGE_DIR}/samba.sif
-#   3. ${HOME}/containers/samba.sif
-#   4. /opt/containers/samba.sif
-#   5. /opt/samba/samba.sif
-#   6. find under ${SAMBA_SEARCH_ROOT:-$HOME}
 unset SIF_PATH
 
+# 1. Explicit override
 if [[ -n "${SAMBA_CONTAINER_PATH:-}" && -f "$SAMBA_CONTAINER_PATH" ]]; then
   SIF_PATH="$SAMBA_CONTAINER_PATH"
+
+# 2. $SINGULARITY_IMAGE_DIR/samba.sif
 elif [[ -n "${SINGULARITY_IMAGE_DIR:-}" && -f "${SINGULARITY_IMAGE_DIR}/samba.sif" ]]; then
   SIF_PATH="${SINGULARITY_IMAGE_DIR}/samba.sif"
+
+# 3. $HOME/containers/samba.sif
 elif [[ -f "${HOME}/containers/samba.sif" ]]; then
   SIF_PATH="${HOME}/containers/samba.sif"
-elif [[ -f "/opt/containers/samba.sif" ]]; then
-  SIF_PATH="/opt/containers/samba.sif"
-elif [[ -f "/opt/samba/samba.sif" ]]; then
-  SIF_PATH="/opt/samba/samba.sif"
+
+# 4. Fallback: search under SAMBA_SEARCH_ROOT or $HOME
 else
   echo "Trying to locate samba.sif using find... (this may take a moment)" >&2
   SEARCH_ROOT="${SAMBA_SEARCH_ROOT:-$HOME}"
@@ -51,8 +47,6 @@ else
     echo "Set SAMBA_CONTAINER_PATH or place samba.sif in one of:" >&2
     echo "  \$SINGULARITY_IMAGE_DIR/samba.sif" >&2
     echo "  \$HOME/containers/samba.sif" >&2
-    echo "  /opt/containers/samba.sif" >&2
-    echo "  /opt/samba/samba.sif" >&2
     echo "Or define SAMBA_SEARCH_ROOT for find()-based search." >&2
     return 1
   else
@@ -95,7 +89,7 @@ if [[ -d /usr/lib/x86_64-linux-gnu ]]; then
   EXTRA_BINDS+=( --bind /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu )
 fi
 
-# Allow user to inject extra binds:
+# User-injected extra binds:
 #   export SAMBA_EXTRA_BINDS="--bind /foo:/foo --bind /bar:/bar"
 if [[ -n "${SAMBA_EXTRA_BINDS:-}" ]]; then
   # shellcheck disable=SC2206
@@ -143,7 +137,7 @@ function samba-pipe {
     return 1
   fi
 
-  # Warn if directory is not group-writable
+  # Warn if directory is not group-writable (multi-user sanity)
   if ! perl -e 'exit((stat($ARGV[0]))[2] & 0020 ? 0 : 1)' "$BIGGUS_DISKUS"; then
     echo "Warning: $BIGGUS_DISKUS is not group-writable. Multi-user workflows may fail."
   fi
@@ -180,14 +174,15 @@ function samba-pipe {
     "$SIF_PATH"
   )
 
+  # NOTE: this is *only* for wrap_in_container() in Perl
   export CONTAINER_CMD_PREFIX="${PIPELINE_CMD_PREFIX_A[*]}"
 
   # ------------------------------------------------------------------
-  # 2) Host-side singularity exec for the *pipeline* (bypass SAMBA_startup)
+  # 2) Host-side singularity exec for the pipeline (NO eval)
   # ------------------------------------------------------------------
   local HOST_CMD_PREFIX_A=(
     "$CONTAINER_CMD_BIN" exec
-    --env CONTAINER_CMD_PREFIX="$CONTAINER_CMD_PREFIX"
+    --env "CONTAINER_CMD_PREFIX=${CONTAINER_CMD_PREFIX}"
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
     "${BIND_HF_DIR[@]}"
     "${BIND_ATLAS[@]}"
@@ -199,6 +194,6 @@ function samba-pipe {
   printf '  %q' "${HOST_CMD_PREFIX_A[@]}" /opt/samba/SAMBA/vbm_pipeline_start.pl "$hf_tmp"
   echo
 
-  # Run the main pipeline driver directly
-  eval "${HOST_CMD_PREFIX_A[*]}" /opt/samba/SAMBA/vbm_pipeline_start.pl "$hf_tmp"
+  # IMPORTANT: no eval here – run the array directly
+  "${HOST_CMD_PREFIX_A[@]}" /opt/samba/SAMBA/vbm_pipeline_start.pl "$hf_tmp"
 }
