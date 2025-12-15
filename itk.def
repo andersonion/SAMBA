@@ -31,7 +31,18 @@ From: base.sif
     ITK_CONFIG="$(find /opt/itk -name ITKConfig.cmake -print -quit)"
     if [ -z "$ITK_CONFIG" ]; then echo "FATAL: ITKConfig.cmake missing" >&2; exit 1; fi
     echo "ITK OK: $ITK_CONFIG"
+    
+    mkdir -p /opt/env
+
+    # Add ITK-related env to the single canonical env file
+    cat << 'EOF' >> /opt/env/samba.sh
+
+# ---- ITK (stage: itk) ----
+export CMAKE_PREFIX_PATH="/opt/itk${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+EOF
+
+    # Make it available immediately during build, too
+    . /opt/env/samba.sh
 
 %environment
-    # Help ANTs find ITK
-    export CMAKE_PREFIX_PATH="/opt/itk${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+    source /opt/env/samba.sh

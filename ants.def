@@ -2,17 +2,30 @@ Bootstrap: localimage
 From: itk.sif
 
 %environment
-	export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-	export ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
-	export PATH="${ANTSPATH}:$PATH"
-	export ITK_DIR="${ITK_DIR:-/opt/itk/lib/cmake/ITK-5.3}"
-	export SRC_ROOT="${SRC_ROOT:-/opt/src}"
-	# 🔒 hard default to the commit we agreed: 0ea8e53
-	export ANTS_REF="${ANTS_REF:-0ea8e53}"
-	export ANTS_TARGETS="${ANTS_TARGETS:-antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage}"
+    source /opt/env/samba.sh
 
 %post
 	set -eu
+    # Ensure canonical env file exists (inherited from base, but harmless)
+    mkdir -p /opt/env
+    [ -f /opt/env/samba.sh ] || { echo "FATAL: /opt/env/samba.sh missing" >&2; exit 1; }
+
+    # Append ANTs-related env to the single canonical env file
+    cat << 'EOF' >> /opt/env/samba.sh
+
+# ---- ANTs (stage: ants) ----
+export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
+export ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
+export PATH="${ANTSPATH}:$PATH"
+export ITK_DIR="${ITK_DIR:-/opt/itk/lib/cmake/ITK-5.3}"
+export SRC_ROOT="${SRC_ROOT:-/opt/src}"
+# hard default to the commit we agreed
+export ANTS_REF="${ANTS_REF:-0ea8e53}"
+export ANTS_TARGETS="${ANTS_TARGETS:-antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage}"
+EOF
+
+    # Make it available immediately during build, too
+    . /opt/env/samba.sh
 
 	# -- Paths/inputs --
 	ITK_DIR=/opt/itk/lib/cmake/ITK-5.3
@@ -43,7 +56,9 @@ From: itk.sif
 	cd ANTs
 	git fetch --all --tags
 	# pin to the commit we validated in /tmp debug
-	git checkout --detach 0ea8e53
+	# pin to the commit we validated in /tmp debug (but allow override via env)
+	git checkout --detach "${ANTS_REF:-0ea8e53}"
+
 
 	# ---------- CLEAN OUT ANY SUPERBUILD ARTIFACTS ----------
 	rm -rf build ANTS-build ANTS-prefix 2>/dev/null || true

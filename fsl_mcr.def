@@ -6,15 +6,33 @@ From: ants.sif
     Maintainer  BJ + ChatGPT (POSIX-sh safe, MCR + skinny-FSL)
 
 %environment
-    export FSLDIR=/opt/samba/fsl
-    export PATH="/opt/samba/perl5/bin:/opt/samba/perl5libs/bin:${FSLDIR}/bin:/opt/samba/ants/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-    export MCR_ROOT="/opt/MATLAB/MATLAB2015b_runtime/v90"
-    if [ -d "${MCR_ROOT}/runtime/glnxa64" ]; then
-        export LD_LIBRARY_PATH="${MCR_ROOT}/runtime/glnxa64:${MCR_ROOT}/bin/glnxa64:${MCR_ROOT}/sys/os/glnxa64:${LD_LIBRARY_PATH}"
-    fi
+    source /opt/env/samba.sh
 
 %post
     set -eu
+	
+	# Ensure canonical env file exists
+    mkdir -p /opt/env
+    [ -f /opt/env/samba.sh ] || { echo "FATAL: /opt/env/samba.sh missing" >&2; exit 1; }
+
+    # Append FSL + MCR env into the single canonical env file
+    cat << 'EOF' >> /opt/env/samba.sh
+
+# ---- FSL + MATLAB MCR (stage: fsl_mcr) ----
+export FSLDIR="${FSLDIR:-/opt/samba/fsl}"
+export MCR_ROOT="${MCR_ROOT:-/opt/MATLAB/MATLAB2015b_runtime/v90}"
+
+# Prepend to PATH (preserve whatever previous stages added)
+export PATH="/opt/samba/perl5/bin:/opt/samba/perl5libs/bin:${FSLDIR}/bin:${PATH}"
+
+# MCR runtime libs (prepend safely)
+if [ -d "${MCR_ROOT}/runtime/glnxa64" ]; then
+    export LD_LIBRARY_PATH="${MCR_ROOT}/runtime/glnxa64:${MCR_ROOT}/bin/glnxa64:${MCR_ROOT}/sys/os/glnxa64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+fi
+EOF
+
+    # Make it available immediately during build, too
+    . /opt/env/samba.sh
 
     # ---------------------------------------------------------------
     # Base packages (MCR + skinny-FSL harvest + diagnostics)

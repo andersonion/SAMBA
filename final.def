@@ -6,17 +6,7 @@ From: fsl_mcr.sif
     Maintainer: BJ Anderson + ChatGPT (final stage: SAMBA + atlas + scheduler proxy)
 
 %environment
-    export SAMBA_ROOT="/opt/samba"
-    export SAMBA_PATH="/opt/samba/SAMBA"
-    export PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
-    export PERL5LIB="/opt/samba/perl5libs/lib/perl5"
-    export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
-    export PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
-
-    export SAMBA_ATLAS_DIR="/opt/atlases/chass_symmetric3"
-
-    # Put SAMBA shims + scheduler clients first
-    export PATH="/opt/samba/bin:/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:/opt/samba/ants/bin:/opt/samba/fsl/bin:/opt/samba/SAMBA:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    source /opt/env/samba.sh
 
 %post
     set -eu
@@ -33,6 +23,37 @@ From: fsl_mcr.sif
     CACHE_DIR="/opt/zenodo_cache"
 
     export SAMBA_ROOT SAMBA_PATH PERL_LOCAL_LIB_ROOT
+    
+    # Ensure canonical env file exists
+    mkdir -p /opt/env
+    [ -f /opt/env/samba.sh ] || { echo "FATAL: /opt/env/samba.sh missing" >&2; exit 1; }
+
+    # Append FINAL-stage runtime env to the single canonical env file (once)
+    if ! grep -q 'FINAL (stage: final)' /opt/env/samba.sh; then
+        cat << 'EOF' >> /opt/env/samba.sh
+
+# ---- FINAL (stage: final) ----
+export SAMBA_ROOT="${SAMBA_ROOT:-/opt/samba}"
+export SAMBA_PATH="${SAMBA_PATH:-/opt/samba/SAMBA}"
+export PERL_LOCAL_LIB_ROOT="${PERL_LOCAL_LIB_ROOT:-/opt/samba/perl5libs}"
+export PERL5LIB="/opt/samba/perl5libs/lib/perl5"
+export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
+export PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
+
+export SAMBA_ATLAS_DIR="${SAMBA_ATLAS_DIR:-/opt/atlases/chass_symmetric3}"
+
+# MCR root comes from fsl_mcr stage; keep a sane default
+export MCR_ROOT="${MCR_ROOT:-/opt/MATLAB/MATLAB2015b_runtime/v90}"
+
+# Canonical location for MATLAB execs inside the image
+export MATLAB_EXEC_ROOT="${MATLAB_EXEC_ROOT:-/opt/samba/matlab_execs_for_SAMBA}"
+
+export PATH="/opt/samba/bin:/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:${PATH}"
+EOF
+    fi
+    # Make it available immediately during build, too
+    . /opt/env/samba.sh
+
 
     mkdir -p /opt/src "${SAMBA_ROOT}" /opt/samba/perl5 /opt/samba/perl5libs \
              "${ATLAS_FOLDER}" "${CACHE_DIR}"
@@ -160,6 +181,15 @@ From: fsl_mcr.sif
         echo "[carton] WARNING: no cpanfile.snapshot created; leaving warm install as-is."
     fi
     echo "[carton] done."
+    
+    # =====================================================================
+    # matlab_execs_for_SAMBA runtime repo + compatibility symlink
+    # =====================================================================
+    if [ ! -d /opt/samba/matlab_execs_for_SAMBA ]; then
+        git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git /opt/samba/matlab_execs_for_SAMBA
+    fi
+    chmod -R a+rX /opt/samba/matlab_execs_for_SAMBA
+    ln -sfn /opt/samba/matlab_execs_for_SAMBA /opt/matlab_execs
 
     # ==============================================================
     # Embed Atlas from Zenodo (FINAL stage, FATAL if missing)

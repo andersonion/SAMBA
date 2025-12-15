@@ -24,8 +24,17 @@ From: ubuntu:20.04
 
     # Core folders
     mkdir -p /opt/samba /opt/src /opt/build
+    
+	mkdir -p /opt/env
+	
+	cat << 'EOF' > /opt/env/samba.sh
+export SAMBA_APPS_DIR=/opt/samba
+export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
+export PATH=${SAMBA_PATH}:$PATH
+EOF
+	
+	# make available during build
+	. /opt/env/samba.sh
 
 %environment
-    export SAMBA_APPS_DIR=/opt/samba
-    export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
-    export PATH=${SAMBA_PATH}:$PATH
+    source /opt/env/samba.sh
