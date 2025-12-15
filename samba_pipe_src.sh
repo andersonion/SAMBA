@@ -75,22 +75,35 @@ samba-pipe() {
     return 1
   fi
 
-  # -------- BIGGUS_DISKUS selection --------
+  # -------- BIGGUS_DISKUS selection (host) --------
   if [[ -z "${BIGGUS_DISKUS:-}" ]]; then
     if [[ -d "${SCRATCH:-}" ]]; then
-      export BIGGUS_DISKUS="$SCRATCH"
+      BIGGUS_DISKUS="$SCRATCH"
     elif [[ -d "${WORK:-}" ]]; then
-      export BIGGUS_DISKUS="$WORK"
+      BIGGUS_DISKUS="$WORK"
     else
-      export BIGGUS_DISKUS="$HOME/samba_scratch"
+      BIGGUS_DISKUS="$HOME/samba_scratch"
       mkdir -p "$BIGGUS_DISKUS"
     fi
   fi
+  export BIGGUS_DISKUS
 
   if [[ ! -d "$BIGGUS_DISKUS" || ! -w "$BIGGUS_DISKUS" ]]; then
     echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
     return 1
   fi
+
+  # Ensure USER is defined for --cleanenv runs
+  if [[ -z "${USER:-}" ]]; then
+    USER="$(id -un 2>/dev/null || echo unknown)"
+  fi
+  export USER
+
+  # Optional but recommended: allow cache override from host
+  # (per your policy: SAMBA_CACHE_DIR SHOULD be overrideable)
+  : "${SAMBA_CACHE_DIR:=${BIGGUS_DISKUS%/}/samba_cache}"
+  export SAMBA_CACHE_DIR
+  mkdir -p "$SAMBA_CACHE_DIR" || true
 
   # -------- binds --------
   local hf_dir
@@ -99,6 +112,7 @@ samba-pipe() {
   local binds=()
   binds+=( --bind "$hf_dir:$hf_dir" )
   binds+=( --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS" )
+  binds+=( --bind "$SAMBA_CACHE_DIR:$SAMBA_CACHE_DIR" )
 
   # optional_external_inputs_dir from headfile
   local opt_ext=""
@@ -131,6 +145,9 @@ samba-pipe() {
   local PIPELINE_CMD_PREFIX_A=(
     "$CONTAINER_CMD" exec --cleanenv
     --env SAMBA_APPS_DIR="$SAMBA_APPS_IN_CONTAINER"
+    --env BIGGUS_DISKUS="$BIGGUS_DISKUS"
+    --env USER="$USER"
+    --env SAMBA_CACHE_DIR="$SAMBA_CACHE_DIR"
     "${atlas_env[@]}"
     "${binds[@]}"
     "$SIF_PATH"
@@ -142,6 +159,9 @@ samba-pipe() {
     "$CONTAINER_CMD" exec --cleanenv
     --env CONTAINER_CMD_PREFIX="$CONTAINER_CMD_PREFIX"
     --env SAMBA_APPS_DIR="$SAMBA_APPS_IN_CONTAINER"
+    --env BIGGUS_DISKUS="$BIGGUS_DISKUS"
+    --env USER="$USER"
+    --env SAMBA_CACHE_DIR="$SAMBA_CACHE_DIR"
     "${atlas_env[@]}"
     "${binds[@]}"
     "$SIF_PATH"
