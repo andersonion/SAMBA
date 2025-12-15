@@ -30,25 +30,24 @@ From: fsl_mcr.sif
 
     # Append FINAL-stage runtime env to the single canonical env file (once)
     if ! grep -q 'FINAL (stage: final)' /opt/env/samba.sh; then
-        cat << 'EOF' >> /opt/env/samba.sh
+    cat << 'EOF' >> /opt/env/samba.sh
 
 # ---- FINAL (stage: final) ----
-export SAMBA_ROOT="${SAMBA_ROOT:-/opt/samba}"
-export SAMBA_PATH="${SAMBA_PATH:-/opt/samba/SAMBA}"
-export PERL_LOCAL_LIB_ROOT="${PERL_LOCAL_LIB_ROOT:-/opt/samba/perl5libs}"
-export PERL5LIB="/opt/samba/perl5libs/lib/perl5"
-export PERL_MB_OPT='--install_base "/opt/samba/perl5libs"'
-export PERL_MM_OPT='INSTALL_BASE=/opt/samba/perl5libs'
+export PERL_LOCAL_LIB_ROOT="${SAMBA_APPS_DIR}/perl5libs"
+export PERL5LIB="${PERL_LOCAL_LIB_ROOT}/lib/perl5"
+export PERL_MB_OPT='--install_base "'"${PERL_LOCAL_LIB_ROOT}"'"'
+export PERL_MM_OPT='INSTALL_BASE='"${PERL_LOCAL_LIB_ROOT}"
 
+# overridable knobs
 export SAMBA_ATLAS_DIR="${SAMBA_ATLAS_DIR:-/opt/atlases/chass_symmetric3}"
+export SAMBA_CACHE_DIR="${SAMBA_CACHE_DIR:-/opt/zenodo_cache}"
 
-# MCR root comes from fsl_mcr stage; keep a sane default
-export MCR_ROOT="${MCR_ROOT:-/opt/MATLAB/MATLAB2015b_runtime/v90}"
+# SAMBA expects these names
+export MATLAB_EXEC_PATH="${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA"
+# (MATLAB_2015b_PATH already defined in fsl_mcr stage)
 
-# Canonical location for MATLAB execs inside the image
-export MATLAB_EXEC_ROOT="${MATLAB_EXEC_ROOT:-/opt/samba/matlab_execs_for_SAMBA}"
+export PATH="${SAMBA_APPS_DIR}/bin:${PERL_LOCAL_LIB_ROOT}/bin:${SAMBA_APPS_DIR}/perl5/bin:${PATH}"
 
-export PATH="/opt/samba/bin:/opt/samba/perl5libs/bin:/opt/samba/perl5/bin:${PATH}"
 EOF
     fi
     # Make it available immediately during build, too

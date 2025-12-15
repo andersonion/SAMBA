@@ -19,16 +19,15 @@ From: ants.sif
     cat << 'EOF' >> /opt/env/samba.sh
 
 # ---- FSL + MATLAB MCR (stage: fsl_mcr) ----
-export FSLDIR="${FSLDIR:-/opt/samba/fsl}"
-export MCR_ROOT="${MCR_ROOT:-/opt/MATLAB/MATLAB2015b_runtime/v90}"
+export FSLDIR="${SAMBA_APPS_DIR}/fsl"
+export MATLAB_2015b_PATH="/opt/MATLAB/MATLAB2015b_runtime/v90"
 
-# Prepend to PATH (preserve whatever previous stages added)
-export PATH="/opt/samba/perl5/bin:/opt/samba/perl5libs/bin:${FSLDIR}/bin:${PATH}"
+export PATH="${SAMBA_APPS_DIR}/perl5/bin:${SAMBA_APPS_DIR}/perl5libs/bin:${FSLDIR}/bin:${PATH}"
 
-# MCR runtime libs (prepend safely)
-if [ -d "${MCR_ROOT}/runtime/glnxa64" ]; then
-    export LD_LIBRARY_PATH="${MCR_ROOT}/runtime/glnxa64:${MCR_ROOT}/bin/glnxa64:${MCR_ROOT}/sys/os/glnxa64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+if [ -d "${MATLAB_2015b_PATH}/runtime/glnxa64" ]; then
+  export LD_LIBRARY_PATH="${MATLAB_2015b_PATH}/runtime/glnxa64:${MATLAB_2015b_PATH}/bin/glnxa64:${MATLAB_2015b_PATH}/sys/os/glnxa64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 fi
+
 EOF
 
     # Make it available immediately during build, too
@@ -218,13 +217,13 @@ EOF
 
 %test
     set -eu
-    MCR_ROOT="/opt/MATLAB/MATLAB2015b_runtime/v90"
+    MATLAB_2015b_PATH="/opt/MATLAB/MATLAB2015b_runtime/v90"
     echo "[test] checking MATLAB MCR v90 ..."
-    if [ ! -f "${MCR_ROOT}/runtime/glnxa64/libmwmclmcrrt.so" ]; then
-        echo "FATAL: libmwmclmcrrt.so missing under ${MCR_ROOT}" >&2
+    if [ ! -f "${MATLAB_2015b_PATH}/runtime/glnxa64/libmwmclmcrrt.so" ]; then
+        echo "FATAL: libmwmclmcrrt.so missing under ${MATLAB_2015b_PATH}" >&2
         exit 1
     fi
-    ldd "${MCR_ROOT}/runtime/glnxa64/libmwmclmcrrt.so" >/dev/null || {
+    ldd "${MATLAB_2015b_PATH}/runtime/glnxa64/libmwmclmcrrt.so" >/dev/null || {
         echo "FATAL: ldd failed on MCR core lib" >&2; exit 1;
     }
     echo "[test] MCR OK"

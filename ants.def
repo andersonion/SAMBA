@@ -10,29 +10,35 @@ From: itk.sif
     mkdir -p /opt/env
     [ -f /opt/env/samba.sh ] || { echo "FATAL: /opt/env/samba.sh missing" >&2; exit 1; }
 
-    # Append ANTs-related env to the single canonical env file
-    cat << 'EOF' >> /opt/env/samba.sh
+    # Append ANTs runtime env to the single canonical env file (ONCE)
+    # IMPORTANT:
+    #   - Do NOT redefine SAMBA_APPS_DIR here (base.def owns it)
+    #   - Do NOT put build-control knobs (ANTS_REF/ANTS_TARGETS/SRC_ROOT) into runtime env
+    if ! grep -q '^# ---- ANTs (stage: ants) ----$' /opt/env/samba.sh; then
+        cat << 'EOF' >> /opt/env/samba.sh
 
 # ---- ANTs (stage: ants) ----
-export SAMBA_APPS_DIR="${SAMBA_APPS_DIR:-/opt/samba}"
-export ANTSPATH="${ANTSPATH:-${SAMBA_APPS_DIR}/ants/bin}"
-export PATH="${ANTSPATH}:$PATH"
-export ITK_DIR="${ITK_DIR:-/opt/itk/lib/cmake/ITK-5.3}"
-export SRC_ROOT="${SRC_ROOT:-/opt/src}"
-# hard default to the commit we agreed
-export ANTS_REF="${ANTS_REF:-0ea8e53}"
-export ANTS_TARGETS="${ANTS_TARGETS:-antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos ImageMath ResampleImageBySpacing ResampleImage SmoothImage MultiplyImages ThresholdImage}"
+# Base stage defines SAMBA_APPS_DIR. Derive everything from it (no overrides).
+export ANTSPATH="${SAMBA_APPS_DIR}/ants/bin"
+export ITK_DIR="/opt/itk/lib/cmake/ITK-5.3"
+export PATH="${ANTSPATH}:${PATH}"
 EOF
+    fi
 
     # Make it available immediately during build, too
     . /opt/env/samba.sh
 
-	# -- Paths/inputs --
-	ITK_DIR=/opt/itk/lib/cmake/ITK-5.3
-	INSTALL_PREFIX=/opt/samba/ants
-	SRC=/opt/src/ANTs
-	BUILD=${SRC}/build
-	LOG=/tmp/ants_cmake.log
+
+    # -- Paths/inputs (build-time only; do NOT write these into /opt/env/samba.sh) --
+    # I'm ignoring this code: 
+    #"${SAMBA_APPS_DIR:=/opt/samba}"   # base.def should set this, but safe fallback for build
+    SRC_ROOT="/opt/src"
+
+    ITK_DIR="/opt/itk/lib/cmake/ITK-5.3"
+    INSTALL_PREFIX="${SAMBA_APPS_DIR}/ants"
+    SRC="${SRC_ROOT}/ANTs"
+    BUILD="${SRC}/build"
+    LOG="/tmp/ants_cmake.log"
 
 	# ---- speed: ccache compiler cache ----
 	if command -v apt-get >/dev/null 2>&1; then
