@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-
 # --- user toggles (optional) ---
 # FORCE=1          # rebuild even if image exists
 # USE_FAKEROOT=1   # use --fakeroot instead of sudo
 # ELEVATE=0        # do NOT use sudo for the build
+#
+# Optional: ./build_samba_staged.sh [stage-name-to-rebuild-from]
 
 # Example: export from env or set defaults here
 : "${FORCE:=}"         # empty by default
 : "${USE_FAKEROOT:=}"  # empty by default
 : "${ELEVATE:=1}"      # default to sudo
 
-
-
 # ===== Stages =====
 STAGES=( base itk ants fsl_mcr final )
 IMAGES=( base.sif itk.sif ants.sif fsl_mcr.sif samba.sif )
+DEFS=( base.def itk.def ants.def fsl_mcr.def final.def )
 
 # ===== Container runtime detection (Apptainer preferred) =====
 # Normalize PATH if invoked via sudo (avoid secure_path surprises)
@@ -53,7 +53,6 @@ fi
 echo "Using container runtime: $CT"
 
 # ===== Args =====
-# Optional: ./build_samba_staged.sh [stage-name-to-rebuild-from]
 RESUME_FROM="${1-}"  # empty means build all from start
 
 # Map a stage name to its index in STAGES array; echoes index or -1
@@ -69,6 +68,7 @@ stage_index() {
 # Build one stage by numeric index (0..N-1)
 build_stage() {
   local idx="$1"
+
   # Basic arg/sanity checks
   if [[ -z "${idx:-}" ]]; then
     echo "ERROR: build_stage <index> required" >&2
@@ -80,7 +80,6 @@ build_stage() {
   fi
 
   local name="${STAGES[$idx]}"
-  # Allow DEFS[] to be optional; fall back to "<stage>.def"
   local def="${DEFS[$idx]:-${name}.def}"
   local img="${IMAGES[$idx]}"
 
@@ -88,12 +87,17 @@ build_stage() {
   echo "DEF: $def"
   echo "SIF: $img"
 
+  if [[ ! -f "$def" ]]; then
+    echo "ERROR: definition file not found: $def" >&2
+    return 2
+  fi
+
   # If this stage uses Bootstrap: localimage, make sure previous SIF exists
   if (( idx > 0 )); then
     local prev_img="${IMAGES[$((idx-1))]}"
     if [[ ! -f "$prev_img" ]]; then
       echo "ERROR: prerequisite image missing: $prev_img" >&2
-      echo "Hint: run previous stages or set START_INDEX accordingly." >&2
+      echo "Hint: run previous stages or resume from an earlier stage." >&2
       return 3
     fi
   fi
@@ -116,17 +120,23 @@ build_stage() {
     runner=( sudo )
   fi
 
-  # Do the build with timing
-  set -o pipefail
-  time "${runner[@]}" "${build_cmd[@]}" "$img" "$def" |& tee "build_${name}.log"
-  local rc=${PIPESTATUS[0]}
+  # Do the build with timing; log both stdout+stderr, preserve exit code
+  local log="build_${name}.log"
+  echo "LOG: $log"
+
+  # No pipeline here: avoids 'time | tee' exit-code/pipefail weirdness
+  time "${runner[@]}" "${build_cmd[@]}" "$img" "$def" \
+    > >(tee "$log") \
+    2> >(tee -a "$log" >&2)
+
+  local rc=$?
   if (( rc != 0 )); then
     echo "FATAL: build failed for stage '$name' (rc=$rc)" >&2
     return "$rc"
   fi
+
   echo "OK: built $img"
 }
-
 
 # ===== Determine starting index =====
 START_INDEX=0
