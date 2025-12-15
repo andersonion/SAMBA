@@ -22,11 +22,7 @@ _samba_find_runtime() {
       if [[ -x "$cand" ]]; then ct="$cand"; break; fi
     done
   fi
-
-  if [[ -z "$ct" ]]; then
-    echo "ERROR: apptainer/singularity not found in PATH" >&2
-    return 1
-  fi
+  [[ -n "$ct" ]] || { echo "ERROR: apptainer/singularity not found in PATH" >&2; return 1; }
   echo "$ct"
 }
 
@@ -46,36 +42,83 @@ _samba_find_sif() {
     local root="${SAMBA_SEARCH_ROOT:-$HOME}"
     sif="$(find "$root" -maxdepth 6 -type f -name 'samba.sif' 2>/dev/null | head -n 1 || true)"
   fi
-
-  if [[ -z "$sif" || ! -f "$sif" ]]; then
+  [[ -n "$sif" && -f "$sif" ]] || {
     echo "ERROR: Could not locate samba.sif on host." >&2
     echo "Set SAMBA_CONTAINER_PATH or SINGULARITY_IMAGE_DIR or place at $HOME/containers/samba.sif" >&2
     return 1
-  fi
+  }
   echo "$sif"
 }
 
 SIF_PATH="$(_samba_find_sif)"
 export SIF_PATH
 
+# ---------- helpers ----------
+_samba_abs_path() {
+  local p="${1-}"
+  [[ -n "$p" ]] || return 1
+  if [[ "${p:0:1}" != "/" && "${p:0:2}" != "~/" ]]; then
+    echo "${PWD}/${p}"
+  else
+    echo "$p"
+  fi
+}
+
+_samba_hf_get() {
+  # prints value after '=' for a simple key=val line
+  local key="${1:?key required}" hf="${2:?headfile required}"
+  grep -E "^${key}[[:space:]]*=" "$hf" 2>/dev/null | head -n 1 | sed -E 's/^[^=]*=[[:space:]]*//'
+}
+
+_samba_find_host_atlas_root() {
+  # Given atlas name (e.g., IITmean_RPI), try to find a host atlas root that contains:
+  #   <root>/<atlas>/<atlas>_fa.nii or .nii.gz
+  local atlas="${1:?atlas name required}"
+
+  # Candidate roots, in priority order:
+  #  1) ATLAS_FOLDER (host) if set
+  #  2) SAMBA_ATLAS_SEARCH_ROOTS (colon-separated list)
+  #  3) common local folders (HOME/atlases, HOME/Atlas, etc) as last resort
+  local roots=()
+  if [[ -n "${ATLAS_FOLDER:-}" ]]; then roots+=( "$ATLAS_FOLDER" ); fi
+  if [[ -n "${SAMBA_ATLAS_SEARCH_ROOTS:-}" ]]; then
+    IFS=':' read -r -a _more <<< "${SAMBA_ATLAS_SEARCH_ROOTS}"
+    roots+=( "${_more[@]}" )
+  fi
+  roots+=( "$HOME/atlases" "$HOME/Atlases" "$HOME/atlas" "$HOME/Atlas" )
+
+  local r=""
+  for r in "${roots[@]}"; do
+    [[ -n "$r" && -d "$r" ]] || continue
+    if [[ -f "$r/$atlas/${atlas}_fa.nii.gz" || -f "$r/$atlas/${atlas}_fa.nii" ]]; then
+      echo "$r"
+      return 0
+    fi
+  done
+
+  # If not found by roots, do a bounded find (opt-in via SAMBA_ATLAS_FIND_ROOT)
+  # This avoids surprise “find the whole filesystem” behavior.
+  if [[ -n "${SAMBA_ATLAS_FIND_ROOT:-}" && -d "${SAMBA_ATLAS_FIND_ROOT}" ]]; then
+    local hit
+    hit="$(find "${SAMBA_ATLAS_FIND_ROOT}" -maxdepth 6 -type f \( -name "${atlas}_fa.nii" -o -name "${atlas}_fa.nii.gz" \) 2>/dev/null | head -n 1 || true)"
+    if [[ -n "$hit" ]]; then
+      echo "$(dirname "$(dirname "$hit")")"  # -> .../<root>/<atlas>
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
 # ---------- main entry ----------
 samba-pipe() {
   local hf="${1-}"
-  if [[ -z "$hf" ]]; then
-    echo "Usage: samba-pipe headfile.hf" >&2
-    return 1
-  fi
+  [[ -n "$hf" ]] || { echo "Usage: samba-pipe headfile.hf" >&2; return 1; }
 
-  # make headfile absolute
-  if [[ "${hf:0:1}" != "/" && "${hf:0:2}" != "~/" ]]; then
-    hf="${PWD}/${hf}"
-  fi
-  if [[ ! -f "$hf" ]]; then
-    echo "ERROR: headfile not found: $hf" >&2
-    return 1
-  fi
+  hf="$(_samba_abs_path "$hf")"
+  [[ -f "$hf" ]] || { echo "ERROR: headfile not found: $hf" >&2; return 1; }
 
-  # -------- BIGGUS_DISKUS selection (host) --------
+  # -------- BIGGUS_DISKUS selection --------
   if [[ -z "${BIGGUS_DISKUS:-}" ]]; then
     if [[ -d "${SCRATCH:-}" ]]; then
       BIGGUS_DISKUS="$SCRATCH"
@@ -85,25 +128,15 @@ samba-pipe() {
       BIGGUS_DISKUS="$HOME/samba_scratch"
       mkdir -p "$BIGGUS_DISKUS"
     fi
+    export BIGGUS_DISKUS
   fi
-  export BIGGUS_DISKUS
-
-  if [[ ! -d "$BIGGUS_DISKUS" || ! -w "$BIGGUS_DISKUS" ]]; then
+  [[ -d "$BIGGUS_DISKUS" && -w "$BIGGUS_DISKUS" ]] || {
     echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
     return 1
-  fi
+  }
 
-  # Ensure USER is defined for --cleanenv runs
-  if [[ -z "${USER:-}" ]]; then
-    USER="$(id -un 2>/dev/null || echo unknown)"
-  fi
-  export USER
-
-  # Optional but recommended: allow cache override from host
-  # (per your policy: SAMBA_CACHE_DIR SHOULD be overrideable)
-  : "${SAMBA_CACHE_DIR:=${BIGGUS_DISKUS%/}/samba_cache}"
-  export SAMBA_CACHE_DIR
-  mkdir -p "$SAMBA_CACHE_DIR" || true
+  # ensure USER exists under --cleanenv; prefer host USER, else whoami
+  local USER_SAFE="${USER:-$(id -un 2>/dev/null || echo unknown)}"
 
   # -------- binds --------
   local hf_dir
@@ -112,42 +145,49 @@ samba-pipe() {
   local binds=()
   binds+=( --bind "$hf_dir:$hf_dir" )
   binds+=( --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS" )
-  binds+=( --bind "$SAMBA_CACHE_DIR:$SAMBA_CACHE_DIR" )
 
   # optional_external_inputs_dir from headfile
   local opt_ext=""
-  opt_ext="$(grep -E '^optional_external_inputs_dir *=' "$hf" 2>/dev/null | sed 's/.*= *//' || true)"
+  opt_ext="$(_samba_hf_get "optional_external_inputs_dir" "$hf" || true)"
   if [[ -n "$opt_ext" && -d "$opt_ext" ]]; then
     binds+=( --bind "$opt_ext:$opt_ext" )
   fi
 
-  # Atlas override (host path) -> bind to fixed container location
-  # User sets: export SAMBA_ATLAS_DIR_HOST=/path/on/host/chass_symmetric3
+  # -------- atlas intent from headfile --------
+  local rigid_atlas label_atlas atlas_name
+  rigid_atlas="$(_samba_hf_get "rigid_atlas_name" "$hf" || true)"
+  label_atlas="$(_samba_hf_get "label_atlas_name" "$hf" || true)"
+  atlas_name="${label_atlas:-$rigid_atlas}"
+
+  # default: use embedded atlas; override if we can locate host atlas
   local atlas_env=()
-  if [[ -n "${SAMBA_ATLAS_DIR_HOST:-}" ]]; then
-    if [[ ! -d "$SAMBA_ATLAS_DIR_HOST" ]]; then
-      echo "ERROR: SAMBA_ATLAS_DIR_HOST is set but not a directory: $SAMBA_ATLAS_DIR_HOST" >&2
-      return 1
+  if [[ -n "$atlas_name" ]]; then
+    # Try to locate a host atlas root containing the requested atlas.
+    local host_atlas_root=""
+    if host_atlas_root="$(_samba_find_host_atlas_root "$atlas_name" 2>/dev/null)"; then
+      # bind host atlas root into a fixed container mount
+      binds+=( --bind "$host_atlas_root:/opt/atlases_host" )
+      atlas_env+=( --env ATLAS_FOLDER=/opt/atlases_host )
+      echo "samba-pipe: using HOST atlas root: $host_atlas_root (bound to /opt/atlases_host)" >&2
+    else
+      # fall back: let container use its embedded default(s)
+      echo "samba-pipe: host atlas for '$atlas_name' not found; falling back to embedded atlas in image" >&2
     fi
-    binds+=( --bind "$SAMBA_ATLAS_DIR_HOST:/opt/atlases_override" )
-    atlas_env+=( --env SAMBA_ATLAS_DIR=/opt/atlases_override )
   fi
 
-  # -------- container-side root (must be /opt/samba) --------
+  # -------- container-side app root (must be /opt/samba) --------
   local SAMBA_APPS_IN_CONTAINER="/opt/samba"
 
   # stage HF into /tmp (host-side)
-  local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
+  local hf_tmp="/tmp/${USER_SAFE}_samba_$(date +%s)_$(basename "$hf")"
   cp "$hf" "$hf_tmp"
 
   # -------- pipeline prefix (used by scheduler wrappers inside pipeline) --------
-  # NOTE: use --cleanenv so host env can't leak /home/apps into SAMBA Perl
   local PIPELINE_CMD_PREFIX_A=(
     "$CONTAINER_CMD" exec --cleanenv
     --env SAMBA_APPS_DIR="$SAMBA_APPS_IN_CONTAINER"
     --env BIGGUS_DISKUS="$BIGGUS_DISKUS"
-    --env USER="$USER"
-    --env SAMBA_CACHE_DIR="$SAMBA_CACHE_DIR"
+    --env USER="$USER_SAFE"
     "${atlas_env[@]}"
     "${binds[@]}"
     "$SIF_PATH"
@@ -160,8 +200,7 @@ samba-pipe() {
     --env CONTAINER_CMD_PREFIX="$CONTAINER_CMD_PREFIX"
     --env SAMBA_APPS_DIR="$SAMBA_APPS_IN_CONTAINER"
     --env BIGGUS_DISKUS="$BIGGUS_DISKUS"
-    --env USER="$USER"
-    --env SAMBA_CACHE_DIR="$SAMBA_CACHE_DIR"
+    --env USER="$USER_SAFE"
     "${atlas_env[@]}"
     "${binds[@]}"
     "$SIF_PATH"
