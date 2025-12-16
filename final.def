@@ -181,7 +181,7 @@ EOF
     fi
     echo "[carton] done."
     
-	# =====================================================================
+    # =====================================================================
     # matlab_execs_for_SAMBA runtime repo + compatibility symlink
     # =====================================================================
     if [ ! -d /opt/samba/matlab_execs_for_SAMBA ]; then
@@ -191,43 +191,42 @@ EOF
     ln -sfn /opt/samba/matlab_execs_for_SAMBA /opt/matlab_execs
 
     # =====================================================================
-    # Patch MATLAB compiled-exec wrappers to force writable MCR cache / CTF
+    # MCR hygiene:
+    #   1) Remove pre-extracted *_mcr trees so MCR is forced to extract into
+    #      MCR_CACHE_ROOT / MCR_USER_CTF_ROOT (writable, per-process).
+    #   2) Patch all run_*.sh wrappers to export cache/ctf roots correctly.
     # =====================================================================
-    echo "[final] patching MATLAB exec wrappers for writable MCR cache..."
 
-    find /opt/samba/matlab_execs_for_SAMBA \
-        -name 'run_*.sh' \
-        -type f \
-        -print0 \
-    | xargs -0 -I{} sh -lc '
-        f="{}"
+    echo "[final] removing any pre-extracted MATLAB *_mcr directories (must not live under /opt)..."
+    find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -prune -print -exec rm -rf {} + || true
 
-        # Skip if already patched (idempotent)
-        grep -q "MCR_USER_CTF_ROOT" "$f" && exit 0
+    echo "[final] patching MATLAB run_*.sh wrappers to force writable CTF/cache..."
+    find /opt/samba/matlab_execs_for_SAMBA -type f -name 'run_*.sh' -print | while read -r WRAP; do
+        # only patch if we haven’t already
+        if ! grep -q "Force MATLAB Runtime cache/CTF extraction" "$WRAP"; then
+            tmpf="$(mktemp)"
+            {
+                echo '#!/bin/sh'
+                echo
+                echo '# ----- Force MATLAB Runtime cache/CTF extraction to writable space -----'
+                echo ': "${TMPDIR:=/tmp}"'
+                echo ': "${USER:=unknown}"'
+                echo ': "${HOME:=/tmp}"'
+                echo 'export MCR_CACHE_ROOT="${MCR_CACHE_ROOT:-${TMPDIR}/mcr_cache_${USER}_$$}"'
+                echo 'export MCR_USER_CTF_ROOT="${MCR_USER_CTF_ROOT:-${MCR_CACHE_ROOT}/ctf}"'
+                echo 'mkdir -p "${MCR_CACHE_ROOT}" "${MCR_USER_CTF_ROOT}" 2>/dev/null || true'
+                echo
+                # then the original script content (minus any existing shebang)
+                sed '1{/^#!\/bin\/sh/d;}' "$WRAP"
+            } > "$tmpf"
+            cat "$tmpf" > "$WRAP"
+            rm -f "$tmpf"
+            chmod a+rx "$WRAP"
+        fi
+    done
 
-        awk "
-            NR==1 { print; next }
-            NR==2 {
-                print \"\"
-                print \"# ----- Force MATLAB Runtime cache/CTF extraction to writable space -----\"
-                print \": \\\"\\\${TMPDIR:=/tmp}\\\"\"
-                print \": \\\"\\\${USER:=unknown}\\\"\"
-                print \": \\\"\\\${HOME:=/tmp}\\\"\"
-                print \"export MCR_CACHE_ROOT=\\\\\\\"\\\${MCR_CACHE_ROOT:-\\\${TMPDIR}/mcr_cache_\\\${USER}_\\\\\\$\\\\\\$}\\\\\\\"\"
-                print \"export MCR_USER_CTF_ROOT=\\\\\\\"\\\${MCR_USER_CTF_ROOT:-\\\${MCR_CACHE_ROOT}/ctf}\\\\\\\"\"
-                print \"mkdir -p \\\\\\\"\\\${MCR_CACHE_ROOT}\\\\\\\" \\\\\\\"\\\${MCR_USER_CTF_ROOT}\\\\\\\" 2>/dev/null || true\"
-                print \"\"
-                print \$0
-                next
-            }
-            { print }
-        " "$f" > "\${f}.tmp" && mv "\${f}.tmp" "$f"
-
-        chmod +x "$f"
-    '
-
-    echo "[final] MATLAB exec wrapper patching complete."
-
+    echo "[final] sanity: any *_mcr dirs left?"
+    find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -prune -print | head -n 20 || true
 
 
     # ==============================================================
