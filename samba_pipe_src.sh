@@ -108,8 +108,8 @@ export SIF_PATH
 
 # ---------- main entry ----------
 samba-pipe() {
-  # strict mode INSIDE function only (doesn't kill your login shell when sourced)
-  set -euo pipefail
+   set -u  # keep nounset if you like; safe
+   set +e  # ensure we never auto-exit on failures
 
   local hf="${1-}"
   [[ -n "$hf" ]] || { echo "Usage: samba-pipe headfile.hf" >&2; return 1; }
@@ -204,5 +204,11 @@ samba-pipe() {
   echo
 
   "${HOST_CMD_PREFIX_A[@]}" /opt/samba/SAMBA/vbm_pipeline_start.pl "$hf_tmp"
+  rc=$?
+  if [[ $rc -ne 0 ]]; then
+     echo "samba-pipe: SAMBA exited with status $rc (shell remains alive)" >&2
+  fi
+return $rc
+
 }
 export -f samba-pipe
