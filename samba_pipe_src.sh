@@ -1,123 +1,80 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh  (portable-ish launcher)
+# samba_pipe_src.sh — clean, portable SAMBA launcher
 #
 # Usage:
-#   source /path/to/samba_pipe_src.sh
-#   samba-pipe /path/to/startup.headfile
+#   source samba_pipe_src.sh
+#   samba-pipe path/to/startup.headfile
 #
 
-# NOTE:
-# This file is meant to be SOURCED. Therefore: do NOT set -euo pipefail at top-level.
-# We enable strict mode inside the samba-pipe() function only.
+# DO NOT use set -e here — failures must not kill login shells
+set -u
+set -o pipefail
 
-# ---------- runtime detection (host) ----------
+# ------------------------------------------------------------
+# Runtime discovery
+# ------------------------------------------------------------
 _samba_find_runtime() {
-  local ct=""
-  if [[ -n "${SAMBA_CONTAINER_RUNTIME-}" && -x "${SAMBA_CONTAINER_RUNTIME}" ]]; then
-    ct="${SAMBA_CONTAINER_RUNTIME}"
-  elif command -v apptainer >/dev/null 2>&1; then
-    ct="$(command -v apptainer)"
-  elif command -v singularity >/dev/null 2>&1; then
-    ct="$(command -v singularity)"
-  else
-    for cand in /usr/local/bin/apptainer /usr/bin/apptainer /usr/local/bin/singularity /usr/bin/singularity; do
-      if [[ -x "$cand" ]]; then ct="$cand"; break; fi
-    done
+  if [[ -n "${SAMBA_CONTAINER_RUNTIME:-}" && -x "${SAMBA_CONTAINER_RUNTIME}" ]]; then
+    echo "${SAMBA_CONTAINER_RUNTIME}"
+    return 0
   fi
-  [[ -n "$ct" ]] || { echo "ERROR: apptainer/singularity not found in PATH" >&2; return 1; }
-  echo "$ct"
-}
-
-# ---------- locate samba.sif (host) ----------
-_samba_find_sif() {
-  local sif=""
-  if [[ -n "${SAMBA_CONTAINER_PATH-}" && -f "$SAMBA_CONTAINER_PATH" ]]; then
-    sif="$SAMBA_CONTAINER_PATH"
-  elif [[ -n "${SINGULARITY_IMAGE_DIR-}" && -f "$SINGULARITY_IMAGE_DIR/samba.sif" ]]; then
-    sif="$SINGULARITY_IMAGE_DIR/samba.sif"
-  elif [[ -f "$HOME/containers/samba.sif" ]]; then
-    sif="$HOME/containers/samba.sif"
-  else
-    local root="${SAMBA_SEARCH_ROOT:-$HOME}"
-    sif="$(find "$root" -maxdepth 6 -type f -name 'samba.sif' 2>/dev/null | head -n 1 || true)"
+  if command -v apptainer >/dev/null 2>&1; then
+    command -v apptainer
+    return 0
   fi
-  [[ -n "$sif" && -f "$sif" ]] || {
-    echo "ERROR: Could not locate samba.sif on host." >&2
-    echo "Set SAMBA_CONTAINER_PATH or SINGULARITY_IMAGE_DIR or place at $HOME/containers/samba.sif" >&2
-    return 1
-  }
-  echo "$sif"
-}
-
-_samba_abs_path() {
-  local p="${1-}"
-  [[ -n "$p" ]] || return 1
-  if [[ "${p:0:1}" != "/" && "${p:0:2}" != "~/" ]]; then
-    echo "${PWD}/${p}"
-  else
-    echo "$p"
+  if command -v singularity >/dev/null 2>&1; then
+    command -v singularity
+    return 0
   fi
-}
-
-_samba_hf_get() {
-  local key="${1:?key required}" hf="${2:?headfile required}"
-  grep -E "^${key}[[:space:]]*=" "$hf" 2>/dev/null | head -n 1 | sed -E 's/^[^=]*=[[:space:]]*//'
-}
-
-_samba_find_host_atlas_root() {
-  # Given atlas name (e.g., IITmean_RPI), find a host atlas root that contains:
-  #   <root>/<atlas>/<atlas>_fa.nii or .nii.gz
-  local atlas="${1:?atlas name required}"
-
-  local roots=()
-  if [[ -n "${ATLAS_FOLDER:-}" ]]; then roots+=( "$ATLAS_FOLDER" ); fi
-  if [[ -n "${SAMBA_ATLAS_SEARCH_ROOTS:-}" ]]; then
-    IFS=':' read -r -a _more <<< "${SAMBA_ATLAS_SEARCH_ROOTS}"
-    roots+=( "${_more[@]}" )
-  fi
-  roots+=( "$HOME/atlases" "$HOME/Atlases" "$HOME/atlas" "$HOME/Atlas" )
-
-  local r=""
-  for r in "${roots[@]}"; do
-    [[ -n "$r" && -d "$r" ]] || continue
-    if [[ -f "$r/$atlas/${atlas}_fa.nii.gz" || -f "$r/$atlas/${atlas}_fa.nii" ]]; then
-      echo "$r"
-      return 0
-    fi
+  for c in /usr/local/bin/apptainer /usr/bin/apptainer /usr/local/bin/singularity /usr/bin/singularity; do
+    [[ -x "$c" ]] && { echo "$c"; return 0; }
   done
-
-  if [[ -n "${SAMBA_ATLAS_FIND_ROOT:-}" && -d "${SAMBA_ATLAS_FIND_ROOT}" ]]; then
-    local hit
-    hit="$(find "${SAMBA_ATLAS_FIND_ROOT}" -maxdepth 6 -type f \( -name "${atlas}_fa.nii" -o -name "${atlas}_fa.nii.gz" \) 2>/dev/null | head -n 1 || true)"
-    if [[ -n "$hit" ]]; then
-      echo "$(dirname "$(dirname "$hit")")"
-      return 0
-    fi
-  fi
-
+  echo "ERROR: apptainer/singularity not found" >&2
   return 1
 }
 
-# ---------- initialize host-global vars (safe when sourced) ----------
-CONTAINER_CMD="$(_samba_find_runtime)"
+CONTAINER_CMD="$(_samba_find_runtime)" || return 1
 export CONTAINER_CMD
 
+# ------------------------------------------------------------
+# Locate samba.sif
+# ------------------------------------------------------------
+_samba_find_sif() {
+  if [[ -n "${SAMBA_CONTAINER_PATH:-}" && -f "$SAMBA_CONTAINER_PATH" ]]; then
+    echo "$SAMBA_CONTAINER_PATH"
+    return
+  fi
+  if [[ -n "${SINGULARITY_IMAGE_DIR:-}" && -f "$SINGULARITY_IMAGE_DIR/samba.sif" ]]; then
+    echo "$SINGULARITY_IMAGE_DIR/samba.sif"
+    return
+  fi
+  if [[ -f "$HOME/containers/samba.sif" ]]; then
+    echo "$HOME/containers/samba.sif"
+    return
+  fi
+  local root="${SAMBA_SEARCH_ROOT:-$HOME}"
+  find "$root" -maxdepth 6 -type f -name samba.sif 2>/dev/null | head -n 1
+}
+
 SIF_PATH="$(_samba_find_sif)"
+[[ -f "$SIF_PATH" ]] || { echo "ERROR: samba.sif not found" >&2; return 1; }
 export SIF_PATH
 
-# ---------- main entry ----------
+# ------------------------------------------------------------
+# Main entry
+# ------------------------------------------------------------
 samba-pipe() {
-   set -u  # keep nounset if you like; safe
-   set +e  # ensure we never auto-exit on failures
-
-  local hf="${1-}"
+  local hf="${1:-}"
   [[ -n "$hf" ]] || { echo "Usage: samba-pipe headfile.hf" >&2; return 1; }
 
-  hf="$(_samba_abs_path "$hf")"
+  # Absolute headfile
+  [[ "$hf" = /* || "$hf" = ~/* ]] || hf="$PWD/$hf"
   [[ -f "$hf" ]] || { echo "ERROR: headfile not found: $hf" >&2; return 1; }
 
-  # -------- BIGGUS_DISKUS selection --------
+  # --------------------------------------------------------
+  # Resolve BIGGUS_DISKUS (CRITICAL)
+  # --------------------------------------------------------
   if [[ -z "${BIGGUS_DISKUS:-}" ]]; then
     if [[ -d "${SCRATCH:-}" ]]; then
       BIGGUS_DISKUS="$SCRATCH"
@@ -127,88 +84,101 @@ samba-pipe() {
       BIGGUS_DISKUS="$HOME/samba_scratch"
       mkdir -p "$BIGGUS_DISKUS"
     fi
-    export BIGGUS_DISKUS
   fi
+
   [[ -d "$BIGGUS_DISKUS" && -w "$BIGGUS_DISKUS" ]] || {
-    echo "ERROR: BIGGUS_DISKUS ('$BIGGUS_DISKUS') is not writable or does not exist." >&2
+    echo "ERROR: BIGGUS_DISKUS not writable: $BIGGUS_DISKUS" >&2
     return 1
   }
+  export BIGGUS_DISKUS
 
-  local USER_SAFE="${USER:-$(id -un 2>/dev/null || echo unknown)}"
+  # --------------------------------------------------------
+  # Core container paths
+  # --------------------------------------------------------
+  local SAMBA_APPS_IN_CONTAINER="/opt/samba"
 
-  # -------- binds --------
+  # --------------------------------------------------------
+  # HOME handling (FIXES MCR)
+  # --------------------------------------------------------
+  local host_home="${HOME:-/home/$(id -un)}"
+  [[ -d "$host_home" ]] || { echo "ERROR: HOME not found: $host_home" >&2; return 1; }
+
+  # --------------------------------------------------------
+  # Atlas resolution (host-first)
+  # --------------------------------------------------------
+  local atlas_env=()
+  local binds=()
+
+  if [[ -n "${SAMBA_ATLAS_DIR_HOST:-}" ]]; then
+    [[ -d "$SAMBA_ATLAS_DIR_HOST" ]] || {
+      echo "ERROR: SAMBA_ATLAS_DIR_HOST not a directory: $SAMBA_ATLAS_DIR_HOST" >&2
+      return 1
+    }
+    binds+=( --bind "$SAMBA_ATLAS_DIR_HOST:/opt/atlases_override" )
+    atlas_env+=( --env SAMBA_ATLAS_DIR=/opt/atlases_override )
+  fi
+
+  # --------------------------------------------------------
+  # Binds
+  # --------------------------------------------------------
   local hf_dir
   hf_dir="$(dirname "$hf")"
 
-  local binds=()
-  binds+=( --bind "$hf_dir:$hf_dir" )
-  binds+=( --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS" )
+  binds+=(
+    --bind "$hf_dir:$hf_dir"
+    --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
+    --bind "$host_home:$host_home"
+  )
 
-  local opt_ext=""
-  opt_ext="$(_samba_hf_get "optional_external_inputs_dir" "$hf" || true)"
+  # Optional external inputs
+  local opt_ext
+  opt_ext="$(grep -E '^optional_external_inputs_dir\s*=' "$hf" 2>/dev/null | sed 's/.*= *//')"
   if [[ -n "$opt_ext" && -d "$opt_ext" ]]; then
     binds+=( --bind "$opt_ext:$opt_ext" )
   fi
 
-  # -------- atlas intent from headfile --------
-  local rigid_atlas label_atlas atlas_name
-  rigid_atlas="$(_samba_hf_get "rigid_atlas_name" "$hf" || true)"
-  label_atlas="$(_samba_hf_get "label_atlas_name" "$hf" || true)"
-  atlas_name="${label_atlas:-$rigid_atlas}"
-
-  local atlas_env=()
-  if [[ -n "$atlas_name" ]]; then
-    local host_atlas_root=""
-    if host_atlas_root="$(_samba_find_host_atlas_root "$atlas_name" 2>/dev/null)"; then
-      binds+=( --bind "$host_atlas_root:/opt/atlases_host" )
-      atlas_env+=( --env ATLAS_FOLDER=/opt/atlases_host )
-      echo "samba-pipe: using HOST atlas root: $host_atlas_root (bound to /opt/atlases_host)" >&2
-    else
-      echo "samba-pipe: host atlas for '$atlas_name' not found; falling back to embedded atlas in image" >&2
-    fi
-  fi
-
-  # -------- container-side app root (must be /opt/samba) --------
-  local SAMBA_APPS_IN_CONTAINER="/opt/samba"
-
-  # stage HF into /tmp (host-side)
-  local hf_tmp="/tmp/${USER_SAFE}_samba_$(date +%s)_$(basename "$hf")"
+  # --------------------------------------------------------
+  # Stage headfile
+  # --------------------------------------------------------
+  local hf_tmp="/tmp/${USER}_samba_$(date +%s)_$(basename "$hf")"
   cp "$hf" "$hf_tmp"
 
-  # -------- pipeline prefix --------
-  local PIPELINE_CMD_PREFIX_A=(
-    "$CONTAINER_CMD" exec --cleanenv
+  # --------------------------------------------------------
+  # Container command prefixes
+  # --------------------------------------------------------
+  local BASE_ENV=(
     --env SAMBA_APPS_DIR="$SAMBA_APPS_IN_CONTAINER"
     --env BIGGUS_DISKUS="$BIGGUS_DISKUS"
-    --env USER="$USER_SAFE"
-    "${atlas_env[@]}"
-    "${binds[@]}"
-    "$SIF_PATH"
+    --env HOME="$host_home"
+    --env USER="${USER:-$(id -un)}"
+    --env TMPDIR="/tmp"
   )
-  export CONTAINER_CMD_PREFIX="${PIPELINE_CMD_PREFIX_A[*]}"
 
-  # -------- host-side launch --------
-  local HOST_CMD_PREFIX_A=(
+  CONTAINER_CMD_PREFIX="$CONTAINER_CMD exec --cleanenv ${BASE_ENV[*]} ${atlas_env[*]} ${binds[*]} $SIF_PATH"
+  export CONTAINER_CMD_PREFIX
+
+  local HOST_CMD=(
     "$CONTAINER_CMD" exec --cleanenv
+    "${BASE_ENV[@]}"
     --env CONTAINER_CMD_PREFIX="$CONTAINER_CMD_PREFIX"
-    --env SAMBA_APPS_DIR="$SAMBA_APPS_IN_CONTAINER"
-    --env BIGGUS_DISKUS="$BIGGUS_DISKUS"
-    --env USER="$USER_SAFE"
     "${atlas_env[@]}"
     "${binds[@]}"
     "$SIF_PATH"
+    /opt/samba/SAMBA/vbm_pipeline_start.pl
+    "$hf_tmp"
   )
 
   echo "samba-pipe: launching:"
-  printf '  %q ' "${HOST_CMD_PREFIX_A[@]}" "/opt/samba/SAMBA/vbm_pipeline_start.pl" "$hf_tmp"
+  printf '  %q ' "${HOST_CMD[@]}"
   echo
 
-  "${HOST_CMD_PREFIX_A[@]}" /opt/samba/SAMBA/vbm_pipeline_start.pl "$hf_tmp"
-  rc=$?
-  if [[ $rc -ne 0 ]]; then
-     echo "samba-pipe: SAMBA exited with status $rc (shell remains alive)" >&2
-  fi
-return $rc
+  "${HOST_CMD[@]}"
+  local rc=$?
 
+  if [[ $rc -ne 0 ]]; then
+    echo "samba-pipe: SAMBA exited with status $rc (shell remains alive)" >&2
+  fi
+  return $rc
 }
+
 export -f samba-pipe
