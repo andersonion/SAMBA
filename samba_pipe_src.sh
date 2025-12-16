@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh — clean, portable SAMBA launcher
+# samba_pipe_src.sh — clean, portable SAMBA launcher (host-first atlas)
 #
 # Usage:
 #   source samba_pipe_src.sh
@@ -62,6 +62,74 @@ SIF_PATH="$(_samba_find_sif)"
 export SIF_PATH
 
 # ------------------------------------------------------------
+# Headfile helper: read key=value
+# ------------------------------------------------------------
+_hf_get() {
+  local hf="$1" key="$2"
+  # strip comments/whitespace, return first match
+  grep -E "^[[:space:]]*${key}[[:space:]]*=" "$hf" 2>/dev/null \
+    | head -n 1 \
+    | sed -E "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*//" \
+    | sed -E "s/[[:space:]]*$//"
+}
+
+# ------------------------------------------------------------
+# Atlas discovery (host-first, no hardcoded site paths)
+#
+# Search order:
+#   1) ATLAS_FOLDER_HOST (explicit override)
+#   2) ATLAS_FOLDER (if set on host)
+#   3) SAMBA_ATLAS_SEARCH_ROOTS (colon-separated roots)
+#   4) fallback roots: hf_dir, $HOME, $BIGGUS_DISKUS
+#
+# We consider a hit if we can find:
+#   <root>/<atlas>/<atlas>_fa.nii or .nii.gz
+# (because your failure is specifically about *_fa)
+# ------------------------------------------------------------
+_find_atlas_root_for() {
+  local atlas="$1" hf_dir="$2" biggus="$3"
+  local roots=()
+
+  if [[ -n "${ATLAS_FOLDER_HOST:-}" ]]; then
+    roots+=( "$ATLAS_FOLDER_HOST" )
+  fi
+  if [[ -n "${ATLAS_FOLDER:-}" ]]; then
+    roots+=( "$ATLAS_FOLDER" )
+  fi
+
+  if [[ -n "${SAMBA_ATLAS_SEARCH_ROOTS:-}" ]]; then
+    IFS=':' read -r -a _extra <<< "${SAMBA_ATLAS_SEARCH_ROOTS}"
+    roots+=( "${_extra[@]}" )
+  fi
+
+  roots+=( "$hf_dir" "$HOME" "$biggus" )
+
+  local r cand_dir
+  for r in "${roots[@]}"; do
+    [[ -n "$r" && -d "$r" ]] || continue
+
+    # Most common layout: root/ATLASNAME/ATLASNAME_fa.nii(.gz)
+    cand_dir="${r%/}/${atlas}"
+    if [[ -d "$cand_dir" ]]; then
+      if ls "${cand_dir}/${atlas}_fa.nii"* >/dev/null 2>&1; then
+        echo "${r%/}"
+        return 0
+      fi
+    fi
+
+    # Alternate: r itself is the atlas dir (…/IITmean_RPI/…)
+    if [[ "$(basename "$r")" == "$atlas" ]]; then
+      if ls "${r%/}/${atlas}_fa.nii"* >/dev/null 2>&1; then
+        echo "$(dirname "${r%/}")"
+        return 0
+      fi
+    fi
+  done
+
+  return 1
+}
+
+# ------------------------------------------------------------
 # Main entry
 # ------------------------------------------------------------
 samba-pipe() {
@@ -98,32 +166,18 @@ samba-pipe() {
   local SAMBA_APPS_IN_CONTAINER="/opt/samba"
 
   # --------------------------------------------------------
-  # HOME handling (FIXES MCR)
+  # HOME handling (helps MCR + consistency)
   # --------------------------------------------------------
   local host_home="${HOME:-/home/$(id -un)}"
   [[ -d "$host_home" ]] || { echo "ERROR: HOME not found: $host_home" >&2; return 1; }
 
   # --------------------------------------------------------
-  # Atlas resolution (host-first)
-  # --------------------------------------------------------
-  local atlas_env=()
-  local binds=()
-
-  if [[ -n "${SAMBA_ATLAS_DIR_HOST:-}" ]]; then
-    [[ -d "$SAMBA_ATLAS_DIR_HOST" ]] || {
-      echo "ERROR: SAMBA_ATLAS_DIR_HOST not a directory: $SAMBA_ATLAS_DIR_HOST" >&2
-      return 1
-    }
-    binds+=( --bind "$SAMBA_ATLAS_DIR_HOST:/opt/atlases_override" )
-    atlas_env+=( --env SAMBA_ATLAS_DIR=/opt/atlases_override )
-  fi
-
-  # --------------------------------------------------------
-  # Binds
+  # Binds baseline
   # --------------------------------------------------------
   local hf_dir
   hf_dir="$(dirname "$hf")"
 
+  local binds=()
   binds+=(
     --bind "$hf_dir:$hf_dir"
     --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
@@ -132,9 +186,40 @@ samba-pipe() {
 
   # Optional external inputs
   local opt_ext
-  opt_ext="$(grep -E '^optional_external_inputs_dir\s*=' "$hf" 2>/dev/null | sed 's/.*= *//')"
+  opt_ext="$(_hf_get "$hf" "optional_external_inputs_dir" || true)"
   if [[ -n "$opt_ext" && -d "$opt_ext" ]]; then
     binds+=( --bind "$opt_ext:$opt_ext" )
+  fi
+
+  # --------------------------------------------------------
+  # Atlas intent from headfile
+  # --------------------------------------------------------
+  local label_atlas rigid_atlas
+  label_atlas="$(_hf_get "$hf" "label_atlas_name" || true)"
+  rigid_atlas="$(_hf_get "$hf" "rigid_atlas_name" || true)"
+
+  # Choose an atlas name to validate with (prefer label atlas)
+  local atlas_name=""
+  if [[ -n "$label_atlas" ]]; then
+    atlas_name="$label_atlas"
+  elif [[ -n "$rigid_atlas" ]]; then
+    atlas_name="$rigid_atlas"
+  fi
+
+  local atlas_env=()
+  if [[ -n "$atlas_name" ]]; then
+    local host_atlas_root=""
+    if host_atlas_root="$(_find_atlas_root_for "$atlas_name" "$hf_dir" "$BIGGUS_DISKUS" 2>/dev/null)"; then
+      echo "samba-pipe: using HOST atlas root: $host_atlas_root (for atlas $atlas_name)" >&2
+      binds+=( --bind "$host_atlas_root:/atlas_host" )
+      atlas_env+=( --env ATLAS_FOLDER=/atlas_host )
+    else
+      echo "samba-pipe: WARNING: could not find host atlas '$atlas_name'; falling back to container /opt/atlases" >&2
+      atlas_env+=( --env ATLAS_FOLDER=/opt/atlases )
+    fi
+  else
+    # If no atlas name in headfile, still provide a sane default
+    atlas_env+=( --env ATLAS_FOLDER=/opt/atlases )
   fi
 
   # --------------------------------------------------------
@@ -144,7 +229,7 @@ samba-pipe() {
   cp "$hf" "$hf_tmp"
 
   # --------------------------------------------------------
-  # Container command prefixes
+  # Container env we explicitly pass (because --cleanenv)
   # --------------------------------------------------------
   local BASE_ENV=(
     --env SAMBA_APPS_DIR="$SAMBA_APPS_IN_CONTAINER"
@@ -154,9 +239,13 @@ samba-pipe() {
     --env TMPDIR="/tmp"
   )
 
+  # This is used by scheduler wrappers inside SAMBA
   CONTAINER_CMD_PREFIX="$CONTAINER_CMD exec --cleanenv ${BASE_ENV[*]} ${atlas_env[*]} ${binds[*]} $SIF_PATH"
   export CONTAINER_CMD_PREFIX
 
+  # --------------------------------------------------------
+  # Launch
+  # --------------------------------------------------------
   local HOST_CMD=(
     "$CONTAINER_CMD" exec --cleanenv
     "${BASE_ENV[@]}"
