@@ -39,11 +39,13 @@ EOF
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
     apt-get install -y --no-install-recommends \
-        curl ca-certificates unzip xz-utils \
-        python3 jq \
-        patchelf file rsync \
-        libgfortran5 libquadmath0 libstdc++6 libgcc-s1 \
-        procps
+       curl ca-certificates unzip xz-utils \
+       python3 jq \
+       patchelf file rsync \
+       libgfortran5 libquadmath0 libstdc++6 libgcc-s1 \
+       procps \
+    libxext6 libx11-6 libxrender1 libxt6 libice6 libsm6 libuuid1
+
     apt-get clean
     rm -rf /var/lib/apt/lists/*
 
