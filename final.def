@@ -191,18 +191,51 @@ EOF
     ln -sfn /opt/samba/matlab_execs_for_SAMBA /opt/matlab_execs
 
     # =====================================================================
-    # MCR hygiene:
-    #   1) Remove pre-extracted *_mcr trees so MCR is forced to extract into
-    #      MCR_CACHE_ROOT / MCR_USER_CTF_ROOT (writable, per-process).
-    #   2) Patch all run_*.sh wrappers to export cache/ctf roots correctly.
+    # MCR CTF extraction fix for read-only SIF:
+    #   MATLAB-compiled binaries often try to extract CTF into a sibling
+    #   directory named <binary>_mcr next to the executable.
+    #   In a SIF, /opt is read-only at runtime => extraction fails.
+    #
+    #   Solution:
+    #     - Create symlinks named <binary>_mcr next to each binary,
+    #       pointing to a writable location under /tmp.
+    #     - Also patch run_*.sh wrappers to:
+    #         * ensure /tmp target exists
+    #         * set MCR_INHIBIT_CTF_LOCK=1
+    #         * set MCR_CACHE_ROOT to writable space
     # =====================================================================
 
-    echo "[final] removing any pre-extracted MATLAB *_mcr directories (must not live under /opt)..."
-    find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -prune -print -exec rm -rf {} + || true
+    echo "[final] creating /tmp-backed *_mcr symlinks for MATLAB execs..."
+    mkdir -p /tmp/mcr_ctf || true
+    chmod 1777 /tmp || true
 
-    echo "[final] patching MATLAB run_*.sh wrappers to force writable CTF/cache..."
+    # Create symlink sidecars: <exe_dir>/<binary>_mcr -> /tmp/mcr_ctf/<binary>_mcr
+    find /opt/samba/matlab_execs_for_SAMBA -type f -perm -111 -maxdepth 6 -print | while read -r BIN; do
+        base="$(basename "$BIN")"
+
+        # skip obvious shell wrappers
+        case "$base" in
+            run_*.sh) continue ;;
+            *.sh) continue ;;
+        esac
+
+        exe_dir="$(dirname "$BIN")"
+        mcr_sidecar="${exe_dir}/${base}_mcr"
+        tgt="/tmp/mcr_ctf/${base}_mcr"
+
+        # Ensure target exists (runtime extraction will populate inside)
+        mkdir -p "$tgt" 2>/dev/null || true
+
+        # Replace existing dir/link with symlink to /tmp
+        if [ -e "$mcr_sidecar" ] || [ -L "$mcr_sidecar" ]; then
+            rm -rf "$mcr_sidecar" 2>/dev/null || true
+        fi
+        ln -sfn "$tgt" "$mcr_sidecar" 2>/dev/null || true
+    done
+
+    echo "[final] patching MATLAB run_*.sh wrappers (cache + lock settings)..."
     find /opt/samba/matlab_execs_for_SAMBA -type f -name 'run_*.sh' -print | while read -r WRAP; do
-        # only patch if we haven’t already
+        # Only patch if we haven’t already
         if ! grep -q "Force MATLAB Runtime cache/CTF extraction" "$WRAP"; then
             tmpf="$(mktemp)"
             {
@@ -212,9 +245,10 @@ EOF
                 echo ': "${TMPDIR:=/tmp}"'
                 echo ': "${USER:=unknown}"'
                 echo ': "${HOME:=/tmp}"'
+                echo 'export MCR_INHIBIT_CTF_LOCK="${MCR_INHIBIT_CTF_LOCK:-1}"'
                 echo 'export MCR_CACHE_ROOT="${MCR_CACHE_ROOT:-${TMPDIR}/mcr_cache_${USER}_$$}"'
-                echo 'export MCR_USER_CTF_ROOT="${MCR_USER_CTF_ROOT:-${MCR_CACHE_ROOT}/ctf}"'
-                echo 'mkdir -p "${MCR_CACHE_ROOT}" "${MCR_USER_CTF_ROOT}" 2>/dev/null || true'
+                echo 'mkdir -p "${MCR_CACHE_ROOT}" 2>/dev/null || true'
+                echo 'mkdir -p "${TMPDIR}/mcr_ctf" 2>/dev/null || true'
                 echo
                 # then the original script content (minus any existing shebang)
                 sed '1{/^#!\/bin\/sh/d;}' "$WRAP"
@@ -225,8 +259,8 @@ EOF
         fi
     done
 
-    echo "[final] sanity: any *_mcr dirs left?"
-    find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -prune -print | head -n 20 || true
+    echo "[final] sanity: show a couple *_mcr links:"
+    find /opt/samba/matlab_execs_for_SAMBA -type l -name '*_mcr' -print | head -n 10 || true
 
 
     # ==============================================================
