@@ -181,7 +181,7 @@ EOF
     fi
     echo "[carton] done."
     
-    # =====================================================================
+	# =====================================================================
     # matlab_execs_for_SAMBA runtime repo + compatibility symlink
     # =====================================================================
     if [ ! -d /opt/samba/matlab_execs_for_SAMBA ]; then
@@ -189,6 +189,46 @@ EOF
     fi
     chmod -R a+rX /opt/samba/matlab_execs_for_SAMBA
     ln -sfn /opt/samba/matlab_execs_for_SAMBA /opt/matlab_execs
+
+    # =====================================================================
+    # Patch MATLAB compiled-exec wrappers to force writable MCR cache / CTF
+    # =====================================================================
+    echo "[final] patching MATLAB exec wrappers for writable MCR cache..."
+
+    find /opt/samba/matlab_execs_for_SAMBA \
+        -name 'run_*.sh' \
+        -type f \
+        -print0 \
+    | xargs -0 -I{} sh -lc '
+        f="{}"
+
+        # Skip if already patched (idempotent)
+        grep -q "MCR_USER_CTF_ROOT" "$f" && exit 0
+
+        awk "
+            NR==1 { print; next }
+            NR==2 {
+                print \"\"
+                print \"# ----- Force MATLAB Runtime cache/CTF extraction to writable space -----\"
+                print \": \\\"\\\${TMPDIR:=/tmp}\\\"\"
+                print \": \\\"\\\${USER:=unknown}\\\"\"
+                print \": \\\"\\\${HOME:=/tmp}\\\"\"
+                print \"export MCR_CACHE_ROOT=\\\\\\\"\\\${MCR_CACHE_ROOT:-\\\${TMPDIR}/mcr_cache_\\\${USER}_\\\\\\$\\\\\\$}\\\\\\\"\"
+                print \"export MCR_USER_CTF_ROOT=\\\\\\\"\\\${MCR_USER_CTF_ROOT:-\\\${MCR_CACHE_ROOT}/ctf}\\\\\\\"\"
+                print \"mkdir -p \\\\\\\"\\\${MCR_CACHE_ROOT}\\\\\\\" \\\\\\\"\\\${MCR_USER_CTF_ROOT}\\\\\\\" 2>/dev/null || true\"
+                print \"\"
+                print \$0
+                next
+            }
+            { print }
+        " "$f" > "\${f}.tmp" && mv "\${f}.tmp" "$f"
+
+        chmod +x "$f"
+    '
+
+    echo "[final] MATLAB exec wrapper patching complete."
+
+
 
     # ==============================================================
     # Embed Atlas from Zenodo (FINAL stage, FATAL if missing)
