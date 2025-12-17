@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh — clean, portable SAMBA launcher (host-first atlas + MCR fix)
+# samba_pipe_src.sh — clean, portable SAMBA launcher
+#   - --cleanenv safe
+#   - BIGGUS_DISKUS resolved + passed
+#   - host-first atlas discovery + bind
+#   - HOME bind by default
+#   - MCR CTF extraction fixed by bind-mounting a fresh per-run *_mcr dir
+#   - passes NOTIFICATION_EMAIL if set
 #
 # Usage:
 #   source samba_pipe_src.sh
@@ -117,6 +123,36 @@ _find_atlas_root_for() {
 }
 
 # ------------------------------------------------------------
+# MCR: bind a fresh writable host dir onto a fixed in-container *_mcr path
+# (No manual setup: this creates/cleans the host directory itself.)
+# ------------------------------------------------------------
+_add_mcr_ctf_bind_for_tool() {
+  local binds_name="$1"   # name of array variable, e.g. "binds"
+  local biggus="$2"
+  local host_user="$3"
+  local tool_basename="$4"    # e.g. create_centered_mass_from_image_array
+  local in_container_mcr_path="$5"  # full /opt/.../<tool>_mcr
+
+  # per-run unique host dir
+  local run_tag
+  run_tag="$(date +%s)_$$"
+
+  local host_root="${biggus}/.mcr_ctf_${host_user}"
+  local host_dir="${host_root}/${tool_basename}_mcr_${run_tag}"
+
+  # Ensure exists and is EMPTY (avoids "out-of-date CTF archive" issues)
+  rm -rf "${host_dir}" 2>/dev/null || true
+  mkdir -p "${host_dir}" || {
+    echo "ERROR: cannot create MCR CTF host dir: ${host_dir}" >&2
+    return 1
+  }
+
+  # Bind that fresh dir onto the in-container *_mcr path
+  eval "${binds_name}+=( --bind \"${host_dir}:${in_container_mcr_path}\" )"
+  return 0
+}
+
+# ------------------------------------------------------------
 # Main entry
 # ------------------------------------------------------------
 samba-pipe() {
@@ -152,7 +188,7 @@ samba-pipe() {
   local SAMBA_APPS_IN_CONTAINER="/opt/samba"
 
   # --------------------------------------------------------
-  # HOME handling (helps MCR + consistency)
+  # Host identity
   # --------------------------------------------------------
   local host_user="${USER:-$(id -un)}"
   local host_home="${HOME:-/home/${host_user}}"
@@ -208,20 +244,12 @@ samba-pipe() {
   fi
 
   # --------------------------------------------------------
-  # MCR CTF extraction fix (bind writable dir onto the exact *_mcr path)
-  #
-  # This executable *insists* on extracting to:
-  #   /opt/samba/matlab_execs_for_SAMBA/create_centered_mass_from_image_array_executable/create_centered_mass_from_image_array_mcr
-  # so we mount a writable host dir right there.
+  # MCR CTF extraction: bind a fresh per-run dir onto the exact *_mcr path
   # --------------------------------------------------------
-  local mcr_host_root="${BIGGUS_DISKUS}/.mcr_ctf_${host_user}"
-  mkdir -p "${mcr_host_root}"
+  local mcr_tool="create_centered_mass_from_image_array"
+  local mcr_in_container="/opt/samba/matlab_execs_for_SAMBA/create_centered_mass_from_image_array_executable/${mcr_tool}_mcr"
 
-  local mcr_exe_mcr_host="${mcr_host_root}/create_centered_mass_from_image_array_mcr"
-  mkdir -p "${mcr_exe_mcr_host}"
-
-  local mcr_exe_mcr_in_container="/opt/samba/matlab_execs_for_SAMBA/create_centered_mass_from_image_array_executable/create_centered_mass_from_image_array_mcr"
-  binds+=( --bind "${mcr_exe_mcr_host}:${mcr_exe_mcr_in_container}" )
+  _add_mcr_ctf_bind_for_tool "binds" "$BIGGUS_DISKUS" "$host_user" "$mcr_tool" "$mcr_in_container" || return 1
 
   # --------------------------------------------------------
   # Stage headfile
@@ -241,7 +269,6 @@ samba-pipe() {
     --env MCR_INHIBIT_CTF_LOCK=1
   )
 
-  # Pass NOTIFICATION_EMAIL if set on host
   if [[ -n "${NOTIFICATION_EMAIL:-}" ]]; then
     BASE_ENV+=( --env NOTIFICATION_EMAIL="${NOTIFICATION_EMAIL}" )
   fi
