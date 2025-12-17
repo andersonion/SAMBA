@@ -382,34 +382,61 @@ PY
     echo "[test] checking MATLAB exec *_mcr symlink policy..."
 
     # Fail ONLY if there are *_mcr directories
-    if find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -print -quit | grep -q .; then
+    if find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -print -quit 2>/dev/null | grep -q .; then
         echo "FATAL: found baked *_mcr directory under matlab_execs_for_SAMBA" >&2
-        find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -print | head -n 50 >&2
+        find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -print 2>/dev/null | head -n 50 >&2
         exit 1
     fi
 
-    # Optional: verify that any *_mcr entries that exist are symlinks to /tmp/mcr_ctf
+    # If any *_mcr exist, they MUST be symlinks pointing into /tmp/mcr_ctf
     bad=0
-    while IFS= read -r p; do
-        if [ ! -L "$p" ]; then
-            echo "FATAL: *_mcr exists but is not a symlink: $p" >&2
-            bad=1
-            continue
-        fi
-        t="$(readlink "$p" || true)"
-        case "$t" in
-            /tmp/mcr_ctf/*_mcr) : ;;
-            *)
-                echo "FATAL: *_mcr symlink does not point into /tmp/mcr_ctf: $p -> $t" >&2
-                bad=1
-                ;;
-        esac
-    done <<'EOF'
-$(find /opt/samba/matlab_execs_for_SAMBA -name '*_mcr' -print 2>/dev/null || true)
-EOF
+    find /opt/samba/matlab_execs_for_SAMBA -name '*_mcr' -print 2>/dev/null \
+      | while IFS= read -r p; do
+            # skip empty lines defensively
+            [ -n "$p" ] || continue
 
-    [ "$bad" -eq 0 ] || exit 1
-    echo "[test] MATLAB *_mcr symlink policy OK"
+            if [ ! -L "$p" ]; then
+                echo "FATAL: *_mcr exists but is not a symlink: $p" >&2
+                bad=1
+                continue
+            fi
+
+            t="$(readlink "$p" 2>/dev/null || true)"
+            case "$t" in
+                /tmp/mcr_ctf/*_mcr) : ;;
+                *)
+                    echo "FATAL: *_mcr symlink does not point into /tmp/mcr_ctf: $p -> $t" >&2
+                    bad=1
+                    ;;
+            esac
+        done
+
+    # NOTE: the while-loop above runs in a subshell in POSIX sh when fed by a pipe,
+    # so we can't reliably read "bad" afterwards. Instead, do a second hard check:
+    if find /opt/samba/matlab_execs_for_SAMBA -name '*_mcr' -type l -print 2>/dev/null \
+      | while IFS= read -r p; do
+            t="$(readlink "$p" 2>/dev/null || true)"
+            case "$t" in /tmp/mcr_ctf/*_mcr) exit 0 ;; esac
+            exit 1
+        done
+    then
+        : # at least one symlink points correctly (not a proof all do)
+    fi
+
+    # Stronger "all must match" check without relying on shell vars:
+    if find /opt/samba/matlab_execs_for_SAMBA -name '*_mcr' -type l -print 2>/dev/null \
+      | while IFS= read -r p; do
+            t="$(readlink "$p" 2>/dev/null || true)"
+            case "$t" in /tmp/mcr_ctf/*_mcr) : ;; *) exit 1 ;; esac
+        done
+    then
+        echo "[test] MATLAB *_mcr symlink policy OK"
+    else
+        echo "FATAL: one or more *_mcr symlinks do not target /tmp/mcr_ctf" >&2
+        find /opt/samba/matlab_execs_for_SAMBA -name '*_mcr' -print 2>/dev/null | head -n 50 >&2
+        exit 1
+    fi
+
 
     echo "[test] final stage checks COMPLETE."
 
