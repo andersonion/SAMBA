@@ -209,55 +209,49 @@ EOF
     ln -sfn "${MATLAB_EXEC_ROOT}" /opt/matlab_execs
 
     # --------------------------------------------------------------
-    # MATLAB deployed execs: force *_mcr extraction to writable space
-    # (POSIX /bin/sh safe — no bashisms)
+    # MATLAB deployed execs: force CTF/cache extraction to writable space
+    #   - DO NOT pre-create *_mcr dirs or symlinks (causes collisions)
+    #   - Instead, set MCR_CACHE_ROOT per run via wrapper patch
     # --------------------------------------------------------------
-    echo "[final] creating /tmp-backed *_mcr symlinks for MATLAB execs..."
-    mkdir -p /tmp/mcr_ctf
+    echo "[final] patching deployed MATLAB wrappers to force writable MCR cache..."
     chmod 1777 /tmp || true
-    chmod 1777 /tmp/mcr_ctf || true
 
-    echo "[final] removing any baked *_mcr directories under matlab_execs_for_SAMBA..."
+    # Remove any baked *_mcr directories that may have been committed or created during build
     find "${MATLAB_EXEC_ROOT}" -type d -name '*_mcr' -prune -exec rm -rf '{}' ';' 2>/dev/null || true
 
-    echo "[final] creating /tmp-backed *_mcr symlinks next to each deployed binary..."
-    find "${MATLAB_EXEC_ROOT}" -type f -perm -111 2>/dev/null \
-      | while IFS= read -r exe; do
-            base="$(basename "$exe")"
-            dir="$(dirname "$exe")"
-            link="${dir}/${base}_mcr"
-            target="/tmp/mcr_ctf/${base}_mcr"
+    # Remove any *_mcr symlinks that may exist next to deployed binaries
+    find "${MATLAB_EXEC_ROOT}" -type l -name '*_mcr' -exec rm -f '{}' ';' 2>/dev/null || true
 
-            rm -rf "$link" 2>/dev/null || true
-            ln -s "$target" "$link" 2>/dev/null || true
-        done
-
-    echo "[final] patching deployed MATLAB wrappers to use writable cache defaults..."
+    # Patch each run_*.sh wrapper (prepend a small prologue)
     find "${MATLAB_EXEC_ROOT}" -type f -name 'run_*.sh' 2>/dev/null \
       | while IFS= read -r wrap; do
-            if grep -q "Force MATLAB Runtime cache/CTF extraction to writable space" "$wrap" 2>/dev/null; then
+            if grep -q "Force MATLAB Runtime cache to writable space" "$wrap" 2>/dev/null; then
                 continue
             fi
 
             tmp="${wrap}.tmp.$$"
             {
-                echo "#!/bin/sh"
+                # keep original shebang if present; otherwise use /bin/sh
+                head -n 1 "$wrap" | grep -q '^#!' && head -n 1 "$wrap" || echo '#!/bin/sh'
                 echo ""
-                echo "# ----- Force MATLAB Runtime cache/CTF extraction to writable space -----"
-                echo ": \"\${TMPDIR:=/tmp}\""
-                echo ": \"\${USER:=unknown}\""
-                echo ": \"\${HOME:=/tmp}\""
-                echo "export MCR_CACHE_ROOT=\"\${MCR_CACHE_ROOT:-\${TMPDIR}/mcr_cache_\${USER}_\$\$}\""
-                echo "export MCR_USER_CTF_ROOT=\"\${MCR_USER_CTF_ROOT:-\${MCR_CACHE_ROOT}/ctf}\""
-                echo "mkdir -p \"\${MCR_CACHE_ROOT}\" \"\${MCR_USER_CTF_ROOT}\" 2>/dev/null || true"
+                echo "# ----- Force MATLAB Runtime cache to writable space -----"
+                echo ': "${TMPDIR:=/tmp}"'
+                echo ': "${USER:=unknown}"'
+                echo ': "${HOME:=/tmp}"'
+                echo 'export MCR_INHIBIT_CTF_LOCK="${MCR_INHIBIT_CTF_LOCK:-1}"'
+                echo 'export MCR_CACHE_ROOT="${MCR_CACHE_ROOT:-${TMPDIR}/mcr_cache_${USER}_$$}"'
+                echo 'mkdir -p "${MCR_CACHE_ROOT}" 2>/dev/null || true'
                 echo ""
+                # append original wrapper content, but drop its original shebang line
                 sed '1{ /^#!\/bin\/sh/d; /^#!\/bin\/bash/d; }' "$wrap"
             } > "$tmp"
 
             chmod 0755 "$tmp" 2>/dev/null || true
             mv -f "$tmp" "$wrap"
         done
+
     echo "[final] MCR wrapper patch complete."
+
 
     # --------------------------------------------------------------
     # Embed Atlas from Zenodo (final stage; fatal if missing)
