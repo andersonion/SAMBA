@@ -11,61 +11,75 @@ From: fsl_mcr.sif
 %post
     set -eu
 
-    # ==============================================================
-    # Vars
-    # ==============================================================
-    SAMBA_ROOT="/opt/samba"
-    SAMBA_PATH="${SAMBA_ROOT}/SAMBA"
-    PERL_LOCAL_LIB_ROOT="/opt/samba/perl5libs"
-    ATLAS_FOLDER="/opt/atlases"
-    SAMBA_ATLAS_DIR="${ATLAS_FOLDER}/chass_symmetric3"
-    ZENODO_ID="15178373"
-    CACHE_DIR="/opt/zenodo_cache"
-
-    export SAMBA_ROOT SAMBA_PATH PERL_LOCAL_LIB_ROOT
-    
     # Ensure canonical env file exists
     mkdir -p /opt/env
     [ -f /opt/env/samba.sh ] || { echo "FATAL: /opt/env/samba.sh missing" >&2; exit 1; }
 
-    # Append FINAL-stage runtime env to the single canonical env file (once)
+    # --------------------------------------------------------------
+    # FINAL-stage runtime env (single canonical file; no redundancy)
+    #   - SAMBA_APPS_DIR is the one true root (non-overridable)
+    #   - Everything else cascades from it
+    #   - ATLAS_FOLDER + SAMBA_CACHE_DIR are allowed to be overridden
+    # --------------------------------------------------------------
     if ! grep -q 'FINAL (stage: final)' /opt/env/samba.sh; then
-    cat << 'EOF' >> /opt/env/samba.sh
+        cat << 'EOF' >> /opt/env/samba.sh
 
 # ---- FINAL (stage: final) ----
-export PERL_LOCAL_LIB_ROOT="${SAMBA_APPS_DIR}/perl5libs"
-export PERL5LIB="${PERL_LOCAL_LIB_ROOT}/lib/perl5"
-export PERL_MB_OPT='--install_base "'"${PERL_LOCAL_LIB_ROOT}"'"'
-export PERL_MM_OPT='INSTALL_BASE='"${PERL_LOCAL_LIB_ROOT}"
 
-# overridable knobs
-export SAMBA_ATLAS_DIR="${SAMBA_ATLAS_DIR:-/opt/atlases/chass_symmetric3}"
+# Canonical root for everything SAMBA inside the image (do not override)
+export SAMBA_APPS_DIR=/opt/samba
+
+# Cascading paths
+export SAMBA_PATH="${SAMBA_APPS_DIR}/SAMBA"
+export PERL_LOCAL_LIB_ROOT="${SAMBA_APPS_DIR}/perl5libs"
+export MATLAB_EXEC_ROOT="${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA"
+
+# Atlas folder is overrideable by launcher (host bind -> /atlas_host)
+export ATLAS_FOLDER="${ATLAS_FOLDER:-/opt/atlases}"
+export SAMBA_ATLAS_DIR="${SAMBA_ATLAS_DIR:-${ATLAS_FOLDER}/chass_symmetric3}"
+
+# Cache dir should be overrideable (per your requirement)
 export SAMBA_CACHE_DIR="${SAMBA_CACHE_DIR:-/opt/zenodo_cache}"
 
-# SAMBA expects these names
-export MATLAB_EXEC_PATH="${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA"
-# (MATLAB_2015b_PATH already defined in fsl_mcr stage)
+# Perl env
+export PERL5LIB="${PERL_LOCAL_LIB_ROOT}/lib/perl5"
+export PERL_MB_OPT="--install_base \"${PERL_LOCAL_LIB_ROOT}\""
+export PERL_MM_OPT="INSTALL_BASE=${PERL_LOCAL_LIB_ROOT}"
 
-export PATH="${SAMBA_APPS_DIR}/bin:${PERL_LOCAL_LIB_ROOT}/bin:${SAMBA_APPS_DIR}/perl5/bin:${PATH}"
-
+# PATH: keep variable form
+export PATH="${SAMBA_APPS_DIR}/bin:${PERL_LOCAL_LIB_ROOT}/bin:${SAMBA_APPS_DIR}/perl5/bin:${SAMBA_PATH}:${PATH}"
 EOF
     fi
-    # Make it available immediately during build, too
+
+    # Make it available during build as well
     . /opt/env/samba.sh
 
+    # --------------------------------------------------------------
+    # Vars (build-time only)
+    # --------------------------------------------------------------
+    ZENODO_ID="15178373"
 
-    mkdir -p /opt/src "${SAMBA_ROOT}" /opt/samba/perl5 /opt/samba/perl5libs \
-             "${ATLAS_FOLDER}" "${CACHE_DIR}"
-    chmod 0755 "${SAMBA_ROOT}"
+    # Ensure key dirs exist
+    mkdir -p /opt/src \
+             "${SAMBA_APPS_DIR}" \
+             "${SAMBA_APPS_DIR}/bin" \
+             "${SAMBA_APPS_DIR}/perl5" \
+             "${PERL_LOCAL_LIB_ROOT}" \
+             "${ATLAS_FOLDER}" \
+             "${SAMBA_CACHE_DIR}"
+
+    chmod 0755 "${SAMBA_APPS_DIR}"
 
     echo "[final] starting final stage..."
-    echo "[final] SAMBA_ROOT=${SAMBA_ROOT}"
+    echo "[final] SAMBA_APPS_DIR=${SAMBA_APPS_DIR}"
     echo "[final] SAMBA_PATH=${SAMBA_PATH}"
+    echo "[final] ATLAS_FOLDER=${ATLAS_FOLDER}"
     echo "[final] SAMBA_ATLAS_DIR=${SAMBA_ATLAS_DIR}"
+    echo "[final] SAMBA_CACHE_DIR=${SAMBA_CACHE_DIR}"
 
-    # ==============================================================
-    # Helpers
-    # ==============================================================
+    # --------------------------------------------------------------
+    # Helpers (POSIX sh safe)
+    # --------------------------------------------------------------
     _sysrun() {
         env -i \
             PATH=/usr/sbin:/usr/bin:/sbin:/bin \
@@ -101,22 +115,26 @@ EOF
             /usr/bin/curl "$@"
     }
 
-    # ==============================================================
-    # System deps (shield MCR so apt/curl/cpanm see system libstdc++)
-    # ==============================================================
+    # --------------------------------------------------------------
+    # System deps
+    #   - shield MCR so apt/curl/cpanm see system libs
+    #   - add X libs + ncurses5 for MCR deployed apps
+    # --------------------------------------------------------------
     _mcr_shield_begin
     echo "[final] installing base tools..."
     _sysrun apt-get update
     _sysrun apt-get install -y --no-install-recommends \
         git rsync ca-certificates curl unzip \
-        make gcc perl-modules cpanminus python3
+        make gcc perl-modules cpanminus python3 \
+        libncurses5 \
+        libx11-6 libxext6 libxrender1 libxt6 libxmu6 libxi6
     _sysrun apt-get clean
     _sysrun rm -rf /var/lib/apt/lists/*
     _mcr_shield_end
 
-    # ==============================================================
-    # Fetch & stage SAMBA (pin to origin/master unless overridden)
-    # ==============================================================
+    # --------------------------------------------------------------
+    # Fetch & stage SAMBA
+    # --------------------------------------------------------------
     echo "[final] fetching SAMBA repo..."
     if [ ! -d /opt/src/SAMBA ]; then
         git clone https://github.com/andersonion/SAMBA.git /opt/src/SAMBA
@@ -137,9 +155,9 @@ EOF
     mv -f "${SAMBA_PATH}.tmp" "${SAMBA_PATH}"
     chmod -R a+rX "${SAMBA_PATH}"
 
-    # ==============================================================
-    # Perl toolchain + Carton (BAKED IN)
-    # ==============================================================
+    # --------------------------------------------------------------
+    # Perl toolchain + Carton (baked in)
+    # --------------------------------------------------------------
     _mcr_shield_begin
     echo "[final] ensuring cpanm..."
     if ! command -v cpanm >/dev/null 2>&1; then
@@ -151,7 +169,7 @@ EOF
     cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib Carton
     _mcr_shield_end
 
-    CARTON_BIN="/opt/samba/perl5libs/bin/carton"
+    CARTON_BIN="${PERL_LOCAL_LIB_ROOT}/bin/carton"
     if [ ! -x "${CARTON_BIN}" ]; then
         echo "FATAL: ${CARTON_BIN} missing after Carton install" >&2
         exit 1
@@ -160,101 +178,90 @@ EOF
     cd "${SAMBA_PATH}"
     echo "[carton] warm install to generate cpanfile.snapshot..."
     env -i \
-        PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+        PATH="${PERL_LOCAL_LIB_ROOT}/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
         LC_ALL=C \
         DEBIAN_FRONTEND=noninteractive \
         LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
-        PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
-        "${CARTON_BIN}" install --path "/opt/samba/perl5libs"
+        PERL5LIB="${PERL_LOCAL_LIB_ROOT}/lib/perl5" \
+        "${CARTON_BIN}" install --path "${PERL_LOCAL_LIB_ROOT}"
 
     if [ -f "cpanfile.snapshot" ]; then
         echo "[carton] snapshot present; locking with --deployment..."
         env -i \
-            PATH="/opt/samba/perl5libs/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+            PATH="${PERL_LOCAL_LIB_ROOT}/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
             LC_ALL=C \
             DEBIAN_FRONTEND=noninteractive \
             LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu" \
-            PERL5LIB="/opt/samba/perl5libs/lib/perl5" \
-            "${CARTON_BIN}" install --deployment --path "/opt/samba/perl5libs"
+            PERL5LIB="${PERL_LOCAL_LIB_ROOT}/lib/perl5" \
+            "${CARTON_BIN}" install --deployment --path "${PERL_LOCAL_LIB_ROOT}"
     else
         echo "[carton] WARNING: no cpanfile.snapshot created; leaving warm install as-is."
     fi
     echo "[carton] done."
-    
-    # =====================================================================
+
+    # --------------------------------------------------------------
     # matlab_execs_for_SAMBA runtime repo + compatibility symlink
-    # =====================================================================
-    if [ ! -d /opt/samba/matlab_execs_for_SAMBA ]; then
-        git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git /opt/samba/matlab_execs_for_SAMBA
+    # --------------------------------------------------------------
+    if [ ! -d "${MATLAB_EXEC_ROOT}" ]; then
+        git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git "${MATLAB_EXEC_ROOT}"
     fi
-    chmod -R a+rX /opt/samba/matlab_execs_for_SAMBA
-    ln -sfn /opt/samba/matlab_execs_for_SAMBA /opt/matlab_execs
+    chmod -R a+rX "${MATLAB_EXEC_ROOT}"
+    ln -sfn "${MATLAB_EXEC_ROOT}" /opt/matlab_execs
 
-    # =====================================================================
-    # MCR CTF extraction fix for read-only SIF:
-    #   MATLAB-compiled binaries often try to extract CTF into a sibling
-    #   directory named <binary>_mcr next to the executable.
-    #   In a SIF, /opt is read-only at runtime => extraction fails.
-    #
-    #   Solution:
-    #     - Create symlinks named <binary>_mcr next to each binary,
-    #       pointing to a writable location under /tmp.
-    #     - Also patch run_*.sh wrappers to:
-    #         * ensure /tmp target exists
-    #         * set MCR_INHIBIT_CTF_LOCK=1
-    #         * set MCR_CACHE_ROOT to writable space
-    # =====================================================================
-
+    # --------------------------------------------------------------
+    # MATLAB deployed execs: force *_mcr extraction to writable space
+    # (POSIX /bin/sh safe — no bashisms)
+    # --------------------------------------------------------------
     echo "[final] creating /tmp-backed *_mcr symlinks for MATLAB execs..."
-    mkdir -p /tmp/mcr_ctf || true
+    mkdir -p /tmp/mcr_ctf
     chmod 1777 /tmp || true
+    chmod 1777 /tmp/mcr_ctf || true
 
-    # ==============================================================
-    # Patch MATLAB deployed wrappers: force CTF/cache to writable space
-    # ==============================================================
-    echo "[final] patching MATLAB deployed wrappers to use writable MCR cache..."
+    echo "[final] removing any baked *_mcr directories under matlab_execs_for_SAMBA..."
+    find "${MATLAB_EXEC_ROOT}" -type d -name '*_mcr' -prune -exec rm -rf '{}' ';' 2>/dev/null || true
 
-    # 1) Nuke any baked-in/stale *_mcr directories inside the image (read-only at runtime anyway)
-    find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -prune -exec rm -rf {} + 2>/dev/null || true
+    echo "[final] creating /tmp-backed *_mcr symlinks next to each deployed binary..."
+    find "${MATLAB_EXEC_ROOT}" -type f -perm -111 2>/dev/null \
+      | while IFS= read -r exe; do
+            base="$(basename "$exe")"
+            dir="$(dirname "$exe")"
+            link="${dir}/${base}_mcr"
+            target="/tmp/mcr_ctf/${base}_mcr"
 
-    # 2) For every run_*.sh: inject proper MCR cache/CTF env (NO escaped quotes)
-    while IFS= read -r -d '' WRAP; do
-        # Skip if already patched (idempotent)
-        if grep -q 'Force MATLAB Runtime cache/CTF extraction to writable space' "$WRAP"; then
-            continue
-        fi
+            rm -rf "$link" 2>/dev/null || true
+            ln -s "$target" "$link" 2>/dev/null || true
+        done
 
-        TMP="$(mktemp)"
-        {
-            # preserve shebang (line 1)
-            head -n 1 "$WRAP"
-            cat <<'PATCH'
-# ----- Force MATLAB Runtime cache/CTF extraction to writable space -----
-: "${TMPDIR:=/tmp}"
-: "${USER:=unknown}"
-# Canonical writable root (launcher will bind /tmp/mcr_cache to host)
-: "${MCR_CACHE_ROOT:=${TMPDIR}/mcr_cache/${USER}}"
-# Per-app subdir (use wrapper name to avoid collisions)
-APP_BN="$(basename "$0")"
-export MCR_CACHE_ROOT="${MCR_CACHE_ROOT}/${APP_BN}"
-export MCR_USER_CTF_ROOT="${MCR_USER_CTF_ROOT:-${MCR_CACHE_ROOT}/ctf}"
-export MCR_INHIBIT_CTF_LOCK="${MCR_INHIBIT_CTF_LOCK:-1}"
-mkdir -p "${MCR_CACHE_ROOT}" "${MCR_USER_CTF_ROOT}" 2>/dev/null || true
-PATCH
-            # rest of original script (from line 2 onward)
-            tail -n +2 "$WRAP"
-        } > "$TMP"
+    echo "[final] patching deployed MATLAB wrappers to use writable cache defaults..."
+    find "${MATLAB_EXEC_ROOT}" -type f -name 'run_*.sh' 2>/dev/null \
+      | while IFS= read -r wrap; do
+            if grep -q "Force MATLAB Runtime cache/CTF extraction to writable space" "$wrap" 2>/dev/null; then
+                continue
+            fi
 
-        chmod --reference="$WRAP" "$TMP" 2>/dev/null || chmod 0755 "$TMP"
-        mv -f "$TMP" "$WRAP"
-    done < <(find /opt/samba/matlab_execs_for_SAMBA -type f -name 'run_*.sh' -print0)
+            tmp="${wrap}.tmp.$$"
+            {
+                echo "#!/bin/sh"
+                echo ""
+                echo "# ----- Force MATLAB Runtime cache/CTF extraction to writable space -----"
+                echo ": \"\${TMPDIR:=/tmp}\""
+                echo ": \"\${USER:=unknown}\""
+                echo ": \"\${HOME:=/tmp}\""
+                echo "export MCR_CACHE_ROOT=\"\${MCR_CACHE_ROOT:-\${TMPDIR}/mcr_cache_\${USER}_\$\$}\""
+                echo "export MCR_USER_CTF_ROOT=\"\${MCR_USER_CTF_ROOT:-\${MCR_CACHE_ROOT}/ctf}\""
+                echo "mkdir -p \"\${MCR_CACHE_ROOT}\" \"\${MCR_USER_CTF_ROOT}\" 2>/dev/null || true"
+                echo ""
+                sed '1{ /^#!\/bin\/sh/d; /^#!\/bin\/bash/d; }' "$wrap"
+            } > "$tmp"
 
-    echo "[final] wrapper patch complete."
+            chmod 0755 "$tmp" 2>/dev/null || true
+            mv -f "$tmp" "$wrap"
+        done
+    echo "[final] MCR wrapper patch complete."
 
-
-    # ==============================================================
-    # Embed Atlas from Zenodo (FINAL stage, FATAL if missing)
-    # ==============================================================
+    # --------------------------------------------------------------
+    # Embed Atlas from Zenodo (final stage; fatal if missing)
+    # --------------------------------------------------------------
     echo "[atlas] embedding atlas from Zenodo record ${ZENODO_ID}..."
     mkdir -p "${ATLAS_FOLDER}" "${SAMBA_ATLAS_DIR}"
     cd "${ATLAS_FOLDER}"
@@ -296,28 +303,25 @@ PY
         done
     fi
 
-    # Hard fail if atlas dir isn't there (per your requirement)
     if [ ! -d "${SAMBA_ATLAS_DIR}" ]; then
         echo "FATAL: atlas directory missing after download: ${SAMBA_ATLAS_DIR}" >&2
         exit 1
     fi
     chmod -R a+rX "${ATLAS_FOLDER}"
-
     echo "[final] atlas embedded at ${SAMBA_ATLAS_DIR}"
 
-    # ==============================================================
-    # Install SAMBA helper binaries and scheduler wrappers (FATAL if missing)
-    # ==============================================================
+    # --------------------------------------------------------------
+    # Install SAMBA helper binaries and scheduler wrappers
+    # --------------------------------------------------------------
     echo "[final] installing SAMBA helper binaries and scheduler wrappers..."
-    mkdir -p /opt/samba/bin
+    mkdir -p "${SAMBA_APPS_DIR}/bin"
 
     if [ ! -d "${SAMBA_PATH}/samba_bin" ]; then
-        echo "FATAL: ${SAMBA_PATH}/samba_bin not found. You said these live in-repo; fix repo layout." >&2
+        echo "FATAL: ${SAMBA_PATH}/samba_bin not found." >&2
         exit 1
     fi
-
     if [ ! -d "${SAMBA_PATH}/samba_sched_wrappers" ]; then
-        echo "FATAL: ${SAMBA_PATH}/samba_sched_wrappers not found. You said these live in-repo; fix repo layout." >&2
+        echo "FATAL: ${SAMBA_PATH}/samba_sched_wrappers not found." >&2
         exit 1
     fi
 
@@ -327,7 +331,7 @@ PY
         "${SAMBA_PATH}/samba_bin/scancel" \
         "${SAMBA_PATH}/samba_bin/sacct" \
         "${SAMBA_PATH}/samba_bin/scontrol" \
-        /opt/samba/bin/
+        "${SAMBA_APPS_DIR}/bin/"
 
     cp -f \
         "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sbatch" \
@@ -335,20 +339,18 @@ PY
         "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scancel" \
         "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_sacct" \
         "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_scontrol" \
-        /opt/samba/bin/
+        "${SAMBA_APPS_DIR}/bin/"
 
-    # samba_sched_proxy must exist somewhere in-proxy area
     if [ -f "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_proxy" ]; then
-        cp -f "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_proxy" /opt/samba/bin/
+        cp -f "${SAMBA_PATH}/samba_sched_wrappers/samba_sched_proxy" "${SAMBA_APPS_DIR}/bin/"
     elif [ -f "${SAMBA_PATH}/samba_bin/samba_sched_proxy" ]; then
-        cp -f "${SAMBA_PATH}/samba_bin/samba_sched_proxy" /opt/samba/bin/
+        cp -f "${SAMBA_PATH}/samba_bin/samba_sched_proxy" "${SAMBA_APPS_DIR}/bin/"
     else
-        echo "FATAL: samba_sched_proxy not found in repo (expected samba_sched_wrappers/ or samba_bin/)." >&2
+        echo "FATAL: samba_sched_proxy not found in repo." >&2
         exit 1
     fi
 
-    chmod -R a+rx /opt/samba/bin
-
+    chmod -R a+rx "${SAMBA_APPS_DIR}/bin"
     echo "[final] done: SAMBA + atlas + wrappers installed."
 
 %test
@@ -357,28 +359,25 @@ PY
     echo "[test] === final stage sanity checks ==="
 
     echo "[test] checking SAMBA_PATH..."
-    SAMBA_PATH="/opt/samba/SAMBA"
-    if [ ! -d "${SAMBA_PATH}" ]; then
-        echo "FATAL: SAMBA_PATH missing: ${SAMBA_PATH}" >&2
+    if [ ! -d "/opt/samba/SAMBA" ]; then
+        echo "FATAL: SAMBA_PATH missing: /opt/samba/SAMBA" >&2
         exit 1
     fi
     echo "  OK: SAMBA_PATH exists."
 
     echo "[test] checking atlas at: /opt/atlases/chass_symmetric3"
-    ATLAS_DIR="/opt/atlases/chass_symmetric3"
-    if [ ! -d "${ATLAS_DIR}" ]; then
-        echo "FATAL: atlas directory not found: ${ATLAS_DIR}" >&2
+    if [ ! -d "/opt/atlases/chass_symmetric3" ]; then
+        echo "FATAL: atlas directory not found: /opt/atlases/chass_symmetric3" >&2
         exit 1
     fi
-
     for f in \
         chass_symmetric3_FA.nii.gz \
         chass_symmetric3_DWI.nii.gz \
         chass_symmetric3_labels.nii.gz \
         chass_symmetric3_mask.nii.gz
     do
-        if [ ! -f "${ATLAS_DIR}/${f}" ]; then
-            echo "FATAL: missing atlas file: ${ATLAS_DIR}/${f}" >&2
+        if [ ! -f "/opt/atlases/chass_symmetric3/${f}" ]; then
+            echo "FATAL: missing atlas file: /opt/atlases/chass_symmetric3/${f}" >&2
             exit 1
         fi
         echo "  OK: ${f}"
@@ -397,4 +396,15 @@ PY
         echo "  OK: ${c}"
     done
 
+    echo "[test] checking MATLAB exec *_mcr symlink policy..."
+    # There should be NO baked directories named *_mcr under matlab_execs_for_SAMBA
+    if find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -print -quit 2>/dev/null | grep -q .; then
+        echo "FATAL: found baked *_mcr directory under matlab_execs_for_SAMBA" >&2
+        exit 1
+    fi
+    echo "  OK: no baked *_mcr directories."
+
     echo "[test] final stage checks COMPLETE."
+
+%runscript
+    exec /bin/sh -c "$@"
