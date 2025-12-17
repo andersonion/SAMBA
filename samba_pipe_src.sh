@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh — clean, portable SAMBA launcher (host-first atlas)
+# samba_pipe_src.sh — clean, portable SAMBA launcher (host-first atlas + MCR fix)
 #
 # Usage:
 #   source samba_pipe_src.sh
 #   samba-pipe path/to/startup.headfile
 #
 
-# IMPORTANT:
-# - DO NOT use `set -e` here — failures must not kill login shells.
-# - Avoid `pipefail` too — we want a "boring" sourced script.
+# DO NOT use set -e here — failures must not kill login shells
 set -u
+set -o pipefail
 
 # ------------------------------------------------------------
 # Runtime discovery
@@ -44,26 +43,26 @@ export CONTAINER_CMD
 _samba_find_sif() {
   if [[ -n "${SAMBA_CONTAINER_PATH:-}" && -f "$SAMBA_CONTAINER_PATH" ]]; then
     echo "$SAMBA_CONTAINER_PATH"
-    return 0
+    return
   fi
   if [[ -n "${SINGULARITY_IMAGE_DIR:-}" && -f "$SINGULARITY_IMAGE_DIR/samba.sif" ]]; then
     echo "$SINGULARITY_IMAGE_DIR/samba.sif"
-    return 0
+    return
   fi
   if [[ -f "$HOME/containers/samba.sif" ]]; then
     echo "$HOME/containers/samba.sif"
-    return 0
+    return
   fi
   local root="${SAMBA_SEARCH_ROOT:-$HOME}"
   find "$root" -maxdepth 6 -type f -name samba.sif 2>/dev/null | head -n 1
 }
 
 SIF_PATH="$(_samba_find_sif)"
-[[ -n "${SIF_PATH:-}" && -f "$SIF_PATH" ]] || { echo "ERROR: samba.sif not found" >&2; return 1; }
+[[ -f "$SIF_PATH" ]] || { echo "ERROR: samba.sif not found" >&2; return 1; }
 export SIF_PATH
 
 # ------------------------------------------------------------
-# Headfile helper: read key=value (first match)
+# Headfile helper: read key=value
 # ------------------------------------------------------------
 _hf_get() {
   local hf="$1" key="$2"
@@ -75,22 +74,17 @@ _hf_get() {
 
 # ------------------------------------------------------------
 # Atlas discovery (host-first, no hardcoded site paths)
-#
-# Search order:
-#   1) ATLAS_FOLDER_HOST (explicit override)
-#   2) ATLAS_FOLDER (if set on host)
-#   3) SAMBA_ATLAS_SEARCH_ROOTS (colon-separated roots)
-#   4) fallback roots: hf_dir, $HOME, $BIGGUS_DISKUS
-#
-# Hit criteria (robust):
-#   <root>/<atlas>/<atlas>_fa.nii or .nii.gz
 # ------------------------------------------------------------
 _find_atlas_root_for() {
   local atlas="$1" hf_dir="$2" biggus="$3"
   local roots=()
 
-  [[ -n "${ATLAS_FOLDER_HOST:-}" ]] && roots+=( "$ATLAS_FOLDER_HOST" )
-  [[ -n "${ATLAS_FOLDER:-}"      ]] && roots+=( "$ATLAS_FOLDER" )
+  if [[ -n "${ATLAS_FOLDER_HOST:-}" ]]; then
+    roots+=( "$ATLAS_FOLDER_HOST" )
+  fi
+  if [[ -n "${ATLAS_FOLDER:-}" ]]; then
+    roots+=( "$ATLAS_FOLDER" )
+  fi
 
   if [[ -n "${SAMBA_ATLAS_SEARCH_ROOTS:-}" ]]; then
     IFS=':' read -r -a _extra <<< "${SAMBA_ATLAS_SEARCH_ROOTS}"
@@ -103,7 +97,6 @@ _find_atlas_root_for() {
   for r in "${roots[@]}"; do
     [[ -n "$r" && -d "$r" ]] || continue
 
-    # Common layout: root/ATLASNAME/ATLASNAME_fa.nii(.gz)
     cand_dir="${r%/}/${atlas}"
     if [[ -d "$cand_dir" ]]; then
       if ls "${cand_dir}/${atlas}_fa.nii"* >/dev/null 2>&1; then
@@ -112,7 +105,6 @@ _find_atlas_root_for() {
       fi
     fi
 
-    # Alternate: r itself is the atlas dir (…/IITmean_RPI/…)
     if [[ "$(basename "$r")" == "$atlas" ]]; then
       if ls "${r%/}/${atlas}_fa.nii"* >/dev/null 2>&1; then
         echo "$(dirname "${r%/}")"
@@ -131,7 +123,6 @@ samba-pipe() {
   local hf="${1:-}"
   [[ -n "$hf" ]] || { echo "Usage: samba-pipe headfile.hf" >&2; return 1; }
 
-  # Absolute headfile
   [[ "$hf" = /* || "$hf" = ~/* ]] || hf="$PWD/$hf"
   [[ -f "$hf" ]] || { echo "ERROR: headfile not found: $hf" >&2; return 1; }
 
@@ -161,7 +152,7 @@ samba-pipe() {
   local SAMBA_APPS_IN_CONTAINER="/opt/samba"
 
   # --------------------------------------------------------
-  # Host identity + HOME handling (helps MCR + consistency)
+  # HOME handling (helps MCR + consistency)
   # --------------------------------------------------------
   local host_user="${USER:-$(id -un)}"
   local host_home="${HOME:-/home/${host_user}}"
@@ -182,50 +173,61 @@ samba-pipe() {
 
   # Optional external inputs
   local opt_ext
-  opt_ext="$(_hf_get "$hf" "optional_external_inputs_dir" 2>/dev/null || true)"
+  opt_ext="$(_hf_get "$hf" "optional_external_inputs_dir" || true)"
   if [[ -n "$opt_ext" && -d "$opt_ext" ]]; then
     binds+=( --bind "$opt_ext:$opt_ext" )
   fi
 
-  local mcr_ctf_host="${BIGGUS_DISKUS%/}/.mcr_ctf_${USER:-$(id -un)}_$(date +%s)_$$"
-  mkdir -p "$mcr_ctf_host"
-  binds+=( --bind "$mcr_ctf_host:/tmp/mcr_ctf" )
-
   # --------------------------------------------------------
   # Atlas intent from headfile
   # --------------------------------------------------------
-  local label_atlas rigid_atlas atlas_name=""
-  label_atlas="$(_hf_get "$hf" "label_atlas_name" 2>/dev/null || true)"
-  rigid_atlas="$(_hf_get "$hf" "rigid_atlas_name" 2>/dev/null || true)"
+  local label_atlas rigid_atlas
+  label_atlas="$(_hf_get "$hf" "label_atlas_name" || true)"
+  rigid_atlas="$(_hf_get "$hf" "rigid_atlas_name" || true)"
 
+  local atlas_name=""
   if [[ -n "$label_atlas" ]]; then
     atlas_name="$label_atlas"
   elif [[ -n "$rigid_atlas" ]]; then
     atlas_name="$rigid_atlas"
   fi
 
-  # We ALWAYS pass ATLAS_FOLDER (never allow it to be empty in-container)
   local atlas_env=()
   if [[ -n "$atlas_name" ]]; then
     local host_atlas_root=""
     if host_atlas_root="$(_find_atlas_root_for "$atlas_name" "$hf_dir" "$BIGGUS_DISKUS" 2>/dev/null)"; then
-      # Identity bind: host path stays host path in-container
       echo "samba-pipe: using HOST atlas root: $host_atlas_root (for atlas $atlas_name)" >&2
-      binds+=( --bind "$host_atlas_root:$host_atlas_root" )
-      atlas_env+=( --env ATLAS_FOLDER="$host_atlas_root" )
+      binds+=( --bind "$host_atlas_root:/atlas_host" )
+      atlas_env+=( --env ATLAS_FOLDER=/atlas_host )
     else
-      echo "samba-pipe: WARNING: could not find host atlas '$atlas_name'; using container /opt/atlases" >&2
-      atlas_env+=( --env ATLAS_FOLDER="/opt/atlases" )
+      echo "samba-pipe: WARNING: could not find host atlas '$atlas_name'; falling back to container /opt/atlases" >&2
+      atlas_env+=( --env ATLAS_FOLDER=/opt/atlases )
     fi
   else
-    atlas_env+=( --env ATLAS_FOLDER="/opt/atlases" )
+    atlas_env+=( --env ATLAS_FOLDER=/opt/atlases )
   fi
+
+  # --------------------------------------------------------
+  # MCR CTF extraction fix (bind writable dir onto the exact *_mcr path)
+  #
+  # This executable *insists* on extracting to:
+  #   /opt/samba/matlab_execs_for_SAMBA/create_centered_mass_from_image_array_executable/create_centered_mass_from_image_array_mcr
+  # so we mount a writable host dir right there.
+  # --------------------------------------------------------
+  local mcr_host_root="${BIGGUS_DISKUS}/.mcr_ctf_${host_user}"
+  mkdir -p "${mcr_host_root}"
+
+  local mcr_exe_mcr_host="${mcr_host_root}/create_centered_mass_from_image_array_mcr"
+  mkdir -p "${mcr_exe_mcr_host}"
+
+  local mcr_exe_mcr_in_container="/opt/samba/matlab_execs_for_SAMBA/create_centered_mass_from_image_array_executable/create_centered_mass_from_image_array_mcr"
+  binds+=( --bind "${mcr_exe_mcr_host}:${mcr_exe_mcr_in_container}" )
 
   # --------------------------------------------------------
   # Stage headfile
   # --------------------------------------------------------
   local hf_tmp="/tmp/${host_user}_samba_$(date +%s)_$(basename "$hf")"
-  cp "$hf" "$hf_tmp" || { echo "ERROR: failed to stage headfile to $hf_tmp" >&2; return 1; }
+  cp "$hf" "$hf_tmp"
 
   # --------------------------------------------------------
   # Container env we explicitly pass (because --cleanenv)
@@ -236,20 +238,15 @@ samba-pipe() {
     --env HOME="$host_home"
     --env USER="$host_user"
     --env TMPDIR="/tmp"
-    --env MCR_CACHE_ROOT="/tmp/mcr_cache_${host_user}"
     --env MCR_INHIBIT_CTF_LOCK=1
-    --env MCR_CACHE_ROOT="/tmp/mcr_cache_${USER:-$(id -un)}_$$"
-    --env MCR_USER_CTF_ROOT="/tmp/mcr_cache_${USER:-$(id -un)}_$$/ctf"
-
   )
 
-  # Pass notification email if defined on host
+  # Pass NOTIFICATION_EMAIL if set on host
   if [[ -n "${NOTIFICATION_EMAIL:-}" ]]; then
-    BASE_ENV+=( --env NOTIFICATION_EMAIL="$NOTIFICATION_EMAIL" )
+    BASE_ENV+=( --env NOTIFICATION_EMAIL="${NOTIFICATION_EMAIL}" )
   fi
 
-  # This string is used by scheduler wrappers inside SAMBA.
-  # Keep it in one place so it propagates consistently.
+  # This is used by scheduler wrappers inside SAMBA
   CONTAINER_CMD_PREFIX="$CONTAINER_CMD exec --cleanenv ${BASE_ENV[*]} ${atlas_env[*]} ${binds[*]} $SIF_PATH"
   export CONTAINER_CMD_PREFIX
 
