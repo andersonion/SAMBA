@@ -208,22 +208,28 @@ EOF
     chmod -R a+rX "${MATLAB_EXEC_ROOT}"
     ln -sfn "${MATLAB_EXEC_ROOT}" /opt/matlab_execs
 
-     # ==============================================================
-    # MATLAB deployed execs: force CTF extraction off the read-only image
-    #   - Create <exe>_mcr symlinks next to each deployed executable
-    #     pointing to /tmp/mcr_ctf/<exe>_mcr (writable at runtime)
     # ==============================================================
-    echo "[final] creating /tmp-backed <exe>_mcr symlinks for MATLAB execs..."
+    # MATLAB deployed execs: enforce "no baked *_mcr dirs" policy
+    #   - Remove any existing *_mcr directories created during build
+    #   - Replace with symlinks pointing into /tmp/mcr_ctf/<exe>_mcr
+    # ==============================================================
+    echo "[final] enforcing *_mcr symlink policy for MATLAB execs..."
+
+    # Ensure /tmp exists and is sticky (runtime expectation)
     mkdir -p /tmp/mcr_ctf
     chmod 1777 /tmp || true
 
-    # Find directories that contain deployed run_*.sh wrappers
+    # 1) Nuke any baked *_mcr *directories* inside the repo tree (they break runtime)
+    find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -prune -exec rm -rf {} + 2>/dev/null || true
+
+    # 2) Remove any existing *_mcr symlinks (we'll recreate cleanly)
+    find /opt/samba/matlab_execs_for_SAMBA -type l -name '*_mcr' -exec rm -f {} + 2>/dev/null || true
+
+    # 3) Recreate symlinks next to each deployed executable
     find /opt/samba/matlab_execs_for_SAMBA -type f -name 'run_*.sh' 2>/dev/null \
       | while IFS= read -r wrap; do
             d="$(dirname "$wrap")"
 
-            # For each executable file in that directory (excluding wrappers),
-            # create/refresh a symlink: <exe>_mcr -> /tmp/mcr_ctf/<exe>_mcr
             find "$d" -maxdepth 1 -type f -perm -111 2>/dev/null \
               | while IFS= read -r exe; do
                     b="$(basename "$exe")"
@@ -231,7 +237,6 @@ EOF
                         run_*.sh) continue ;;
                         *.ctf)    continue ;;
                     esac
-
                     ln -sfn "/tmp/mcr_ctf/${b}_mcr" "${d}/${b}_mcr"
                 done
         done
