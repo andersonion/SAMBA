@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh — clean, portable SAMBA launcher (host-first atlas + MCR CTF)
+# samba_pipe_src.sh — clean, portable SAMBA launcher (host-first atlas + MCR CTF bind)
 #
 # Usage:
 #   source samba_pipe_src.sh
@@ -9,7 +9,6 @@
 
 # DO NOT use set -e here — failures must not kill login shells
 set -u
-set -o pipefail
 
 # ------------------------------------------------------------
 # Runtime discovery
@@ -58,7 +57,7 @@ _samba_find_sif() {
 }
 
 SIF_PATH="$(_samba_find_sif)"
-[[ -f "$SIF_PATH" ]] || { echo "ERROR: samba.sif not found" >&2; return 1; }
+[[ -f "${SIF_PATH:-}" ]] || { echo "ERROR: samba.sif not found" >&2; return 1; }
 export SIF_PATH
 
 # ------------------------------------------------------------
@@ -79,9 +78,12 @@ _find_atlas_root_for() {
   local atlas="$1" hf_dir="$2" biggus="$3"
   local roots=()
 
-  [[ -n "${ATLAS_FOLDER_HOST:-}" ]] && roots+=( "$ATLAS_FOLDER_HOST" )
-  [[ -n "${ATLAS_FOLDER:-}" ]]      && roots+=( "$ATLAS_FOLDER" )
-
+  if [[ -n "${ATLAS_FOLDER_HOST:-}" ]]; then
+    roots+=( "$ATLAS_FOLDER_HOST" )
+  fi
+  if [[ -n "${ATLAS_FOLDER:-}" ]]; then
+    roots+=( "$ATLAS_FOLDER" )
+  fi
   if [[ -n "${SAMBA_ATLAS_SEARCH_ROOTS:-}" ]]; then
     IFS=':' read -r -a _extra <<< "${SAMBA_ATLAS_SEARCH_ROOTS}"
     roots+=( "${_extra[@]}" )
@@ -132,10 +134,10 @@ samba-pipe() {
       BIGGUS_DISKUS="$WORK"
     else
       BIGGUS_DISKUS="$HOME/samba_scratch"
+      mkdir -p "$BIGGUS_DISKUS"
     fi
   fi
 
-  mkdir -p "$BIGGUS_DISKUS" 2>/dev/null || true
   [[ -d "$BIGGUS_DISKUS" && -w "$BIGGUS_DISKUS" ]] || {
     echo "ERROR: BIGGUS_DISKUS not writable: $BIGGUS_DISKUS" >&2
     return 1
@@ -148,31 +150,28 @@ samba-pipe() {
   local SAMBA_APPS_IN_CONTAINER="/opt/samba"
 
   # --------------------------------------------------------
-  # HOME bind (helps consistency; you asked for this)
+  # HOME bind (helps MCR and consistency)
   # --------------------------------------------------------
   local host_home="${HOME:-/home/$(id -un)}"
   [[ -d "$host_home" ]] || { echo "ERROR: HOME not found: $host_home" >&2; return 1; }
 
   # --------------------------------------------------------
-  # Headfile dir
-  # --------------------------------------------------------
-  local hf_dir
-  hf_dir="$(dirname "$hf")"
-
-  # --------------------------------------------------------
-  # MCR CTF cache (NO manual host step: create automatically)
-  # Bind to /tmp/mcr_ctf inside container so baked *_mcr symlinks work.
+  # MCR CTF cache bind (THIS IS THE REAL FIX)
+  #   - auto-create persistent host dir (not manual)
+  #   - bind to /tmp/mcr_ctf so symlink targets always have a parent dir
   # --------------------------------------------------------
   local host_mcr_ctf="${BIGGUS_DISKUS%/}/.mcr_ctf"
-  mkdir -p "$host_mcr_ctf" 2>/dev/null || true
-  [[ -d "$host_mcr_ctf" && -w "$host_mcr_ctf" ]] || {
-    echo "ERROR: MCR cache dir not writable: $host_mcr_ctf" >&2
+  mkdir -p "$host_mcr_ctf" || {
+    echo "ERROR: could not mkdir -p $host_mcr_ctf" >&2
     return 1
   }
 
   # --------------------------------------------------------
   # Binds baseline
   # --------------------------------------------------------
+  local hf_dir
+  hf_dir="$(dirname "$hf")"
+
   local binds=()
   binds+=(
     --bind "$hf_dir:$hf_dir"
@@ -189,14 +188,18 @@ samba-pipe() {
   fi
 
   # --------------------------------------------------------
-  # Atlas intent from headfile (host-first)
+  # Atlas intent from headfile
   # --------------------------------------------------------
-  local label_atlas rigid_atlas atlas_name=""
+  local label_atlas rigid_atlas
   label_atlas="$(_hf_get "$hf" "label_atlas_name" || true)"
   rigid_atlas="$(_hf_get "$hf" "rigid_atlas_name" || true)"
 
-  [[ -n "$label_atlas" ]] && atlas_name="$label_atlas"
-  [[ -z "$atlas_name" && -n "$rigid_atlas" ]] && atlas_name="$rigid_atlas"
+  local atlas_name=""
+  if [[ -n "$label_atlas" ]]; then
+    atlas_name="$label_atlas"
+  elif [[ -n "$rigid_atlas" ]]; then
+    atlas_name="$rigid_atlas"
+  fi
 
   local atlas_env=()
   if [[ -n "$atlas_name" ]]; then
@@ -218,7 +221,7 @@ samba-pipe() {
   # --------------------------------------------------------
   local u="${USER:-$(id -un)}"
   local hf_tmp="/tmp/${u}_samba_$(date +%s)_$(basename "$hf")"
-  cp "$hf" "$hf_tmp"
+  cp "$hf" "$hf_tmp" || { echo "ERROR: could not stage headfile to $hf_tmp" >&2; return 1; }
 
   # --------------------------------------------------------
   # Container env we explicitly pass (because --cleanenv)
@@ -230,17 +233,18 @@ samba-pipe() {
     --env USER="$u"
     --env TMPDIR="/tmp"
 
-    # Critical for MATLAB deployed execs:
+    # MCR behavior: keep cache/CTF writable & avoid lock fights
+    --env MCR_INHIBIT_CTF_LOCK=1
     --env MCR_CACHE_ROOT="/tmp/mcr_ctf"
-    --env MCR_INHIBIT_CTF_LOCK="1"
+    --env MCR_USER_CTF_ROOT="/tmp/mcr_ctf"
   )
 
-  # Pass notification email if set on host
+  # Pass NOTIFICATION_EMAIL if set on host
   if [[ -n "${NOTIFICATION_EMAIL:-}" ]]; then
     BASE_ENV+=( --env NOTIFICATION_EMAIL="$NOTIFICATION_EMAIL" )
   fi
 
-  # Used by scheduler wrappers inside SAMBA
+  # This is used by scheduler wrappers inside SAMBA
   CONTAINER_CMD_PREFIX="$CONTAINER_CMD exec --cleanenv ${BASE_ENV[*]} ${atlas_env[*]} ${binds[*]} $SIF_PATH"
   export CONTAINER_CMD_PREFIX
 
