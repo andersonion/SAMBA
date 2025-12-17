@@ -1,0 +1,40 @@
+name: Freeze env on tag
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          environment-name: samba-py
+          cache-environment: true
+          generate-run-shell: true
+
+      - name: Install pip extras + editable package
+        shell: micromamba-shell {0}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install indexed_gzip
+          python -m pip install -e .
+
+      - name: Run freeze
+        shell: micromamba-shell {0}
+        run: |
+          chmod +x scripts/freeze-env.sh
+          ENV_NAME=samba-py scripts/freeze-env.sh
+
+      - name: Upload lock artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: env-lock
+          path: |
+            environment.lock.yml
+            environment.lock.meta.txt

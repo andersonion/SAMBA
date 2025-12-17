@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pigz
+
+      - name: Setup micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          environment-name: samba-py
+          cache-environment: true
+          generate-run-shell: true
+
+      - name: Install pip extras + editable package
+        shell: micromamba-shell {0}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install indexed_gzip
+          python -m pip install -e .
+
+      - name: Run tests
+        shell: micromamba-shell {0}
+        run: |
+          pytest -q
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup micromamba
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: environment.yml
+          environment-name: samba-py
+          cache-environment: true
+          generate-run-shell: true
+
+      - name: Install pip extras + editable package
+        shell: micromamba-shell {0}
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install indexed_gzip
+          python -m pip install -e .
+
+      - name: Ruff
+        shell: micromamba-shell {0}
+        run: |
+          ruff check .
+
+      - name: Black (check)
+        shell: micromamba-shell {0}
+        run: |
+          black --check .
