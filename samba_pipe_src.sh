@@ -187,6 +187,10 @@ samba-pipe() {
     binds+=( --bind "$opt_ext:$opt_ext" )
   fi
 
+  local mcr_ctf_host="${BIGGUS_DISKUS%/}/.mcr_ctf_${USER:-$(id -un)}_$(date +%s)_$$"
+  mkdir -p "$mcr_ctf_host"
+  binds+=( --bind "$mcr_ctf_host:/tmp/mcr_ctf" )
+
   # --------------------------------------------------------
   # Atlas intent from headfile
   # --------------------------------------------------------
@@ -233,6 +237,10 @@ samba-pipe() {
     --env USER="$host_user"
     --env TMPDIR="/tmp"
     --env MCR_CACHE_ROOT="/tmp/mcr_cache_${host_user}"
+    --env MCR_INHIBIT_CTF_LOCK=1
+    --env MCR_CACHE_ROOT="/tmp/mcr_cache_${USER:-$(id -un)}_$$"
+    --env MCR_USER_CTF_ROOT="/tmp/mcr_cache_${USER:-$(id -un)}_$$/ctf"
+
   )
 
   # Pass notification email if defined on host
