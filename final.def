@@ -209,58 +209,47 @@ EOF
     mkdir -p /tmp/mcr_ctf || true
     chmod 1777 /tmp || true
 
-    # Create symlink sidecars: <exe_dir>/<binary>_mcr -> /tmp/mcr_ctf/<binary>_mcr
-    find /opt/samba/matlab_execs_for_SAMBA -type f -perm -111 -maxdepth 6 -print | while read -r BIN; do
-        base="$(basename "$BIN")"
+    # ==============================================================
+    # Patch MATLAB deployed wrappers: force CTF/cache to writable space
+    # ==============================================================
+    echo "[final] patching MATLAB deployed wrappers to use writable MCR cache..."
 
-        # skip obvious shell wrappers
-        case "$base" in
-            run_*.sh) continue ;;
-            *.sh) continue ;;
-        esac
+    # 1) Nuke any baked-in/stale *_mcr directories inside the image (read-only at runtime anyway)
+    find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -prune -exec rm -rf {} + 2>/dev/null || true
 
-        exe_dir="$(dirname "$BIN")"
-        mcr_sidecar="${exe_dir}/${base}_mcr"
-        tgt="/tmp/mcr_ctf/${base}_mcr"
-
-        # Ensure target exists (runtime extraction will populate inside)
-        mkdir -p "$tgt" 2>/dev/null || true
-
-        # Replace existing dir/link with symlink to /tmp
-        if [ -e "$mcr_sidecar" ] || [ -L "$mcr_sidecar" ]; then
-            rm -rf "$mcr_sidecar" 2>/dev/null || true
+    # 2) For every run_*.sh: inject proper MCR cache/CTF env (NO escaped quotes)
+    while IFS= read -r -d '' WRAP; do
+        # Skip if already patched (idempotent)
+        if grep -q 'Force MATLAB Runtime cache/CTF extraction to writable space' "$WRAP"; then
+            continue
         fi
-        ln -sfn "$tgt" "$mcr_sidecar" 2>/dev/null || true
-    done
 
-    echo "[final] patching MATLAB run_*.sh wrappers (cache + lock settings)..."
-    find /opt/samba/matlab_execs_for_SAMBA -type f -name 'run_*.sh' -print | while read -r WRAP; do
-        # Only patch if we haven’t already
-        if ! grep -q "Force MATLAB Runtime cache/CTF extraction" "$WRAP"; then
-            tmpf="$(mktemp)"
-            {
-                echo '#!/bin/sh'
-                echo
-                echo '# ----- Force MATLAB Runtime cache/CTF extraction to writable space -----'
-                echo ': "${TMPDIR:=/tmp}"'
-                echo ': "${USER:=unknown}"'
-                echo ': "${HOME:=/tmp}"'
-                echo 'export MCR_INHIBIT_CTF_LOCK="${MCR_INHIBIT_CTF_LOCK:-1}"'
-                echo 'export MCR_CACHE_ROOT="${MCR_CACHE_ROOT:-${TMPDIR}/mcr_cache_${USER}_$$}"'
-                echo 'mkdir -p "${MCR_CACHE_ROOT}" 2>/dev/null || true'
-                echo 'mkdir -p "${TMPDIR}/mcr_ctf" 2>/dev/null || true'
-                echo
-                # then the original script content (minus any existing shebang)
-                sed '1{/^#!\/bin\/sh/d;}' "$WRAP"
-            } > "$tmpf"
-            cat "$tmpf" > "$WRAP"
-            rm -f "$tmpf"
-            chmod a+rx "$WRAP"
-        fi
-    done
+        TMP="$(mktemp)"
+        {
+            # preserve shebang (line 1)
+            head -n 1 "$WRAP"
+            cat <<'PATCH'
+# ----- Force MATLAB Runtime cache/CTF extraction to writable space -----
+: "${TMPDIR:=/tmp}"
+: "${USER:=unknown}"
+# Canonical writable root (launcher will bind /tmp/mcr_cache to host)
+: "${MCR_CACHE_ROOT:=${TMPDIR}/mcr_cache/${USER}}"
+# Per-app subdir (use wrapper name to avoid collisions)
+APP_BN="$(basename "$0")"
+export MCR_CACHE_ROOT="${MCR_CACHE_ROOT}/${APP_BN}"
+export MCR_USER_CTF_ROOT="${MCR_USER_CTF_ROOT:-${MCR_CACHE_ROOT}/ctf}"
+export MCR_INHIBIT_CTF_LOCK="${MCR_INHIBIT_CTF_LOCK:-1}"
+mkdir -p "${MCR_CACHE_ROOT}" "${MCR_USER_CTF_ROOT}" 2>/dev/null || true
+PATCH
+            # rest of original script (from line 2 onward)
+            tail -n +2 "$WRAP"
+        } > "$TMP"
 
-    echo "[final] sanity: show a couple *_mcr links:"
-    find /opt/samba/matlab_execs_for_SAMBA -type l -name '*_mcr' -print | head -n 10 || true
+        chmod --reference="$WRAP" "$TMP" 2>/dev/null || chmod 0755 "$TMP"
+        mv -f "$TMP" "$WRAP"
+    done < <(find /opt/samba/matlab_execs_for_SAMBA -type f -name 'run_*.sh' -print0)
+
+    echo "[final] wrapper patch complete."
 
 
     # ==============================================================
