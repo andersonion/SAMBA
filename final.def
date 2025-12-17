@@ -380,12 +380,36 @@ PY
     done
 
     echo "[test] checking MATLAB exec *_mcr symlink policy..."
-    # There should be NO baked directories named *_mcr under matlab_execs_for_SAMBA
-    if find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -print -quit 2>/dev/null | grep -q .; then
+
+    # Fail ONLY if there are *_mcr directories
+    if find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -print -quit | grep -q .; then
         echo "FATAL: found baked *_mcr directory under matlab_execs_for_SAMBA" >&2
+        find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -print | head -n 50 >&2
         exit 1
     fi
-    echo "  OK: no baked *_mcr directories."
+
+    # Optional: verify that any *_mcr entries that exist are symlinks to /tmp/mcr_ctf
+    bad=0
+    while IFS= read -r p; do
+        if [ ! -L "$p" ]; then
+            echo "FATAL: *_mcr exists but is not a symlink: $p" >&2
+            bad=1
+            continue
+        fi
+        t="$(readlink "$p" || true)"
+        case "$t" in
+            /tmp/mcr_ctf/*_mcr) : ;;
+            *)
+                echo "FATAL: *_mcr symlink does not point into /tmp/mcr_ctf: $p -> $t" >&2
+                bad=1
+                ;;
+        esac
+    done <<'EOF'
+$(find /opt/samba/matlab_execs_for_SAMBA -name '*_mcr' -print 2>/dev/null || true)
+EOF
+
+    [ "$bad" -eq 0 ] || exit 1
+    echo "[test] MATLAB *_mcr symlink policy OK"
 
     echo "[test] final stage checks COMPLETE."
 
