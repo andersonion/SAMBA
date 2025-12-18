@@ -1,3 +1,4 @@
 bashrc_for_SAMBA
 SAMBA_python/.envs/
 *.sif
+*.log
