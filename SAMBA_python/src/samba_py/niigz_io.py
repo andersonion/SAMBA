@@ -344,9 +344,11 @@ def load_niigz_streaming_into_array(
 
         arr = out_1d.reshape(tuple(n_dims7))
 
-        # convert to native endian for compute
+
+        # convert to native endian for compute (NumPy 2.0 compatible)
         if arr.dtype.byteorder in (">", "<") and arr.dtype.byteorder != "=":
-            arr = arr.byteswap().newbyteorder()
+            arr = arr.byteswap().view(arr.dtype.newbyteorder("="))
+
 
         return hdr, arr, extra
     finally:
