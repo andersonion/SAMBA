@@ -243,8 +243,7 @@ def load_niigz_streaming(
         else:
             raise ValueError("Bad NIfTI header: sizeof_hdr != 348")
 
-        hdr = nib.Nifti1Header.from_bytes(hdr_bytes)
-
+        hdr = nib.Nifti1Header.from_fileobj(io.BytesIO(hdr_bytes))
         vox_offset = float(hdr["vox_offset"])
         if vox_offset < 352:
             vox_offset = 352.0
@@ -300,7 +299,7 @@ def load_niigz_streaming_into_array(
         else:
             raise ValueError("Bad NIfTI header: sizeof_hdr != 348")
 
-        hdr = nib.Nifti1Header.from_bytes(hdr_bytes)
+        hdr = nib.Nifti1Header.from_fileobj(io.BytesIO(hdr_bytes))
 
         vox_offset = float(hdr["vox_offset"])
         if vox_offset < 352:
