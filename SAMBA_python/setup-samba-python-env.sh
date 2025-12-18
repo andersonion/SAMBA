@@ -4,9 +4,12 @@ set -euo pipefail
 ENV_YML="${ENV_YML:-environment.yml}"
 ENV_NAME="${ENV_NAME:-samba-py}"
 
+# Option C default: repo-local env prefix
+DEFAULT_PREFIX="$(pwd)/.envs/${ENV_NAME}"
+ENV_PREFIX="${ENV_PREFIX:-$DEFAULT_PREFIX}"
+
 FREEZE_AFTER=0
 
-# pip-only extras (kept out of conda to reduce solver pain)
 PIP_EXTRAS=(
   "indexed_gzip"
 )
@@ -18,26 +21,33 @@ have(){ command -v "$1" >/dev/null 2>&1; }
 usage() {
   cat <<EOF
 Usage:
-  $0 [--freeze]
+  $0 [--freeze] [--prefix /abs/or/rel/path]
+
+Defaults:
+  Env prefix: ./.envs/<ENV_NAME>   (repo-local, recommended)
 
 Options:
-  --freeze   After successful setup, freeze the environment to
-             environment.lock.yml using scripts/freeze-env.sh
+  --freeze           After successful setup, run scripts/freeze-env.sh
+  --prefix PATH      Create/update environment at PATH (prefix mode)
 
 Environment variables:
-  ENV_NAME   Conda environment name (default: samba-py)
-  ENV_YML    Environment file (default: environment.yml)
+  ENV_NAME           Logical env name (used only for default prefix folder name)
+  ENV_PREFIX         Override prefix path
+  ENV_YML            Environment file (default: environment.yml)
 EOF
 }
 
-# -------------------------
-# Parse CLI args
-# -------------------------
+# Parse args
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --freeze)
       FREEZE_AFTER=1
       shift
+      ;;
+    --prefix)
+      [[ $# -ge 2 ]] || die "--prefix requires a PATH"
+      ENV_PREFIX="$2"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -49,15 +59,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# -------------------------
 # Preconditions
-# -------------------------
 [[ -f "$ENV_YML" ]] || die "Missing $ENV_YML in $(pwd)"
-[[ -d "scripts" ]] || die "Expected ./scripts directory (are you in SAMBA_python/?)"
+[[ -d "scripts" ]] || die "Expected ./scripts directory (run from SAMBA_python/)"
+mkdir -p "$(dirname "$ENV_PREFIX")"
 
-# -------------------------
 # Choose conda frontend
-# -------------------------
 if have micromamba; then
   TOOL="micromamba"
 elif have mamba; then
@@ -69,76 +76,59 @@ else
 fi
 
 info "Using tool: $TOOL"
-info "Environment name: $ENV_NAME"
 info "Environment file: $ENV_YML"
+info "Env name (logical): $ENV_NAME"
+info "Env prefix (actual): $ENV_PREFIX"
 
-# -------------------------
-# Helpers
-# -------------------------
 run_in_env() {
   case "$TOOL" in
     conda|mamba)
-      "$TOOL" run -n "$ENV_NAME" "$@"
+      "$TOOL" run -p "$ENV_PREFIX" "$@"
       ;;
     micromamba)
-      micromamba run -n "$ENV_NAME" "$@"
+      micromamba run -p "$ENV_PREFIX" "$@"
       ;;
   esac
 }
 
-env_exists() {
-  case "$TOOL" in
-    conda|mamba)
-      "$TOOL" env list | awk '{print $1}' | grep -qx "$ENV_NAME"
-      ;;
-    micromamba)
-      micromamba env list | awk '{print $1}' | grep -qx "$ENV_NAME"
-      ;;
-  esac
+prefix_exists() {
+  [[ -d "$ENV_PREFIX" ]] && [[ -f "$ENV_PREFIX/conda-meta/history" || -f "$ENV_PREFIX/conda-meta/pinned" || -d "$ENV_PREFIX/conda-meta" ]]
 }
 
-# -------------------------
-# Create or update env
-# -------------------------
+# Create/update env at prefix
 case "$TOOL" in
   conda|mamba)
-    if env_exists; then
-      info "Environment exists; updating..."
-      "$TOOL" env update -n "$ENV_NAME" -f "$ENV_YML" --prune
+    if prefix_exists; then
+      info "Prefix exists; updating..."
+      "$TOOL" env update -p "$ENV_PREFIX" -f "$ENV_YML" --prune
     else
-      info "Environment does not exist; creating..."
-      "$TOOL" env create -n "$ENV_NAME" -f "$ENV_YML"
+      info "Prefix does not exist; creating..."
+      "$TOOL" env create -p "$ENV_PREFIX" -f "$ENV_YML"
     fi
     ;;
   micromamba)
-    if env_exists; then
-      info "Environment exists; installing/updating from $ENV_YML..."
-      micromamba install -n "$ENV_NAME" -f "$ENV_YML" -y
+    if prefix_exists; then
+      info "Prefix exists; installing/updating from $ENV_YML..."
+      micromamba install -p "$ENV_PREFIX" -f "$ENV_YML" -y
     else
-      info "Environment does not exist; creating..."
-      micromamba create -n "$ENV_NAME" -f "$ENV_YML" -y
+      info "Prefix does not exist; creating..."
+      micromamba create -p "$ENV_PREFIX" -f "$ENV_YML" -y
     fi
     ;;
 esac
 
-# -------------------------
 # pip extras
-# -------------------------
 if [[ "${#PIP_EXTRAS[@]}" -gt 0 ]]; then
   info "Installing pip extras: ${PIP_EXTRAS[*]}"
   run_in_env python -m pip install --upgrade pip
   run_in_env python -m pip install "${PIP_EXTRAS[@]}"
 fi
 
-# -------------------------
-# Install SAMBA_python package (editable)
-# -------------------------
+# Install package editable
 info "Installing SAMBA_python package (editable)"
 run_in_env python -m pip install -e .
 
-# -------------------------
 # Sanity checks
-# -------------------------
 info "Running sanity checks"
 run_in_env python - <<'PY'
 import sys
@@ -159,25 +149,16 @@ except Exception as e:
     print("indexed_gzip check failed:", e)
 PY
 
-# -------------------------
 # Optional freeze
-# -------------------------
 if [[ "$FREEZE_AFTER" -eq 1 ]]; then
   info "--freeze requested; freezing environment"
   [[ -x "scripts/freeze-env.sh" ]] || die "scripts/freeze-env.sh not found or not executable"
-  ENV_NAME="$ENV_NAME" scripts/freeze-env.sh
+  ENV_PREFIX="$ENV_PREFIX" scripts/freeze-env.sh
 fi
 
-# -------------------------
-# Done
-# -------------------------
 info "Setup complete."
-
+echo "Run tests with:"
 case "$TOOL" in
-  conda|mamba)
-    echo "Activate with: conda activate $ENV_NAME"
-    ;;
-  micromamba)
-    echo "Activate with: micromamba activate $ENV_NAME"
-    ;;
+  conda|mamba) echo "  $TOOL run -p \"$ENV_PREFIX\" pytest -q";;
+  micromamba)  echo "  micromamba run -p \"$ENV_PREFIX\" pytest -q";;
 esac
