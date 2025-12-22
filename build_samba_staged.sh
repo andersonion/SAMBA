@@ -14,8 +14,18 @@ set -euo pipefail
 : "${SAMBA_CONTAINER_RUNTIME:=}"
 
 # ===== Stages =====
-STAGES=( base itk ants fsl_mcr samba_and_atlas final )
-IMAGES=( base.sif itk.sif ants.sif fsl_mcr.sif samba.sif samba_python.sif)
+# NOTE: stage name must match a file "<stage>.def"
+STAGES=( base itk ants fsl_mcr final samba_python )
+
+# ===== Images =====
+# One output SIF per stage (same length/order as STAGES)
+IMAGES=( base.sif itk.sif ants.sif fsl_mcr.sif semifinal.sif samba.sif )
+
+if (( ${#STAGES[@]} != ${#IMAGES[@]} )); then
+  echo "ERROR: STAGES and IMAGES arrays must be the same length" >&2
+  echo "STAGES=${#STAGES[@]} IMAGES=${#IMAGES[@]}" >&2
+  exit 2
+fi
 
 # ===== Normalize PATH if invoked via sudo (avoid secure_path surprises) =====
 if [[ -n "${SUDO_USER-}" ]]; then
@@ -40,7 +50,6 @@ elif CT_BIN="$(command -v apptainer 2>/dev/null)"; then
 elif CT_BIN="$(command -v singularity 2>/dev/null)"; then
   CT="$CT_BIN"
 else
-  # generic fallbacks only (NO site-specific hardcoding)
   for cand in /usr/local/bin/apptainer /usr/bin/apptainer /usr/local/bin/singularity /usr/bin/singularity; do
     if [[ -x "$cand" ]]; then CT="$cand"; break; fi
   done
@@ -86,7 +95,7 @@ build_stage() {
     return 2
   fi
 
-  # If this stage uses Bootstrap: localimage, make sure previous SIF exists
+  # If this stage uses Bootstrap: localimage, ensure previous SIF exists
   if (( idx > 0 )); then
     local prev_img="${IMAGES[$((idx-1))]}"
     if [[ ! -f "$prev_img" ]]; then
@@ -113,7 +122,6 @@ build_stage() {
   local log="build_${name}.log"
   echo "LOG: $log"
 
-  # IMPORTANT: avoid set -e killing the whole script before we can continue
   set +e
   ( time "${runner[@]}" "${build_cmd[@]}" "$img" "$def" ) 2>&1 | tee "$log"
   local rc=${PIPESTATUS[0]}
@@ -146,4 +154,5 @@ for i in "${!STAGES[@]}"; do
   build_stage "$i"
 done
 
-echo "All done. Final image: ./samba.sif"
+FINAL_IMG="${IMAGES[$((${#IMAGES[@]}-1))]}"
+echo "All done. Final image: ./${FINAL_IMG}"
