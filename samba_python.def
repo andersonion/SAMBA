@@ -1,5 +1,5 @@
 Bootstrap: localimage
-From: final.sif
+From: semifinal.sif
 
 %labels
     Stage: samba_python
