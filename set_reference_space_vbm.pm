@@ -28,8 +28,16 @@ if (! defined($MATLAB_2015b_PATH)) {
 }
 
 my $matlab_path =  "${MATLAB_2015b_PATH}";
-my $centered_mass_executable_path = "${MATLAB_EXEC_PATH}/create_centered_mass_from_image_array_executable/run_create_centered_mass_from_image_array.sh";
-
+my $centered_mass_executable_path = "${SAMBA_APPS_DIR}/SAMBA/SAMBA_python/scripts/create_centered_mass_from_image_array.py";
+my $use_python = 1;
+my $exec_prefix = "python3";
+if ( -f  $centered_mass_executable_path ){
+	$matlab_path = '';
+} else {
+	$use_python = 0;
+	$exec_prefix = '';
+	$centered_mass_executable_path = "${MATLAB_EXEC_PATH}/create_centered_mass_from_image_array_executable/run_create_centered_mass_from_image_array.sh";
+}
 
 my ($inputs_dir,$pristine_in_folder,$preprocess_dir,$rigid_atlas_name,$rigid_target,$rigid_contrast,$runno_list,$rigid_atlas_path,$original_rigid_atlas_path,$port_atlas_mask);#$current_path,$affine_iter);
 my (%reference_space_hash,%reference_path_hash,%input_reference_path_hash,%refspace_hash,%refspace_folder_hash,%refname_hash,%refspace_file_hash);
@@ -902,26 +910,29 @@ sub set_reference_space_vbm_Runtime_check {
                 }
             }
 
-            if ($outpath =~ s/(\.gz)$//) {}
-            my $matlab_exec_args=" ${inpath} ${outpath}";
-            my $cmd = "${centered_mass_executable_path} ${matlab_path} ${matlab_exec_args}";
-            log_info("Creating reference image: ${outpath}\n${cmd}.");
-            `${cmd}`;
+			if ( ! $use_python) {if ($outpath =~ s/(\.gz)$//) {} }
 
-            if ( -e $outpath ) {
-                my $gzip_cmd="gzip ${outpath}";
-                log_info("Compressing reference image: ${gzip_cmd}");
-                `${gzip_cmd}`;
-                if ( -e "${outpath}.gz" ) {
-                    $outpath= "${outpath}.gz";
-                } 
-            }
+			my $exec_args=" ${inpath} ${outpath}";
+			my $cmd = "${exec_prefix} ${centered_mass_executable_path} ${matlab_path} ${exec_args}";
+			log_info("Creating reference image: ${outpath}\n${cmd}.");
+			`${cmd}`;
 
-            if ( $inpath =~ /\.tmp\.nii$/) {
-                my $rm_cmd = "rm ${inpath}";
-                log_info("Cleaning up temporary input reference image: ${rm_cmd}");
-                `${rm_cmd}`;
-            }
+			if ( ! $use_python) {
+				if ( -e $outpath ) {
+					my $gzip_cmd="gzip ${outpath}";
+					log_info("Compressing reference image: ${gzip_cmd}");
+					`${gzip_cmd}`;
+					if ( -e "${outpath}.gz" ) {
+						$outpath= "${outpath}.gz";
+					} 
+				}
+	
+				if ( $inpath =~ /\.tmp\.nii$/) {
+					my $rm_cmd = "rm ${inpath}";
+					log_info("Cleaning up temporary input reference image: ${rm_cmd}");
+					`${rm_cmd}`;
+				}
+			}
 
         }
 

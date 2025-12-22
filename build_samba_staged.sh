@@ -14,8 +14,8 @@ set -euo pipefail
 : "${SAMBA_CONTAINER_RUNTIME:=}"
 
 # ===== Stages =====
-STAGES=( base itk ants fsl_mcr final )
-IMAGES=( base.sif itk.sif ants.sif fsl_mcr.sif samba.sif )
+STAGES=( base itk ants fsl_mcr samba_and_atlas final )
+IMAGES=( base.sif itk.sif ants.sif fsl_mcr.sif samba.sif samba_python.sif)
 
 # ===== Normalize PATH if invoked via sudo (avoid secure_path surprises) =====
 if [[ -n "${SUDO_USER-}" ]]; then

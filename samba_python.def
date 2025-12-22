@@ -1,0 +1,83 @@
+Bootstrap: localimage
+From: semifinal.sif
+
+%labels
+    Maintainer Robert Anderson
+    Version v1.0+samba_python
+
+%environment
+    # Preserve whatever the base image already exports, just extend PATH.
+    export SAMBA_PY_PREFIX=/opt/conda_envs/samba-py
+    export PATH=${SAMBA_PY_PREFIX}/bin:$PATH
+
+    # Optional global kill-switch if you ever want to force no-pigz behavior
+    # export SAMBA_NO_PIGZ=1
+
+%post
+    # POSIX sh compatible
+    set -eu
+
+    export DEBIAN_FRONTEND=noninteractive
+
+    # ---- Ensure streaming gzip tools exist (no scratch files) ----
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates curl bzip2 xz-utils \
+        gzip pigz \
+        git
+    rm -rf /var/lib/apt/lists/*
+
+    # ---- Where SAMBA lives in the base image ----
+    export SAMBA_APPS_DIR=/opt/samba
+    export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
+
+    # Your SAMBA repo was cloned in the base image at ${SAMBA_PATH}.
+    # SAMBA_python should live under that.
+    SAMBA_PY_SRC="${SAMBA_PATH}/SAMBA_python"
+
+    if [ ! -d "$SAMBA_PY_SRC" ]; then
+        echo "FATAL: SAMBA_python not found at: $SAMBA_PY_SRC" >&2
+        echo "Expected SAMBA_python to be a subfolder inside the cloned SAMBA repo." >&2
+        echo "Fix: commit/push SAMBA_python into github.com/andersonion/SAMBA, then rebuild the base stages." >&2
+        exit 1
+    fi
+
+    # ---- Install micromamba ----
+    mkdir -p /opt/micromamba/bin
+    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
+      | tar -xvj -C /opt/micromamba/bin --strip-components=1 bin/micromamba
+    ln -sfn /opt/micromamba/bin/micromamba /usr/local/bin/micromamba
+
+    export MAMBA_ROOT_PREFIX=/opt/micromamba
+    export SAMBA_PY_PREFIX=/opt/conda_envs/samba-py
+    mkdir -p "$(dirname "$SAMBA_PY_PREFIX")"
+
+    echo "Building SAMBA_python env at prefix: $SAMBA_PY_PREFIX"
+
+    # Prefer lock if present; fall back to environment.yml
+    if [ -f "$SAMBA_PY_SRC/environment.lock.yml" ]; then
+        echo "Using lock file: $SAMBA_PY_SRC/environment.lock.yml"
+        micromamba create -y -p "$SAMBA_PY_PREFIX" -f "$SAMBA_PY_SRC/environment.lock.yml"
+    elif [ -f "$SAMBA_PY_SRC/environment.yml" ]; then
+        echo "Using env file: $SAMBA_PY_SRC/environment.yml"
+        micromamba create -y -p "$SAMBA_PY_PREFIX" -f "$SAMBA_PY_SRC/environment.yml"
+    else
+        echo "FATAL: neither environment.lock.yml nor environment.yml found under $SAMBA_PY_SRC" >&2
+        exit 1
+    fi
+
+    # pip extras + editable install
+    micromamba run -p "$SAMBA_PY_PREFIX" python -m pip install --upgrade pip
+    micromamba run -p "$SAMBA_PY_PREFIX" python -m pip install indexed_gzip
+    micromamba run -p "$SAMBA_PY_PREFIX" python -m pip install -e "$SAMBA_PY_SRC"
+
+    # Build-time smoke tests (fast)
+    micromamba run -p "$SAMBA_PY_PREFIX" python -c "import samba_py; import samba_py.niigz_io; print('OK: samba_py import')"
+
+    # Optional: run unit tests at build time (recommended)
+    if [ -d "$SAMBA_PY_SRC/tests" ]; then
+        micromamba run -p "$SAMBA_PY_PREFIX" pytest -q "$SAMBA_PY_SRC/tests"
+    fi
+
+%runscript
+    exec bash
