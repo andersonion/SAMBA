@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh — clean, portable SAMBA launcher (host-first atlas + MCR CTF bind)
+# samba_pipe_src.sh — clean, portable SAMBA launcher
+#   - deep binds only (minimal set of necessary paths)
+#   - host-first atlas + MCR CTF bind
 #
 # Usage:
 #   source samba_pipe_src.sh
@@ -115,6 +117,117 @@ _find_atlas_root_for() {
 }
 
 # ------------------------------------------------------------
+# Bind planning helpers (DEEP bind, minimal cover set)
+# ------------------------------------------------------------
+
+# Normalize path without requiring realpath (works even if missing)
+_normpath() {
+  local p="$1"
+  # strip trailing slashes (except root)
+  while [[ "$p" != "/" && "$p" == */ ]]; do p="${p%/}"; done
+  echo "$p"
+}
+
+# Return existing directory to bind:
+#  - if input is a file, bind its parent dir
+#  - if input is a dir, bind it
+#  - if missing, walk up until an existing dir is found
+_bindable_dir_for() {
+  local p="$(_normpath "$1")"
+  if [[ -d "$p" ]]; then
+    echo "$p"
+    return 0
+  fi
+  if [[ -f "$p" ]]; then
+    echo "$(dirname "$p")"
+    return 0
+  fi
+  # Walk up until we find an existing directory
+  local cur="$p"
+  while [[ "$cur" != "/" ]]; do
+    cur="$(dirname "$cur")"
+    [[ -d "$cur" ]] && { echo "$cur"; return 0; }
+  done
+  # Worst case, root exists
+  echo "/"
+  return 0
+}
+
+# Deduplicate and minimize:
+# Given a list of dirs, remove any dir that is already covered by a parent dir in the set.
+_minimize_dirs() {
+  local -a in=("$@")
+  local -a uniq=()
+  local d
+
+  # unique
+  for d in "${in[@]}"; do
+    [[ -n "$d" ]] || continue
+    d="$(_normpath "$d")"
+    local seen=0
+    local u
+    for u in "${uniq[@]}"; do
+      [[ "$u" == "$d" ]] && { seen=1; break; }
+    done
+    [[ $seen -eq 0 ]] && uniq+=("$d")
+  done
+
+  # sort by length (shortest first) so parents come before children
+  local -a sorted=()
+  local i j
+  for i in "${!uniq[@]}"; do sorted+=("${uniq[$i]}"); done
+  IFS=$'\n' sorted=($(printf "%s\n" "${sorted[@]}" | awk '{ print length($0) "\t" $0 }' | sort -n | cut -f2-))
+  unset IFS
+
+  local -a out=()
+  for d in "${sorted[@]}"; do
+    local covered=0
+    local p
+    for p in "${out[@]}"; do
+      if [[ "$d" == "$p" ]]; then
+        covered=1; break
+      fi
+      if [[ "$p" == "/" ]]; then
+        covered=1; break
+      fi
+      if [[ "$d" == "$p/"* ]]; then
+        covered=1; break
+      fi
+    done
+    [[ $covered -eq 0 ]] && out+=("$d")
+  done
+
+  printf "%s\n" "${out[@]}"
+}
+
+# Optional safety mode: promote deep binds to mount roots
+# Disabled by default to match your preference.
+# Set SAMBA_BIND_MODE=mountroot to enable.
+_promote_to_mountroots_if_enabled() {
+  local mode="${SAMBA_BIND_MODE:-deep}"
+  if [[ "$mode" != "mountroot" ]]; then
+    # passthrough
+    printf "%s\n" "$@"
+    return 0
+  fi
+
+  # mountroot mode: promote /a/b/c to /a if /a is a mountpoint (heuristic)
+  # We avoid hardcoding; use findmnt if available.
+  local -a out=()
+  local d
+  for d in "$@"; do
+    if command -v findmnt >/dev/null 2>&1; then
+      # find the mountpoint that contains this dir
+      local mp
+      mp="$(findmnt -T "$d" -n -o TARGET 2>/dev/null | head -n1 || true)"
+      [[ -n "$mp" ]] && d="$mp"
+    fi
+    out+=("$d")
+  done
+  _minimize_dirs "${out[@]}"
+}
+
+# ------------------------------------------------------------
 # Main entry
 # ------------------------------------------------------------
 samba-pipe() {
@@ -157,8 +270,6 @@ samba-pipe() {
 
   # --------------------------------------------------------
   # MCR CTF cache bind (THIS IS THE REAL FIX)
-  #   - auto-create persistent host dir (not manual)
-  #   - bind to /tmp/mcr_ctf so symlink targets always have a parent dir
   # --------------------------------------------------------
   local host_mcr_ctf="${BIGGUS_DISKUS%/}/.mcr_ctf"
   mkdir -p "$host_mcr_ctf" || {
@@ -167,28 +278,77 @@ samba-pipe() {
   }
 
   # --------------------------------------------------------
-  # Binds baseline
+  # Stage headfile
   # --------------------------------------------------------
+  local u="${USER:-$(id -un)}"
+  local hf_tmp="/tmp/${u}_samba_$(date +%s)_$(basename "$hf")"
+  cp "$hf" "$hf_tmp" || { echo "ERROR: could not stage headfile to $hf_tmp" >&2; return 1; }
+
   local hf_dir
   hf_dir="$(dirname "$hf")"
 
-  local binds=()
-  binds+=(
-    --bind "$hf_dir:$hf_dir"
-    --bind "$BIGGUS_DISKUS:$BIGGUS_DISKUS"
-    --bind "$host_home:$host_home"
-    --bind "$host_mcr_ctf:/tmp/mcr_ctf"
-  )
-
+  # --------------------------------------------------------
   # Optional external inputs
+  # --------------------------------------------------------
   local opt_ext
   opt_ext="$(_hf_get "$hf" "optional_external_inputs_dir" || true)"
-  if [[ -n "$opt_ext" && -d "$opt_ext" ]]; then
-    binds+=( --bind "$opt_ext:$opt_ext" )
-  fi
 
   # --------------------------------------------------------
-  # Atlas intent from headfile
+  # Collect deep bind candidates (dirs only)
+  #   - hf_dir
+  #   - BIGGUS_DISKUS
+  #   - HOME
+  #   - MCR CTF cache
+  #   - optional external inputs dir
+  #   - any absolute paths found in headfile values (best effort)
+  # --------------------------------------------------------
+  local -a cand_paths=()
+  cand_paths+=( "$hf_dir" )
+  cand_paths+=( "$BIGGUS_DISKUS" )
+  cand_paths+=( "$host_home" )
+  cand_paths+=( "$host_mcr_ctf" )
+
+  if [[ -n "$opt_ext" && -d "$opt_ext" ]]; then
+    cand_paths+=( "$opt_ext" )
+  fi
+
+  # Best-effort: scrape absolute paths from headfile values
+  # (anything containing / and starting with /)
+  local -a hf_abs=()
+  while IFS= read -r v; do
+    [[ -n "$v" ]] || continue
+    # strip quotes
+    v="${v%\"}"; v="${v#\"}"
+    v="${v%\'}"; v="${v#\'}"
+    if [[ "$v" == /* ]]; then
+      hf_abs+=( "$v" )
+    fi
+  done < <(grep -E '^[[:space:]]*[A-Za-z0-9_]+[[:space:]]*=' "$hf" \
+              | sed -E 's/^[[:space:]]*[A-Za-z0-9_]+[[:space:]]*=[[:space:]]*//' \
+              | sed -E 's/[[:space:]]*$//')
+
+  local p
+  for p in "${hf_abs[@]}"; do
+    cand_paths+=( "$(_bindable_dir_for "$p")" )
+  done
+
+  # Minimize
+  local -a minimized=()
+  while IFS= read -r p; do minimized+=( "$p" ); done < <(_minimize_dirs "${cand_paths[@]}")
+
+  # Optional promote to mount roots only if user asks
+  local -a final_dirs=()
+  while IFS= read -r p; do final_dirs+=( "$p" ); done < <(_promote_to_mountroots_if_enabled "${minimized[@]}")
+
+  # Build --bind args
+  local -a binds=()
+  for p in "${final_dirs[@]}"; do
+    [[ -n "$p" ]] || continue
+    binds+=( --bind "$p:$p" )
+  done
+
+  # --------------------------------------------------------
+  # Atlas intent from headfile (host-first)
   # --------------------------------------------------------
   local label_atlas rigid_atlas
   label_atlas="$(_hf_get "$hf" "label_atlas_name" || true)"
@@ -217,13 +377,6 @@ samba-pipe() {
   fi
 
   # --------------------------------------------------------
-  # Stage headfile
-  # --------------------------------------------------------
-  local u="${USER:-$(id -un)}"
-  local hf_tmp="/tmp/${u}_samba_$(date +%s)_$(basename "$hf")"
-  cp "$hf" "$hf_tmp" || { echo "ERROR: could not stage headfile to $hf_tmp" >&2; return 1; }
-
-  # --------------------------------------------------------
   # Container env we explicitly pass (because --cleanenv)
   # --------------------------------------------------------
   local BASE_ENV=(
@@ -242,6 +395,15 @@ samba-pipe() {
   # Pass NOTIFICATION_EMAIL if set on host
   if [[ -n "${NOTIFICATION_EMAIL:-}" ]]; then
     BASE_ENV+=( --env NOTIFICATION_EMAIL="$NOTIFICATION_EMAIL" )
+  fi
+
+  # --------------------------------------------------------
+  # Debug: show binds if requested
+  # --------------------------------------------------------
+  if [[ -n "${SAMBA_DEBUG_BINDS:-}" ]]; then
+    echo "samba-pipe: bind plan (mode=${SAMBA_BIND_MODE:-deep}):" >&2
+    local b
+    for b in "${binds[@]}"; do echo "  $b" >&2; done
   fi
 
   # This is used by scheduler wrappers inside SAMBA
