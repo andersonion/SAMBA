@@ -6,43 +6,56 @@ From: semifinal.sif
     Version v1.0+samba_python
 
 %environment
-    # Preserve whatever the base image already exports, just extend PATH.
+    # Extend runtime PATH so python env is on PATH automatically
     export SAMBA_PY_PREFIX=/opt/conda_envs/samba-py
     export PATH=${SAMBA_PY_PREFIX}/bin:$PATH
 
-    # Optional global kill-switch if you ever want to force no-pigz behavior
+    # Optional global kill-switch
     # export SAMBA_NO_PIGZ=1
 
 %post
     # POSIX sh compatible
     set -eu
 
-    export DEBIAN_FRONTEND=noninteractive
-
-    # ---- Ensure streaming gzip tools exist (no scratch files) ----
-    apt-get update
-    apt-get install -y --no-install-recommends \
-        ca-certificates curl bzip2 xz-utils \
-        gzip pigz \
-        git
-    rm -rf /var/lib/apt/lists/*
+    # ---------------------------------------------------------------------
+    # IMPORTANT: prevent base-image linker settings (MATLAB MCR libs) from
+    # hijacking build tools like apt/curl/python. We are not "using MATLAB",
+    # we are neutralizing its runtime libs for this build stage.
+    # ---------------------------------------------------------------------
+    unset LD_LIBRARY_PATH || true
+    unset LD_PRELOAD || true
+    export PATH=/usr/sbin:/usr/bin:/sbin:/bin:$PATH
 
     # ---- Where SAMBA lives in the base image ----
     export SAMBA_APPS_DIR=/opt/samba
     export SAMBA_PATH=${SAMBA_APPS_DIR}/SAMBA
 
-    # Your SAMBA repo was cloned in the base image at ${SAMBA_PATH}.
-    # SAMBA_python should live under that.
     SAMBA_PY_SRC="${SAMBA_PATH}/SAMBA_python"
-
     if [ ! -d "$SAMBA_PY_SRC" ]; then
         echo "FATAL: SAMBA_python not found at: $SAMBA_PY_SRC" >&2
         echo "Expected SAMBA_python to be a subfolder inside the cloned SAMBA repo." >&2
-        echo "Fix: commit/push SAMBA_python into github.com/andersonion/SAMBA, then rebuild the base stages." >&2
         exit 1
     fi
 
-    # ---- Install micromamba ----
+    # ---- Assert required base tools exist (no apt-get in this stage) ----
+    # We only need curl + tar to fetch micromamba.
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "FATAL: curl not found in base image. Install it in the heavy stage (final.def) once." >&2
+        exit 1
+    fi
+    if ! command -v tar >/dev/null 2>&1; then
+        echo "FATAL: tar not found in base image. Install it in the heavy stage (final.def) once." >&2
+        exit 1
+    fi
+
+    # pigz is optional; your runtime will fall back automatically.
+    if command -v pigz >/dev/null 2>&1; then
+        echo "INFO: pigz is present: $(command -v pigz)"
+    else
+        echo "INFO: pigz not present in base image; streaming will fall back (OK)."
+    fi
+
+    # ---- Install micromamba (static binary) ----
     mkdir -p /opt/micromamba/bin
     curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
       | tar -xvj -C /opt/micromamba/bin --strip-components=1 bin/micromamba
@@ -71,13 +84,9 @@ From: semifinal.sif
     micromamba run -p "$SAMBA_PY_PREFIX" python -m pip install indexed_gzip
     micromamba run -p "$SAMBA_PY_PREFIX" python -m pip install -e "$SAMBA_PY_SRC"
 
-    # Build-time smoke tests (fast)
+    # Build-time smoke tests
     micromamba run -p "$SAMBA_PY_PREFIX" python -c "import samba_py; import samba_py.niigz_io; print('OK: samba_py import')"
-
-    # Optional: run unit tests at build time (recommended)
-    if [ -d "$SAMBA_PY_SRC/tests" ]; then
-        micromamba run -p "$SAMBA_PY_PREFIX" pytest -q "$SAMBA_PY_SRC/tests"
-    fi
+    micromamba run -p "$SAMBA_PY_PREFIX" pytest -q "$SAMBA_PY_SRC/tests"
 
 %runscript
     exec bash
