@@ -892,25 +892,28 @@ sub set_reference_space_vbm_Runtime_check {
         if (data_double_check($outpath)) {
 
             my $original_inpath = $inpath;
+			if ( ! $use_python) {
+				
+				if ($outpath =~ s/(\.gz)$//) {} 
+				# Only try to create a tmp .nii if we actually have something to gunzip
+				if ($inpath =~ s/(\.nii\.gz){1}$/\.tmp\.nii/) {
+	
+					if (-e $original_inpath) {
+	
+						`gunzip -c ${original_inpath} > ${inpath}`;
+	
+					} else {
+	
+						# If the expected gzipped reference does not exist, do NOT crash here.
+						# Just log and skip this creation attempt; downstream checks will decide what to do.
+						my $msg = "$PM: Skipping creation of reference image for ${V_or_L}; cannot find ${original_inpath}.";
+						log_info($msg);
+						next;
+					}
+				}
 
-            # Only try to create a tmp .nii if we actually have something to gunzip
-            if ($inpath =~ s/(\.nii\.gz){1}$/\.tmp\.nii/) {
-
-                if (-e $original_inpath) {
-
-                    `gunzip -c ${original_inpath} > ${inpath}`;
-
-                } else {
-
-                    # If the expected gzipped reference does not exist, do NOT crash here.
-                    # Just log and skip this creation attempt; downstream checks will decide what to do.
-                    my $msg = "$PM: Skipping creation of reference image for ${V_or_L}; cannot find ${original_inpath}.";
-                    log_info($msg);
-                    next;
-                }
-            }
-
-			if ( ! $use_python) {if ($outpath =~ s/(\.gz)$//) {} }
+			
+			}
 
 			my $exec_args=" ${inpath} ${outpath}";
 			my $cmd = "${exec_prefix} ${centered_mass_executable_path} ${matlab_path} ${exec_args}";
