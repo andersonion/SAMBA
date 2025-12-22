@@ -3,7 +3,7 @@ From: fsl_mcr.sif
 
 %labels
     Stage: final
-    Maintainer: BJ Anderson + ChatGPT (final stage: SAMBA + atlas + scheduler proxy)
+    Maintainer: BJ Anderson + ChatGPT (final stage: SAMBA + atlas + scheduler proxy) — NO MATLAB
 
 %environment
     source /opt/env/samba.sh
@@ -17,9 +17,6 @@ From: fsl_mcr.sif
 
     # --------------------------------------------------------------
     # FINAL-stage runtime env (single canonical file; no redundancy)
-    #   - SAMBA_APPS_DIR is the one true root (non-overridable)
-    #   - Everything else cascades from it
-    #   - ATLAS_FOLDER + SAMBA_CACHE_DIR are allowed to be overridden
     # --------------------------------------------------------------
     if ! grep -q 'FINAL (stage: final)' /opt/env/samba.sh; then
         cat << 'EOF' >> /opt/env/samba.sh
@@ -32,13 +29,12 @@ export SAMBA_APPS_DIR=/opt/samba
 # Cascading paths
 export SAMBA_PATH="${SAMBA_APPS_DIR}/SAMBA"
 export PERL_LOCAL_LIB_ROOT="${SAMBA_APPS_DIR}/perl5libs"
-export MATLAB_EXEC_ROOT="${SAMBA_APPS_DIR}/matlab_execs_for_SAMBA"
 
 # Atlas folder is overrideable by launcher (host bind -> /atlas_host)
 export ATLAS_FOLDER="${ATLAS_FOLDER:-/opt/atlases}"
 export SAMBA_ATLAS_DIR="${SAMBA_ATLAS_DIR:-${ATLAS_FOLDER}/chass_symmetric3}"
 
-# Cache dir should be overrideable (per your requirement)
+# Cache dir should be overrideable
 export SAMBA_CACHE_DIR="${SAMBA_CACHE_DIR:-/opt/zenodo_cache}"
 
 # Perl env
@@ -89,25 +85,7 @@ EOF
             "$@"
     }
 
-    _mcr_shield_begin() {
-        if [ -f /etc/ld.so.conf.d/mcr_v90.conf ]; then
-            mv /etc/ld.so.conf.d/mcr_v90.conf /etc/ld.so.conf.d/mcr_v90.conf.disabled
-            ldconfig
-            : > /tmp/.mcr_shielded
-            echo "[final] MCR shield ON"
-        fi
-    }
-
-    _mcr_shield_end() {
-        if [ -f /tmp/.mcr_shielded ]; then
-            mv /etc/ld.so.conf.d/mcr_v90.conf.disabled /etc/ld.so.conf.d/mcr_v90.conf
-            ldconfig
-            rm -f /tmp/.mcr_shielded
-            echo "[final] MCR shield OFF"
-        fi
-    }
-
-    # Always curl with system libs; call only while shielded.
+    # Always curl with system libs
     syscurl() {
         env -i \
             PATH=/usr/sbin:/usr/bin:/sbin:/bin \
@@ -116,21 +94,15 @@ EOF
     }
 
     # --------------------------------------------------------------
-    # System deps
-    #   - shield MCR so apt/curl/cpanm see system libs
-    #   - add X libs + ncurses5 for MCR deployed apps
+    # System deps (NO MCR shielding needed anymore)
     # --------------------------------------------------------------
-    _mcr_shield_begin
     echo "[final] installing base tools..."
     _sysrun apt-get update
     _sysrun apt-get install -y --no-install-recommends \
         git rsync ca-certificates curl unzip \
-        make gcc perl-modules cpanminus python3 \
-        libncurses5 \
-        libx11-6 libxext6 libxrender1 libxt6 libxmu6 libxi6
+        make gcc perl-modules cpanminus python3
     _sysrun apt-get clean
     _sysrun rm -rf /var/lib/apt/lists/*
-    _mcr_shield_end
 
     # --------------------------------------------------------------
     # Fetch & stage SAMBA
@@ -158,7 +130,6 @@ EOF
     # --------------------------------------------------------------
     # Perl toolchain + Carton (baked in)
     # --------------------------------------------------------------
-    _mcr_shield_begin
     echo "[final] ensuring cpanm..."
     if ! command -v cpanm >/dev/null 2>&1; then
         echo "[final] cpanm missing after apt; bootstrapping..."
@@ -167,7 +138,6 @@ EOF
 
     echo "[final] installing local::lib + Carton..."
     cpanm --quiet --notest --local-lib="${PERL_LOCAL_LIB_ROOT}" local::lib Carton
-    _mcr_shield_end
 
     CARTON_BIN="${PERL_LOCAL_LIB_ROOT}/bin/carton"
     if [ ! -x "${CARTON_BIN}" ]; then
@@ -200,49 +170,6 @@ EOF
     echo "[carton] done."
 
     # --------------------------------------------------------------
-    # matlab_execs_for_SAMBA runtime repo + compatibility symlink
-    # --------------------------------------------------------------
-    if [ ! -d "${MATLAB_EXEC_ROOT}" ]; then
-        git clone https://github.com/andersonion/matlab_execs_for_SAMBA.git "${MATLAB_EXEC_ROOT}"
-    fi
-    chmod -R a+rX "${MATLAB_EXEC_ROOT}"
-    ln -sfn "${MATLAB_EXEC_ROOT}" /opt/matlab_execs
-
-    # ==============================================================
-    # MATLAB deployed execs: enforce "no baked *_mcr dirs" policy
-    #   - Remove any existing *_mcr directories created during build
-    #   - Replace with symlinks pointing into /tmp/mcr_ctf/<exe>_mcr
-    # ==============================================================
-    echo "[final] enforcing *_mcr symlink policy for MATLAB execs..."
-
-    # Ensure /tmp exists and is sticky (runtime expectation)
-    mkdir -p /tmp/mcr_ctf
-    chmod 1777 /tmp || true
-
-    # 1) Nuke any baked *_mcr *directories* inside the repo tree (they break runtime)
-    find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -prune -exec rm -rf {} + 2>/dev/null || true
-
-    # 2) Remove any existing *_mcr symlinks (we'll recreate cleanly)
-    find /opt/samba/matlab_execs_for_SAMBA -type l -name '*_mcr' -exec rm -f {} + 2>/dev/null || true
-
-    # 3) Recreate symlinks next to each deployed executable
-    find /opt/samba/matlab_execs_for_SAMBA -type f -name 'run_*.sh' 2>/dev/null \
-      | while IFS= read -r wrap; do
-            d="$(dirname "$wrap")"
-
-            find "$d" -maxdepth 1 -type f -perm -111 2>/dev/null \
-              | while IFS= read -r exe; do
-                    b="$(basename "$exe")"
-                    case "$b" in
-                        run_*.sh) continue ;;
-                        *.ctf)    continue ;;
-                    esac
-                    ln -sfn "/tmp/mcr_ctf/${b}_mcr" "${d}/${b}_mcr"
-                done
-        done
-
-
-    # --------------------------------------------------------------
     # Embed Atlas from Zenodo (final stage; fatal if missing)
     # --------------------------------------------------------------
     echo "[atlas] embedding atlas from Zenodo record ${ZENODO_ID}..."
@@ -250,9 +177,7 @@ EOF
     cd "${ATLAS_FOLDER}"
 
     TMP_JSON="/tmp/zenodo_${ZENODO_ID}.json"
-    _mcr_shield_begin
     syscurl -fsSL "https://zenodo.org/api/records/${ZENODO_ID}" -o "${TMP_JSON}"
-    _mcr_shield_end
 
     TARBALL_NAME="$(
         python3 - "$TMP_JSON" <<'PY'
@@ -266,11 +191,9 @@ PY
 
     if [ -n "${TARBALL_NAME}" ]; then
         echo "[atlas] fetching tarball: ${TARBALL_NAME}"
-        _mcr_shield_begin
         syscurl -fL --retry 4 --retry-delay 2 \
             -o "${TARBALL_NAME}" \
             "https://zenodo.org/api/records/${ZENODO_ID}/files/${TARBALL_NAME}/content"
-        _mcr_shield_end
         tar -xzf "${TARBALL_NAME}" -C "${ATLAS_FOLDER}"
         rm -f "${TARBALL_NAME}"
     else
@@ -278,11 +201,9 @@ PY
         req="chass_symmetric3_DWI.nii.gz chass_symmetric3_FA.nii.gz chass_symmetric3_labels.nii.gz chass_symmetric3_labels_lookup.txt chass_symmetric3_mask.nii.gz chass_symmetric3_MD.nii.gz chass_symmetric3_MO.nii.gz chass_symmetric3_T2.nii.gz"
         for k in $req; do
             echo "  [atlas] fetching ${k} ..."
-            _mcr_shield_begin
             syscurl -fL --retry 4 --retry-delay 2 \
                 -o "${SAMBA_ATLAS_DIR}/${k}" \
                 "https://zenodo.org/api/records/${ZENODO_ID}/files/${k}/content"
-            _mcr_shield_end
         done
     fi
 
@@ -378,65 +299,6 @@ PY
         fi
         echo "  OK: ${c}"
     done
-
-    echo "[test] checking MATLAB exec *_mcr symlink policy..."
-
-    # Fail ONLY if there are *_mcr directories
-    if find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -print -quit 2>/dev/null | grep -q .; then
-        echo "FATAL: found baked *_mcr directory under matlab_execs_for_SAMBA" >&2
-        find /opt/samba/matlab_execs_for_SAMBA -type d -name '*_mcr' -print 2>/dev/null | head -n 50 >&2
-        exit 1
-    fi
-
-    # If any *_mcr exist, they MUST be symlinks pointing into /tmp/mcr_ctf
-    bad=0
-    find /opt/samba/matlab_execs_for_SAMBA -name '*_mcr' -print 2>/dev/null \
-      | while IFS= read -r p; do
-            # skip empty lines defensively
-            [ -n "$p" ] || continue
-
-            if [ ! -L "$p" ]; then
-                echo "FATAL: *_mcr exists but is not a symlink: $p" >&2
-                bad=1
-                continue
-            fi
-
-            t="$(readlink "$p" 2>/dev/null || true)"
-            case "$t" in
-                /tmp/mcr_ctf/*_mcr) : ;;
-                *)
-                    echo "FATAL: *_mcr symlink does not point into /tmp/mcr_ctf: $p -> $t" >&2
-                    bad=1
-                    ;;
-            esac
-        done
-
-    # NOTE: the while-loop above runs in a subshell in POSIX sh when fed by a pipe,
-    # so we can't reliably read "bad" afterwards. Instead, do a second hard check:
-    if find /opt/samba/matlab_execs_for_SAMBA -name '*_mcr' -type l -print 2>/dev/null \
-      | while IFS= read -r p; do
-            t="$(readlink "$p" 2>/dev/null || true)"
-            case "$t" in /tmp/mcr_ctf/*_mcr) exit 0 ;; esac
-            exit 1
-        done
-    then
-        : # at least one symlink points correctly (not a proof all do)
-    fi
-
-    # Stronger "all must match" check without relying on shell vars:
-    if find /opt/samba/matlab_execs_for_SAMBA -name '*_mcr' -type l -print 2>/dev/null \
-      | while IFS= read -r p; do
-            t="$(readlink "$p" 2>/dev/null || true)"
-            case "$t" in /tmp/mcr_ctf/*_mcr) : ;; *) exit 1 ;; esac
-        done
-    then
-        echo "[test] MATLAB *_mcr symlink policy OK"
-    else
-        echo "FATAL: one or more *_mcr symlinks do not target /tmp/mcr_ctf" >&2
-        find /opt/samba/matlab_execs_for_SAMBA -name '*_mcr' -print 2>/dev/null | head -n 50 >&2
-        exit 1
-    fi
-
 
     echo "[test] final stage checks COMPLETE."
 

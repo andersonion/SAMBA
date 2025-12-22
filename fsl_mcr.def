@@ -3,38 +3,34 @@ From: ants.sif
 
 %labels
     Stage       fsl_mcr
-    Maintainer  BJ + ChatGPT (POSIX-sh safe, MCR + skinny-FSL)
+    Maintainer  BJ + ChatGPT (POSIX-sh safe, skinny-FSL ONLY; NO MATLAB)
 
 %environment
     source /opt/env/samba.sh
 
 %post
     set -eu
-	
-	# Ensure canonical env file exists
+
+    # Ensure canonical env file exists
     mkdir -p /opt/env
     [ -f /opt/env/samba.sh ] || { echo "FATAL: /opt/env/samba.sh missing" >&2; exit 1; }
 
-    # Append FSL + MCR env into the single canonical env file
-    cat << 'EOF' >> /opt/env/samba.sh
+    # Append FSL env into the single canonical env file (NO MATLAB)
+    if ! grep -q 'skinny-FSL (stage: fsl_mcr)' /opt/env/samba.sh; then
+        cat << 'EOF' >> /opt/env/samba.sh
 
-# ---- FSL + MATLAB MCR (stage: fsl_mcr) ----
+# ---- skinny-FSL (stage: fsl_mcr) ----
 export FSLDIR="${SAMBA_APPS_DIR}/fsl"
-export MATLAB_2015b_PATH="/opt/MATLAB/MATLAB2015b_runtime/v90"
-
-export PATH="${SAMBA_APPS_DIR}/perl5/bin:${SAMBA_APPS_DIR}/perl5libs/bin:${FSLDIR}/bin:${PATH}"
-
-if [ -d "${MATLAB_2015b_PATH}/runtime/glnxa64" ]; then
-  export LD_LIBRARY_PATH="${MATLAB_2015b_PATH}/runtime/glnxa64:${MATLAB_2015b_PATH}/bin/glnxa64:${MATLAB_2015b_PATH}/sys/os/glnxa64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
-fi
+export PATH="${FSLDIR}/bin:${PATH}"
 
 EOF
+    fi
 
     # Make it available immediately during build, too
     . /opt/env/samba.sh
 
     # ---------------------------------------------------------------
-    # Base packages (MCR + skinny-FSL harvest + diagnostics)
+    # Base packages (skinny-FSL harvest + diagnostics)
     # ---------------------------------------------------------------
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
@@ -44,7 +40,7 @@ EOF
        patchelf file rsync \
        libgfortran5 libquadmath0 libstdc++6 libgcc-s1 \
        procps \
-    libxext6 libx11-6 libxrender1 libxt6 libice6 libsm6 libuuid1
+       libxext6 libx11-6 libxrender1 libxt6 libice6 libsm6 libuuid1
 
     apt-get clean
     rm -rf /var/lib/apt/lists/*
@@ -54,7 +50,6 @@ EOF
 
     # ---------------------------------------------------------------
     # Helper: always run curl with *system* lib search paths
-    # (avoid MCR’s libcurl pulled via ld.so cache)
     # ---------------------------------------------------------------
     syscurl() {
         env -i \
@@ -64,59 +59,7 @@ EOF
     }
 
     # ---------------------------------------------------------------
-    # MATLAB MCR R2015b (v90)
-    # ---------------------------------------------------------------
-    MCR_URL="https://ssd.mathworks.com/supportfiles/downloads/R2015b/deployment_files/R2015b/installers/glnxa64/MCR_R2015b_glnxa64_installer.zip"
-    MCR_ZIP="/tmp/MCR_R2015b_glnxa64_installer.zip"
-    MCR_INSTDIR="/tmp/mcr_installer"
-    MCR_CANON="/opt/MATLAB/MATLAB2015b_runtime/v90"
-
-    echo "[mcr] installing MATLAB Runtime R2015b (v90)..."
-    syscurl -fsSL "${MCR_URL}" -o "${MCR_ZIP}" || { echo "FATAL: curl MCR zip failed" >&2; exit 1; }
-
-    rm -rf "${MCR_INSTDIR}"
-    mkdir -p "${MCR_INSTDIR}"
-    unzip -o -q "${MCR_ZIP}" -d "${MCR_INSTDIR}" || { echo "FATAL: unzip MCR failed" >&2; exit 1; }
-
-    "${MCR_INSTDIR}/install" \
-        -mode silent \
-        -agreeToLicense yes \
-        -destinationFolder /usr/local/MATLAB/MATLAB_Runtime \
-        || { echo "FATAL: MCR installer failed" >&2; exit 1; }
-
-    ACTUAL_ROOT=""
-    for C in \
-        /opt/MATLAB/MATLAB2015b_runtime/v90 \
-        /opt/MATLAB/MATLAB_Runtime/v90 \
-        /usr/local/MATLAB/MATLAB2015b_runtime/v90 \
-        /usr/local/MATLAB/MATLAB_Runtime/v90
-    do
-        if [ -f "${C}/runtime/glnxa64/libmwmclmcrrt.so" ]; then
-            ACTUAL_ROOT="${C}"
-            break
-        fi
-    done
-    [ -n "${ACTUAL_ROOT}" ] || { echo "FATAL: Could not locate MCR v90 runtime after install" >&2; exit 1; }
-
-    if [ "${ACTUAL_ROOT}" != "${MCR_CANON}" ]; then
-        mkdir -p "$(dirname "${MCR_CANON}")"
-        [ -e "${MCR_CANON}" ] && [ ! -L "${MCR_CANON}" ] && rm -rf "${MCR_CANON}"
-        ln -sfn "${ACTUAL_ROOT}" "${MCR_CANON}"
-    fi
-
-    {
-        echo "${ACTUAL_ROOT}/runtime/glnxa64"
-        echo "${ACTUAL_ROOT}/bin/glnxa64"
-        echo "${ACTUAL_ROOT}/sys/os/glnxa64"
-    } > /etc/ld.so.conf.d/mcr_v90.conf
-    ldconfig
-
-    ls -lh "${MCR_CANON}/runtime/glnxa64/libmwmclmcrrt.so" || true
-    rm -rf "${MCR_ZIP}" "${MCR_INSTDIR}"
-    echo "[mcr] ok — normalized at ${MCR_CANON}"
-
-    # ---------------------------------------------------------------
-    # Skinny-FSL harvest (LAST). Uses syscurl() for installer fetch.
+    # Skinny-FSL harvest
     # ---------------------------------------------------------------
     build_fsl_mini() {
         set -eu
@@ -198,8 +141,6 @@ EOF
 
         echo "[skinny-fsl] mini bin contains:"
         ls -l "${FSL_MINI_DIR}/bin" || true
-        echo "[skinny-fsl] ldd check for fdr:"
-        ldd "${FSL_MINI_DIR}/bin/fdr" || true
 
         _run_clean() {
             env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/lib/x86_64-linux-gnu "$@" || return $?
@@ -219,17 +160,7 @@ EOF
 
 %test
     set -eu
-    MATLAB_2015b_PATH="/opt/MATLAB/MATLAB2015b_runtime/v90"
-    echo "[test] checking MATLAB MCR v90 ..."
-    if [ ! -f "${MATLAB_2015b_PATH}/runtime/glnxa64/libmwmclmcrrt.so" ]; then
-        echo "FATAL: libmwmclmcrrt.so missing under ${MATLAB_2015b_PATH}" >&2
-        exit 1
-    fi
-    ldd "${MATLAB_2015b_PATH}/runtime/glnxa64/libmwmclmcrrt.so" >/dev/null || {
-        echo "FATAL: ldd failed on MCR core lib" >&2; exit 1;
-    }
-    echo "[test] MCR OK"
-
+    echo "[test] checking skinny FSL..."
     if [ ! -x /opt/samba/fsl/bin/fslmaths ]; then
         echo "FATAL: /opt/samba/fsl/bin/fslmaths missing" >&2
         exit 1
@@ -238,4 +169,4 @@ EOF
     ( /opt/samba/fsl/bin/fdr --help >/dev/null 2>&1 ) || true
     ( /opt/samba/fsl/bin/randomise --help >/dev/null 2>&1 ) || true
     ( /opt/samba/fsl/bin/design_ttest2 --help >/dev/null 2>&1 ) || true
-    echo "[test] FSL skinny OK"
+    echo "[test] skinny FSL OK"
