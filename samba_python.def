@@ -19,10 +19,10 @@ From: semifinal.sif
     unset LD_LIBRARY_PATH || true
     unset LD_PRELOAD || true
 
-    # minimal PATH (we’ll use absolute paths for curl/tar anyway)
+    # minimal PATH for build steps (we use absolute paths for curl/tar anyway)
     export PATH=/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/sbin:/usr/local/bin
 
-    # We rely on canonical env from earlier stages (SAMBA_APPS_DIR, SAMBA_PATH, etc.)
+    # Canonical env from earlier stages
     mkdir -p /opt/env
     [ -f /opt/env/samba.sh ] || { echo "FATAL: /opt/env/samba.sh missing" >&2; exit 1; }
     . /opt/env/samba.sh
@@ -42,12 +42,12 @@ From: semifinal.sif
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
     apt-get install -y --no-install-recommends \
-        ca-certificates curl bzip2 tar git \
+        ca-certificates curl bzip2 tar \
         build-essential
     apt-get clean
     rm -rf /var/lib/apt/lists/*
 
-    # ---- Install micromamba (system curl + system libs) ----
+    # ---- Install micromamba (system curl + system tar) ----
     mkdir -p /opt/micromamba/bin
     /usr/bin/curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
       | /bin/tar -xvj -C /opt/micromamba/bin --strip-components=1 bin/micromamba
@@ -76,34 +76,27 @@ From: semifinal.sif
         exit 1
     fi
 
-    # ---- Sanitize YAML so micromamba never chokes on 'name: /path/to/env' ----
-    # We *always* sanitize into a temp file and feed that to micromamba.
+    # ---- Sanitize YAML so micromamba never chokes on name:/prefix: and pip samba-py ----
+    #  - remove prefix:
+    #  - normalize name: samba-py
+    #  - remove pip entry for samba-py (local project; we install -e later)
     SAN="/tmp/samba_python_env_spec.yml"
     rm -f "${SAN}"
 
-    # Remove any 'prefix:' lines (conda exports sometimes include them)
-    # Replace a pathological 'name: /some/path' with 'name: samba-py'
-    # Keep it deterministic and non-interactive.
-    /bin/sh -c "
-        awk '
-            BEGIN{done_name=0}
-            /^prefix:[[:space:]]/ {next}
-            /^name:[[:space:]]/ {
-                print \"name: samba-py\"
-                done_name=1
-                next
-            }
-            {print}
-            END{
-                if(!done_name){
-                    # If there was no name: line, that is fine — micromamba -p controls the prefix.
-                }
-            }
-        ' \"${SPEC}\" > \"${SAN}\"
-    "
+    awk '
+        # Remove conda-export prefix lines if present
+        /^prefix:[[:space:]]/ { next }
 
-    # ---- Create env ----
-    # If rebuilding, nuke existing prefix first (keeps builds reproducible).
+        # Normalize any name line, including pathological name: /path/to/env
+        /^name:[[:space:]]/ { print "name: samba-py"; next }
+
+        # Drop pip-installed local package (not on PyPI; installed via pip -e later)
+        /^[[:space:]]*-[[:space:]]samba-py([=<>!~].*)?[[:space:]]*$/ { next }
+
+        { print }
+    ' "${SPEC}" > "${SAN}"
+
+    # ---- Create env (always rebuild in-image to keep deterministic) ----
     if [ -d "${SAMBA_PY_PREFIX}" ]; then
         echo "[samba_python] Removing existing prefix ${SAMBA_PY_PREFIX}"
         rm -rf "${SAMBA_PY_PREFIX}"
@@ -111,12 +104,15 @@ From: semifinal.sif
 
     micromamba create -y -p "${SAMBA_PY_PREFIX}" -f "${SAN}"
 
-    # ---- Install python package editable + pip extras (inside env) ----
+    # ---- Install pip extras + editable local package ----
     micromamba run -p "${SAMBA_PY_PREFIX}" python -m pip install --upgrade pip
-    micromamba run -p "${SAMBA_PY_PREFIX}" python -m pip install -e "${SAMBA_PY_SRC}"
 
-    # If you want indexed_gzip inside container too (optional):
-    # micromamba run -p "${SAMBA_PY_PREFIX}" python -m pip install indexed_gzip
+    # Keep indexed_gzip explicit (optional but useful for IO tools)
+    # If it's already in the lock, pip will say "requirement already satisfied" and move on.
+    micromamba run -p "${SAMBA_PY_PREFIX}" python -m pip install indexed_gzip
+
+    # Install your package from the source tree (NOT from PyPI)
+    micromamba run -p "${SAMBA_PY_PREFIX}" python -m pip install -e "${SAMBA_PY_SRC}"
 
     # ---- Smoke tests ----
     micromamba run -p "${SAMBA_PY_PREFIX}" python -c "import samba_py; print('samba_py import OK')"
@@ -125,8 +121,13 @@ From: semifinal.sif
 %test
     set -eu
     . /opt/env/samba.sh
+
     if [ ! -x /opt/conda_envs/samba-py/bin/python ]; then
         echo "FATAL: samba-py python missing at /opt/conda_envs/samba-py/bin/python" >&2
         exit 1
     fi
+
     /opt/conda_envs/samba-py/bin/python -c "import samba_py; print('OK')"
+
+%runscript
+    exec /bin/sh -c "$@"
