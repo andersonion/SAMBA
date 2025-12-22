@@ -1,74 +1,132 @@
 Bootstrap: localimage
-From: semifinal.sif
+From: final.sif
 
 %labels
-    Maintainer Robert Anderson
-    Version v1.0+samba_python
-
-%files
-    # Copy your working tree’s SAMBA_python into the image at build time.
-    # This requires you to run the build from the SAMBA repo root (or a dir
-    # where SAMBA_python exists at this relative path).
-    SAMBA_python /opt/SAMBA_python
+    Stage: samba_python
+    Maintainer: BJ Anderson + ChatGPT (SAMBA_python micromamba env; NO MATLAB)
 
 %environment
+    source /opt/env/samba.sh
+
+    # Python env inside container
     export SAMBA_PY_PREFIX=/opt/conda_envs/samba-py
-    export PATH=${SAMBA_PY_PREFIX}/bin:$PATH
+    export PATH="${SAMBA_PY_PREFIX}/bin:${PATH}"
 
 %post
     set -eu
 
-    # Prevent MATLAB MCR libs from hijacking build tooling
+    # ---- hard reset: do NOT inherit any runtime LD_* weirdness during build ----
     unset LD_LIBRARY_PATH || true
     unset LD_PRELOAD || true
-    export PATH=/usr/sbin:/usr/bin:/sbin:/bin:$PATH
 
-    # We will not apt-get in this overlay stage (avoids MCR libstdc++ collision)
-    # Require curl+tar in the base image:
-    if ! command -v curl >/dev/null 2>&1; then
-        echo "FATAL: curl not found in base image. Install it in the heavy stage (final.def) once." >&2
+    # minimal PATH (we’ll use absolute paths for curl/tar anyway)
+    export PATH=/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/sbin:/usr/local/bin
+
+    # We rely on canonical env from earlier stages (SAMBA_APPS_DIR, SAMBA_PATH, etc.)
+    mkdir -p /opt/env
+    [ -f /opt/env/samba.sh ] || { echo "FATAL: /opt/env/samba.sh missing" >&2; exit 1; }
+    . /opt/env/samba.sh
+
+    # ---- Locate SAMBA_python as a subfolder of the installed SAMBA repo ----
+    SAMBA_PY_SRC="${SAMBA_PATH}/SAMBA_python"
+    if [ ! -d "${SAMBA_PY_SRC}" ]; then
+        echo "FATAL: SAMBA_python not found at: ${SAMBA_PY_SRC}" >&2
+        echo "Expected SAMBA_python to be a subfolder inside the cloned SAMBA repo." >&2
+        echo "SAMBA_PATH=${SAMBA_PATH}" >&2
+        ls -la "${SAMBA_PATH}" || true
         exit 1
     fi
-    if ! command -v tar >/dev/null 2>&1; then
-        echo "FATAL: tar not found in base image. Install it in the heavy stage (final.def) once." >&2
-        exit 1
-    fi
+    echo "[samba_python] Using SAMBA_PY_SRC=${SAMBA_PY_SRC}"
 
-    SAMBA_PY_SRC=/opt/SAMBA_python
-    if [ ! -d "$SAMBA_PY_SRC" ]; then
-        echo "FATAL: /opt/SAMBA_python missing (did %files copy fail?)" >&2
-        exit 1
-    fi
+    # ---- System deps needed for micromamba + building wheels if needed ----
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        ca-certificates curl bzip2 tar git \
+        build-essential
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
 
-    # Install micromamba
+    # ---- Install micromamba (system curl + system libs) ----
     mkdir -p /opt/micromamba/bin
-    curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
-      | tar -xvj -C /opt/micromamba/bin --strip-components=1 bin/micromamba
+    /usr/bin/curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
+      | /bin/tar -xvj -C /opt/micromamba/bin --strip-components=1 bin/micromamba
+
     ln -sfn /opt/micromamba/bin/micromamba /usr/local/bin/micromamba
 
     export MAMBA_ROOT_PREFIX=/opt/micromamba
     export SAMBA_PY_PREFIX=/opt/conda_envs/samba-py
-    mkdir -p "$(dirname "$SAMBA_PY_PREFIX")"
+    mkdir -p "$(dirname "${SAMBA_PY_PREFIX}")"
 
-    echo "Building SAMBA_python env at prefix: $SAMBA_PY_PREFIX"
+    echo "[samba_python] Building env at prefix: ${SAMBA_PY_PREFIX}"
 
-    if [ -f "$SAMBA_PY_SRC/environment.lock.yml" ]; then
-        echo "Using lock file: $SAMBA_PY_SRC/environment.lock.yml"
-        micromamba create -y -p "$SAMBA_PY_PREFIX" -f "$SAMBA_PY_SRC/environment.lock.yml"
-    elif [ -f "$SAMBA_PY_SRC/environment.yml" ]; then
-        echo "Using env file: $SAMBA_PY_SRC/environment.yml"
-        micromamba create -y -p "$SAMBA_PY_PREFIX" -f "$SAMBA_PY_SRC/environment.yml"
+    # ---- Choose lock if present, else fall back to environment.yml ----
+    LOCK="${SAMBA_PY_SRC}/environment.lock.yml"
+    ENVY="${SAMBA_PY_SRC}/environment.yml"
+
+    SPEC=""
+    if [ -f "${LOCK}" ]; then
+        echo "[samba_python] Found lock: ${LOCK}"
+        SPEC="${LOCK}"
+    elif [ -f "${ENVY}" ]; then
+        echo "[samba_python] No lock; using: ${ENVY}"
+        SPEC="${ENVY}"
     else
-        echo "FATAL: neither environment.lock.yml nor environment.yml found under $SAMBA_PY_SRC" >&2
+        echo "FATAL: neither environment.lock.yml nor environment.yml found in ${SAMBA_PY_SRC}" >&2
         exit 1
     fi
 
-    micromamba run -p "$SAMBA_PY_PREFIX" python -m pip install --upgrade pip
-    micromamba run -p "$SAMBA_PY_PREFIX" python -m pip install indexed_gzip
-    micromamba run -p "$SAMBA_PY_PREFIX" python -m pip install -e "$SAMBA_PY_SRC"
+    # ---- Sanitize YAML so micromamba never chokes on 'name: /path/to/env' ----
+    # We *always* sanitize into a temp file and feed that to micromamba.
+    SAN="/tmp/samba_python_env_spec.yml"
+    rm -f "${SAN}"
 
-    micromamba run -p "$SAMBA_PY_PREFIX" python -c "import samba_py; import samba_py.niigz_io; print('OK: samba_py import')"
-    micromamba run -p "$SAMBA_PY_PREFIX" pytest -q "$SAMBA_PY_SRC/tests"
+    # Remove any 'prefix:' lines (conda exports sometimes include them)
+    # Replace a pathological 'name: /some/path' with 'name: samba-py'
+    # Keep it deterministic and non-interactive.
+    /bin/sh -c "
+        awk '
+            BEGIN{done_name=0}
+            /^prefix:[[:space:]]/ {next}
+            /^name:[[:space:]]/ {
+                print \"name: samba-py\"
+                done_name=1
+                next
+            }
+            {print}
+            END{
+                if(!done_name){
+                    # If there was no name: line, that is fine — micromamba -p controls the prefix.
+                }
+            }
+        ' \"${SPEC}\" > \"${SAN}\"
+    "
 
-%runscript
-    exec bash
+    # ---- Create env ----
+    # If rebuilding, nuke existing prefix first (keeps builds reproducible).
+    if [ -d "${SAMBA_PY_PREFIX}" ]; then
+        echo "[samba_python] Removing existing prefix ${SAMBA_PY_PREFIX}"
+        rm -rf "${SAMBA_PY_PREFIX}"
+    fi
+
+    micromamba create -y -p "${SAMBA_PY_PREFIX}" -f "${SAN}"
+
+    # ---- Install python package editable + pip extras (inside env) ----
+    micromamba run -p "${SAMBA_PY_PREFIX}" python -m pip install --upgrade pip
+    micromamba run -p "${SAMBA_PY_PREFIX}" python -m pip install -e "${SAMBA_PY_SRC}"
+
+    # If you want indexed_gzip inside container too (optional):
+    # micromamba run -p "${SAMBA_PY_PREFIX}" python -m pip install indexed_gzip
+
+    # ---- Smoke tests ----
+    micromamba run -p "${SAMBA_PY_PREFIX}" python -c "import samba_py; print('samba_py import OK')"
+    micromamba run -p "${SAMBA_PY_PREFIX}" pytest -q "${SAMBA_PY_SRC}/tests"
+
+%test
+    set -eu
+    . /opt/env/samba.sh
+    if [ ! -x /opt/conda_envs/samba-py/bin/python ]; then
+        echo "FATAL: samba-py python missing at /opt/conda_envs/samba-py/bin/python" >&2
+        exit 1
+    fi
+    /opt/conda_envs/samba-py/bin/python -c "import samba_py; print('OK')"
