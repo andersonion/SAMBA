@@ -893,7 +893,7 @@ sub set_reference_space_vbm_Runtime_check {
 
             my $original_inpath = $inpath;
 			if ( ! $use_python) {
-				
+			
 				if ($outpath =~ s/(\.gz)$//) {} 
 				# Only try to create a tmp .nii if we actually have something to gunzip
 				if ($inpath =~ s/(\.nii\.gz){1}$/\.tmp\.nii/) {
