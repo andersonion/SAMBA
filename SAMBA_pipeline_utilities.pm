@@ -2541,52 +2541,53 @@ sub _shell_quote {
 # write_array_to_file(path,array_ref[,debug_val])
 #   writes text from array ref to file.
 # ------------------
-sub write_array_to_file {
-    my (@input) = @_;
 
-    my $file      = shift @input;
-    my $array_ref = shift @input;
+sub write_array_to_file {
+    use strict;
+    use warnings;
+    use Carp qw(croak);
+    use Fcntl qw(:DEFAULT);
+
+    my (, , ) = ;
 
     # Basic sanity checks
-    if ( !defined $file || $file eq '' ) {
+    if (!defined  ||  eq q{}) {
         croak "write_array_to_file: undefined or empty filename";
     }
-    if ( !defined $array_ref || ref($array_ref) ne 'ARRAY' ) {
+    if (!defined  || ref() ne q{ARRAY}) {
         croak "write_array_to_file: second argument must be an array reference";
     }
 
-    my $old_debug = $debug_val;
-    my $maybe_dbg = shift @input;
-    if (defined $maybe_dbg) {
-        $debug_val = $maybe_dbg;
+    # Ensure parent directory exists (helps produce a clearer error early)
+    if ( =~ m{^(.*)/[^/]+) {
+        my  = ;
+        if (defined  &&  ne q{} && !-d ) {
+            croak "write_array_to_file: parent directory does not exist: ";
+        }
     }
 
-    SAMBA_pipeline_utilities::debugloc();
-    SAMBA_pipeline_utilities::whoami();
-    SAMBA_pipeline_utilities::printd(30, "Opening file $file.\n");
+    # Open with sysopen to avoid PerlIO layer surprises
+    sysopen(my , , O_CREAT|O_TRUNC|O_WRONLY)
+        or croak "write_array_to_file: could not sysopen : ";
 
-    # Open file for writing using a lexical filehandle
-    open my $text_fid, '>', $file
-      or croak "write_array_to_file: could not open $file, $!";
-
-    # Optional sanity check: ensure it's treated as text
-    croak "write_array_to_file: file <$file> not Text\n"
-      unless -T $text_fid;
-
-    # Write each line explicitly to this filehandle
-    foreach my $line (@{$array_ref}) {
-        print {$text_fid} $line
-          or croak "write_array_to_file: ERROR on write to $file: $!";
+    # Write each line using syswrite; force newline behavior exactly as provided
+    foreach my  () {
+         = q{} unless defined ;
+        my  = length();
+        my  = 0;
+        while ( < ) {
+            my  = syswrite(, ,  - , );
+            defined  or croak "write_array_to_file: ERROR on syswrite to : ";
+             > 0 or croak "write_array_to_file: ERROR on syswrite to : wrote 0 bytes";
+             += ;
+        }
     }
 
-    close $text_fid
-      or croak "write_array_to_file: ERROR closing $file: $!";
-
-    # restore previous debug value
-    $debug_val = $old_debug;
+    close() or croak "write_array_to_file: ERROR closing : ";
 
     return 1;
 }
+
 
 
 #---------------------
