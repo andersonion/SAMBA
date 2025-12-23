@@ -2548,42 +2548,42 @@ sub write_array_to_file {
     use Carp qw(croak);
     use Fcntl qw(:DEFAULT);
 
-    my (, , ) = ;
+    my ($file, $array_ref, @rest) = @_;
 
     # Basic sanity checks
-    if (!defined  ||  eq q{}) {
+    if (!defined $file || $file eq q{}) {
         croak "write_array_to_file: undefined or empty filename";
     }
-    if (!defined  || ref() ne q{ARRAY}) {
+    if (!defined $array_ref || ref($array_ref) ne q{ARRAY}) {
         croak "write_array_to_file: second argument must be an array reference";
     }
 
     # Ensure parent directory exists (helps produce a clearer error early)
-    if ( =~ m{^(.*)/[^/]+) {
-        my  = ;
-        if (defined  &&  ne q{} && !-d ) {
-            croak "write_array_to_file: parent directory does not exist: ";
+    if ($file =~ m{^(.*)/[^/]+$}) {
+        my $dir = $1;
+        if (defined $dir && $dir ne q{} && !-d $dir) {
+            croak "write_array_to_file: parent directory does not exist: $dir";
         }
     }
 
     # Open with sysopen to avoid PerlIO layer surprises
-    sysopen(my , , O_CREAT|O_TRUNC|O_WRONLY)
-        or croak "write_array_to_file: could not sysopen : ";
+    sysopen(my $fh, $file, O_CREAT|O_TRUNC|O_WRONLY)
+        or croak "write_array_to_file: could not sysopen $file: $!";
 
     # Write each line using syswrite; force newline behavior exactly as provided
-    foreach my  () {
-         = q{} unless defined ;
-        my  = length();
-        my  = 0;
-        while ( < ) {
-            my  = syswrite(, ,  - , );
-            defined  or croak "write_array_to_file: ERROR on syswrite to : ";
-             > 0 or croak "write_array_to_file: ERROR on syswrite to : wrote 0 bytes";
-             += ;
+    foreach my $line (@{$array_ref}) {
+        $line = q{} unless defined $line;
+        my $len = length($line);
+        my $off = 0;
+        while ($off < $len) {
+            my $n = syswrite($fh, $line, $len - $off, $off);
+            defined $n or croak "write_array_to_file: ERROR on syswrite to $file: $!";
+            $n > 0 or croak "write_array_to_file: ERROR on syswrite to $file: wrote 0 bytes";
+            $off += $n;
         }
     }
 
-    close() or croak "write_array_to_file: ERROR closing : ";
+    close($fh) or croak "write_array_to_file: ERROR closing $file: $!";
 
     return 1;
 }
