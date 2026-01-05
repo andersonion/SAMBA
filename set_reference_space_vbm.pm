@@ -341,8 +341,12 @@ sub apply_new_reference_space_vbm {
                 $runno = $1;
             }
 
+			my $datatype = nifti_datatype($input_image);
+			my $output_datatype = ants_output_datatype($datatype);
+			my $u_flag = "-u $output_datatype";
+
             $translation_transform = "${out_path}/translation_xforms/${runno}_0DerivedInitialMovingTranslation.mat";
-            $cmd = "antsApplyTransforms -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform};\n"; 
+            $cmd = "antsApplyTransforms ${u_flag} -v ${ants_verbosity} -d ${dims} ${opt_e_string} -i ${in_file} -r ${ref_file}  -n $interp  -o ${out_file} -t ${translation_transform};\n"; 
             @cmds = ($cmd);
         }  
     }

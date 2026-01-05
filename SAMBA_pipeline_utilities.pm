@@ -103,7 +103,7 @@ BEGIN {
     our @EXPORT = qw(
     
 activity_log
-close_log_on_error
+ants_output_datatype
 cluster_check
 cluster_exec
 cluster_wait_for_jobs
@@ -135,6 +135,7 @@ memory_estimator
 memory_estimator_2
 nifti_dim4
 nifti1_bb_spacing
+nifti_datatype
 nifti_max_label
 nifti_max_value
 open_log
@@ -204,6 +205,26 @@ sub activity_log {
     my $mode = 0666;   chmod $mode, $log_file;
     return;
 }
+
+# -------------
+sub ants_output_datatype {
+# -------------
+    my ($nifti_datatype) = @_;
+
+    my %map = (
+        2  => 'uchar',   # uint8
+        4  => 'short',   # int16
+        8  => 'int',     # int32
+        16 => 'float',   # float32
+        64 => 'double',  # float64
+    );
+
+    return exists $map{$nifti_datatype}
+        ? $map{$nifti_datatype}
+        : 'default';
+}
+
+
 
 # -------------
 sub close_log_on_error  {
@@ -1662,6 +1683,23 @@ sub mask_volume_mm3 {
     }
 
     return $nonzero * $voxel_mm3;
+}
+
+sub nifti_datatype {
+    my ($path) = @_;
+
+    open(my $fh, '<:raw', $path) or die "open $path: $!";
+    read($fh, my $hdr, 348) == 348 or die "short read NIfTI header: $path";
+    close $fh;
+
+    my $sizeof_hdr = unpack('V', substr($hdr,0,4));
+    my $little = ($sizeof_hdr == 348) ? 1 : 0;
+
+    my $datatype = $little
+        ? unpack('v', substr($hdr,70,2))
+        : unpack('n', substr($hdr,70,2));
+
+    return $datatype;
 }
 
 
