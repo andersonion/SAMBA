@@ -242,6 +242,8 @@ sub ants_u_from_nifti_datatype {
         $dt == 768 ? 'int'    :  # uint32 (closest available; no uint)
         $dt == 16  ? 'float'  :  # float32
         $dt == 64  ? 'double' :  # float64
+                   'default';    # everything else (RGB, complex, int64, etc.)
+}
              
 
 
