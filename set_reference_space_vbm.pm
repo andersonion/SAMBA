@@ -341,7 +341,7 @@ sub apply_new_reference_space_vbm {
                 $runno = $1;
             }
 
-			my $datatype = nifti_datatype($input_image);
+			my $datatype = nifti_datatype($in_file);
 			my $output_datatype = ants_output_datatype($datatype);
 			my $u_flag = "-u $output_datatype";
 
