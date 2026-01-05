@@ -23,7 +23,7 @@ use File::Temp qw(tempfile);
 use Scalar::Util qw(looks_like_number);
 use Fcntl qw(O_RDONLY);
 use Data::Dumper;
-
+use Fcntl qw(:DEFAULT);
 
 ## Multiple cluster type support, 27 June 2019, BJ Anderson
 # Hope to make this automatic!
@@ -103,7 +103,8 @@ BEGIN {
     our @EXPORT = qw(
     
 activity_log
-ants_output_datatype
+ants_output_datatype_for_image
+ants_u_from_nifti_datatype
 cluster_check
 cluster_exec
 cluster_wait_for_jobs
@@ -135,7 +136,7 @@ memory_estimator
 memory_estimator_2
 nifti_dim4
 nifti1_bb_spacing
-nifti_datatype
+nifti_datatype_and_bitpix
 nifti_max_label
 nifti_max_value
 open_log
@@ -207,23 +208,41 @@ sub activity_log {
 }
 
 # -------------
-sub ants_output_datatype {
+sub ants_output_datatype_for_image {
 # -------------
-    my ($nifti_datatype) = @_;
+    my ($path) = @_;
+    my ($dt, $bp, $endian) = nifti_datatype_and_bitpix($path);
+    my $u = ants_u_from_nifti_datatype($dt);
 
-    my %map = (
-        2  => 'uchar',   # uint8
-        4  => 'short',   # int16
-        8  => 'int',     # int32
-        16 => 'float',   # float32
-        64 => 'double',  # float64
-    );
+    # If you want this visible in your #LOG lines:
+    # print STDERR "nifti($path): dt=$dt bitpix=$bp endian=$endian -> -u $u\n";
 
-    return exists $map{$nifti_datatype}
-        ? $map{$nifti_datatype}
-        : 'default';
+    return ($u, $dt, $bp, $endian);
 }
 
+# -------------
+sub ants_u_from_nifti_datatype {
+# -------------
+    my ($dt) = @_;
+
+    # NIfTI-1 datatype codes (common):
+    # 2=uint8, 4=int16, 8=int32, 16=float32, 64=float64,
+    # 256=int8, 512=uint16, 768=uint32, 1024=int64, 128=RGB24, etc.
+    #
+    # Policy:
+    # - Exact matches map cleanly.
+    # - Unsigned 16/32 have no direct -u; choose closest signed width.
+    # - Weird/complex/RGB -> default.
+    return
+        $dt == 256 ? 'char'   :  # int8
+        $dt == 2   ? 'uchar'  :  # uint8
+        $dt == 4   ? 'short'  :  # int16
+        $dt == 512 ? 'short'  :  # uint16 (closest available; no ushort)
+        $dt == 8   ? 'int'    :  # int32
+        $dt == 768 ? 'int'    :  # uint32 (closest available; no uint)
+        $dt == 16  ? 'float'  :  # float32
+        $dt == 64  ? 'double' :  # float64
+             
 
 
 # -------------
@@ -1685,22 +1704,33 @@ sub mask_volume_mm3 {
     return $nonzero * $voxel_mm3;
 }
 
-sub nifti_datatype {
+sub nifti_datatype_and_bitpix {
     my ($path) = @_;
+    my $hdr = _read348($path);  # <- your function
 
-    open(my $fh, '<:raw', $path) or die "open $path: $!";
-    read($fh, my $hdr, 348) == 348 or die "short read NIfTI header: $path";
-    close $fh;
+    my $sz_le = unpack('V', substr($hdr, 0, 4));
+    my $sz_be = unpack('N', substr($hdr, 0, 4));
 
-    my $sizeof_hdr = unpack('V', substr($hdr,0,4));
-    my $little = ($sizeof_hdr == 348) ? 1 : 0;
+    my $little;
+    if ($sz_le == 348) {
+        $little = 1;
+    } elsif ($sz_be == 348) {
+        $little = 0;
+    } else {
+        die "Not a NIfTI-1 header (sizeof_hdr != 348) for $path: le=$sz_le be=$sz_be";
+    }
 
     my $datatype = $little
-        ? unpack('v', substr($hdr,70,2))
-        : unpack('n', substr($hdr,70,2));
+        ? unpack('v', substr($hdr, 70, 2))
+        : unpack('n', substr($hdr, 70, 2));
 
-    return $datatype;
+    my $bitpix = $little
+        ? unpack('v', substr($hdr, 72, 2))
+        : unpack('n', substr($hdr, 72, 2));
+
+    return ($datatype, $bitpix, ($little ? 'little' : 'big'));
 }
+
 
 
 # Returns the maximum voxel value in a NIfTI image (good for label maps).
@@ -2620,7 +2650,6 @@ sub write_array_to_file {
     use strict;
     use warnings;
     use Carp qw(croak);
-    use Fcntl qw(:DEFAULT);
 
     my ($file, $array_ref, @rest) = @_;
 
