@@ -385,6 +385,8 @@ samba-pipe() {
     --env HOME="$host_home"
     --env USER="$u"
     --env TMPDIR="/tmp"
+    --env SAMBA_SCHED_BACKEND=proxy
+
 
     # MCR behavior: keep cache/CTF writable & avoid lock fights
     --env MCR_INHIBIT_CTF_LOCK=1
