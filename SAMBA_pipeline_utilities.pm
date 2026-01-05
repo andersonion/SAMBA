@@ -1554,6 +1554,7 @@ sub mask_volume_mm3 {
 
     my $sz_le = unpack('V', substr($hdr,0,4));
     my $little = $sz_le == 348 ? 1 : 0;
+
     my @dim    = $little ? unpack('v8', substr($hdr, 40, 16))
                          : unpack('n8', substr($hdr, 40, 16));
     my @pix    = unpack(($little?'f<8':'f>8'), substr($hdr, 76, 32));
@@ -1578,41 +1579,73 @@ sub mask_volume_mm3 {
     my ($fh, $is_gz);
     if ($path =~ /\.gz$/i) {
         require IO::Uncompress::Gunzip;
-        $fh = IO::Uncompress::Gunzip->new($path) or die "gunzip($path): $IO::Uncompress::Gunzip::GunzipError";
+        $fh = IO::Uncompress::Gunzip->new($path)
+          or die "gunzip($path): $IO::Uncompress::Gunzip::GunzipError";
         $is_gz = 1;
     } else {
         open($fh, '<:raw', $path) or die "open $path: $!";
+        $is_gz = 0;
     }
+
+    # Helpers: read exactly N bytes (works for gz or plain FH)
+    my $read_exact = sub {
+        my ($need) = @_;
+        my $buf = '';
+        while (length($buf) < $need) {
+            my $want = $need - length($buf);
+            my $tmp  = '';
+            my $n;
+            if ($is_gz) {
+                $n = $fh->read($tmp, $want);
+            } else {
+                $n = CORE::read($fh, $tmp, $want);
+            }
+            die "short read image data (wanted $need, got ".length($buf).")"
+                if !defined($n) || $n == 0;
+            $buf .= $tmp;
+        }
+        return $buf;
+    };
 
     # Skip to vox_offset
     if ($is_gz) {
-        my $skip = $vox_offset; my $buf;
-        while ($skip > 0) { my $n = $fh->read($buf, ($skip > 1<<20 ? 1<<20 : $skip)) or last; $skip -= $n; }
+        my $skip = $vox_offset;
+        while ($skip > 0) {
+            my $step = ($skip > (1<<20)) ? (1<<20) : $skip;
+            my $tmp  = '';
+            my $n    = $fh->read($tmp, $step);
+            die "short skip to vox_offset" if !defined($n) || $n == 0;
+            $skip -= $n;
+        }
     } else {
         seek($fh, $vox_offset, 0) or die "seek $path: $!";
     }
 
     my $type_tpl = do {
-        # Handle most common types: 2=uint8, 4=int16, 8=int32, 16=float32
+        # Handle common NIfTI types:
+        # 2=uint8, 4=int16, 8=int32, 16=float32, 64=float64
         $datatype == 2  ? 'C*' :
         $datatype == 4  ? ($little?'s<*':'s>*') :
         $datatype == 8  ? ($little?'l<*':'l>*') :
         $datatype == 16 ? ($little?'f<*':'f>*') :
+        $datatype == 64 ? ($little?'d<*':'d>*') :
         die "datatype $datatype not implemented";
     };
-    my $bytes_per = $bitpix/8;
 
+    my $bytes_per = $bitpix/8;
     my $nvox = $nx*$ny*$nz;
+
     my $chunk = 1_000_000;  # elements per chunk
-    my $buf; my $nonzero = 0; my $left = $nvox;
+    my $nonzero = 0;
+    my $left = $nvox;
 
     while ($left > 0) {
         my $take = $left > $chunk ? $chunk : $left;
         my $need = $take * $bytes_per;
-        my $read = read($fh, $buf, $need);
-        die "short read image data" unless defined $read && $read == $need;
 
+        my $buf = $read_exact->($need);
         my @vals = unpack($type_tpl, $buf);
+
         if ($slope != 1 || $inter != 0) {
             $nonzero += grep { ($slope*$_ + $inter) != 0 } @vals;
         } else {
@@ -1621,10 +1654,16 @@ sub mask_volume_mm3 {
 
         $left -= $take;
     }
-    close $fh unless $is_gz;
+
+    if ($is_gz) {
+        $fh->close();
+    } else {
+        close $fh;
+    }
 
     return $nonzero * $voxel_mm3;
 }
+
 
 # Returns the maximum voxel value in a NIfTI image (good for label maps).
 # - Works for .nii / .nii.gz, and .hdr/.img (and gzipped pair).
