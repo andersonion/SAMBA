@@ -294,23 +294,20 @@ sub cluster_exec {
             ($node,$local_reservation) = split(',',$node);
             $node_command = "-w $node";
             push(@sbatch_commands,$node_command);
-            ###
-            # Enforced reservation for users who have their ENV var set.
-            ###
-            if ( defined $r ) { $local_reservation=$r;} # james did this
-            ###
-            $reservation_command = "--reservation=${local_reservation}";
-            push(@sbatch_commands,$reservation_command);
+
         } else {
 			$local_reservation = $node;
-			###
-			# Enforced reservation for users who have their ENV var set.
-			###
-			if ( defined $r ) { $local_reservation=$r;} # james did this
-			###
+        }
+                    ###
+		# Enforced reservation for users who have their ENV var set.
+		###
+		if ( defined $r ) { $local_reservation=$r;} # james did this
+
+        if (defined $local_reservation && $local_reservation ne '') {
 			$reservation_command = "--reservation=${local_reservation}";
 			push(@sbatch_commands,$reservation_command);
-        }
+		}
+
     }
 
     if ((! defined $memory) ||($memory eq ''))  { #12 December 2016: Added memory eq '' so we can more easily trigger the default.
