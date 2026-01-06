@@ -370,7 +370,11 @@ sub write_headfile {
 #------------
     my ($self, $out_path) = @_;
     #if (($self->{'__mode'} eq "new") || ($self->{'__mode'} eq "rw") || ($self->{'__mode'} eq "rc")) 
-    if ($self->{'__writeable'}) { 
+    my $mode = $self->{'__mode'} // '';
+    my $can_write = ($mode eq 'rw' || $mode eq 'rc' || $mode eq 'new') ? 1 : 0;
+
+    if ($can_write) {
+
 	# check that file name ends in .headfile
 	#return 0 unless private_check_headfile_name($self,$out_path); # THAT SEEMS AN UNNECESSARY LIMITATION
 	
@@ -425,9 +429,11 @@ sub write_headfile {
 	}
     }
     else {
-	print STDERR "Attempt to write a read only headfile\n"; 
-	return 0;
+        my $in = defined $self->{'__in_path'} ? $self->{'__in_path'} : '<undef>';
+        print STDERR "Attempt to write a read only headfile (mode=$mode in_path=$in out_path=$out_path)\n";
+        return 0;
     }
+
     print STDOUT "    write_headfile: wrote $out_path\n"; 
     return 1;
 }
