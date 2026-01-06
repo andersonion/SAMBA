@@ -129,16 +129,22 @@ sub new
         }
         # nf mode = no file; exists/readable/writeable stay 0
     }
-
-    # rc mode cheats: we allow writing to a different output later
-    if ($mode eq 'rc') {
+    # Writability is a property of the *mode*, not the permissions of the input file.
+    # - ro  : never write
+    # - nf  : never write (no file mode)
+    # - new : write (creating new file)
+    # - rw  : write allowed (may write to a different output path later)
+    # - rc  : write allowed (must write to a different output path)
+    # - pfile/nifti/nrrd: treat as read-only loaders by default (no write)
+    if ($mode eq 'rw' || $mode eq 'rc' || $mode eq 'new') {
         $writeable = 1;
+    } else {
+        $writeable = 0;
     }
 
-    $self->{'__exists'}   = $exists;
-    $self->{'__readable'} = $readable;
-    $self->{'__writeable'}= $writeable;
-
+    $self->{'__exists'}    = $exists;
+    $self->{'__readable'}  = $readable;
+    $self->{'__writeable'} = $writeable;
     bless $self, $classname;
     return $self;
 }

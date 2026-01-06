@@ -162,7 +162,8 @@ sub create_affine_reg_to_atlas_vbm {  # Main code
 
     my $write_path_for_Hf = "${current_path}/${PM}_current.headfile";
     $Hf->write_headfile($write_path_for_Hf);
-    `chmod 777 ${write_path_for_Hf}`;
+    chmod 0777, $write_path_for_Hf if -e $write_path_for_Hf;
+
 
     # Clean up derived transforms.
 
