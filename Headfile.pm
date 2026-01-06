@@ -366,75 +366,96 @@ sub set_comment {
 }
 
 #------------
+#------------
 sub write_headfile {
 #------------
     my ($self, $out_path) = @_;
-    #if (($self->{'__mode'} eq "new") || ($self->{'__mode'} eq "rw") || ($self->{'__mode'} eq "rc")) 
-    my $mode = $self->{'__mode'} // '';
-    my $can_write = ($mode eq 'rw' || $mode eq 'rc' || $mode eq 'new') ? 1 : 0;
 
-    if ($can_write) {
+    my $mode    = $self->{'__mode'};
+    my $in_path = $self->{'__in_path'};
 
-	# check that file name ends in .headfile
-	#return 0 unless private_check_headfile_name($self,$out_path); # THAT SEEMS AN UNNECESSARY LIMITATION
-	
-	# from delos: 
-	# note on below: running check creates the "new" file, so -e becomes true
-	# if (($self->{'__mode'} eq "new") && (-e $out_path)) {
-	#   print STDERR "write_headfile ERROR: $outpath already exists but you specified mode=new\n"; 
-	#   return 0;
-	#}
-	if ($self->{'__mode'} eq "rc") {
-	    if ((-e $out_path)) {
-		print STDERR "write_headfile ERROR: $out_path already exists but you specified mode=rc (write to new file)\n"; 
-		return 0;
-	    }
-	    if ($out_path eq $self->{'__in_path'}) {
-		print STDERR "write_headfile ERROR: outpath $out_path is same as in_path but you specified mode=rc (write to new file)\n"; 
-		return 0;
-	    }
-	}
-	my $SESAME;
-	#my SESAME;
-	#if (open $SESAME, ">$out_path") {
-	if ($SESAME = IO::File->new("$out_path", ">")) { # use IO so we can pass $SESAME 
-	    # add information about headfile history
-	    # source headfile
-	    my $infile = "new headfile";
-	    if (defined $self->{'__in_path'}) {
-		$infile = "input headfile " . $self->{'__in_path'}; 
-	    }
-	    #my ($s,$m,$h,$mday,$mon,$year,$wd,$yd,$is) = localtime(time);
-	    #my $date = "$year/$mon/$mday $h:$m";
-	    my $date = now_date_db();
-	    set_comment($self, "# Headfile.pm version $VERSION; run $date") if $COMMENT; 
-	    set_comment($self, "# Headfile.pm input headfile $infile")      if $COMMENT; 
-	    set_comment($self, "# Headfile.pm this headfile $out_path")     if $COMMENT; 
-	    set_value($self,"version_pm_Headfile", $VERSION);  # instead of comment
-	    # increment some counter
-	    my $count = get_value($self, "hfpmcnt"); 
-	    if ($count eq "NO_KEY") {
-		set_value($self,"hfpmcnt", 1);
-	    } 
-	    else {
-		set_value($self, "hfpmcnt", $count+1);
-	    }
-	    private_write_headfile($self, $SESAME, ""); 
-	    #private_write_headfile($self, SESAME, ""); 
-	    close $SESAME;
-	}
-	else {
-	    print STDERR "write_headfile ERROR: Unable to open $out_path\n"; 
-	    return 0;
-	}
-    }
-    else {
-        my $in = defined $self->{'__in_path'} ? $self->{'__in_path'} : '<undef>';
-        print STDERR "Attempt to write a read only headfile (mode=$mode in_path=$in out_path=$out_path)\n";
+    # Historically, nf = "no file unless explicitly writing to an out_path".
+    # Many SAMBA modules construct nf headfiles for in-memory use but still
+    # want to checkpoint to a *different* file (e.g. *_current.headfile).
+    my $allow_write =
+        $self->{'__writeable'}
+        || ($mode eq 'nf' && defined($out_path) && (!defined($in_path) || $out_path ne $in_path))
+        || ($mode eq 'rc');
+
+    if (!$allow_write) {
+        print STDERR "Attempt to write a read only headfile";
+        print STDERR " (mode=$mode in_path=" . (defined($in_path)?$in_path:'<undef>')
+                   . " out_path=" . (defined($out_path)?$out_path:'<undef>') . ")"
+                   . "\n";
         return 0;
     }
 
-    print STDOUT "    write_headfile: wrote $out_path\n"; 
+    # In rc mode, preserve the original safety: don't overwrite.
+    # In nf mode, DO allow overwrite (checkpoint files are expected to refresh).
+    if ($mode eq "rc") {
+        if ((-e $out_path)) {
+            print STDERR "write_headfile ERROR: $out_path already exists but you specified mode=rc (write to new file)\n";
+            return 0;
+        }
+        if (defined($in_path) && $out_path eq $in_path) {
+            print STDERR "write_headfile ERROR: outpath $out_path is same as in_path but you specified mode=rc (write to new file)\n";
+            return 0;
+        }
+    } elsif ($mode eq "nf") {
+        # Safety: never overwrite the input path in nf mode
+        if (defined($in_path) && $out_path eq $in_path) {
+            print STDERR "write_headfile ERROR: refusing to overwrite in_path in mode=nf ($out_path)\n";
+            return 0;
+        }
+    }
+
+    # Ensure parent directory exists (prevents chmod/no-such-file cascades)
+    eval {
+        require File::Basename;
+        require File::Path;
+        my $dir = File::Basename::dirname($out_path);
+        if (defined($dir) && length($dir) && $dir ne '.' && !-d $dir) {
+            File::Path::make_path($dir);
+        }
+        1;
+    } or do {
+        print STDERR "write_headfile ERROR: could not ensure output directory for $out_path: $@\n";
+        return 0;
+    };
+
+    # Open using CORE::open (avoid any global open() overrides elsewhere)
+    my $SESAME;
+    if ( CORE::open($SESAME, ">", $out_path) ) {
+
+        # add information about headfile history
+        my $infile = "new headfile";
+        if (defined $in_path) {
+            $infile = "input headfile " . $in_path;
+        }
+
+        my $date = now_date_db();
+        set_comment($self, "# Headfile.pm version $VERSION; run $date") if $COMMENT;
+        set_comment($self, "# Headfile.pm input headfile $infile")      if $COMMENT;
+        set_comment($self, "# Headfile.pm this headfile $out_path")     if $COMMENT;
+        set_value($self,"version_pm_Headfile", $VERSION);
+
+        # increment some counter
+        my $count = get_value($self, "hfpmcnt");
+        if ($count eq "NO_KEY") {
+            set_value($self,"hfpmcnt", 1);
+        } else {
+            set_value($self, "hfpmcnt", $count+1);
+        }
+
+        private_write_headfile($self, $SESAME, "");
+        close $SESAME;
+    }
+    else {
+        print STDERR "write_headfile ERROR: Unable to open $out_path ($!)\n";
+        return 0;
+    }
+
+    print STDOUT "    write_headfile: wrote $out_path\n";
     return 1;
 }
 
