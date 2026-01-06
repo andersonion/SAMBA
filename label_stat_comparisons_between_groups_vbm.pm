@@ -46,13 +46,21 @@ if (! defined($MATLAB_2015b_PATH)) {
 
 my $matlab_path =  "${MATLAB_2015b_PATH}";
 #my $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec_v2.sh"; # James renamed on 9 August 2019, removing '_v2'
-my $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec.sh";
+my $compare_group_stats_executable_path = "${SAMBA_APPS_DIR}/SAMBA/SAMBA_python/scripts/compare_group_stats.py";
+my $use_python = 1;
+my $exec_prefix = "python3";
+if ( -f  $compare_group_stats_executable_path ){
+	$matlab_path = '';
+} else {
+	$use_python = 0;
+	$exec_prefix = '';
+	$compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec.sh";
 
-# However, the git version of matlab_executables are still compiled with _v2, so this safety check is included here: (6 July 2020, BJA)
-if ( ! -e $compare_group_stats_executable_path){
-    $compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec_v2.sh";
+	# However, the git version of matlab_executables are still compiled with _v2, so this safety check is included here: (6 July 2020, BJA)
+	if ( ! -e $compare_group_stats_executable_path){
+		$compare_group_stats_executable_path = "${MATLAB_EXEC_PATH}/compare_group_stats_executable/run_compare_group_stats_exec_v2.sh";
+	}
 }
-
 #if (! defined $valid_formats_string) {$valid_formats_string = 'hdr|img|nii';}
 
 #if (! defined $dims) {$dims = 3;}
@@ -210,7 +218,7 @@ sub label_stat_comparisons_between_groups {
     my $jid = 0;
     if (cluster_check) {
 	my $go =1;	    
-	my $cmd = "${compare_group_stats_executable_path} ${matlab_path} ${exec_args}";
+	my $cmd = "${exec_prefix} ${compare_group_stats_executable_path} ${matlab_path} ${exec_args}";
 	
 	my $home_path = $current_path;
 	my $Id= "${current_contrast}_label_stat_comparisons_between_groups_${group_1_name}_and_${group_2_name}";
