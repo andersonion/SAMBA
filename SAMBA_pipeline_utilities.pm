@@ -472,6 +472,16 @@ sub cluster_exec {
             print($file_Id '#$'."${qsub_option}\n");
 	    $explicit_qsub_options="${explicit_qsub_options} ${qsub_option}";
         }
+		# If we're in container mode, bake CONTAINER_CMD_PREFIX into the sbatch script so
+		# the compute node doesn't need /atlas_host on the host.
+		if ($ENV{CONTAINER_CMD_PREFIX}) {
+			my $pfx = $ENV{CONTAINER_CMD_PREFIX};
+		
+			# Escape single quotes for safe single-quoted assignment in bash
+			$pfx =~ s/'/'\\''/g;
+		
+			print($file_Id "export CONTAINER_CMD_PREFIX='$pfx'\n");
+		}
 
         print($file_Id "$cmd \n");
         close($file_Id);
