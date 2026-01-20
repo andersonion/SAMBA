@@ -2602,9 +2602,30 @@ sub whoami {  return ( caller(1) )[3]; }
 # ------------------
 sub whowasi { return ( caller(2) )[3]; }
 
+sub _load_container_prefix_from_sched_dir {
+    # Try to populate $ENV{CONTAINER_CMD_PREFIX} from a file in SAMBA_SCHED_DIR
+    return if $ENV{CONTAINER_CMD_PREFIX};
+
+    my $sched_dir = $ENV{SAMBA_SCHED_DIR} // '';
+    return unless $sched_dir ne '';
+
+    my $f = "$sched_dir/CONTAINER_CMD_PREFIX";
+    return unless -f $f;
+
+    if (open(my $fh, "<", $f)) {
+        my $pfx = <$fh>;
+        close($fh);
+        if (defined $pfx) {
+            chomp($pfx);
+            $ENV{CONTAINER_CMD_PREFIX} = $pfx if $pfx ne '';
+        }
+    }
+}
+
 sub wrap_in_container {
     my ($cmd) = @_;
-	SAMBA_pipeline_utilities::printd(10, "ENV in wrap_in_container: " . Dumper(\%ENV));
+
+    _load_container_prefix_from_sched_dir();   # <--- ADD THIS LINE
 
     open my $LOG, ">>", "${BIGGUS_DISKUS}//samba_wrap_debug.log";
     print $LOG "wrap_in_container() called with cmd=[$cmd]\n";
@@ -2627,6 +2648,7 @@ sub wrap_in_container {
 
     return $container_cmd;
 }
+
 
 # ------------------
 sub wrap_in_container_current {

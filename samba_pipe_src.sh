@@ -376,6 +376,11 @@ samba-pipe() {
   # This is used by scheduler wrappers inside SAMBA
   CONTAINER_CMD_PREFIX="$CONTAINER_CMD exec --cleanenv ${BASE_ENV[*]} ${atlas_env[*]} ${binds[*]} $SIF_PATH"
   export CONTAINER_CMD_PREFIX
+  # Persist container prefix for proxy backend / detached processes
+  if [[ -n "${SAMBA_SCHED_DIR:-}" ]]; then
+    mkdir -p "${SAMBA_SCHED_DIR}"
+    printf '%s\n' "$CONTAINER_CMD_PREFIX" > "${SAMBA_SCHED_DIR%/}/CONTAINER_CMD_PREFIX"
+  fi
 
   # --------------------------------------------------------
   # Launch (call SAMBA_startup)
