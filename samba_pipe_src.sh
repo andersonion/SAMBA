@@ -431,7 +431,7 @@ samba-pipe() {
     || { echo "ERROR: could not write scheduler files in $host_sched_dir" >&2; return 1; }
 
   # Use a SHORT prefix; actual exec details come from files in $host_sched_dir
-  CONTAINER_CMD_PREFIX="/opt/samba/bin/samba_container_exec.sh"
+  CONTAINER_CMD_PREFIX="/opt/samba/SAMBA/samba_sched_wrappers/samba_container_exec.sh"
   export CONTAINER_CMD_PREFIX
 
   # --------------------------------------------------------
