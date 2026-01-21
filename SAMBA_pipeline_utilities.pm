@@ -789,8 +789,8 @@ sub cluster_wait_for_jobs {
     } else {
         $completed = 1;
     }
-    #sleep(25);  #James, don't reduce this unless tested and shown to not fail on checking too quickly for files to exist (10 seconds failed)
-    sleep(10);
+    sleep(25);  #James, don't reduce this unless tested and shown to not fail on checking too quickly for files to exist (10 seconds failed)
+    #sleep(10);
     return($completed);
 }
 
