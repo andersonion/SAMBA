@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# samba_pipe_src.sh — clean, portable SAMBA launcher
+# samba_pipe_src.sh — clean, portable SAMBA launcher (with compact sbatch support)
 #
 # Usage:
 #   source samba_pipe_src.sh
@@ -10,6 +10,7 @@
 # - DO NOT use set -e here (failures must not kill login shells).
 # - We do NOT override HOME inside container (Apptainer/Singularity can forbid it under --cleanenv).
 # - We DO pass USER explicitly and bind HOME plus critical IPC/cache dirs.
+# - We persist container runtime config into $HOME/.samba_sched so proxy/sbatch jobs can be clean.
 #
 
 set -u
@@ -127,9 +128,6 @@ _normpath() {
   echo "$p"
 }
 
-# Best-effort resolve symlink target if possible (only if path exists)
-# - If readlink -f exists, use it.
-# - Otherwise, pass through unchanged.
 _resolve_if_exists() {
   local p="$1"
   if [[ -e "$p" ]] && command -v readlink >/dev/null 2>&1; then
@@ -197,6 +195,56 @@ _minimize_dirs() {
 }
 
 # ------------------------------------------------------------
+# Scheduler files (compact container execution)
+# ------------------------------------------------------------
+_write_sched_files() {
+  local host_sched_dir="$1"
+  local runtime="$2"
+  local sif="$3"
+  shift 3
+
+  # Remaining args: env_kv array (KEY=VAL lines), binds_pairs array (SRC:DST lines)
+  local env_file="${host_sched_dir%/}/container.env"
+  local binds_file="${host_sched_dir%/}/binds.txt"
+  local meta_file="${host_sched_dir%/}/container.meta"
+
+  # shellcheck disable=SC2154
+  mkdir -p "$host_sched_dir" || return 1
+
+  # Write env file (KEY=VALUE)
+  : > "$env_file"
+  local kv
+  for kv in "$@"; do
+    # Stop when we hit sentinel
+    [[ "$kv" == "__BINDS__" ]] && break
+    printf '%s\n' "$kv" >> "$env_file"
+  done
+
+  # Move past sentinel and write binds
+  : > "$binds_file"
+  local seen_sentinel=0
+  for kv in "$@"; do
+    if [[ $seen_sentinel -eq 0 ]]; then
+      [[ "$kv" == "__BINDS__" ]] && seen_sentinel=1
+      continue
+    fi
+    printf '%s\n' "$kv" >> "$binds_file"
+  done
+
+  cat > "$meta_file" <<EOF
+RUNTIME=${runtime}
+SIF=${sif}
+ENVFILE=${env_file}
+BINDSFILE=${binds_file}
+EOF
+
+  # Persist (short) prefix for proxy backend
+  printf '%s\n' "/opt/samba/bin/samba_container_exec.sh" > "${host_sched_dir%/}/CONTAINER_CMD_PREFIX"
+
+  return 0
+}
+
+# ------------------------------------------------------------
 # Main entry
 # ------------------------------------------------------------
 samba-pipe() {
@@ -209,7 +257,6 @@ samba-pipe() {
   local hf_dir
   hf_dir="$(dirname "$hf")"
 
-  # Resolve a stable host HOME path (do NOT export it into container; just bind it)
   local u="${USER:-$(id -un)}"
   local host_home="${HOME:-/home/$u}"
   [[ -d "$host_home" ]] || { echo "ERROR: HOME not found on host: $host_home" >&2; return 1; }
@@ -245,8 +292,7 @@ samba-pipe() {
   mkdir -p "$host_mcr_ctf" || { echo "ERROR: could not mkdir -p $host_mcr_ctf" >&2; return 1; }
 
   # --------------------------------------------------------
-  # Scheduler proxy dir (OPTION B — daemon-backed)
-  #   Required for proxy sbatch to rendezvous with host daemon.
+  # Scheduler proxy dir (daemon-backed)
   # --------------------------------------------------------
   local host_sched_dir="$host_home/.samba_sched"
   mkdir -p "$host_sched_dir" || { echo "ERROR: could not mkdir -p $host_sched_dir" >&2; return 1; }
@@ -276,7 +322,6 @@ samba-pipe() {
     cand_paths+=( "$opt_ext" )
   fi
 
-  # Scrape absolute paths from headfile values (best effort)
   local -a hf_abs=()
   while IFS= read -r v; do
     [[ -n "$v" ]] || continue
@@ -284,7 +329,6 @@ samba-pipe() {
     v="${v%\'}"; v="${v#\'}"
     if [[ "$v" == /* ]]; then
       hf_abs+=( "$v" )
-      # if it's a symlink to another absolute path, binding parent of resolved target helps too
       local rv
       rv="$(_resolve_if_exists "$v")"
       [[ "$rv" == /* && "$rv" != "$v" ]] && hf_abs+=( "$rv" )
@@ -300,21 +344,16 @@ samba-pipe() {
     cand_paths+=( "$(_bindable_dir_for "$p")" )
   done
 
-  # Minimize dirs
   local -a final_dirs=()
   while IFS= read -r p; do final_dirs+=( "$p" ); done < <(_minimize_dirs "${cand_paths[@]}")
 
-  # Build --bind args
   local -a binds=()
   for p in "${final_dirs[@]}"; do
     [[ -n "$p" ]] || continue
     binds+=( --bind "$p:$p" )
   done
 
-  # Explicit binds you asked for (NO ambiguity):
   binds+=( --bind "$host_sched_dir:$host_sched_dir" )
-
-  # Also ensure MCR dir is bound exactly where the env points
   binds+=( --bind "$host_mcr_ctf:/tmp/mcr_ctf" )
 
   # --------------------------------------------------------
@@ -326,19 +365,19 @@ samba-pipe() {
   [[ -n "$label_atlas" ]] && atlas_name="$label_atlas"
   [[ -z "$atlas_name" && -n "$rigid_atlas" ]] && atlas_name="$rigid_atlas"
 
-  local atlas_env=()
+  local atlas_env_val=""
   if [[ -n "$atlas_name" ]]; then
     local host_atlas_root=""
     if host_atlas_root="$(_find_atlas_root_for "$atlas_name" "$hf_dir" "$BIGGUS_DISKUS" 2>/dev/null)"; then
       echo "samba-pipe: using HOST atlas root: $host_atlas_root (for atlas $atlas_name)" >&2
       binds+=( --bind "$host_atlas_root:/atlas_host" )
-      atlas_env+=( --env ATLAS_FOLDER=/atlas_host )
+      atlas_env_val="/atlas_host"
     else
       echo "samba-pipe: WARNING: could not find host atlas '$atlas_name'; using container /opt/atlases" >&2
-      atlas_env+=( --env ATLAS_FOLDER=/opt/atlases )
+      atlas_env_val="/opt/atlases"
     fi
   else
-    atlas_env+=( --env ATLAS_FOLDER=/opt/atlases )
+    atlas_env_val="/opt/atlases"
   fi
 
   # --------------------------------------------------------
@@ -346,24 +385,21 @@ samba-pipe() {
   # --------------------------------------------------------
   local sched_backend="${SAMBA_SCHED_BACKEND:-proxy}"
 
-  local BASE_ENV=(
-    --env SAMBA_APPS_DIR="$SAMBA_APPS_IN_CONTAINER"
-    --env BIGGUS_DISKUS="$BIGGUS_DISKUS"
-    --env USER="$u"
-    --env TMPDIR="/tmp"
-
-    # Scheduler proxy backend + directory (EXPLICIT FIX)
-    --env SAMBA_SCHED_BACKEND="$sched_backend"
-    --env SAMBA_SCHED_DIR="$host_sched_dir"
-
-    # MCR behavior
-    --env MCR_INHIBIT_CTF_LOCK=1
-    --env MCR_CACHE_ROOT="/tmp/mcr_ctf"
-    --env MCR_USER_CTF_ROOT="/tmp/mcr_ctf"
+  local -a BASE_ENV=(
+    "SAMBA_APPS_DIR=$SAMBA_APPS_IN_CONTAINER"
+    "BIGGUS_DISKUS=$BIGGUS_DISKUS"
+    "USER=$u"
+    "TMPDIR=/tmp"
+    "SAMBA_SCHED_BACKEND=$sched_backend"
+    "SAMBA_SCHED_DIR=$host_sched_dir"
+    "MCR_INHIBIT_CTF_LOCK=1"
+    "MCR_CACHE_ROOT=/tmp/mcr_ctf"
+    "MCR_USER_CTF_ROOT=/tmp/mcr_ctf"
+    "ATLAS_FOLDER=$atlas_env_val"
   )
 
   if [[ -n "${NOTIFICATION_EMAIL:-}" ]]; then
-    BASE_ENV+=( --env NOTIFICATION_EMAIL="$NOTIFICATION_EMAIL" )
+    BASE_ENV+=( "NOTIFICATION_EMAIL=$NOTIFICATION_EMAIL" )
   fi
 
   # Debug binds if requested
@@ -373,26 +409,56 @@ samba-pipe() {
     for b in "${binds[@]}"; do echo "  $b" >&2; done
   fi
 
-  # This is used by scheduler wrappers inside SAMBA
-  CONTAINER_CMD_PREFIX="$CONTAINER_CMD exec --cleanenv ${BASE_ENV[*]} ${atlas_env[*]} ${binds[*]} $SIF_PATH"
+  # Write compact scheduler config files (env-file + binds list + meta)
+  local -a env_kv=()
+  local e
+  for e in "${BASE_ENV[@]}"; do env_kv+=( "$e" ); done
+
+  local -a binds_pairs=()
+  # convert --bind SRC:DST into "SRC:DST"
+  local i=0
+  while [[ $i -lt ${#binds[@]} ]]; do
+    if [[ "${binds[$i]}" == "--bind" ]]; then
+      binds_pairs+=( "${binds[$((i+1))]}" )
+      i=$((i+2))
+    else
+      i=$((i+1))
+    fi
+  done
+
+  _write_sched_files "$host_sched_dir" "$CONTAINER_CMD" "$SIF_PATH" \
+    "${env_kv[@]}" "__BINDS__" "${binds_pairs[@]}" \
+    || { echo "ERROR: could not write scheduler files in $host_sched_dir" >&2; return 1; }
+
+  # Use a SHORT prefix; actual exec details come from files in $host_sched_dir
+  CONTAINER_CMD_PREFIX="/opt/samba/bin/samba_container_exec.sh"
   export CONTAINER_CMD_PREFIX
-  
-  # Persist prefix for proxy backend (host-visible)
-  printf '%s\n' "$CONTAINER_CMD_PREFIX" > "${host_sched_dir%/}/CONTAINER_CMD_PREFIX"
- 
+
   # --------------------------------------------------------
   # Launch (call SAMBA_startup)
   # --------------------------------------------------------
   local HOST_CMD=(
     "$CONTAINER_CMD" exec --cleanenv
-    "${BASE_ENV[@]}"
-    --env CONTAINER_CMD_PREFIX="$CONTAINER_CMD_PREFIX"
-    "${atlas_env[@]}"
-    "${binds[@]}"
-    "$SIF_PATH"
-    /opt/samba/SAMBA/SAMBA_startup
-    "$hf_tmp"
+    # pass env explicitly (no --env-file for the top-level call; keep it simple)
+    --env "SAMBA_APPS_DIR=$SAMBA_APPS_IN_CONTAINER"
+    --env "BIGGUS_DISKUS=$BIGGUS_DISKUS"
+    --env "USER=$u"
+    --env "TMPDIR=/tmp"
+    --env "SAMBA_SCHED_BACKEND=$sched_backend"
+    --env "SAMBA_SCHED_DIR=$host_sched_dir"
+    --env "MCR_INHIBIT_CTF_LOCK=1"
+    --env "MCR_CACHE_ROOT=/tmp/mcr_ctf"
+    --env "MCR_USER_CTF_ROOT=/tmp/mcr_ctf"
+    --env "ATLAS_FOLDER=$atlas_env_val"
+    --env "CONTAINER_CMD_PREFIX=$CONTAINER_CMD_PREFIX"
   )
+
+  if [[ -n "${NOTIFICATION_EMAIL:-}" ]]; then
+    HOST_CMD+=( --env "NOTIFICATION_EMAIL=$NOTIFICATION_EMAIL" )
+  fi
+
+  # add binds + image + startup
+  HOST_CMD+=( "${binds[@]}" "$SIF_PATH" /opt/samba/SAMBA/SAMBA_startup "$hf_tmp" )
 
   echo "samba-pipe: launching:"
   printf '  %q ' "${HOST_CMD[@]}"
