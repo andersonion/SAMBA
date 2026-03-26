@@ -887,66 +887,90 @@ sub compare_headfiles {
 #---------------------
 sub compare_two_reference_spaces {
 #---------------------
-    my ($file_1,$file_2) = @_; #Refspace may be entered instead of file path and name.
-    my ($bb_and_sp_1,$bb_and_sp_2);
- #   my ($sp_1,$sp_2);
-    
+    my ($file_1,$file_2) = @_; # Refspace may be entered instead of file path and name.
+
     my $file_1_is_a_ref_space = 0;
-    if ($file_1 =~ s/(\.gz)$//) {}
-    
-    if (! data_double_check($file_1)){
-        $bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1);  # Attempted to make this impervious to the presence or absence of .gz 14 October 2016
-    } elsif (! data_double_check($file_1.'.gz')) {
-    	$file_1 = $file_1.'.gz';
-        $bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1);
-    }  else {
-        $bb_and_sp_1 = $file_1;
+    my $file_2_is_a_ref_space = 0;
+
+    my $file_1_gztest = $file_1;
+    my $file_2_gztest = $file_2;
+    if ($file_1_gztest =~ s/(\.gz)$//) {}
+    if ($file_2_gztest =~ s/(\.gz)$//) {}
+
+    # ------------------------------------------------------------
+    # Resolve file_1 into possible canonical refspace strings
+    # ------------------------------------------------------------
+    my @cand_1 = ();
+    if (! data_double_check($file_1_gztest)) {
+        # real image path, compute both new + legacy
+        push @cand_1, get_bounding_box_and_spacing_from_header($file_1_gztest, 0);
+        push @cand_1, get_bounding_box_and_spacing_from_header($file_1_gztest, 1);
+    } elsif (! data_double_check($file_1_gztest.'.gz')) {
+        $file_1_gztest = $file_1_gztest.'.gz';
+        push @cand_1, get_bounding_box_and_spacing_from_header($file_1_gztest, 0);
+        push @cand_1, get_bounding_box_and_spacing_from_header($file_1_gztest, 1);
+    } else {
+        # already a refspace string
+        push @cand_1, $file_1;
         $file_1_is_a_ref_space = 1;
     }
-	my $file_2_is_a_ref_space = 0;
-	if ($file_2 =~ s/(\.gz)$//) {}
-	if (! data_double_check($file_2)){
-	   $bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2);
-	} elsif (! data_double_check($file_2.'.gz')) {
-		$file_2 = $file_2.'.gz';
-		$bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2);
-	} else {
-	   $bb_and_sp_2 = $file_2;
-	   $file_2_is_a_ref_space = 1;
-	}
 
-    my $result=0;
-	
-	#if ($bb_and_sp_1 eq $bb_and_sp_2) {
-    if (ref_space_equal($bb_and_sp_1 eq $bb_and_sp_2)) {
-        $result = 1;
+    # ------------------------------------------------------------
+    # Resolve file_2 into possible canonical refspace strings
+    # ------------------------------------------------------------
+    my @cand_2 = ();
+    if (! data_double_check($file_2_gztest)) {
+        # real image path, compute both new + legacy
+        push @cand_2, get_bounding_box_and_spacing_from_header($file_2_gztest, 0);
+        push @cand_2, get_bounding_box_and_spacing_from_header($file_2_gztest, 1);
+    } elsif (! data_double_check($file_2_gztest.'.gz')) {
+        $file_2_gztest = $file_2_gztest.'.gz';
+        push @cand_2, get_bounding_box_and_spacing_from_header($file_2_gztest, 0);
+        push @cand_2, get_bounding_box_and_spacing_from_header($file_2_gztest, 1);
     } else {
-    	if (( $file_1_is_a_ref_space && ! $file_2_is_a_ref_space ) || ($file_2_is_a_ref_space && ! $file_1_is_a_ref_space)){
-    		if ( $file_1_is_a_ref_space ){
-    			# Legacy check on $file_2:
-    			$bb_and_sp_2 = get_bounding_box_and_spacing_from_header($file_2,1);
-    		} else {
-				# Legacy check on $file_1:
-    			$bb_and_sp_1 = get_bounding_box_and_spacing_from_header($file_1,1);
-    		}
-    		#$bb_and_sp_1 = _canon_ref_space_str($bb_and_sp_1);
-    		#$bb_and_sp_2 = _canon_ref_space_str($bb_and_sp_2);
-			
-			#if ($bb_and_sp_1 eq $bb_and_sp_2) {
-			if (ref_space_equal($bb_and_sp_1, $bb_and_sp_2)) {
-				$result = 1;
-			} else {
-				print visualize_ws($bb_and_sp_1)."\n";
-				print "Is not equal to\n";
-				print visualize_ws($bb_and_sp_2)."\n";
-			}
-			
-    	}
+        # already a refspace string
+        push @cand_2, $file_2;
+        $file_2_is_a_ref_space = 1;
     }
 
-    return($result);
-}
+    # De-duplicate candidates
+    my %seen_1;
+    @cand_1 = grep { defined $_ && $_ ne '' && ! $seen_1{$_}++ } @cand_1;
 
+    my %seen_2;
+    @cand_2 = grep { defined $_ && $_ ne '' && ! $seen_2{$_}++ } @cand_2;
+
+    # ------------------------------------------------------------
+    # Compare every candidate against every candidate
+    # If ANY pair matches, call it equal.
+    # ------------------------------------------------------------
+    foreach my $a (@cand_1) {
+        foreach my $b (@cand_2) {
+            if (ref_space_equal($a, $b)) {
+                return 1;
+            }
+        }
+    }
+
+    # ------------------------------------------------------------
+    # Debug print if nothing matched
+    # ------------------------------------------------------------
+    if ($debug_val >= 5) {
+        my $shown = 0;
+        foreach my $a (@cand_1) {
+            foreach my $b (@cand_2) {
+                print visualize_ws($a)."\n";
+                print "Is not equal to\n";
+                print visualize_ws($b)."\n";
+                $shown = 1;
+                last;
+            }
+            last if $shown;
+        }
+    }
+
+    return 0;
+}
 # Helper subs
 # Canonicalize the string form (drop prefixes/suffixes, normalize spaces)
 sub _canon_ref_space_str {
