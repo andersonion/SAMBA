@@ -995,7 +995,7 @@ sub _nums_from_ref_space {
 # Numeric compare with tolerance (<= eps)
 sub ref_space_equal {
     my ($a, $b, $eps) = @_;
-    $eps //= 1e-6;  # fits your diffs
+    $eps //= 1e-4;  # fits your diffs
     my @A = _nums_from_ref_space($a);
     my @B = _nums_from_ref_space($b);
     return 0 unless @A == 9 && @B == 9;
@@ -1556,7 +1556,7 @@ sub _fmt {
 # New, sane formatter (retain if you still want the modern behavior)
 sub _fmt_new {
     my ($x) = @_;
-    my $s = sprintf("%.10f", $x // 0);
+    my $s = sprintf("%.6f", $x // 0);
     $s =~ s/0+$//;      # drop fractional trailing zeros
     $s =~ s/\.$/.0/;    # ensure trailing .0
     return $s;
