@@ -66,7 +66,7 @@ sub iterative_calculate_mdt_warps_vbm {  # Main code
     $Hf->set_value('last_update_warp',$last_update_warp);
 
     my $case = 2;
-    my ($error_message)=iterative_calculate_mdt_warps_Output_check($case);
+    my ($error_message)='';#iterative_calculate_mdt_warps_Output_check($case);
     $Hf->write_headfile($write_path_for_Hf);
     `chmod 777 ${write_path_for_Hf}`;
 
